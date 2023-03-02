@@ -1,3 +1,10 @@
+
+#include <stdint.h>
+#include <stdio.h>
+#include <modbus/modbus.h>
+/*
+Linux: /usr/include/modbus
+*/
 //
 // Created by ferdinand on 31.12.22.
 //

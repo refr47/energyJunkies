@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <libconfig.h>
 #include "configreader.h"
 
 // storage manager's configuration file
