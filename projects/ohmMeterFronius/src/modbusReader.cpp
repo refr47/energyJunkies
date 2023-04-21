@@ -28,13 +28,13 @@ ModbusIP mb;
 // meter modbus register array
 int16_t inverterStrgRegs[INVERTER_STRG_REGS_LEN];
 
-bool init()
+bool mb_init()
 {
     mb.client();
     return true;
 }
 
-bool readInverter()
+bool mb_readInverter()
 {
     char text[TEXT_LEN];
     uint16_t transId = 0;
