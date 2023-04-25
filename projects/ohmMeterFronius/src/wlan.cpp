@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include "wlan.h"
+#include "defines.h"
 
 /*   DEFInES
  */
@@ -10,11 +11,7 @@
 #define WIFI_NUMBER_OF_TRIES 20
 #define WIFI_RECONNECT_TRY_IN_INTERVALL 30000
 
-/* #define SSID "WLAN-HTLW"
-#define PASSWD "HTL-Wels" */
-
-#define SSID "BART_LOW"
-#define PASSWD "47754775"
+unsigned long previousMillis = 0;
 
 bool wifi_init()
 {
@@ -23,6 +20,7 @@ bool wifi_init()
     Serial.println();
     Serial.print("[Wifi] Connecting to ");
     Serial.println(SSID);
+    WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, PASSWD);
     // Will try for about 10 seconds (20x 500ms)
     // Wait for the WiFi event
@@ -90,12 +88,11 @@ bool wifi_isStillConnected()
 bool wifi_tryToReconnect(char **action)
 {
     unsigned long currentMillis = millis();
-    unsigned long previousMillis = 0;
-    unsigned long interval = WIFI_RECONNECT_TRY_IN_INTERVALL;
+
     // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
     *action = (char *)WIFI_RECONNECT_START;
 
-    if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >= interval))
+    if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >= WIFI_RECONNECT_TRY_IN_INTERVALL))
     {
         Serial.print(millis());
         Serial.println("Reconnecting to WiFi...");

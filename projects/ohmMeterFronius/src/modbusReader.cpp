@@ -78,4 +78,5 @@ bool mb_readInverter()
             Serial2.print(text);
         }
     }
+    return true;
 }
