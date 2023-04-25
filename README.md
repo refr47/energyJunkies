@@ -9,6 +9,7 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 - Ein Spannungsregler [6-12 V] sorgt für die Versorgung des ESP32 und ein Netzteil für die Stromversorgung (z.B. 12 V).
 - 2 Temperatursensoren sorgen für einen "Not-Aus", d.h. wenn beispielsweise das Wasser schon 85° hat, darf nicht mehr geheizt werden. Sicherheitshalber werden 2 Sensoren verwendet für den Fall, dass einer ausfällt.
 - RTC ( ? ) für Tag/Nacht unterscheidung, wo es eventuell sinnlos ist, irgend etwas abzufragen - siehe "Offene Fragen"
+- Lage des Displays (vertikal | horizontal)
 
 ### SW
 - Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
