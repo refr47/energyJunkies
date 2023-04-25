@@ -29,9 +29,16 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 
 # Offene Fragen
 - Bezüglich Tag/Nacht-Betrieb: Prinzipiell macht die Steuerung nur dann Sinn, wenn Strom produziert wird -also tagsüber. Wahrscheinlich werden künftig unterschiedliche h-Strompreise angeboten werden, d.h. bei schönem Wetter ist mehr Solarstrom da und daher günstiger ( ? ) oder der Strom ist dann teuerer, wenn mehr gebraucht wird (z.B. vormittags). Einen Boiler muss man immer betreiben und hier könnte es Sinn machen, auch einen Nachtbetrieb einzuführen, da hier der Strom wahrscheilich günstiger ist. 
+- Setup: Jeder hat ja seine eigen Zugangsdaten - wie sollen diese am Besten berücksichtigt werden. Der geringste Aufwand ist die Erstellung eines eigenen setup.h-Files, in der sämtliche spezifische Daten eingetragen werden. Elegant wäre natürlich das Setup per Handy, wobei der ESP im Setup-Modus bootet und einen eigenen AP zur Verfügung stellt, in der sich eine App einwählt und dann die Zugangsdaten einstellt. 
 ## Links & Foren
 <ol>
 <li>
 Photovoltaik Form [Photovoltaik Form](https://www.photovoltaikforum.com/thread/50214-gen24-modbus-tcp/)
 </li>
+    <li>
+        [TTGO ESP] (https://www.lilygo.cc/products/lilygo%C2%AE-ttgo-t-display-1-14-inch-lcd-esp32-control-board)
+    </li>
+    <li>
+        Mark Down Formatierung (https://www.markdownguide.org/cheat-sheet/#extended-syntax)
+    </li>
 </ol>
