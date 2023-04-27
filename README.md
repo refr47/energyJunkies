@@ -5,11 +5,12 @@ Es soll ein Produkt (HW, SW) geschaffen werden, welches analog dem [Ohmpilot von
 Das Produkt wird in einen hardware- und softwareabhängigen Teil aufgespaltet. Es ist ein "Hobby"-Projekt, aber dennoch sollten die wesentlichen Anforderungen erfasst werden. Prinzipiell wird davon ausgegangen, dass die zu betreibenden Heiz/Lade -elemente einen 3-phasigen Anschluß haben, die dann einzeln angesteuert werden. 
 ### HW
 Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h. die Entwicklungskosten für die HW sollten deutlich unterschritten werden (!)
-- Die GPIOs des ESP32 werden mit 3.3 V betrieben. Über eine entsprechende TransistorSchaltung kann je Phase dann per Relais durchgeschaltet werden. 
+- Die GPIOs des ESP32 werden mit 3.3 V betrieben. Über eine entsprechende TransistorSchaltung kann je Phase dann per Relais durchgeschaltet werden. Alternativ könnte ein Pegelwandler 3.3V auf 5V genutzt werden.
 - Ein Spannungsregler [9-12 V] sorgt für die Versorgung des ESP32 und ein Netzteil für die Stromversorgung (z.B. 12 V).
-- 2 Temperatursensoren sorgen für einen "Not-Aus", d.h. wenn beispielsweise das Wasser schon 85° hat, darf nicht mehr geheizt werden. Sicherheitshalber werden 2 Sensoren verwendet für den Fall, dass einer ausfällt.
+- 2 Temperatursensoren sorgen für einen "Not-Aus", d.h. wenn beispielsweise das Wasser schon 85° hat, darf nicht mehr geheizt werden. Sicherheitshalber werden 2 Sensoren verwendet für den Fall, dass einer ausfällt. Die gesteuerte Last könnte auch indirekt über ein Sicherheitsthermostat indirekt angeschlossen werden.
 - RTC ( ? ) für Tag/Nacht unterscheidung, wo es eventuell sinnlos ist, irgend etwas abzufragen - siehe "Offene Fragen"
 - Lage des Displays (vertikal | horizontal) ?
+- Anschlüsse/Steckplätze für per Bus (I2C, SPI, UART, 1-Wire) integrierbarer Sensoren/Aktoren. Vorschlag: GND, 3.3V oder 5V, Signal 1, Signal 2, ...
 - neuer punkt
 
 ### SW
