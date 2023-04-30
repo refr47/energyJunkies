@@ -1,0 +1,12 @@
+{
+    "folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "ohmPilotFronius",
+			"path": "projects/ohmPilotFronius"
+		}
+	],
+    "settings": {}
+}
