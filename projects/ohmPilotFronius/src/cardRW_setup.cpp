@@ -6,12 +6,13 @@
 #include "cardRW.h"
 #include "utils.h"
 
-#define MISO 27 // GPIO27
-#define MOSI 26 // GPIO26
-#define SCK 25  // GIPO25
-#define CS 33   // GPIO33
+#define MISO 12 // GPIO27
+#define MOSI 15 // GPIO26
+#define SCK 13  // GIPO25
+#define CS 2    // GPIO33
+#define SDSPEED 27000000
 
-static SPIClass spi = SPIClass(VSPI);
+static SPIClass spi = SPIClass(HSPI);
 
 void appendFile(fs::FS &fs, const char *path, const char *message);
 
@@ -20,10 +21,14 @@ bool cardRW_setup()
     Serialprintln("CLOCK: %d, MISO: %d, MOSI: %d, CS: %d", SCK, MISO, MOSI, CS);
 
     pinMode(CS, OUTPUT);
+   // pinMode(MOSI, OUTPUT_PULLUP);
+    pinMode(MISO, INPUT_PULLUP);
+
     spi.begin(SCK, MISO, MOSI, CS);
-    if (!SD.begin(CS, spi))
+    if (!SD.begin(CS))
     // if (!SD.begin(CS, spi))
     {
+
         Serial.println("Card Mount Failed");
         return false;
     }
