@@ -66,5 +66,5 @@ Photovoltaik Form [Photovoltaik Form](https://www.photovoltaikforum.com/thread/5
      
 </ol>
 
-git config --global user.email "you@example.com"
-git config --global user.name "Your Name"
+ git config --global user.email "you@example.com"
+  git config --global user.name "Your Name"
