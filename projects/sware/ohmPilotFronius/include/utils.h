@@ -2,5 +2,5 @@
 #define __UTILS_H
 
 void Serialprintln(const char *input...);
-
+void printHWInfo();
 #endif

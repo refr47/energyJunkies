@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include "wlan.h"
 #include "defines.h"
+#include "tft.h"
 
 /*   DEFInES
  */
@@ -19,9 +20,9 @@ bool wifi_init()
 
     Serial.println();
     Serial.print("[Wifi] Connecting to ");
-    Serial.println(SSID);
+    Serial.println(MY_SSID);
     WiFi.mode(WIFI_STA);
-    WiFi.begin(SSID, PASSWD);
+    WiFi.begin(MY_SSID, MY_PASSWD);
     // Will try for about 10 seconds (20x 500ms)
     // Wait for the WiFi event
 
@@ -72,6 +73,44 @@ bool wifi_init()
         }
     }
     return true;
+}
+
+void wifi_scan_network()
+{
+    char buff[512];
+    tft_getRoot().setTextColor(TFT_GREEN, TFT_BLACK);
+    tft_getRoot().fillScreen(TFT_BLACK);
+    tft_getRoot().setTextDatum(MC_DATUM);
+    tft_getRoot().setTextSize(3);
+
+    tft_getRoot().drawString("Scan Network", tft_getWidth() / 2, tft_getHeight() / 2);
+
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+    delay(500);
+    tft_getRoot().setTextSize(1);
+    int16_t n = WiFi.scanNetworks();
+    tft_getRoot().fillScreen(TFT_BLACK);
+    if (n == 0)
+    {
+        tft_getRoot().drawString("no networks found", tft_getWidth() / 2, tft_getHeight() / 2);
+    }
+    else
+    {
+        tft_getRoot().setTextDatum(TL_DATUM);
+        tft_getRoot().setCursor(0, 0, 4);
+        Serial.printf("Found %d net\n", n);
+        for (int i = 0; i < n; ++i)
+        {
+            sprintf(buff,
+                    "[%d]:%s(%d)",
+                    i + 1,
+                    WiFi.SSID(i).c_str(),
+                    WiFi.RSSI(i));
+            tft_getRoot().println(buff);
+        }
+    }
+    WiFi.mode(WIFI_OFF);
 }
 
 void wifi_getLocalIP(char **pBuffer16)

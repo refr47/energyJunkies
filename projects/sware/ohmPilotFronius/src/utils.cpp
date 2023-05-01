@@ -44,3 +44,22 @@ void Serialprintln(const char *input...)
     Serial.println();
     va_end(args);
 }
+
+void printHWInfo()
+{
+    Serial.print("MEM: ");
+    Serial.println(esp_get_free_heap_size());
+
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+
+    Serial.println("Hardware info");
+    Serial.printf("%d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+                  (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+    Serial.printf("Silicon revision: %d\n", chip_info.revision);
+
+    // get chip id
+    uint32_t chipId = ESP.getEfuseMac();
+
+    Serial.printf("Chip id: %x\n", chipId);
+}

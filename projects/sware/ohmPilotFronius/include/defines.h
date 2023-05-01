@@ -6,11 +6,11 @@
 #define PASSWD "HTL-Wels"
 */
 
-#define SSID "BART_LOW"
-#define PASSWD "47754775"
+#define MY_SSID "BART_LOW"
+#define MY_PASSWD "47754775"
 
-#define INVERTER   "FRONIUS"
-#define MODEL_GEN24  "GEN24"
-#define MODEL_SYMO   "SYMO"
- 
+#define INVERTER "FRONIUS"
+#define MODEL_GEN24 "GEN24"
+#define MODEL_SYMO "SYMO"
+
 #endif
