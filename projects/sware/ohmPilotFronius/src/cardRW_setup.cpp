@@ -6,10 +6,10 @@
 #include "cardRW.h"
 #include "utils.h"
 
-#define MISO 12 // GPIO27
-#define MOSI 15 // GPIO26
-#define SCK 13  // GIPO25
-#define CS 2    // GPIO33
+#define CARD_MISO 27 // GPIO27
+#define CARD_MOSI 26 // GPIO26
+#define CARD_SCK 25  // GIPO25
+#define CARD_CS 33   // GPIO33
 #define SDSPEED 27000000
 
 static SPIClass spi = SPIClass(HSPI);
@@ -18,14 +18,12 @@ void appendFile(fs::FS &fs, const char *path, const char *message);
 
 bool cardRW_setup()
 {
-    Serialprintln("CLOCK: %d, MISO: %d, MOSI: %d, CS: %d", SCK, MISO, MOSI, CS);
+    Serialprintln("CLOCK: %d, CARD_MISO: %d, CARD_MOSI: %d, CARD_CS: %d", CARD_SCK, CARD_MISO, CARD_MOSI, CARD_CS);
 
-    pinMode(CS, OUTPUT);
-   // pinMode(MOSI, OUTPUT_PULLUP);
-    pinMode(MISO, INPUT_PULLUP);
+    pinMode(CARD_CS, OUTPUT);
 
-    spi.begin(SCK, MISO, MOSI, CS);
-    if (!SD.begin(CS))
+    spi.begin(CARD_SCK, CARD_MISO, CARD_MOSI, CARD_CS);
+    if (!SD.begin(CARD_CS, spi))
     // if (!SD.begin(CS, spi))
     {
 

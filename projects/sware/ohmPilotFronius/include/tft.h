@@ -3,11 +3,13 @@
 #include <TFT_eSPI.h>
 
 void tft_init();
+void tft_printSetup();
 TFT_eSPI &tft_getRoot();
 int tft_getHeight();
 int tft_getWidth();
 void tft_drawNetworkInfo(char *ip);
-void setCursor(int x, int y, int fontsize = 4);
-void printTxt(int x, int y, int fontsize = 4, const char *txt = "dummy");
+void tft_setCursor(int x, int y, int fontsize = 4);
+void tft_printTxt(int x, int y, int fontsize = 4, const char *txt = "dummy");
+void tft_clearScreen();
 
 #endif

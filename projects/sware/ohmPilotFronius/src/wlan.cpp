@@ -93,7 +93,7 @@ void wifi_scan_network()
     tft_getRoot().fillScreen(TFT_BLACK);
     if (n == 0)
     {
-        tft_getRoot().drawString("no networks found", tft_getWidth() / 2, tft_getHeight() / 2);
+        tft_getRoot().drawString("No networks found", tft_getWidth() / 2, tft_getHeight() / 2);
     }
     else
     {
@@ -110,7 +110,8 @@ void wifi_scan_network()
             tft_getRoot().println(buff);
         }
     }
-    WiFi.mode(WIFI_OFF);
+    // WiFi.mode(WIFI_OFF);
+    delay(3000);
 }
 
 void wifi_getLocalIP(char **pBuffer16)

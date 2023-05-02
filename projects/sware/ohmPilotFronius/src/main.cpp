@@ -41,45 +41,6 @@ HSPI	GPIO 13	GPIO 12	GPIO 14	GPIO 15
 */
 
 char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
-/*
-static void testSPI()
-{
-
-  spi_device_handle_t spi;
-
-  spi_bus_config_t buscfg = {
-      .miso_io_num = -1,
-      .mosi_io_num = -1,
-      .sclk_io_num = -1,
-      .quadwp_io_num = -1,
-      .quadhd_io_num = -1,
-  };
-
-  spi_device_interface_config_t devcfg = {
-      .clock_speed_hz = 1000000,
-      .mode = 0,
-      .spics_io_num = -1,
-      .queue_size = 1,
-  };
-
-
-
-  for (int i = 0; i < 40; i++)
-  {
-    buscfg.miso_io_num = i;
-    buscfg.mosi_io_num = i;
-    buscfg.sclk_io_num = i;
-    buscfg.spics_io_num = i;
-
-    esp_err_t ret = spi_bus_add_device(SPI2_HOST, &buscfg, &devcfg, &spi);
-    if (ret == ESP_OK)
-    {
-      printf("GPIO %d supports SPI communication.\n", i);
-      spi_bus_remove_device(spi);
-    }
-  }
-}
-*/
 
 void setup()
 {
@@ -87,51 +48,52 @@ void setup()
   while (!Serial)
     ;
   tft_init();
-  /*
-  Serial.print("MOSI: ");
+  tft_printSetup();
+  /* Serial.print("MOSI: ");
   Serial.println(MOSI);
   Serial.print("MISO: ");
   Serial.println(MISO);
   Serial.print("SCK: ");
   Serial.println(SCK);
   Serial.print("SS: ");
-  Serial.println(SS);
-
-  printHWInfo();
-  */
+  Serial.println(SS); */
+  /*
+   printHWInfo();
+   */
   /*enable internal buttons*/
   pinMode(INTERNAL_BUTTON_1_GPIO, INPUT_PULLUP);
   pinMode(INTERNAL_BUTTON_2_GPIO, INPUT_PULLUP);
   pinMode(PIN, OUTPUT);
   delay(500);
   digitalWrite(PIN, 0);
+  // wifi_scan_network();
+  tft_clearScreen();
+  if (!wifi_init())
+  {
+    Serial.println("Cannot connect");
+    tft_drawNetworkInfo(NULL);
+  }
+  else
+  {
+    Serial.print("Connected with ip: ");
+    char *pBuf = globalStringBuffer;
+    wifi_getLocalIP(&pBuf);
+    Serial.println(globalStringBuffer);
+    tft_drawNetworkInfo(globalStringBuffer);
+  }
+
   Serial.println("Setup card reader ...");
-  /*  if (!cardRW_setup())
-   {
-     Serial.println("Cannot setup card reader ....");
-   }
-   else
-   {
-     Serial.println("Card_RW: has initialized");
-   } */
+  if (!cardRW_setup())
+  {
+    Serial.println("Cannot setup card reader ....");
+  }
+  else
+  {
+    Serial.println("Card_RW: has initialized");
+  }
   Serial.println("Setup wlan ...");
 
   // tft.setCursor(0, 0, 4);
-  wifi_scan_network();
-  /*
-    if (!wifi_init())
-    {
-      Serial.println("Cannot connect");
-      tft_drawNetworkInfo(NULL);
-    }
-    else
-    {
-      Serial.print("Connected with ip: ");
-      char *pBuf = globalStringBuffer;
-      wifi_getLocalIP(&pBuf);
-      Serial.println(globalStringBuffer);
-      tft_drawNetworkInfo(globalStringBuffer);
-    } */
 }
 
 void loop()
