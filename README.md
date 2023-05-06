@@ -13,7 +13,7 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 - Die GPIOs des ESP32 werden mit 3.3 V betrieben. Über eine entsprechende TransistorSchaltung kann je Phase dann per Relais durchgeschaltet werden. Alternativ könnte ein Pegelwandler 3.3V auf 5V genutzt werdenererer
 - 2 Temperatursensoren sorgen für einen "Not-Aus", d.h. wenn beispielsweise das Wasser schon 85° hat, darf nicht mehr geheizt werden. Sicherheitshalber werden 2 Sensoren verwendet für den Fall, dass einer ausfällt. Die gesteuerte Last könnte auch indirekt über ein Sicherheitsthermostat indirekt angeschlossen werden.
 - Lage des Displays (vertikal | horizontal) ?
-- Vorschläge von Ej (Blockschaltbild)[file:///projects/ohmPilotFronius/]
+- Vorschläge von Ej  - Blockschaltbilder liegen in **projects/ohmPilotFronius/**
 - 1. EJ-EMV Filter (Elektromagnetischer Filtervorsatz, auf diesen wird in der ersten Phase verzichtet bzw. Vorversuche gestartet)
 - 2. EJ-Control Board (ESP32 TTGO, Eingabe, Ausgabe Schnittstellen, Versorgt über die Power Unit)
 - 3. EJ-Power Unit1 (Phasenanschnitt mit Modul 2-10V vom Armin bzw. Modul 0-20mA vom Oliver, sehr große EMV Probleme, erste Hardware für Versuche)
@@ -38,11 +38,9 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 - Da Fronius bei der kostenlosen Variante die Verbrauchsdaten nur für 3 Tage loggt, kann der ESP32 diese mitloggen. Dafür ist jedoch ein CardReader notwendig.
 - kleines REST-API, wo die wichtigsten Daten per Web verfügbar sind, die IP-Adresse steht ja auf dem DIsplay.
 - Benachrichtigung per Email, dass irgend etwas passiert ist ( ? )
--
 
-Eventuell sollen zusätzliche Agenden übernommen werden.
 
-# Offene Fragen
+## Was einem sonst noch so einfällt
 
 - Bezüglich Tag/Nacht-Betrieb: Prinzipiell macht die Steuerung nur dann Sinn, wenn Strom produziert wird -also tagsüber. Wahrscheinlich werden künftig unterschiedliche h-Strompreise angeboten werden, d.h. bei schönem Wetter ist mehr Solarstrom da und daher günstiger ( ? ) oder der Strom ist dann teuerer, wenn mehr gebraucht wird (z.B. vormittags). Einen Boiler muss man immer betreiben und hier könnte es Sinn machen, auch einen Nachtbetrieb einzuführen, da hier der Strom wahrscheilich günstiger ist.
 - Es wäre für die Optimierung der Energiekosten (welcher Tarif ist für das Aufheizen/Aufladen am günstigsten) günstig, wenn man den Wetterbericht kennt, denn dann weiß man ja, ob genug Solarstrom vorhanden ist, den Task durchzuführen (z.B. Aufladen).
