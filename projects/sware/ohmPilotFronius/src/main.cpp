@@ -91,7 +91,15 @@ void setup()
   {
     Serial.println("Card_RW: has initialized");
   }
-  Serial.println("Setup wlan ...");
+  Serial.println("Setup modbus ...");
+  if (!mb_init())
+  {
+    Serial.println("Cannot initialize modbus ....");
+  }
+  else
+  {
+    mb_readInverter();
+  }
 
   // tft.setCursor(0, 0, 4);
 }
@@ -103,6 +111,10 @@ void loop()
   // printTxt(0, 30, 4, "JA");
   // wifi_scan_network();
   digitalWrite(PIN, 0);
-
-  delay(500);
+  mb_readInverter();
+  delay(5000);
+  /* if (!mb_readInverter())
+  {
+    Serial.println("Cannot read Inverter ...");
+  } */
 }

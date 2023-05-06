@@ -22,9 +22,8 @@
 // buffer to hold config/tariff file line read
 char text[TEXT_LEN];
 
-// modbus object, global for use in CTRL+C signal handler
-modbus_t *inverter = NULL;
-
+    // modbus object, global for use in CTRL+C signal handler
+    modbus_t *inverter = NULL;
 
 int main(int argc, char *argv[]) {
     // ip address of inverters: "10.0.0.13" GEN24 @ home, "172.17.68.202" Symo @ HTL

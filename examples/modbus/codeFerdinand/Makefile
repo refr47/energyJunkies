@@ -5,13 +5,13 @@ TARGET = fronius
 CC = gcc
 
 # Compiler-Flags
-CFLAGS = -Wall -Werror -I/usr/include/modbus
+CFLAGS = -Wall -Werror -I/usr/include/modbus -g
 
 # Bibliotheks-Flags
-LDFLAGS = -L/path/to/lib -lmodbus-dev
+LDFLAGS = -lmodbus -lm
 
 # Quellcodedateien
-SRC = main.c foo.c bar.c
+SRC = pvclient.c
 
 # Objektdateien
 OBJ = $(SRC:.c=.o)
