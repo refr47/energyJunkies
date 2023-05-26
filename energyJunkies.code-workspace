@@ -5,8 +5,16 @@
 		},
 		{
 			"name": "ohmPilotFronius",
-			"path": "projects/sw/ohmPilotFronius"
+			"path": "projects/sware/ohmPilotFronius"
 		}
 	],
-    "settings": {}
+    "settings": {
+        "files.associations": {
+            "*.jsx": "javascriptreact",
+            "*.js": "javascriptreact",
+            "array": "cpp",
+            "string": "cpp",
+            "string_view": "cpp"
+        }
+    }
 }

@@ -8,7 +8,7 @@
 /*   DEFInES
  */
 
-#define WIFI_TRY_DELAY 500
+#define WIFI_TRY_DELAY 1000
 #define WIFI_NUMBER_OF_TRIES 20
 #define WIFI_RECONNECT_TRY_IN_INTERVALL 30000
 
@@ -22,7 +22,8 @@ bool wifi_init()
     Serial.print("[Wifi] Connecting to ");
     Serial.println(MY_SSID);
     WiFi.mode(WIFI_STA);
-    WiFi.begin(MY_SSID, MY_PASSWD);
+    WiFi.begin(MY_SSID, MY_PASSWD, true);
+
     // Will try for about 10 seconds (20x 500ms)
     // Wait for the WiFi event
 
@@ -63,6 +64,7 @@ bool wifi_init()
         if (numberOfTries <= 0)
         {
             Serial.print("[WiFi] Failed to connect to WiFi!");
+            Serial.println(WiFi.status());
             // Use disconnect function to force stop trying to connect
             WiFi.disconnect();
             return false;

@@ -1,6 +1,7 @@
 #ifndef __TFT_H__
 #define __TFT_H__
 #include <TFT_eSPI.h>
+#include "pin_config.h"
 
 void tft_init();
 void tft_printSetup();

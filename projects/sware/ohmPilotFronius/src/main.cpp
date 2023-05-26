@@ -44,9 +44,13 @@ char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
 
 void setup()
 {
+  /* pinMode(PIN_POWER_ON, OUTPUT);
+  digitalWrite(PIN_POWER_ON, HIGH); */
+
   Serial.begin(115200);
   while (!Serial)
     ;
+  Serial.println("Hello T-Display-S3");
   tft_init();
   tft_printSetup();
   /* Serial.print("MOSI: ");
@@ -61,11 +65,11 @@ void setup()
    printHWInfo();
    */
   /*enable internal buttons*/
-  pinMode(INTERNAL_BUTTON_1_GPIO, INPUT_PULLUP);
+  /* pinMode(INTERNAL_BUTTON_1_GPIO, INPUT_PULLUP);
   pinMode(INTERNAL_BUTTON_2_GPIO, INPUT_PULLUP);
-  pinMode(PIN, OUTPUT);
+  pinMode(PIN, OUTPUT); */
   delay(500);
-  digitalWrite(PIN, 0);
+  // digitalWrite(PIN, 0);
   // wifi_scan_network();
   tft_clearScreen();
   if (!wifi_init())
@@ -83,7 +87,7 @@ void setup()
   }
 
   Serial.println("Setup card reader ...");
-  if (!cardRW_setup())
+  /* if (!cardRW_setup())
   {
     Serial.println("Cannot setup card reader ....");
   }
@@ -99,7 +103,7 @@ void setup()
   else
   {
     mb_readInverter();
-  }
+  } */
 
   // tft.setCursor(0, 0, 4);
 }
@@ -108,13 +112,14 @@ void loop()
 {
   // put your main code here, to run repeatedly:
   // setCursor(0, 30);
-  // printTxt(0, 30, 4, "JA");
+
   // wifi_scan_network();
-  digitalWrite(PIN, 0);
-  mb_readInverter();
+  /*  digitalWrite(PIN, 0);
+   mb_readInverter(); */
   delay(5000);
   /* if (!mb_readInverter())
   {
     Serial.println("Cannot read Inverter ...");
   } */
+  Serial.println(" .... LOOP .....");
 }

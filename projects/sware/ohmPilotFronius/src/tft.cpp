@@ -5,12 +5,12 @@
 
 /* GLOBAL VARS*/
 
-static TFT_eSPI tft = TFT_eSPI(135, 240);
+static TFT_eSPI tft = TFT_eSPI();
 static int height = 0, width = 0;
 
 void tft_init()
 {
-    tft.init();
+    tft.begin();
     tft.setRotation(1);
     tft.setSwapBytes(true);
     tft.fillScreen(TFT_BLACK);
@@ -19,20 +19,18 @@ void tft_init()
     tft.setCursor(0, 0);
     tft.setTextDatum(MC_DATUM);
     tft.setTextSize(1);
-
-    if (TFT_BL > 0)
-    {                                           // TFT_BL has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
-        pinMode(TFT_BL, OUTPUT);                // Set backlight pin to output mode
-        digitalWrite(TFT_BL, TFT_BACKLIGHT_ON); // Turn backlight on. TFT_BACKLIGHT_ON has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
-    }
+    ledcSetup(0, 2000, 8);
+    ledcAttachPin(PIN_LCD_BL, 0);
+    ledcWrite(0, 255);
 
     tft.setSwapBytes(true);
     width = tft.width();
     height = tft.height();
     Serial.print("TFT Width,Height: ");
     Serial.print(width);
+    Serial.print(":");
     Serial.println(height);
-    tft.drawString("INIT", 10, 10);
+    tft.drawString("INIT", 10, 10, 2);
 }
 int8_t getPinName(int8_t pin, setup_t &user)
 {
@@ -101,7 +99,7 @@ void tft_printSetup()
     }
     if (user.pin_tft_miso != -1)
     {
-        Serial.print("MISO    = ");
+        Serial.print("MISO    = "); 
         Serial.print("GPIO ");
         Serial.println(getPinName(user.pin_tft_miso, user));
     }
