@@ -47,6 +47,10 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 - Poolpumpe bzw. Poolwärmepumpe: Poolpumpe wälzt das Wasser im Becken um, egal welche Qualität das Wasser hat. Hier könnte in Verbindung mit einem Frequenzumformer die Leistung der Pumpe reduziert werden, wenn man weiß, welche Qualität das Wasser dzt. hat. Die Wärmepumpe kann ebenfalls in Abhängigkeit von Überstrom gesteuert werden (Ein- bzw. Ausschalten per TCP?)
 - Setup: Jeder hat ja seine eigen Zugangsdaten - wie sollen diese am Besten berücksichtigt werden. Der geringste Aufwand ist die Erstellung eines eigenen setup.h-Files, in der sämtliche spezifische Daten eingetragen werden. Elegant wäre natürlich das Setup per Handy, wobei der ESP im Setup-Modus bootet und einen eigenen AP zur Verfügung stellt, in der sich eine App einwählt und dann die Zugangsdaten einstellt. Diese Daten werden dann ins Eprom verfrachtet ?
 - Im Prototyp sind ja 4 zusätzliche Taster vorgesehen - es ist hier zu definieren, welche Funktionalität hier hinterlegt wird.
+- Thema WLAN/Setup: ich hab bereits ein Projekt mit einem ESP2866 am Start und genau diese Problematik. Ich hab 2 Bibliotheken im Einsatz: 
+  - [WIFI-Manager](https://github.com/tzapu/WiFiManager) Hotspot + Webserver für WLAN Konfiguration + eigenes Setup möglich (ums Speichern des eigenen Setups muss man sich selbst kümmern)
+  - [WebConfig](https://github.com/GerLech/WebConfig)eigener Webserver ausschließlich für Konfiguration, Daten werden am FS gespeichert
+- HomeKit Integration: ich hab bereits etliche Geräte mit Apple HomeKit im Einsatz und auch schon eigene Geräte HomeKit tauglich gemacht. Meine Idee wäre, einfach einen Schalter mit einem ESP zu simulieren (z.B. Stromüberproduktion-> Schalter ist ON, ...) Dieser Schalter lässt sich easy in die bestehende Infrastruktur einbinden und dank Homekit können dann eigene Abläufe konfiguriert werden -> "Schalter Stromüberproduktion" = ON -> schalte über einen Shelly (ebenfalls mit Homekit Firmware geflasht) den Warmwasserboiler ein.
 
 # IDE/PlatformIO
 
