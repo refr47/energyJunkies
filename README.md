@@ -14,12 +14,12 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 - 2 Temperatursensoren sorgen für einen "Not-Aus", d.h. wenn beispielsweise das Wasser schon 85° hat, darf nicht mehr geheizt werden. Sicherheitshalber werden 2 Sensoren verwendet für den Fall, dass einer ausfällt. Die gesteuerte Last könnte auch indirekt über ein Sicherheitsthermostat indirekt angeschlossen werden.
 - Lage des Displays (vertikal | horizontal) ?
 - Vorschläge von Ej - Blockschaltbilder liegen in **projects/ohmPilotFronius/**
-- 1. EJ-EMV Filter (Elektromagnetischer Filtervorsatz, auf diesen wird in der ersten Phase verzichtet bzw. Vorversuche gestartet)
-- 2. EJ-Control Board (ESP32 TTGO, Eingabe, Ausgabe Schnittstellen, Versorgt über die Power Unit)
-- 3. EJ-Power Unit1 (Phasenanschnitt mit Modul 2-10V vom Armin bzw. Modul 0-20mA vom Oliver, sehr große EMV Probleme, erste Hardware für Versuche)
-- 3. EJ-Power Unit2 (PWM Endstufe, eventuell Schülerprojekt 23/24, große EMV Probleme)
-- 3. EJ-Power Unit3 (Pulspakete, eventuell Schülerprojekt 23/24, wenig EMV Probleme, AMIS Zähler?)
-- 3. EJ-Power Unit4 (eine Art 7 Takt Schaltung wie bei den alten E-Herd Platten, sehr wenig EMV Probleme, keine stufenlose Regelung)
+- EJ-EMV Filter (Elektromagnetischer Filtervorsatz, auf diesen wird in der ersten Phase verzichtet bzw. Vorversuche gestartet)
+-  EJ-Control Board (ESP32 TTGO, Eingabe, Ausgabe Schnittstellen, Versorgt über die Power Unit)
+-  EJ-Power Unit1 (Phasenanschnitt mit Modul 2-10V vom Armin bzw. Modul 0-20mA vom Oliver, sehr große EMV Probleme, erste Hardware für Versuche)
+-  EJ-Power Unit2 (PWM Endstufe, eventuell Schülerprojekt 23/24, große EMV Probleme)
+-  EJ-Power Unit3 (Pulspakete, eventuell Schülerprojekt 23/24, wenig EMV Probleme, AMIS Zähler?)
+-  EJ-Power Unit4 (eine Art 7 Takt Schaltung wie bei den alten E-Herd Platten, sehr wenig EMV Probleme, keine stufenlose Regelung)
 
 ### SW
 
