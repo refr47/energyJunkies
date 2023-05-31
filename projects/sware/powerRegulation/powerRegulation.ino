@@ -129,7 +129,7 @@ void loop() {
   cnt++;
 
   if(cnt > 20){
-    powerganzzahl = -10;
+    // powerganzzahl = -10;
   } else if (cnt > 10) {
     powerganzzahl = 400;
   } else {

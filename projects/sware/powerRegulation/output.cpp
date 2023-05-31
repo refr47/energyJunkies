@@ -20,6 +20,10 @@
 #define KI 0.5
 #define KD 0
 
+// power has to be above set point for this time, before next digital output
+// is activated (in ms)
+#define DELAY_DIG_OUT 30000
+
 // max power which is consumed on an output
 static const int maxPower = 2000;
 // reduce power setpoint by this value
@@ -36,41 +40,58 @@ OutputManager::OutputManager(int digOut1, int digOut2, int anOut)
   mOuts[idxDig1].init(digOut1, maxPower, Digital);
   mOuts[idxDig2].init(digOut2, maxPower, Digital);
   mOuts[idxAn].init(anOut, maxPower, Analog);
-  
+
+  mDelayDigOut = millis();
+
   mPidSetPoint = powerDiff;
   mPid.SetMode(AUTOMATIC);
   mPid.SetOutputLimits(0, 255);
   mPid.SetSampleTime(50);
-  
+
 }
 
 int OutputManager::task(int power) {
   // if (power < 0) {
   //   power *= -1;
   // }
+  dbgln("=== task ===");
+
 
   mCurrentPower = power;
   mPid.Compute();
 
-  dbgln("=== task ===");
-  dbg("power:");
-  dbg(power);
+  unsigned long t = millis();
+  if (mCurrentPower > mPidSetPoint && mAnalogOut > OUTPUT_MAX - 1) {
+    if (millis() - mDelayDigOut > DELAY_DIG_OUT) {
+      for (int i = idxDig1; i <= idxDig2; i++) {
+        if (!mOuts[i].isDigOn()) {
+          mOuts[i].setValue(1);
+          break; // do not turn on the next output 
+        }
+      }
+
+    }
+  } else {
+    mDelayDigOut = millis();
+  }
+
+  mOuts[idxAn].setValue(mAnalogOut);
+
+  // dbg("power:");
+  // dbg(power);
   dbg("    mCurrPower:");
   dbg(mCurrentPower);
   dbg("    anaOut:");
   dbg(mAnalogOut);
   dbg("    setpoint:");
   dbg(mPidSetPoint);
+  dbg("    dig1:");
+  dbg(mOuts[idxDig1].isDigOn());
+  dbg("    dig2:");
+  dbg(mOuts[idxDig2].isDigOn());
   dbgln("");
   dbgln("============");
 
-  unsigned long t = millis();
-  if (mCurrentPower > mPidSetPoint && mAnalogOut > OUTPUT_MAX - 1) {
-    // Analog regulator is on full load but power value is still to high
-    // TODO: wait some time and start digital output
-  }
-
-  mOuts[idxAn].setValue(mAnalogOut);
 
   return 0;
 }

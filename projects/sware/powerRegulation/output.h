@@ -23,6 +23,7 @@ class Output {
       if (mType == Digital) {
         if (v > 0.5) {
           mValue = 1;
+          mActivationTime = millis();
         } else {
           mValue = 0;
         }
@@ -32,6 +33,12 @@ class Output {
         // analogWrite(mPin, mValue);
       }
     }
+    bool isDigOn(void) {
+      if (mType == Digital && mValue > 0.5) {
+        return true;
+      }
+      return false;
+    }
 
     int mPin;
     OutputType mType;
@@ -39,7 +46,6 @@ class Output {
     int mMinOnTime;
     int mMaxPower;
     int mValue;
-
 
 };
 
@@ -56,7 +62,7 @@ class OutputManager {
     double mPidSetPoint;
     double mCurrentPower;
     PID mPid;
-
+    unsigned long mDelayDigOut;
     
 
 };
