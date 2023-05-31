@@ -27,9 +27,9 @@
 #define DELAY_DIG_OUT_OFF 2000
 
 // minimal on time for digital output (in ms)
-static const int minOnTime = 10000;
-// reduce power setpoint by this value
-static const int powerDiff = 50;
+#define MIN_ON_TIME 10000
+// target power
+#define TARGET_POWER 50
 
 
 
@@ -39,14 +39,14 @@ static const int idxAn = 2;
 
 OutputManager::OutputManager(int digOut1, int digOut2, int anOut)
   : mPid(&mCurrentPower, &mAnalogOut, &mPidSetPoint, KP, KI, KD, REVERSE) {
-  mOuts[idxDig1].init(digOut1, minOnTime, Digital);
-  mOuts[idxDig2].init(digOut2, minOnTime, Digital);
-  mOuts[idxAn].init(anOut, minOnTime, Analog);
+  mOuts[idxDig1].init(digOut1, MIN_ON_TIME, Digital);
+  mOuts[idxDig2].init(digOut2, MIN_ON_TIME, Digital);
+  mOuts[idxAn].init(anOut, MIN_ON_TIME, Analog);
 
   mDelayDigOutOn = millis();
   mDelayDigOutOff = millis();
 
-  mPidSetPoint = powerDiff;
+  mPidSetPoint = TARGET_POWER;
   mPid.SetMode(AUTOMATIC);
   mPid.SetOutputLimits(OUTPUT_MIN, OUTPUT_MAX);
   mPid.SetSampleTime(50);
