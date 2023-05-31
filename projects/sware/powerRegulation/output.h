@@ -70,7 +70,8 @@ class OutputManager {
     double mPidSetPoint;
     double mCurrentPower;
     PID mPid;
-    unsigned long mDelayDigOut;
+    unsigned long mDelayDigOutOn;
+    unsigned long mDelayDigOutOff;
     
 
 };

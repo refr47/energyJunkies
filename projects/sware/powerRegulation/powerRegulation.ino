@@ -128,7 +128,7 @@ void loop() {
   static int cnt = 0;
   cnt++;
 
-  if(cnt > 30){
+  if(cnt > 40){
     powerganzzahl = -500;
   } else if (cnt > 10) {
     powerganzzahl = 400;

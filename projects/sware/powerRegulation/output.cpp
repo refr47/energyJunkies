@@ -22,7 +22,9 @@
 
 // power has to be above set point for this time, before next digital output
 // is activated (in ms)
-#define DELAY_DIG_OUT 10000
+#define DELAY_DIG_OUT_ON  5000
+// delay turning of next digital output for this time (in ms)
+#define DELAY_DIG_OUT_OFF 2000
 
 // minimal on time for digital output (in ms)
 static const int minOnTime = 10000;
@@ -41,7 +43,8 @@ OutputManager::OutputManager(int digOut1, int digOut2, int anOut)
   mOuts[idxDig2].init(digOut2, minOnTime, Digital);
   mOuts[idxAn].init(anOut, minOnTime, Analog);
 
-  mDelayDigOut = millis();
+  mDelayDigOutOn = millis();
+  mDelayDigOutOff = millis();
 
   mPidSetPoint = powerDiff;
   mPid.SetMode(AUTOMATIC);
@@ -51,42 +54,35 @@ OutputManager::OutputManager(int digOut1, int digOut2, int anOut)
 }
 
 int OutputManager::task(int power) {
-  // if (power < 0) {
-  //   power *= -1;
-  // }
-  dbgln("=== task ===");
-
-
   mCurrentPower = power;
   mPid.Compute();
+  mOuts[idxAn].setValue(mAnalogOut);
 
-  unsigned long t = millis();
   // turn on digital output if power suffices
   if (mCurrentPower > mPidSetPoint && mAnalogOut > OUTPUT_MAX - 1) {
-    if (millis() - mDelayDigOut > DELAY_DIG_OUT) {
+    if (millis() - mDelayDigOutOn > DELAY_DIG_OUT_ON) {
       for (int i = idxDig1; i <= idxDig2; i++) {
         if (!mOuts[i].isDigOn()) {
           mOuts[i].setValue(1);
-          mDelayDigOut = millis(); //delay next output
+          mDelayDigOutOn = millis(); //delay next output
           break; // do not turn on the next output 
         }
       }
-
     }
   } else {
-    mDelayDigOut = millis();
+    mDelayDigOutOn = millis();
   }
   // turn off digital output if power is low
-  if (mCurrentPower < mPidSetPoint && mAnalogOut < OUTPUT_MIN + 1) {
+  if (mCurrentPower < mPidSetPoint && mAnalogOut < OUTPUT_MIN + 1 && millis() - mDelayDigOutOff > DELAY_DIG_OUT_OFF) {
     for (int i = idxDig2; i >= idxDig1; i--) {
         if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed()) {
           mOuts[i].setValue(0);
+          mDelayDigOutOff = millis();
           break; // do not turn off the next output 
         }
       }
   }
 
-  mOuts[idxAn].setValue(mAnalogOut);
 
   // dbg("power:");
   // dbg(power);
@@ -101,7 +97,6 @@ int OutputManager::task(int power) {
   dbg("    dig2:");
   dbg(mOuts[idxDig2].isDigOn());
   dbgln("");
-  dbgln("============");
 
 
   return 0;
