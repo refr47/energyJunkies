@@ -13,12 +13,13 @@ enum OutputType {
 class Output {
   friend class OutputManager;
   private:
-    void init(int pin, int power, OutputType type) {
+    void init(int pin, int onTime, OutputType type) {
       mPin = pin;
-      mMaxPower = power;
+      mMinOnTime = onTime;
       mType = type;
       // pinMode(mPin, OUTPUT);
     }
+
     void setValue(double v) {
       if (mType == Digital) {
         if (v > 0.5) {
@@ -33,8 +34,16 @@ class Output {
         // analogWrite(mPin, mValue);
       }
     }
+
     bool isDigOn(void) {
       if (mType == Digital && mValue > 0.5) {
+        return true;
+      }
+      return false;
+    }
+
+    bool hasActivationTimeElapsed(void) {
+      if (millis() - mActivationTime > mMinOnTime) {
         return true;
       }
       return false;
@@ -44,7 +53,6 @@ class Output {
     OutputType mType;
     int mActivationTime;
     int mMinOnTime;
-    int mMaxPower;
     int mValue;
 
 };
