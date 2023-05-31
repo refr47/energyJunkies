@@ -10,7 +10,14 @@
 
 
 
+  Libraries:
+    PID_v1
+    Modbus-esp8266
+
+
 */
+
+#include "output.h"
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -19,15 +26,23 @@
 #endif
 #include <ModbusIP_ESP8266.h>
 
-#define DEVICE_NAME_LEN 24
-
 #include <esp_now.h>
 #include <SPI.h>
 
 #include <TFT_eSPI.h>  // Hardware-specific library
 
-TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
+//TODO: fix pin numbers
+// Pin numbers for outputs
+#define DIGOUT1_PIN   10
+#define DIGOUT2_PIN   11
+#define ANOUT_PIN     12
 
+#define DEVICE_NAME_LEN 24
+
+
+// TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
+
+OutputManager out = OutputManager(DIGOUT1_PIN, DIGOUT2_PIN, ANOUT_PIN);
 int testzahl = -12;
 
 
@@ -67,39 +82,40 @@ int leistungsstuffe2 = 0;
 
 void setup() {
   pinMode(pwmpin, OUTPUT);
-  tft.init();
-  tft.setRotation(1);
+  // tft.init();
+  // tft.setRotation(1);
 
-  tft.fillScreen(TFT_BLACK);
+  // tft.fillScreen(TFT_BLACK);
 
 
-  tft.setCursor(0, 0, 4);
-  tft.setTextColor(TFT_BLUE, TFT_BLACK);
-  tft.println("Moarli Test");
+  // tft.setCursor(0, 0, 4);
+  // tft.setTextColor(TFT_BLUE, TFT_BLACK);
+  // tft.println("Moarli Test");
 
-  delay(500);
+  // delay(500);
 
-  tft.setTextSize(1);
-  //tft.fillScreen(TFT_BLACK);
-  tft.setCursor(0, 30, 4);
-  tft.setTextColor(TFT_RED, TFT_BLACK);
-  tft.println("warten auf WLAN");
-  delay(10);
+  // tft.setTextSize(1);
+  // //tft.fillScreen(TFT_BLACK);
+  // tft.setCursor(0, 30, 4);
+  // tft.setTextColor(TFT_RED, TFT_BLACK);
+  // tft.println("warten auf WLAN");
+  // delay(10);
 
   Serial.begin(115200);
-  WiFi.begin("Moar z'Viert", "Dusty3101");
+  Serial.println("=== Startup ===");
+  // WiFi.begin("Moar z'Viert", "Dusty3101");
 
-  Serial.print("Connecting to WIFI network ");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
+  // Serial.print("Connecting to WIFI network ");
+  // while (WiFi.status() != WL_CONNECTED) {
+  //   delay(500);
+  //   Serial.print(".");
+  // }
 
-  Serial.println(" succeeded");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  // Serial.println(" succeeded");
+  // Serial.print("IP address: ");
+  // Serial.println(WiFi.localIP());
 
-  mb.client();
+  // mb.client();
 }
 
 uint16_t res = 0;
@@ -108,114 +124,135 @@ int16_t resArr[REG_BLOCK_COUNT][regsCount];
 
 
 void loop() {
-  static int readIndex = 0;
-  ;
-  uint16_t transId = 0;
-  if (mb.isConnected(remote)) {  // Check if connection to Modbus Slave is established
-    //Serial.println("Modbus/TCP connected");
-    //mb.readHreg(remote, REG, &res);  // Initiate Read Coil from Modbus Slave
-    transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId);  // Initiate Read Holding Register from Modbus Slave
-    if (transId == 0) {
-      Serial.println("Modbus/TCP register read failed");
-      //    } else {
-      //      Serial.println("Modbus/TCP register read succeeded");
-    }
+
+  static int cnt = 0;
+  cnt++;
+
+  if(cnt > 20){
+    powerganzzahl = -10;
+  } else if (cnt > 10) {
+    powerganzzahl = 400;
   } else {
-    bool success = mb.connect(remote);  // Try to connect if no connection
-    Serial.println(success ? "Successfully connected to Modbus server" : "Failed to connect to Modbus server");
+    powerganzzahl = 200;
   }
-  mb.task();  // Common local Modbus task
-  if (transId != 0) {
-    delay(300);  // Pulling interval
-    Serial.println();
-    Serial.println(regsToRead[readIndex].text);
-    for (int i = 0; i < regsToRead[readIndex].count; i++) {
-      Serial.print(regsToRead[readIndex].baseAddr + i);
-      Serial.print('\t');
-      if (regsToRead[readIndex].deviceId == SMART_METER_ID && i == 0) {
-        power = resArr[readIndex][i] * pow(10, resArr[readIndex][4]);
-        //############# Anzeige ##########################
-        int powerganzzahl = (int)(power + .5);  //Umwandeln in ganze Zahl
-        powerganzzahl = powerganzzahl * -1;     //Umwandeln Negativ ins positive
-
-
-        tft.fillScreen(TFT_BLACK);
-
-
-        if (powerganzzahl <= 0) {
-          tft.setTextSize(1);
-          tft.setTextColor(TFT_RED, TFT_BLACK);
-          tft.setCursor(30, 0, 4);
-          tft.println("Bezug KWG");
-          phasenanschnitt = 0;
-        }
-
-        if (powerganzzahl >= 0) {
-          tft.setTextSize(1);
-          tft.setTextColor(TFT_GREEN, TFT_BLACK);
-          tft.setCursor(0, 0, 4);
-          tft.println("OEMAG");
-
-          if (powerganzzahl >= maxpower) {
-
-            phasenanschnitt++;
-            if (phasenanschnitt >= 255) {
-              phasenanschnitt = 255;
-            }
-            analogWrite(pwmpin, phasenanschnitt);
-          }
-
-          if (powerganzzahl <= minpower) {
-            phasenanschnitt--;
-            if (phasenanschnitt <= 0) {
-              phasenanschnitt = 0;
-            }
-            analogWrite(pwmpin, phasenanschnitt);
-          }
-
-
-
-          tft.setTextSize(1);
-          tft.setTextColor(TFT_GREEN, TFT_BLACK);
-          tft.setCursor(0, 83, 7);
-          tft.println(phasenanschnitt);
-
-          if (phasenanschnitt >= 255) {
-            leistungsstuffe1 = 1;
-          }
-        }
-
-
-
-        //####### Löschen der stehengebliebenen Zahlen ##################
-        tft.setTextSize(1);
-        tft.setTextColor(TFT_BLUE, TFT_BLACK);
-        tft.setCursor(0, 30, 7);
-        tft.println("            ");
-
-
-
-        tft.setTextSize(1);
-        // tft.fillScreen(TFT_BLACK);  //last change
-        tft.setTextColor(TFT_BLUE, TFT_BLACK);
-        tft.setCursor(10, 30, 7);
-        tft.println(powerganzzahl);
-
-
-        tft.setTextSize(1);
-        tft.setTextColor(TFT_GREEN, TFT_BLACK);
-        tft.setCursor(0, 83, 7);
-        tft.println(phasenanschnitt);
+  out.task(powerganzzahl);
 
 
 
 
-        // scale real power by it's scale factor
-        Serial.println(resArr[readIndex][i] * pow(10, resArr[readIndex][4]));
-      } else {
-        Serial.println(resArr[readIndex][i]);
-      }
-    }
-    readIndex = (readIndex + 1) % REG_BLOCK_COUNT;
-  }
+delay(1000);
+
+
+
+
+
+  // static int readIndex = 0;
+
+  // uint16_t transId = 0;
+  // if (mb.isConnected(remote)) {  // Check if connection to Modbus Slave is established
+  //   //Serial.println("Modbus/TCP connected");
+  //   //mb.readHreg(remote, REG, &res);  // Initiate Read Coil from Modbus Slave
+  //   transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId);  // Initiate Read Holding Register from Modbus Slave
+  //   if (transId == 0) {
+  //     Serial.println("Modbus/TCP register read failed");
+  //     //    } else {
+  //     //      Serial.println("Modbus/TCP register read succeeded");
+  //   }
+  // } else {
+  //   bool success = mb.connect(remote);  // Try to connect if no connection
+  //   Serial.println(success ? "Successfully connected to Modbus server" : "Failed to connect to Modbus server");
+  // }
+  // mb.task();  // Common local Modbus task
+  // if (transId != 0) {
+  //   delay(300);  // Pulling interval
+  //   Serial.println();
+  //   Serial.println(regsToRead[readIndex].text);
+  //   for (int i = 0; i < regsToRead[readIndex].count; i++) {
+  //     Serial.print(regsToRead[readIndex].baseAddr + i);
+  //     Serial.print('\t');
+  //     if (regsToRead[readIndex].deviceId == SMART_METER_ID && i == 0) {
+  //       power = resArr[readIndex][i] * pow(10, resArr[readIndex][4]);
+  //       //############# Anzeige ##########################
+  //       int powerganzzahl = (int)(power + .5);  //Umwandeln in ganze Zahl
+  //       powerganzzahl = powerganzzahl * -1;     //Umwandeln Negativ ins positive
+
+  //       tft.fillScreen(TFT_BLACK);
+
+
+  //       if (powerganzzahl <= 0) {
+  //         tft.setTextSize(1);
+  //         tft.setTextColor(TFT_RED, TFT_BLACK);
+  //         tft.setCursor(30, 0, 4);
+  //         tft.println("Bezug KWG");
+  //         phasenanschnitt = 0;
+  //       }
+
+  //       if (powerganzzahl >= 0) {
+  //         tft.setTextSize(1);
+  //         tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  //         tft.setCursor(0, 0, 4);
+  //         tft.println("OEMAG");
+
+  //         if (powerganzzahl >= maxpower) {
+
+  //           phasenanschnitt++;
+  //           if (phasenanschnitt >= 255) {
+  //             phasenanschnitt = 255;
+  //           }
+  //           analogWrite(pwmpin, phasenanschnitt);
+  //         }
+
+  //         if (powerganzzahl <= minpower) {
+  //           phasenanschnitt--;
+  //           if (phasenanschnitt <= 0) {
+  //             phasenanschnitt = 0;
+  //           }
+  //           analogWrite(pwmpin, phasenanschnitt);
+  //         }
+
+
+
+  //         tft.setTextSize(1);
+  //         tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  //         tft.setCursor(0, 83, 7);
+  //         tft.println(phasenanschnitt);
+
+  //         if (phasenanschnitt >= 255) {
+  //           leistungsstuffe1 = 1;
+  //         }
+  //       }
+
+
+
+  //       //####### Löschen der stehengebliebenen Zahlen ##################
+  //       tft.setTextSize(1);
+  //       tft.setTextColor(TFT_BLUE, TFT_BLACK);
+  //       tft.setCursor(0, 30, 7);
+  //       tft.println("            ");
+
+
+
+  //       tft.setTextSize(1);
+  //       // tft.fillScreen(TFT_BLACK);  //last change
+  //       tft.setTextColor(TFT_BLUE, TFT_BLACK);
+  //       tft.setCursor(10, 30, 7);
+  //       tft.println(powerganzzahl);
+
+
+  //       tft.setTextSize(1);
+  //       tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  //       tft.setCursor(0, 83, 7);
+  //       tft.println(phasenanschnitt);
+
+
+
+
+  //       // scale real power by it's scale factor
+  //       Serial.println(resArr[readIndex][i] * pow(10, resArr[readIndex][4]));
+  //     } else {
+  //       Serial.println(resArr[readIndex][i]);
+  //     }
+  //   }
+  //   readIndex = (readIndex + 1) % REG_BLOCK_COUNT;
+  // }
 }
