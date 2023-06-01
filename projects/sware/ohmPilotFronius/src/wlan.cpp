@@ -19,6 +19,9 @@ bool wifi_init()
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
 
     Serial.println();
+    char buff[80];
+    sprintf(buff, "Connect to: %s", MY_SSID);
+    tft_initNetwork(buff);
     Serial.print("[Wifi] Connecting to ");
     Serial.println(MY_SSID);
     WiFi.mode(WIFI_STA);
@@ -34,22 +37,27 @@ bool wifi_init()
         {
         case WL_NO_SSID_AVAIL:
             Serial.println("[WiFi] SSID not found");
+            tft_initNetwork(buff, "SSID not found");
             break;
         case WL_CONNECT_FAILED:
             Serial.print("[WiFi] Failed - WiFi not connected! Reason: ");
+            tft_initNetwork(buff, "No connection");
             return false;
             break;
         case WL_CONNECTION_LOST:
             Serial.println("[WiFi] Connection was lost");
+            tft_initNetwork(buff, "Connection lost");
             break;
         case WL_SCAN_COMPLETED:
             Serial.println("[WiFi] Scan is completed");
             break;
         case WL_DISCONNECTED:
             Serial.println("[WiFi] WiFi is disconnected");
+            tft_initNetwork(buff, "Disconnected");
             break;
         case WL_CONNECTED:
             Serial.println("[WiFi] WiFi is connected!");
+            tft_initNetwork(buff, "Connected!");
             Serial.print("[WiFi] IP address: ");
             Serial.println(WiFi.localIP());
             return true;
@@ -57,6 +65,7 @@ bool wifi_init()
         default:
             Serial.print("[WiFi] WiFi Status: ");
             Serial.println(WiFi.status());
+            tft_initNetwork(buff, (char *)WiFi.status());
             break;
         }
         delay(WIFI_TRY_DELAY);

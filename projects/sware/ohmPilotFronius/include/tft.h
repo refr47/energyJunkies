@@ -8,6 +8,7 @@ void tft_printSetup();
 TFT_eSPI &tft_getRoot();
 int tft_getHeight();
 int tft_getWidth();
+void tft_initNetwork(char *msg, char *msg1 = NULL);
 void tft_drawNetworkInfo(char *ip);
 void tft_setCursor(int x, int y, int fontsize = 4);
 void tft_printTxt(int x, int y, int fontsize = 4, const char *txt = "dummy");

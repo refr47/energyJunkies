@@ -6,7 +6,9 @@
 #include "cardRW.h"
 
 #include "tft.h"
-
+// #include "graphicTest.h"
+#include "eprom.h"
+#include "ap.h"
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -32,7 +34,7 @@ HSPI	GPIO 13	GPIO 12	GPIO 14	GPIO 15
 
 #define GLOBAL_STRING_BUFFER_LEN 150
 #define INTERNAL_BUTTON_1_GPIO 0
-#define INTERNAL_BUTTON_2_GPIO 35
+#define INTERNAL_BUTTON_2_GPIO 14
 
 #define PIN 21
 
@@ -41,6 +43,7 @@ HSPI	GPIO 13	GPIO 12	GPIO 14	GPIO 15
 */
 
 char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
+static bool networkCredentialsInEEprom = false;
 
 void setup()
 {
@@ -53,6 +56,9 @@ void setup()
   Serial.println("Hello T-Display-S3");
   tft_init();
   tft_printSetup();
+  int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
+  Serial.print("internal bu: ");
+  Serial.println(currentState);
   /* Serial.print("MOSI: ");
   Serial.println(MOSI);
   Serial.print("MISO: ");
@@ -61,6 +67,7 @@ void setup()
   Serial.println(SCK);
   Serial.print("SS: ");
   Serial.println(SS); */
+
   /*
    printHWInfo();
    */
@@ -72,54 +79,72 @@ void setup()
   // digitalWrite(PIN, 0);
   // wifi_scan_network();
   tft_clearScreen();
-  if (!wifi_init())
-  {
-    Serial.println("Cannot connect");
-    tft_drawNetworkInfo(NULL);
-  }
-  else
-  {
-    Serial.print("Connected with ip: ");
-    char *pBuf = globalStringBuffer;
-    wifi_getLocalIP(&pBuf);
-    Serial.println(globalStringBuffer);
-    tft_drawNetworkInfo(globalStringBuffer);
-  }
+  // meterSim();
+  Network n;
+  eprom_getNetwork(n);
 
-  Serial.println("Setup card reader ...");
-  /* if (!cardRW_setup())
+  if (n.ssid == "")
   {
-    Serial.println("Cannot setup card reader ....");
+    networkCredentialsInEEprom = false;
+    ap_init(); // act as access point
   }
-  else
+  if (networkCredentialsInEEprom)
   {
-    Serial.println("Card_RW: has initialized");
-  }
-  Serial.println("Setup modbus ...");
-  if (!mb_init())
-  {
-    Serial.println("Cannot initialize modbus ....");
-  }
-  else
-  {
-    mb_readInverter();
-  } */
+    if (!wifi_init())
+    {
+      Serial.println("Cannot connect");
+      tft_drawNetworkInfo(NULL);
+    }
+    else
+    {
+      Serial.print("Connected with ip: ");
+      char *pBuf = globalStringBuffer;
+      wifi_getLocalIP(&pBuf);
+      Serial.println(globalStringBuffer);
+      tft_drawNetworkInfo(globalStringBuffer);
+    }
 
-  // tft.setCursor(0, 0, 4);
+    Serial.println("Setup card reader ...");
+    /* if (!cardRW_setup())
+    {
+      Serial.println("Cannot setup card reader ....");
+    }
+    else
+    {
+      Serial.println("Card_RW: has initialized");
+    }
+    Serial.println("Setup modbus ...");
+    if (!mb_init())
+    {
+      Serial.println("Cannot initialize modbus ....");
+    }
+    else
+    {
+      mb_readInverter();
+    } */
+  }
 }
 
 void loop()
 {
-  // put your main code here, to run repeatedly:
-  // setCursor(0, 30);
-
-  // wifi_scan_network();
-  /*  digitalWrite(PIN, 0);
-   mb_readInverter(); */
-  delay(5000);
-  /* if (!mb_readInverter())
+  if (networkCredentialsInEEprom == false)
+  { // act as AP
+    ap_run();
+  }
+  else
   {
-    Serial.println("Cannot read Inverter ...");
-  } */
-  Serial.println(" .... LOOP .....");
+    /*
+    mb_readInverter();
+    */
+    tft_printTxt(30, 50, 2, "test");
+    delay(5000);
+    /* if (!mb_readInverter())
+    {
+      Serial.println("Cannot read Inverter ...");
+    } */
+    Serial.println(" .... LOOP .....");
+    int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
+    Serial.print("internal bu: ");
+    delay(500);
+  }
 }
