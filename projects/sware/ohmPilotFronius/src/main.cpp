@@ -59,14 +59,14 @@ void setup()
   int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
   Serial.print("internal bu: ");
   Serial.println(currentState);
-  /* Serial.print("MOSI: ");
+  Serial.print("MOSI: ");
   Serial.println(MOSI);
   Serial.print("MISO: ");
   Serial.println(MISO);
   Serial.print("SCK: ");
   Serial.println(SCK);
   Serial.print("SS: ");
-  Serial.println(SS); */
+  Serial.println(SS);
 
   /*
    printHWInfo();
