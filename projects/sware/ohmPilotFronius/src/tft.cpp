@@ -19,6 +19,7 @@
 
 static TFT_eSPI tft = TFT_eSPI();
 static int height = 0, width = 0;
+unsigned int currentLine = 0;
 
 void tft_init()
 {
@@ -231,16 +232,54 @@ void tft_clearScreen()
 {
     tft.fillRect(0, 0, width, height, TFT_BLACK); // Bild ausschalten
 }
-void tft_initNetwork(char *msg, char *msg1)
+void tft_clearScreenFrom(int yFrom)
 {
-    tft_printTxt(0, 0, FONTSIZE_2, "Init Network ... ");
-    tft_printTxt(0, FONTSIZE_2_ONE_LINE, FONTSIZE_2, msg);
-    if (msg1 != NULL)
-    {
-        tft.fillRect(0, FONTSIZE_2_ONE_LINE * 2, width, FONTSIZE_2_ONE_LINE, TFT_BLACK);
-        tft_printTxt(10, FONTSIZE_2_ONE_LINE * 2, FONTSIZE_2, msg1);
-    }
+    tft.fillRect(0, yFrom, width, height, TFT_BLACK); // Bild ausschalten
 }
+void tft_initNetwork(int num, ...)
+{
+    va_list valist;
+    va_start(valist, num);
+    char *msg;
+
+    for (int i = 0; i < num; i++)
+    {
+        msg = va_arg(valist, char *);
+        /* Serial.print(msg);
+        Serial.print(", ");
+        Serial.println(FONTSIZE_2_ONE_LINE * i); */
+        tft_printTxt(0, 0, FONTSIZE_2, "Init Network ... ");
+        if (i == 1)
+        {
+            tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
+        }
+        tft_printTxt(5, FONTSIZE_2_ONE_LINE * (i + 1), FONTSIZE_2, msg);
+    }
+    va_end(valist);
+    currentLine = num;
+}
+void tft_showAvailableNetworks(int num, ...)
+{
+    va_list valist;
+    va_start(valist, num);
+    char *msg;
+
+    for (int i = 0; i < num; i++)
+    {
+        msg = va_arg(valist, char *);
+        /* Serial.print(msg);
+        Serial.print(", ");
+        Serial.println(FONTSIZE_2_ONE_LINE * i); */
+        tft_printTxt(0, 0, FONTSIZE_2, "Init Network ... ");
+        if (i == 1)
+        {
+            tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
+        }
+        tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, msg);
+    }
+    va_end(valist);
+}
+
 void tft_drawNetworkInfo(char *ip)
 {
     tft.setTextColor(TFT_WHITE);
