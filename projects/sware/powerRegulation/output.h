@@ -17,7 +17,7 @@ class Output {
       mPin = pin;
       mMinOnTime = onTime;
       mType = type;
-      // pinMode(mPin, OUTPUT);
+      pinMode(mPin, OUTPUT);
     }
 
     void setValue(double v) {
@@ -28,10 +28,10 @@ class Output {
         } else {
           mValue = 0;
         }
-        // digitalWrite(mPin, mValue);
+        digitalWrite(mPin, mValue);
       } else {
         mValue = v;
-        // analogWrite(mPin, mValue);
+        analogWrite(mPin, mValue);
       }
     }
 
