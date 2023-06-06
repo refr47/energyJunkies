@@ -29,7 +29,7 @@
 // minimal on time for digital output (in ms)
 #define MIN_ON_TIME 10000
 // target power
-#define TARGET_POWER 50
+#define TARGET_POWER 5950
 
 
 
