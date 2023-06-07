@@ -23,10 +23,14 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 
 ### SW
 
+* Setup: Folgende Parameter sind benutzer- bzw. analagenabhängig:
+- Einstellung der WLAN-Zugangsdaten (SSID,Password)
+- IP-Adresse Modbus
+- Heizstableistung (für die rechnerische Festlegung der in das Heizsystem geleiteten Energie)
+- Einspeisebeschränkung (wieviel kW dürfen eingespeist werden)
+- Schranken für die PWM-Steuerung
 * Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
   - aktive Netzwerkverbindung
-  - Falls man nicht in das WLAN einwählen kann oder bei einer Neuinstallierung:
-  - zur Verfügungstellung einer WebSite mit folgenden KonfigMöglichkeiten: WLAN,ModbusIP,Heizstableistung
   - IP-Adresse
   - aktuelle Produktion, davon Überschuss
   - Zuteilung an die 3 Phasen
