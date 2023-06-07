@@ -10,11 +10,11 @@ Das Produkt wird in einen hardware- und softwareabhängigen Teil aufgespaltet. E
 
 Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h. die Entwicklungskosten für die HW sollten deutlich unterschritten werden (!)
 
-- Die GPIOs des ESP32 werden mit 3.3 V betrieben. Über eine entsprechende TransistorSchaltung kann je Phase dann per Relais durchgeschaltet werden. Alternativ könnte ein Pegelwandler 3.3V auf 5V genutzt werdenererer
-- 2 Temperatursensoren sorgen für einen "Not-Aus", d.h. wenn beispielsweise das Wasser schon 85° hat, darf nicht mehr geheizt werden. Sicherheitshalber werden 2 Sensoren verwendet für den Fall, dass einer ausfällt. Die gesteuerte Last könnte auch indirekt über ein Sicherheitsthermostat indirekt angeschlossen werden.
-- Lage des Displays (vertikal | horizontal) ?
-- Vorschläge von Ej - Blockschaltbilder liegen in **projects/ohmPilotFronius/**
-- EJ-EMV Filter (Elektromagnetischer Filtervorsatz, auf diesen wird in der ersten Phase verzichtet bzw. Vorversuche gestartet)
+* Die GPIOs des ESP32 werden mit 3.3 V betrieben. Über eine entsprechende TransistorSchaltung kann je Phase dann per Relais durchgeschaltet werden. Alternativ könnte ein Pegelwandler 3.3V auf 5V genutzt werdenererer
+* 2 Temperatursensoren sorgen für einen "Not-Aus", d.h. wenn beispielsweise das Wasser schon 85° hat, darf nicht mehr geheizt werden. Sicherheitshalber werden 2 Sensoren verwendet für den Fall, dass einer ausfällt. Die gesteuerte Last könnte auch indirekt über ein Sicherheitsthermostat indirekt angeschlossen werden.
+* Lage des Displays (vertikal | horizontal) ?
+* Vorschläge von Ej - Blockschaltbilder liegen in **projects/ohmPilotFronius/**
+* EJ-EMV Filter (Elektromagnetischer Filtervorsatz, auf diesen wird in der ersten Phase verzichtet bzw. Vorversuche gestartet)
 -  EJ-Control Board (ESP32 TTGO, Eingabe, Ausgabe Schnittstellen, Versorgt über die Power Unit)
 -  EJ-Power Unit1 (Phasenanschnitt mit Modul 2-10V vom Armin bzw. Modul 0-20mA vom Oliver, sehr große EMV Probleme, erste Hardware für Versuche)
 -  EJ-Power Unit2 (PWM Endstufe, eventuell Schülerprojekt 23/24, große EMV Probleme)
@@ -23,7 +23,7 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 
 ### SW
 
-- Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
+* Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
   - aktive Netzwerkverbindung
   - Falls man nicht in das WLAN einwählen kann oder bei einer Neuinstallierung:
   - zur Verfügungstellung einer WebSite mit folgenden KonfigMöglichkeiten: WLAN,ModbusIP,Heizstableistung
@@ -33,7 +33,7 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
   - aktuelle Temperatur des Wasses, gemessen durch die 2 TempSensoren
   - Fehler
   - ?
-- Die Kommunikation wird per WLAN durchgeführt, wobei regelmäßig zu prüfen ist, ob die WLAN-Verbindung noch funktioniert
+* Die Kommunikation wird per WLAN durchgeführt, wobei regelmäßig zu prüfen ist, ob die WLAN-Verbindung noch funktioniert
   - ?? hat nur tagsüber Sinn
   - was passiert, wenn die Kommunikation nicht mehr funktioniert - Fehlermeldung am Display ( ! )
 - Der WR wird per Modbus (TCP) angesteuert & setzt eine funktionierende WLAN-Verbindung voraus.
