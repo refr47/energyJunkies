@@ -25,6 +25,8 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 
 - Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
   - aktive Netzwerkverbindung
+  - Falls man nicht in das WLAN einwählen kann oder bei einer Neuinstallierung:
+  - zur Verfügungstellung einer WebSite mit folgenden KonfigMöglichkeiten: WLAN,ModbusIP,Heizstableistung
   - IP-Adresse
   - aktuelle Produktion, davon Überschuss
   - Zuteilung an die 3 Phasen
