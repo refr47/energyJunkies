@@ -29,6 +29,7 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
   - Heizstableistung (für die rechnerische Festlegung der in das Heizsystem geleiteten Energie)
   - Einspeisebeschränkung (wieviel kW dürfen eingespeist werden)
   - Schranken für die PWM-Steuerung
+  - Für die Eingabe ist eine WebSite zu verwenden, wobei der uController (ESP32) als AccessPoint fungiert. Die notwendigen Informationen (SSID,IP-Adresse) sind per Display anzuzeigen.
 * Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
   - aktive Netzwerkverbindung
   - IP-Adresse
