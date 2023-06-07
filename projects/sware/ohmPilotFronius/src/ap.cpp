@@ -5,7 +5,7 @@
 #include <ESPAsyncWebServer.h>
 
 // WiFiServer server(80);
-const char *PARAM_INPUT_1 = "output";
+const char *PARAM_INPUT_1 = "passwd";
 const char *PARAM_INPUT_2 = "state";
 
 // Create AsyncWebServer object on port 80
@@ -61,7 +61,7 @@ String outputState(int output)
 String processor(const String &var)
 {
     // Serial.println(var);
-    if (var == "BUTTONPLACEHOLDER1")
+    if (var == "BUTTONPLACEHOLDER3")
     {
         String buttons = "";
         buttons += "<h4>Output - GPIO 2</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"2\" " + outputState(2) + "><span class=\"slider\"></span></label>";
@@ -69,6 +69,15 @@ String processor(const String &var)
         buttons += "<h4>Output - GPIO 33</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"33\" " + outputState(33) + "><span class=\"slider\"></span></label>";
         return buttons;
     }
+
+    if (var == "BUTTONPLACEHOLDER")
+    {
+        String form = "";
+        form += "<form action=\"/get\"> Password: <input type=\"text\" name=\"passwd\">";
+        form += "<input type = \" submit \" value = \" Submit \"> </form><br>";
+        return form;
+    }
+
     return String();
 }
 
@@ -90,26 +99,24 @@ void ap_init()
               { request->send_P(200, "text/html", index_html, processor); });
 
     // Send a GET request to <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
-    server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request)
+    server.on("/GET", HTTP_GET, [](AsyncWebServerRequest *request)
               {
     String inputMessage1;
-    String inputMessage2;
+    
     // GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
-    if (request->hasParam(PARAM_INPUT_1) && request->hasParam(PARAM_INPUT_2)) {
+    if (request->hasParam(PARAM_INPUT_1) ) {
       inputMessage1 = request->getParam(PARAM_INPUT_1)->value();
-      inputMessage2 = request->getParam(PARAM_INPUT_2)->value();
+     
       //digitalWrite(inputMessage1.toInt(), inputMessage2.toInt());
         Serial.print("GET param: ");
-        Serial.println(inputMessage2);
+        Serial.println(inputMessage1);
     }
     else {
       inputMessage1 = "No message sent";
-      inputMessage2 = "No message sent";
     }
     Serial.print("GPIO: ");
     Serial.print(inputMessage1);
     Serial.print(" - Set to: ");
-    Serial.println(inputMessage2);
     request->send(200, "text/plain", "OK"); });
     server.begin();
 }
