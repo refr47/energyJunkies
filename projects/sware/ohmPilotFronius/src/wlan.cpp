@@ -87,23 +87,23 @@ bool wifi_init()
 
 void wifi_scan_network()
 {
-    char buff[512];
+   /*  char buff[512];
     tft_getRoot().setTextColor(TFT_GREEN, TFT_BLACK);
     tft_getRoot().fillScreen(TFT_BLACK);
     tft_getRoot().setTextDatum(MC_DATUM);
     tft_getRoot().setTextSize(3);
 
-    tft_getRoot().drawString("Scan Network", tft_getWidth() / 2, tft_getHeight() / 2);
+    tft_getRoot().drawString("Scan Network", tft_getWidth() / 2, tft_getHeight() / 2); */
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
     delay(500);
-    tft_getRoot().setTextSize(1);
+   
     int16_t n = WiFi.scanNetworks();
     tft_getRoot().fillScreen(TFT_BLACK);
     if (n == 0)
     {
-        tft_getRoot().drawString("No networks found", tft_getWidth() / 2, tft_getHeight() / 2);
+        tft_showAvailableNetworks(1, "No networks found");
     }
     else
     {
@@ -112,12 +112,13 @@ void wifi_scan_network()
         Serial.printf("Found %d net\n", n);
         for (int i = 0; i < n; ++i)
         {
-            sprintf(buff,
+            /* sprintf(buff,
                     "[%d]:%s(%d)",
                     i + 1,
                     WiFi.SSID(i).c_str(),
-                    WiFi.RSSI(i));
-            tft_getRoot().println(buff);
+                    WiFi.RSSI(i)); */
+            tft_showAvailableNetworks(1, "" + (i + 1), WiFi.SSID(i).c_str(), "" + WiFi.RSSI(i));
+           
         }
     }
     // WiFi.mode(WIFI_OFF);

@@ -10,11 +10,11 @@ Das Produkt wird in einen hardware- und softwareabhängigen Teil aufgespaltet. E
 
 Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h. die Entwicklungskosten für die HW sollten deutlich unterschritten werden (!)
 
-- Die GPIOs des ESP32 werden mit 3.3 V betrieben. Über eine entsprechende TransistorSchaltung kann je Phase dann per Relais durchgeschaltet werden. Alternativ könnte ein Pegelwandler 3.3V auf 5V genutzt werdenererer
-- 2 Temperatursensoren sorgen für einen "Not-Aus", d.h. wenn beispielsweise das Wasser schon 85° hat, darf nicht mehr geheizt werden. Sicherheitshalber werden 2 Sensoren verwendet für den Fall, dass einer ausfällt. Die gesteuerte Last könnte auch indirekt über ein Sicherheitsthermostat indirekt angeschlossen werden.
-- Lage des Displays (vertikal | horizontal) ?
-- Vorschläge von Ej - Blockschaltbilder liegen in **projects/ohmPilotFronius/**
-- EJ-EMV Filter (Elektromagnetischer Filtervorsatz, auf diesen wird in der ersten Phase verzichtet bzw. Vorversuche gestartet)
+* Die GPIOs des ESP32 werden mit 3.3 V betrieben. Über eine entsprechende TransistorSchaltung kann je Phase dann per Relais durchgeschaltet werden. Alternativ könnte ein Pegelwandler 3.3V auf 5V genutzt werdenererer
+* 2 Temperatursensoren sorgen für einen "Not-Aus", d.h. wenn beispielsweise das Wasser schon 85° hat, darf nicht mehr geheizt werden. Sicherheitshalber werden 2 Sensoren verwendet für den Fall, dass einer ausfällt. Die gesteuerte Last könnte auch indirekt über ein Sicherheitsthermostat indirekt angeschlossen werden.
+* Lage des Displays (vertikal | horizontal) ?
+* Vorschläge von Ej - Blockschaltbilder liegen in **projects/ohmPilotFronius/**
+* EJ-EMV Filter (Elektromagnetischer Filtervorsatz, auf diesen wird in der ersten Phase verzichtet bzw. Vorversuche gestartet)
 -  EJ-Control Board (ESP32 TTGO, Eingabe, Ausgabe Schnittstellen, Versorgt über die Power Unit)
 -  EJ-Power Unit1 (Phasenanschnitt mit Modul 2-10V vom Armin bzw. Modul 0-20mA vom Oliver, sehr große EMV Probleme, erste Hardware für Versuche)
 -  EJ-Power Unit2 (PWM Endstufe, eventuell Schülerprojekt 23/24, große EMV Probleme)
@@ -23,7 +23,14 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 
 ### SW
 
-- Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
+* Setup: Folgende Parameter sind benutzer- bzw. analagenabhängig:
+  - Einstellung der WLAN-Zugangsdaten (SSID,Password)
+  - IP-Adresse Modbus
+  - Heizstableistung (für die rechnerische Festlegung der in das Heizsystem geleiteten Energie)
+  - Einspeisebeschränkung (wieviel kW dürfen eingespeist werden)
+  - Schranken für die PWM-Steuerung
+  - Für die Eingabe ist eine WebSite zu verwenden, wobei der uController (ESP32) als AccessPoint fungiert. Die notwendigen Informationen (SSID,IP-Adresse) sind per Display anzuzeigen.
+* Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
   - aktive Netzwerkverbindung
   - IP-Adresse
   - aktuelle Produktion, davon Überschuss
@@ -31,7 +38,7 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
   - aktuelle Temperatur des Wasses, gemessen durch die 2 TempSensoren
   - Fehler
   - ?
-- Die Kommunikation wird per WLAN durchgeführt, wobei regelmäßig zu prüfen ist, ob die WLAN-Verbindung noch funktioniert
+* Die Kommunikation wird per WLAN durchgeführt, wobei regelmäßig zu prüfen ist, ob die WLAN-Verbindung noch funktioniert
   - ?? hat nur tagsüber Sinn
   - was passiert, wenn die Kommunikation nicht mehr funktioniert - Fehlermeldung am Display ( ! )
 - Der WR wird per Modbus (TCP) angesteuert & setzt eine funktionierende WLAN-Verbindung voraus.
@@ -41,16 +48,16 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 
 ## Was einem sonst noch so einfällt
 
-- Bezüglich Tag/Nacht-Betrieb: Prinzipiell macht die Steuerung nur dann Sinn, wenn Strom produziert wird -also tagsüber. Wahrscheinlich werden künftig unterschiedliche h-Strompreise angeboten werden, d.h. bei schönem Wetter ist mehr Solarstrom da und daher günstiger ( ? ) oder der Strom ist dann teuerer, wenn mehr gebraucht wird (z.B. vormittags). Einen Boiler muss man immer betreiben und hier könnte es Sinn machen, auch einen Nachtbetrieb einzuführen, da hier der Strom wahrscheilich günstiger ist.
-- Es wäre für die Optimierung der Energiekosten (welcher Tarif ist für das Aufheizen/Aufladen am günstigsten) günstig, wenn man den Wetterbericht kennt, denn dann weiß man ja, ob genug Solarstrom vorhanden ist, den Task durchzuführen (z.B. Aufladen).
-- Künftig werden wahrscheinlich variable Einspeistarife vorgegeben werden, variable Stromkosten für den Einkauf gibt es ja schon. Hier kann dann optimiert werden in Abstimmung mit einem eventuell vorhandenen Akku, wann wer wie geladen / in das Netz gespeist wird.
-- Poolpumpe bzw. Poolwärmepumpe: Poolpumpe wälzt das Wasser im Becken um, egal welche Qualität das Wasser hat. Hier könnte in Verbindung mit einem Frequenzumformer die Leistung der Pumpe reduziert werden, wenn man weiß, welche Qualität das Wasser dzt. hat. Die Wärmepumpe kann ebenfalls in Abhängigkeit von Überstrom gesteuert werden (Ein- bzw. Ausschalten per TCP?)
-- Setup: Jeder hat ja seine eigen Zugangsdaten - wie sollen diese am Besten berücksichtigt werden. Der geringste Aufwand ist die Erstellung eines eigenen setup.h-Files, in der sämtliche spezifische Daten eingetragen werden. Elegant wäre natürlich das Setup per Handy, wobei der ESP im Setup-Modus bootet und einen eigenen AP zur Verfügung stellt, in der sich eine App einwählt und dann die Zugangsdaten einstellt. Diese Daten werden dann ins Eprom verfrachtet ?
-- Im Prototyp sind ja 4 zusätzliche Taster vorgesehen - es ist hier zu definieren, welche Funktionalität hier hinterlegt wird.
-- Thema WLAN/Setup: ich hab bereits ein Projekt mit einem ESP2866 am Start und genau diese Problematik. Ich hab 2 Bibliotheken im Einsatz: 
+* Bezüglich Tag/Nacht-Betrieb: Prinzipiell macht die Steuerung nur dann Sinn, wenn Strom produziert wird -also tagsüber. Wahrscheinlich werden künftig unterschiedliche h-Strompreise angeboten werden, d.h. bei schönem Wetter ist mehr Solarstrom da und daher günstiger ( ? ) oder der Strom ist dann teuerer, wenn mehr gebraucht wird (z.B. vormittags). Einen Boiler muss man immer betreiben und hier könnte es Sinn machen, auch einen Nachtbetrieb einzuführen, da hier der Strom wahrscheilich günstiger ist.
+* Es wäre für die Optimierung der Energiekosten (welcher Tarif ist für das Aufheizen/Aufladen am günstigsten) günstig, wenn man den Wetterbericht kennt, denn dann weiß man ja, ob genug Solarstrom vorhanden ist, den Task durchzuführen (z.B. Aufladen).
+* Künftig werden wahrscheinlich variable Einspeistarife vorgegeben werden, variable Stromkosten für den Einkauf gibt es ja schon. Hier kann dann optimiert werden in Abstimmung mit einem eventuell vorhandenen Akku, wann wer wie geladen / in das Netz gespeist wird.
+* Poolpumpe bzw. Poolwärmepumpe: Poolpumpe wälzt das Wasser im Becken um, egal welche Qualität das Wasser hat. Hier könnte in Verbindung mit einem Frequenzumformer die Leistung der Pumpe reduziert werden, wenn man weiß, welche Qualität das Wasser dzt. hat. Die Wärmepumpe kann ebenfalls in Abhängigkeit von Überstrom gesteuert werden (Ein- bzw. Ausschalten per TCP?)
+* Setup: Jeder hat ja seine eigen Zugangsdaten - wie sollen diese am Besten berücksichtigt werden. Der geringste Aufwand ist die Erstellung eines eigenen setup.h-Files, in der sämtliche spezifische Daten eingetragen werden. Elegant wäre natürlich das Setup per Handy, wobei der ESP im Setup-Modus bootet und einen eigenen AP zur Verfügung stellt, in der sich eine App einwählt und dann die Zugangsdaten einstellt. Diese Daten werden dann ins Eprom verfrachtet ?
+* Im Prototyp sind ja 4 zusätzliche Taster vorgesehen - es ist hier zu definieren, welche Funktionalität hier hinterlegt wird.
+* Thema WLAN/Setup: ich hab bereits ein Projekt mit einem ESP2866 am Start und genau diese Problematik. Ich hab 2 Bibliotheken im Einsatz: 
   - [WIFI-Manager](https://github.com/tzapu/WiFiManager) Hotspot + Webserver für WLAN Konfiguration + eigenes Setup möglich (ums Speichern des eigenen Setups muss man sich selbst kümmern)
-  - [WebConfig](https://github.com/GerLech/WebConfig)eigener Webserver ausschließlich für Konfiguration, Daten werden am FS gespeichert
-- HomeKit Integration: ich hab bereits etliche Geräte mit Apple HomeKit im Einsatz und auch schon eigene Geräte HomeKit tauglich gemacht. Meine Idee wäre, einfach einen Schalter mit einem ESP zu simulieren (z.B. Stromüberproduktion-> Schalter ist ON, ...) Dieser Schalter lässt sich easy in die bestehende Infrastruktur einbinden und dank Homekit können dann eigene Abläufe konfiguriert werden -> "Schalter Stromüberproduktion" = ON -> schalte über einen Shelly (ebenfalls mit Homekit Firmware geflasht) den Warmwasserboiler ein.
+  * [WebConfig](https://github.com/GerLech/WebConfig)eigener Webserver ausschließlich für Konfiguration, Daten werden am FS gespeichert
+* HomeKit Integration: ich hab bereits etliche Geräte mit Apple HomeKit im Einsatz und auch schon eigene Geräte HomeKit tauglich gemacht. Meine Idee wäre, einfach einen Schalter mit einem ESP zu simulieren (z.B. Stromüberproduktion-> Schalter ist ON, ...) Dieser Schalter lässt sich easy in die bestehende Infrastruktur einbinden und dank Homekit können dann eigene Abläufe konfiguriert werden -> "Schalter Stromüberproduktion" = ON -> schalte über einen Shelly (ebenfalls mit Homekit Firmware geflasht) den Warmwasserboiler ein.
 
 # IDE/PlatformIO
 
