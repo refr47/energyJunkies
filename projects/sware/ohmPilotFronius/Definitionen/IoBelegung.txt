@@ -1,0 +1,2 @@
+GPIO 1
+GPIO 12   SPI CardReader
