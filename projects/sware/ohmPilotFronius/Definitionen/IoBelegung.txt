@@ -1,2 +1,7 @@
-GPIO 1
-GPIO 12   SPI CardReader
+#define INTERNAL_BUTTON_1_GPIO              0
+#define INTERNAL_BUTTON_2_GPIO             14
+
+#define CARDREADER_SPI_CS                   10
+#define CARDREADER_SPI_MOSI                 11
+#define CARDREADER_SPI_CLK                  12
+#define CARDREADER_SPI_MISO                 13
