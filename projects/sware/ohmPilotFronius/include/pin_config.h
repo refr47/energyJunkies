@@ -30,3 +30,8 @@
 
 #define PIN_TOUCH_INT                16
 #define PIN_TOUCH_RES                21
+
+#define CARDREADER_SPI_CS 10
+#define CARDREADER_SPI_MOSI 11
+#define CARDREADER_SPI_CLK 12
+#define CARDREADER_SPI_MISO 13

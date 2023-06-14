@@ -5,26 +5,30 @@
 
 #include "cardRW.h"
 #include "utils.h"
-
+#include "SD_MMC.h"
+#include "pin_config.h"
+/*
 #define CARD_MISO 27 // GPIO27
 #define CARD_MOSI 26 // GPIO26
 #define CARD_SCK 25  // GIPO25
 #define CARD_CS 33   // GPIO33
-#define SDSPEED 27000000
+#define SDSPEED 27000000 */
 
-static SPIClass spi = SPIClass(HSPI);
+// static SPIClass spi = SPIClass(HSPI);
 
 void appendFile(fs::FS &fs, const char *path, const char *message);
 
 bool cardRW_setup()
 {
-    Serialprintln("CLOCK: %d, CARD_MISO: %d, CARD_MOSI: %d, CARD_CS: %d", CARD_SCK, CARD_MISO, CARD_MOSI, CARD_CS);
+    Serialprintln("CLOCK: %d, MISO: %d, MOSI: %d, CS: %d", SCK, MISO, MOSI, SS);
 
-    pinMode(CARD_CS, OUTPUT);
-
-    spi.begin(CARD_SCK, CARD_MISO, CARD_MOSI, CARD_CS);
-    if (!SD.begin(CARD_CS, spi))
-    // if (!SD.begin(CS, spi))
+    pinMode(SS, OUTPUT);
+    digitalWrite(SS, LOW); // Setze CS-Pin auf HIGH (inaktiv)
+                           /*  SPI.begin(SCK, MISO, MOSI);
+                            SPI.setFrequency(4000000); // at 8000000 I get CPU panic reboots
+                         */
+    // if (!SD.begin(SS))
+    if (!SD.begin(SS))
     {
 
         Serial.println("Card Mount Failed");

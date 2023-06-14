@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "ohmPilotFronius",
+			"path": "sware/ohmPilotFronius"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.jsx": "javascriptreact",
+			"*.js": "javascriptreact",
+			"ratio": "cpp"
+		}
+	}
+}

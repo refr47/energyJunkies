@@ -8,6 +8,7 @@
 #include "tft.h"
 // #include "graphicTest.h"
 #include "eprom.h"
+
 #include "ap.h"
 /*
 Input only pins
@@ -45,6 +46,27 @@ HSPI	GPIO 13	GPIO 12	GPIO 14	GPIO 15
 char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
 static bool networkCredentialsInEEprom = false;
 
+void pHW()
+{
+  esp_chip_info_t chip_info;
+  esp_chip_info(&chip_info);
+
+  Serial.println("Hardware info");
+  Serial.printf("%d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+                (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+  Serial.printf("Silicon revision: %d\n", chip_info.revision);
+  Serial.printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
+                (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embeded" : "external");
+
+  // get chip id
+  String chipId = String((uint32_t)ESP.getEfuseMac(), HEX);
+  chipId.toUpperCase();
+
+  Serial.printf("Chip id: %s\n", chipId.c_str());
+  Serial.print("Model: ");
+  Serial.println(chip_info.model);
+}
+
 void setup()
 {
   /* pinMode(PIN_POWER_ON, OUTPUT);
@@ -59,14 +81,14 @@ void setup()
   int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
   Serial.print("internal bu: ");
   Serial.println(currentState);
-  Serial.print("MOSI: ");
+  /* Serial.print("MOSI: ");
   Serial.println(MOSI);
   Serial.print("MISO: ");
   Serial.println(MISO);
   Serial.print("SCK: ");
   Serial.println(SCK);
   Serial.print("SS: ");
-  Serial.println(SS);
+  Serial.println(SS); */
 
   /*
    printHWInfo();
@@ -76,10 +98,12 @@ void setup()
   pinMode(INTERNAL_BUTTON_2_GPIO, INPUT_PULLUP);
   pinMode(PIN, OUTPUT); */
   delay(500);
+  pHW();
   // digitalWrite(PIN, 0);
   // wifi_scan_network();
   tft_clearScreen();
   // meterSim();
+  cardRW_setup();
   Network n;
   eprom_getNetwork(n);
 
@@ -137,7 +161,8 @@ void loop()
     mb_readInverter();
     */
     tft_printTxt(30, 50, 2, "test");
-    delay(5000);
+    cardRW_setup();
+    delay(1000);
     /* if (!mb_readInverter())
     {
       Serial.println("Cannot read Inverter ...");
@@ -145,6 +170,7 @@ void loop()
     Serial.println(" .... LOOP .....");
     int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
     Serial.print("internal bu: ");
+    Serial.println(currentState);
     delay(500);
   }
 }
