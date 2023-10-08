@@ -1,92 +1,139 @@
 #define __ACCESS_POINT_CPP
-#include "tft.h"
+
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <SPIFFS.h>
+#include <mdns.h>
+
+#include "tft.h"
 
 // WiFiServer server(80);
 const char *PARAM_INPUT_1 = "passwd";
 const char *PARAM_INPUT_2 = "state";
 
+/* You only need to format SPIFFS the first time you run a
+   test or else use the SPIFFS plugin to create a partition
+   https://github.com/me−no−dev/arduino−esp32fs−plugin */
+#define FORMAT_SPIFFS_IF_FAILED true
+
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
 
 const char *ssid = "EnergieJunkies";
+// Flag to check if the user is authenticated
+bool isAuthenticated = false;
 
-const char index_html[] PROGMEM = R"rawliteral(
-<!DOCTYPE HTML><html>
-<head>
-  <title>EnergieJunkies Initialisierung</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="data:,">
-  <style>
-    html {font-family: Arial; display: inline-block; text-align: center;}
-    h2 {font-size: 3.0rem;}
-    p {font-size: 3.0rem;}
-    body {max-width: 600px; margin:0px auto; padding-bottom: 25px;}
-    .switch {position: relative; display: inline-block; width: 120px; height: 68px} 
-    .switch input {display: none}
-    .slider {position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 6px}
-    .slider:before {position: absolute; content: ""; height: 52px; width: 52px; left: 8px; bottom: 8px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 3px}
-    input:checked+.slider {background-color: #b30000}
-    input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}
-  </style>
-</head>
-<body>
-  <h2>EnergieJunkies Web Server</h2>
-  %BUTTONPLACEHOLDER%
-<script>function toggleCheckbox(element) {
-  var xhr = new XMLHttpRequest();
-  if(element.checked){ xhr.open("GET", "/update?output="+element.id+"&state=1", true); }
-  else { xhr.open("GET", "/update?output="+element.id+"&state=0", true); }
-  xhr.send();
-}
-</script>
-</body>
-</html>
-)rawliteral";
-
-String outputState(int output)
+void listDir(char *dir)
 {
-    if (digitalRead(output))
+    Serial.println("listdir");
+    File root = SPIFFS.open(dir);
+
+    if (!root)
     {
-        return "checked";
+        Serial.println("- failed to open directory");
+        return;
+    }
+    if (!root.isDirectory())
+    {
+        Serial.println(" - not a directory");
+        return;
+    }
+
+    Serial.println(root);
+    File file = root.openNextFile();
+    Serial.println(file);
+    while (file)
+    {
+
+        Serial.print("FILE: ");
+        Serial.println(file.name());
+
+        file = root.openNextFile();
+    }
+}
+
+String callBack(const String &var)
+{
+    Serial.println("in callback ...");
+    if (var == "PLACEHOLDER")
+        return "Hello world from placeholder!";
+
+    return String();
+    Serial.println(var);
+}
+void handleLogin(AsyncWebServerRequest *request)
+{
+    Serial.println("handleLogin");
+    bool standingData = false;
+    // Check if the request method is POST
+    if (request->method() == HTTP_POST)
+    {
+        // Check if the POST data matches the expected username and password
+        if (
+            request->hasParam("username", true) &&
+            request->hasParam("password", true) &&
+            request->hasParam("standingData", true) &&
+            request->getParam("username", true)->value() == "admin" &&
+            request->getParam("password", true)->value() == "password")
+        {
+            isAuthenticated = true;
+            standingData = request->arg("standingData") == "true";
+            Serial.print("Stammdaten: ");
+            Serial.println(standingData);
+
+            if (standingData)
+                request->send(SPIFFS, "/standingData.html", String(), false, callBack);
+            else
+                request->send(SPIFFS, "/index.html", String(), false, callBack);
+        }
+        else
+        {
+            request->send(401, "text/plain", "Login failed");
+        }
     }
     else
     {
-        return "";
+        request->send(405, "text/plain", "Method Not Allowed");
     }
 }
-// Replaces placeholder with button section in your web page
-String processor(const String &var)
+
+void handleRoot(AsyncWebServerRequest *request)
 {
-    // Serial.println(var);
-    if (var == "BUTTONPLACEHOLDER3")
+    // Check if the user is authenticated
+    Serial.println("handleRoot");
+    if (isAuthenticated)
     {
-        String buttons = "";
-        buttons += "<h4>Output - GPIO 2</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"2\" " + outputState(2) + "><span class=\"slider\"></span></label>";
-        buttons += "<h4>Output - GPIO 4</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"4\" " + outputState(4) + "><span class=\"slider\"></span></label>";
-        buttons += "<h4>Output - GPIO 33</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"33\" " + outputState(33) + "><span class=\"slider\"></span></label>";
-        return buttons;
+        request->send(SPIFFS, "/index.html", String(), false, callBack);
     }
-
-    if (var == "BUTTONPLACEHOLDER")
+    else
     {
-        String form = "";
-        form += "<form action=\"/get\"> Password: <input type=\"text\" name=\"passwd\">";
-        form += "<input type = \" submit \" value = \" Submit \"> </form><br>";
-        return form;
+        request->send(SPIFFS, "/login.html", "text/html", false, callBack);
     }
-
-    return String();
 }
 
 void ap_init()
 {
+    // Initialize SPIFFS
+    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
+    {
+        Serial.println("SPIFFS Mount Failed");
+        return;
+    }
 
-    // Connect to Wi-Fi network with SSID
+    listDir("/");
+    //  Connect to Wi-Fi network with SSID
     Serial.print("Setting AP (Access Point)…");
     WiFi.softAP(ssid);
+    /*   if (!MDNS.begin(host))
+      { // Use http://esp32.local for web server page
+          Serial.println("Error setting up MDNS responder!");
+          while (1)
+              109
+              {
+                  delay(1000);
+              }
+      } */
 
     IPAddress IP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
@@ -94,30 +141,39 @@ void ap_init()
     Serial.println(IP);
     tft_initNetwork(6, "Keine Netzwerkparameter", "ACCESS-Point Modus", "SSID=>", ssid, "IP=>", (char *)IP.toString().c_str());
 
-    // Route for root / web page
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send_P(200, "text/html", index_html, processor); });
+    // Route for serving the login page and handling login requests
+    server.on("/login", HTTP_POST, handleLogin);
 
-    // Send a GET request to <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
-    server.on("/GET", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-    String inputMessage1;
-    
-    // GET input1 value on <ESP_IP>/update?output=<inputMessage1>&state=<inputMessage2>
-    if (request->hasParam(PARAM_INPUT_1) ) {
-      inputMessage1 = request->getParam(PARAM_INPUT_1)->value();
-     
-      //digitalWrite(inputMessage1.toInt(), inputMessage2.toInt());
-        Serial.print("GET param: ");
-        Serial.println(inputMessage1);
+    // Route for serving the root page
+    server.on("/", HTTP_GET, handleRoot);
+
+    // Route to load style.css file
+    server.on("/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/main.css", "text/css"); });
+
+    // Route for serving static files from SPIFFS
+    server.onNotFound([](AsyncWebServerRequest *request)
+                      {
+
+    String path = request->url();
+    Serial.print("Path (!found): ");
+    Serial.print(path.c_str());
+    Serial.println(";");
+    if (!isAuthenticated) {
+      // Redirect to the login page if not authenticated
+      request->redirect("/login");
+      return;
     }
-    else {
-      inputMessage1 = "No message sent";
-    }
-    Serial.print("GPIO: ");
-    Serial.print(inputMessage1);
-    Serial.print(" - Set to: ");
-    request->send(200, "text/plain", "OK"); });
+
+    if (SPIFFS.exists(path)) {
+      AsyncWebServerResponse* response = request->beginResponse(SPIFFS, path, String(), true);
+      response->addHeader("Cache-Control", "max-age=600");
+      request->send(response);
+    } else {
+      request->send(404, "text/plain", "File not found");
+    } });
+
+    // Start the server
     server.begin();
 }
 

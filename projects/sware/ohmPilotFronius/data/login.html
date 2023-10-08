@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Login Page</title>
+		<link rel="icon" href="data:," />
+		<link rel="stylesheet" type="text/css" href="main.css" />
+	</head>
+	<script src="js/jquery-3.7.1.min.js"></script>
+	<script>
+		$(document).ready(function () {
+			$('#headerContent').load('headerF.html #headerSection');
+		});
+	</script>
+	<div id="headerContent"></div>
+	<body>
+		<h1>Login</h1>
+		<form action="/login" method="post">
+			<div id="login">
+				<div>
+					<label for="username">Username:</label>
+					<input type="text" id="username" name="username" required />
+				</div>
+				<div>
+					<label for="password">Password:</label>
+					<input type="password" id="password" name="password" required />
+				</div>
+				<div>
+					<input type="checkbox" name="standingData" value="true" /> Stammdaten
+					bearbeiten
+				</div>
+				<br />
+				<div id="loginB">
+					<input type="submit" value="Login" />
+				</div>
+			</div>
+		</form>
+	</body>
+</html>

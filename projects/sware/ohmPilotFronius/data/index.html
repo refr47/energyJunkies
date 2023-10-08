@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+
+<html>
+	<script src="js/jquery-3.7.1.min.js"></script>
+  <script src="js/datatables.min.js"></script>
+	<script>
+		$(document).ready(function () {
+			$('#headerContent').load('headerF.html #headerSection');
+			document.title = 'Hauptfenster';
+      var data = $('#overview').DataTable({
+    "dom": 'rtip',
+    "lengthChange": false,
+    "info": false,
+    "bPaginate": false,
+    "responsive": true
+  });
+      $(".dataTables_filter").hide();
+    })
+	</script>
+	<div id="headerContent"></div>
+
+	<body>
+		<h1>Übersicht</h1>
+    <table id="overview" class="stripe" style="width:60%">
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>Ausprägung</th>
+            </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>IP-Adresse</td>
+            <td>10.0.0.7</td>
+          </tr>
+          <tr>
+            <td>Aktuelle Produktion</td>
+            <td>100</td>
+          </tr>
+           <tr>
+            <td>Phase 1</td>
+            <td>100</td>
+          </tr>
+        </tbody>
+	</body>
+</html>

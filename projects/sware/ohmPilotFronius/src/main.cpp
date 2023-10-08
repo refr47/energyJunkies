@@ -118,6 +118,7 @@ void setup()
     {
       Serial.println("Cannot connect");
       tft_drawNetworkInfo(NULL);
+      ap_init();
     }
     else
     {

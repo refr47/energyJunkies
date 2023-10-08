@@ -1,0 +1,3 @@
+https://ipc2u.de/artikel/wissenswertes/detaillierte-beschreibung-des-modbus-tcp-protokolls-mit-befehlsbeispielen/
+https://devicebase.net/de/schneider-electric-modbus-tcp/fragen/welche-fehler-koennen-bei-der-modbus-kommunikation-auftreten/38j
+https://www.se.com/se/sv/faqs/FA386843/

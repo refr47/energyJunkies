@@ -22,11 +22,11 @@ bool cardRW_setup()
 {
     Serialprintln("CLOCK: %d, MISO: %d, MOSI: %d, CS: %d", SCK, MISO, MOSI, SS);
 
-    pinMode(SS, OUTPUT);
-    digitalWrite(SS, LOW); // Setze CS-Pin auf HIGH (inaktiv)
-                           /*  SPI.begin(SCK, MISO, MOSI);
-                            SPI.setFrequency(4000000); // at 8000000 I get CPU panic reboots
-                         */
+    // pinMode(SS, OUTPUT);
+    // digitalWrite(SS, LOW); // Setze CS-Pin auf HIGH (inaktiv)
+    /*  SPI.begin(SCK, MISO, MOSI);
+     SPI.setFrequency(4000000); // at 8000000 I get CPU panic reboots
+  */
     // if (!SD.begin(SS))
     if (!SD.begin(SS))
     {
