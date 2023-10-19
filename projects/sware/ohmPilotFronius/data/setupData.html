@@ -166,10 +166,12 @@
       $('#theValue').val("");
 
     });
-
+ 
+    
     //'Edit' button click handler
-    $('#stamm').on('click', 'tbody tr button[action="edit"]', function () {
+    $('#stamm').on('click', 'tbody tr button[action="edit"]', function (e) {
       //get affected row entry
+      e.preventDefault();
       $('#editBlock').show();
       $('#error').hide();
       const row = dataTable.row($(event.target).closest('tr'));

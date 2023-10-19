@@ -177,6 +177,7 @@ void ap_init()
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
         Serial.println("SPIFFS Mount Failed");
+        
         return;
     }
 
