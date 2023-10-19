@@ -40,7 +40,7 @@
 #define MPPT_3_PWR (40314 - MPPT_ADDR) // battery charge power
 #define MPPT_4_PWR (40334 - MPPT_ADDR) // battery discharge power
 
-#define MPPT_REGS_COUNT (MPPT_4_PWR + 1) // number of registers
+#define MPPT_REGS_COUNT (MPPT_2_PWR + 1) // number of registers
 
 // used storage starting register number
 #define STRG_ADDR 40348 // enable (dis-)charge limits bitfield

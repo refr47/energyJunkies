@@ -45,7 +45,7 @@ int main(int argc, char **argv)
     // modbus unit id of smart meter: 200 GEN24 @ home, 240 Symo @ HTL
 
     config_t config = {
-        "192.168.0.98", 502, CUT_OFF_DURATION, CUT_OFF_BEGIN, CUT_OFF_BEGIN + CUT_OFF_DURATION,
+        "10.0.0.7", 502, CUT_OFF_DURATION, CUT_OFF_BEGIN, CUT_OFF_BEGIN + CUT_OFF_DURATION,
         CUT_OFF_BEGIN + CUT_OFF_DURATION + 10, 10, 30, 7,
         60, 92,
         200, 30000000, 10, MODBUS_ERROR_RECOVERY_NONE};
@@ -343,7 +343,7 @@ int readInverter(modbus_t *inverter, config_t *config, values_t *values, char ti
     // register values of MPPT
     uint16_t mpptRegs[MPPT_REGS_COUNT];
     // register values of storage
-    uint16_t strgRegs[STRG_REGS_COUNT];
+    //uint16_t strgRegs[STRG_REGS_COUNT];
     // register values of smart meter
     uint16_t invrtRegs[INVRT_REGS_COUNT];
 
@@ -366,6 +366,7 @@ int readInverter(modbus_t *inverter, config_t *config, values_t *values, char ti
         }
 
         // read storage values (SoC)
+		  /*
         rc = modbus_read_registers(inverter, STRG_ADDR, STRG_REGS_COUNT, strgRegs);
         if (rc == -1)
         {
@@ -373,7 +374,7 @@ int readInverter(modbus_t *inverter, config_t *config, values_t *values, char ti
                     modbus_strerror(errno));
             readSuccess = false;
         }
-
+*/
         // read AC power values
         rc = modbus_read_registers(inverter, AC_PWR_ADDR, INVRT_REGS_COUNT, invrtRegs);
         if (rc == -1)
@@ -387,10 +388,12 @@ int readInverter(modbus_t *inverter, config_t *config, values_t *values, char ti
         if (readSuccess)
         {
             rc = 0;
+				printf("SF: %f\n",(float)pow(10,invrtRegs[AC_PWR_SF]));
+				printf("AC_PWR_SF: %d, DC_WOR_SF: %d\n",AC_PWR_SF,DC_PWR_SF);
             // calculate scale factors
-            values->chrgDisChrgSf = (float)pow(10, strgRegs[CHRG_DIS_CHRG_SF]);
+            //values->chrgDisChrgSf = (float)pow(10, strgRegs[CHRG_DIS_CHRG_SF]);
             values->mpptPwrSf = (float)pow(10, mpptRegs[MPPT_PWR_SF]);
-            values->socPercSf = (float)pow(10, strgRegs[SOC_PERC_SF]);
+            //values->socPercSf = (float)pow(10, strgRegs[SOC_PERC_SF]);
             values->acPwrSf = (float)pow(10, invrtRegs[AC_PWR_SF]);
             values->dcPwrSf = (float)pow(10, invrtRegs[DC_PWR_SF]);
             // scale inverter values read
@@ -401,8 +404,8 @@ int readInverter(modbus_t *inverter, config_t *config, values_t *values, char ti
             values->dcPwr = invrtRegs[DC_PWR] * values->dcPwrSf;
             values->chrgPwr = mpptRegs[MPPT_3_PWR] * values->mpptPwrSf;
             values->disChrgPwr = mpptRegs[MPPT_4_PWR] * values->mpptPwrSf;
-            values->socPerc = strgRegs[SOC_PERC] * values->socPercSf;
-            values->chrgPerc = strgRegs[CHRG_PERC] * values->chrgDisChrgSf;
+            //values->socPerc = strgRegs[SOC_PERC] * values->socPercSf;
+            //values->chrgPerc = strgRegs[CHRG_PERC] * values->chrgDisChrgSf;
         }
         else
         {

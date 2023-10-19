@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+
+<html lang="de">
+
+<script src="js/jquery-3.7.1.min.js"></script>
+<script src="js/datatables.min.js"></script>
+<script>
+  function showError(text) {
+
+    $('#error').animate({
+      backgroundColor: '#ddd',
+    }, 1000, function () {
+      $(this).css({
+        "background-color": 'red',
+        "color": "white"
+      });
+    });
+    $('#error').val(text)
+    $('#error').show()
+    return false
+
+  }
+
+  function evalIt(value, index) {
+    console.log("val: " + value + " , ind: " + index)
+    if (value == "")
+      return showError("Feld kann nicht leer sein.")
+    let nu = 0, fnum = 0.0
+    switch (index) {
+      case 2: if (isNaN(value))
+        return showError("Numerische Eingabe erforderlich")
+
+        nu = parseInt(value)
+        if (nu < 1 || nu >= 100)
+          return showError("Wertebereich ungültig (>0 und <= 100)")
+
+        break;
+      case 3: if (isNaN(value))
+        return showError("Numerische Eingabe erforderlich")
+        nu = parseInt(value)
+        if (nu < 1 || nu >= 10000)
+          return showError("Wertebereich ungültig (>0 und <= 10000)")
+        break;
+      case 4: if (isNaN(value))
+        return showError("Numerische Eingabe erforderlich")
+        nu = parseInt(value)
+        if (nu < 1 || nu >= 120)
+          return showError("Wertebereich ungültig (>0 und <= 120)")
+        break;
+      case 5: if (isNaN(value))
+        return showError("Numerische Eingabe erforderlich")
+        fnum = parseFloat(value)
+        if (fnum < 0 || fnum > 1)
+          return showError("Wertebereich ungültig (=0 und <= 1)")
+        break;
+      case 6: if (isNaN(value))
+        return showError("Numerische Eingabe erforderlich")
+        fnum = parseFloat(value)
+        if (fnum < 0 || fnum > 1)
+          return showError("Wertebereich ungültig (=0 und <= 1)")
+        break;
+      case 7: if (isNaN(value))
+        return showError("Numerische Eingabe erforderlich")
+        fnum = parseFloat(value)
+        if (fnum < 0 || fnum > 1)
+          return showError("Wertebereich ungültig (=0 und <= 1)")
+        break;
+      case 8: if (isNaN(value))
+        return showError("Numerische Eingabe erforderlich")
+        fnum = parseInt(value)
+        if (fnum < 1 || fnum >= 10000)
+          return showError("Wertebereich ungültig (>0 und <= 10000)")
+        break;
+
+    }
+    return true
+  }
+  $(document).ready(function () {
+    $("#headerContent").load("headerF.html #headerSection");
+    document.title = 'Setup';
+    $('#form_store').on('submit', function (e) {
+      //$(('button[id^="store"]')).click(function () {
+      //e.preventDefault();
+      const data = {
+        name: "name",
+        email: "email",
+      };
+
+      $.ajax({
+        type: 'POST',
+        url: '/storeSetup',
+        data: JSON.stringify(data),
+        contentType: 'application/json',
+      })
+        .done((data) => {
+          console.log({ data });
+        })
+        .fail((err) => {
+          console.error(err);
+        })
+        .always(() => {
+          console.log('always called');
+        });
+
+    });
+
+
+    var currentIndex = 0
+    var data = $('#stamm').DataTable({
+      "dom": 'r',
+      "lengthChange": false,
+      "info": false,
+      "bPaginate": false,
+      "responsive": true,
+      "ordering": false,
+      columns: [
+        { title: 'Titel' },
+        {
+          title: 'Wert',
+          render: data => `${data}<td><button action="edit">Edit</button></td>`
+        },
+
+
+      ],
+      columnDefs: [
+        {
+          target: 1,
+          visible: true,
+          searchable: false
+        },
+
+      ]
+    });
+    $(".dataTables_filter").hide();
+    $('#editBlock').hide();
+
+    $('#addRow').on('click', function () {
+
+      //when submit button acts to submit edits
+      if ($(this).attr('action') == 'confirmEdit') {
+        //change affected row data and re-draw the table
+
+        console.log("update ..." + currentIndex)
+        val = $('#theValue').val();
+        if (!evalIt(val, currentIndex))
+          return
+
+        $('#editBlock').hide();
+        data.row($(this).attr('rowindex')).data([$("#theTitle").val(), $("#theValue").val()]).draw();
+      }
+      //clean up form, switch it to default state
+      $('#theTitle').val("");
+      $('#theValue').val("");
+
+    });
+
+    //'Edit' button click handler
+    $('#stamm').on('click', 'tbody tr button[action="edit"]', function () {
+      //get affected row entry
+      $('#editBlock').show();
+      $('#error').hide();
+      const row = data.row($(event.target).closest('tr'));
+      currentIndex = row.index()
+      //get affected row().index() and append that to 'Submit' button attributes
+      //you may use global variable for that purpose if you prefer
+      $('#addRow').attr('rowindex', row.index());
+      //switch 'Submit' button role to 'confirmEdit'
+      $('#addRow').attr('action', 'confirmEdit');
+      //set up 'Type' and 'Amount' values according to the selected entry
+      $('#theTitle').val(row.data()[0]);
+      $('#theValue').val(row.data()[1]);
+    });
+  });
+</script>
+<style>
+  tbody tr button {
+    display: block;
+    float: right;
+  }
+
+  #H1Block input[type="submit"] {
+    padding: .4em .8em;
+    background: #004799 linear-gradient(#9ea5dc, #a0a1be);
+    border: thin solid green;
+    border-radius: 0 .4em .4em;
+    box-shadow: 0 .2em .4em gray;
+    color: white;
+    text-shadow: 0 -.05em .05em #333;
+    font-size: 100%;
+    line-height: 1.5;
+    width: 200px;
+  }
+
+  #editBlock {
+    display: flex;
+    list-style: none;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 1rem;
+    align-items: center;
+    width: 90%;
+    justify-content: space-between;
+  }
+
+  #H1Block {
+    display: flex;
+    list-style: none;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 1rem;
+    align-items: center;
+    width: 70%;
+    justify-content: space-between;
+  }
+
+  input[type="text"] {
+    width: 40%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    margin-bottom: 15px;
+  }
+</style>
+<div id="headerContent"></div>
+
+
+<body>
+  <form id="form_store" action="/storeSetup" method="post">
+    <div id="H1Block">
+      <h1>Stammdaten</h1>
+      <input type="submit" value="✔ Speichern!" </input>
+
+    </div>
+
+    <div id="editBlock">
+      <label>Titel</label>
+      <input type="text" id="theTitle" readonly />
+      <label>Ausprägung</label>
+      <input type="text" id="theValue" />
+      <button id="addRow"> Update </button>
+      <input type="text" id="error" hidden>
+    </div>
+    <table id="stamm" class="stripe display" cellspacing="0" style="width:60%">
+      <thead>
+        <tr>
+          <th>Titel</th>
+          <th>Wert</th>
+          <th>Kommentar</th>
+
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>WLAN (ESSID)</td>
+          <td>xxxx</td>
+        </tr>
+        <tr>
+          <td>WLAN (Password)</td>
+          <td>100</td>
+        </tr>
+        <tr>
+          <td>Einspeisebeschränkung (%)</td>
+          <td>100</td>
+          <td>Anteil in %, der vom erzeugten Strom zur Verfügung steht</td>
+        </tr>
+        <tr>
+          <td>Leistung Heizpatrone (W)</td>
+          <td>5000</td>
+          <td>Maximale Leistung in W</td>
+        </tr>
+        <tr>
+          <td>Mindest Schaltdauer (min)</td>
+          <td>15</td>
+          <td>Minimale Zeitspanne für Ausschalten</td>
+        </tr>
+        <tr>
+          <td>Ausgangsregler (P-Anteil)</td>
+          <td>0.9</td>
+          <td>PI-Regler für den 0-100 % Ausgang (0-1)</td>
+        </tr>
+        <tr>
+          <td>Ausgangsregler (I-Anteil)</td>
+          <td>0.1</td>
+          <td>PI-Regler für den 0-100 % Ausgang (0-1)</td>
+        </tr>
+        <tr>
+          <td>Ausgangsregler (D-Anteil)</td>
+          <td>0</td>
+          <td>PI-Regler für den 0-100 % Ausgang (0-1)</td>
+        </tr>
+        <tr>
+          <td>Regelbereich Hysterese</td>
+          <td>5900</td>
+          <td>Regelbereich Hysterese</td>
+        </tr>
+      </tbody>
+  </form>
+</body>
+
+
+
+</html>

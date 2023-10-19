@@ -104,16 +104,28 @@ void setup()
   tft_clearScreen();
   // meterSim();
   cardRW_setup();
-  Network n;
-  eprom_getNetwork(n);
+  Setup setup;
+  eprom_getSetup(setup);
 
-  if (n.ssid == "")
+  if (setup.ssid == "")
   {
     networkCredentialsInEEprom = false;
     ap_init(); // act as access point
   }
   if (networkCredentialsInEEprom)
   {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(setup.ssid, setup.passwd);
+    Serial.print("Connecting to WiFi ..");
+    int counter = 0;
+    while (WiFi.status() != WL_CONNECTED)
+    {
+      Serial.print('.');
+      delay(1000);
+      ++counter;
+      if (counter == 10)
+        break;
+    }
     if (!wifi_init())
     {
       Serial.println("Cannot connect");

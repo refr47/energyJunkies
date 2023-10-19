@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     // ip address of inverters: "10.0.0.13" GEN24 @ home, "172.17.68.202" Symo @ HTL
     // modbus unit id of smart meter: 200 GEN24 @ home, 240 Symo @ HTL
     config_t config = {
-            "10.0.0.13", 502, STR_MNGR_CONF_FILE_NAME, AWATTAR_TARIFF_FILE_NAME, MODBUS_ERROR_RECOVERY_NONE, 13};
+            "10.0.0.7", 502, STR_MNGR_CONF_FILE_NAME, AWATTAR_TARIFF_FILE_NAME, MODBUS_ERROR_RECOVERY_NONE, 13};
 
     // inverterValues read from inverter
     values_t inverterValues = {0};

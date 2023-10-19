@@ -1,18 +1,22 @@
 <!DOCTYPE html>
-<html>
-	<head>
-		<title>Login Page</title>
-		<link rel="icon" href="data:," />
-		<link rel="stylesheet" type="text/css" href="main.css" />
-	</head>
-	<script src="js/jquery-3.7.1.min.js"></script>
-	<script>
-		$(document).ready(function () {
-			$('#headerContent').load('headerF.html #headerSection');
-		});
-	</script>
-	<div id="headerContent"></div>
-	<body>
+<html lang="de">
+
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8">
+	<title>Login Page</title>
+	<link rel="icon" href="data:," />
+	<link rel="stylesheet" type="text/css" href="css/main.css" />
+</head>
+<script src="js/jquery-3.7.1.min.js"></script>
+<script>
+	$(document).ready(function () {
+		$('#headerContent').load('headerF.html #headerSection');
+	});
+</script>
+<div id="headerContent"></div>
+
+<body>
+	<div id="login">
 		<h1>Login</h1>
 		<form action="/login" method="post">
 			<div id="login">
@@ -25,8 +29,7 @@
 					<input type="password" id="password" name="password" required />
 				</div>
 				<div>
-					<input type="checkbox" name="standingData" value="true" /> Stammdaten
-					bearbeiten
+					<input type="checkbox" name="standingData" value="true" /> Setup Daten bearbeiten
 				</div>
 				<br />
 				<div id="loginB">
@@ -34,5 +37,7 @@
 				</div>
 			</div>
 		</form>
-	</body>
+	</div>
+</body>
+
 </html>

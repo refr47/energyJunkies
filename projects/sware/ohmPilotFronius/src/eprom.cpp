@@ -7,23 +7,35 @@
 
 static Preferences preferences;
 
-void eprom_storeNetwork(Network &network)
+void eprom_storeSetup(Setup &setup)
 {
-    preferences.begin("credentials", false);
-    preferences.putString("ssid", network.ssid);
-    preferences.putString("password", network.passwd);
+    preferences.begin(CREDENTIALS, false);
+    preferences.putString(_SSID, setup.ssid);
+    preferences.putString(_PASSWORD, setup.passwd);
+    preferences.putUInt(_HEIZPATRONE, setup.leistungHeizpatroneInW);
+    preferences.putUInt(_HYSTERESE, setup.regelbereichHysterese);
+    preferences.putUInt(_EINSPEISEBESCHRAENKUNG, setup.einspeiseBeschraenkingInW);
+    preferences.putUInt(_MINDESTLAUFZEIT, setup.mindestLaufzeitInMin);
+    preferences.putUInt(_AUSSCHALT_TEMP, setup.ausschaltTempInGradCel);
+    preferences.putFloat(_PID_P, setup.pid_p);
+    preferences.putFloat(_PID_I, setup.pid_i);
+    preferences.putFloat(_PID_D, setup.pid_d);
+
     preferences.end();
 }
 
-void eprom_getNetwork(Network &network)
+void eprom_getSetup(Setup &setup)
 {
-    preferences.begin("credentials", false);
+    preferences.begin(CREDENTIALS
+
+                      ,
+                      false);
     String ssid, passwd;
-    network.ssid = "";
-    network.passwd = "";
-    
-    ssid = preferences.getString("ssid", "").c_str();
-    passwd = preferences.getString("password", "").c_str();
+    setup.ssid = "";
+    setup.passwd = "";
+
+    ssid = preferences.getString(_SSID, "").c_str();
+    passwd = preferences.getString(_PASSWORD, "").c_str();
 
     if (ssid == "" || passwd == "")
     {
@@ -31,8 +43,19 @@ void eprom_getNetwork(Network &network)
     }
     else
     {
-        network.ssid = ssid.c_str();
-        network.passwd = ssid.c_str();
+        setup.ssid = ssid.c_str();
+        setup.passwd = ssid.c_str();
     }
+    setup.leistungHeizpatroneInW = preferences.getUInt(_HEIZPATRONE);
+    setup.regelbereichHysterese = preferences.getUInt(_HYSTERESE);
+
+    setup.einspeiseBeschraenkingInW = preferences.getUInt(_EINSPEISEBESCHRAENKUNG);
+    setup.mindestLaufzeitInMin = preferences.getUInt(_MINDESTLAUFZEIT);
+    setup.ausschaltTempInGradCel = preferences.getUInt(_AUSSCHALT_TEMP);
+
+    setup.pid_p = preferences.getFloat(_PID_P);
+    setup.pid_i = preferences.getFloat(_PID_I);
+    setup.pid_d = preferences.getFloat(_PID_D);
+
     preferences.end();
 }

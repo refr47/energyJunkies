@@ -5,8 +5,12 @@
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
 #include <mdns.h>
+#include <AsyncJson.h>
 
 #include "tft.h"
+#include "eprom.h"
+#include "utils.h"
+#include "ap.h"
 
 // WiFiServer server(80);
 const char *PARAM_INPUT_1 = "passwd";
@@ -52,16 +56,20 @@ void listDir(char *dir)
         file = root.openNextFile();
     }
 }
-
-String callBack(const String &var)
+void sendHTML(String &path, AsyncWebServerRequest *request)
 {
-    Serial.println("in callback ...");
-    if (var == "PLACEHOLDER")
-        return "Hello world from placeholder!";
-
-    return String();
-    Serial.println(var);
+    if (SPIFFS.exists(path))
+    {
+        AsyncWebServerResponse *response = request->beginResponse(SPIFFS, path, String(), true);
+        response->addHeader("Cache-Control", "max-age=600");
+        request->send(response);
+    }
+    else
+    {
+        request->send(404, "text/plain", "File not found");
+    }
 }
+
 void handleLogin(AsyncWebServerRequest *request)
 {
     Serial.println("handleLogin");
@@ -73,7 +81,7 @@ void handleLogin(AsyncWebServerRequest *request)
         if (
             request->hasParam("username", true) &&
             request->hasParam("password", true) &&
-            request->hasParam("standingData", true) &&
+            // request->hasParam("standingData", true) &&
             request->getParam("username", true)->value() == "admin" &&
             request->getParam("password", true)->value() == "password")
         {
@@ -83,9 +91,9 @@ void handleLogin(AsyncWebServerRequest *request)
             Serial.println(standingData);
 
             if (standingData)
-                request->send(SPIFFS, "/standingData.html", String(), false, callBack);
+                request->send(SPIFFS, "/setupData.html", String(), false);
             else
-                request->send(SPIFFS, "/index.html", String(), false, callBack);
+                request->send(SPIFFS, "/index.html", String(), false);
         }
         else
         {
@@ -103,18 +111,69 @@ void handleRoot(AsyncWebServerRequest *request)
     // Check if the user is authenticated
     Serial.println("handleRoot");
     if (isAuthenticated)
-    {
-        request->send(SPIFFS, "/index.html", String(), false, callBack);
-    }
+        request->send(SPIFFS, "/index.html", String(), false);
     else
+        request->send(SPIFFS, "/login.html", "text/html", false);
+}
+
+void handleSetup(AsyncWebServerRequest *request)
+{
+    // Check if the user is authenticated
+    Serial.println("handleSetup");
+    if (isAuthenticated)
+        request->send(SPIFFS, "/setupData.html", "text/html", false);
+    else
+        request->send(SPIFFS, "/login.html", "text/html", false);
+}
+
+bool isFieldFilled(const char *key, const char *argument, StaticJsonDocument<100> &data)
+{
+    if (strlen(argument) == 0)
     {
-        request->send(SPIFFS, "/login.html", "text/html", false, callBack);
+        char buf[50];
+        sprintf(buf, "Argument: %s kann nicht leer sein.", key);
+        data["error"] = buf;
+        return false;
     }
+    return true;
+}
+
+bool checkParamInt(const char *key, const char *argument, const JsonObject &jsonObj, StaticJsonDocument<100> &data, int *result)
+{
+    if (isFieldFilled(key, argument, data))
+        *result = atoi(argument);
+    else
+        return false;
+    if (*result == 0)
+    {
+        char buf[50];
+        sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
+        data["error"] = buf;
+        return false;
+    }
+    return true;
+}
+
+bool checkParamFloat(const char *key, const char *argument, const JsonObject &jsonObj, StaticJsonDocument<100> &data, float *result)
+{
+    if (isFieldFilled(key, argument, data))
+        *result = atof(argument);
+    else
+        return false;
+    if (*result == 0.0)
+    {
+        char buf[50];
+        sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
+        data["error"] = buf;
+        return false;
+    }
+    return true;
 }
 
 void ap_init()
 {
     // Initialize SPIFFS
+
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
         Serial.println("SPIFFS Mount Failed");
@@ -124,6 +183,7 @@ void ap_init()
     listDir("/");
     //  Connect to Wi-Fi network with SSID
     Serial.print("Setting AP (Access Point)…");
+    WiFi.mode(WIFI_AP);
     WiFi.softAP(ssid);
     /*   if (!MDNS.begin(host))
       { // Use http://esp32.local for web server page
@@ -141,15 +201,33 @@ void ap_init()
     Serial.println(IP);
     tft_initNetwork(6, "Keine Netzwerkparameter", "ACCESS-Point Modus", "SSID=>", ssid, "IP=>", (char *)IP.toString().c_str());
 
+    server.on("/login", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/login.html", "text/html", false, NULL); });
+    server.on("/headerF.html", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/headerF.html", "text/html"); });
+
     // Route for serving the login page and handling login requests
     server.on("/login", HTTP_POST, handleLogin);
 
-    // Route for serving the root page
+    // Route for serving the root page  request->send(SPIFFS, "/index.html", String(), false, callBack);
     server.on("/", HTTP_GET, handleRoot);
+    server.on("/setup", HTTP_GET, handleSetup);
 
     // Route to load style.css file
-    server.on("/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/main.css", "text/css"); });
+    server.on("/css/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/css/main.css", "text/css"); });
+    server.on("/css/jquery-3.7.1.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/css/jquery-3.7.1.min.css", "text/css"); });
+    server.on("/css/datatables.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/css/datatables.min.css", "text/css"); });
+    server.on("/js/jquery-3.7.1.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/js/jquery-3.7.1.min.js", String()); });
+    server.on("/js/datatables.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/js/datatables.min.js", String()); });
+    server.on("/img/icon.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/img/icon.jpg", "image/jpg"); });
+    server.on("/img/Energies.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/img/Energies.jpg", "image/jpg"); });
 
     // Route for serving static files from SPIFFS
     server.onNotFound([](AsyncWebServerRequest *request)
@@ -173,7 +251,80 @@ void ap_init()
       request->send(404, "text/plain", "File not found");
     } });
 
+    AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest * request, JsonVariant & json)
+    {
+        const JsonObject &jsonObj = json.as<JsonObject>();
+        StaticJsonDocument<100> data;
+        char *cP = NULL;
+        Setup setup; // eprom write
+        const char *argument = jsonObj[WLAN_ESSID];
+        int result = 0;
+        float resultF = 0.0;
+        bool errorH = false;
+        Serial.println("STart parsing json object");
+        argument = jsonObj[WLAN_ESSID];
+        Serial.print(" 1 arg: ");
+        Serial.println(argument);
+        errorH = isFieldFilled(WLAN_ESSID, argument, data);
+        if (!errorH)
+            setup.ssid = jsonObj[WLAN_ESSID];
+        argument = jsonObj[WLAN_PASSWD];
+        errorH = isFieldFilled(WLAN_PASSWD, argument, data);
+        if (!errorH)
+            setup.passwd = jsonObj[WLAN_ESSID];
+        argument = jsonObj[HEIZPATRONE];
+        Serial.print(" heizpatrone arg: ");
+        Serial.println(argument);
+        errorH = checkParamInt(HEIZPATRONE, argument, jsonObj, data, &result);
+        if (!errorH)
+            setup.leistungHeizpatroneInW = result;
+        Serial.print(" hysteryse arg: ");
+        argument = jsonObj[HYSTERESE];
+        errorH = checkParamInt(HYSTERESE, argument, jsonObj, data, &result);
+        if (!errorH)
+            setup.regelbereichHysterese = result;
+        argument = jsonObj[EINSPEISEBESCHRAENKUNG];
+        errorH = checkParamInt(EINSPEISEBESCHRAENKUNG, argument, jsonObj, data, &result);
+        if (!errorH)
+            setup.einspeiseBeschraenkingInW = result;
+        argument = jsonObj[MINDEST_LAUFZEIT];
+        errorH = checkParamInt(MINDEST_LAUFZEIT, argument, jsonObj, data, &result);
+        if (!errorH)
+            setup.mindestLaufzeitInMin = result;
+        argument = jsonObj[AUSSCHALT_TEMP];
+        errorH = checkParamInt(AUSSCHALT_TEMP, argument, jsonObj, data, &result);
+        if (!errorH)
+            setup.ausschaltTempInGradCel = result;
+        argument = jsonObj[PID_P];
+        errorH = checkParamFloat(PID_P, argument, jsonObj, data, &resultF);
+        if (!errorH)
+            setup.pid_p = resultF;
+        argument = jsonObj[PID_I];
+        errorH = checkParamFloat(PID_I, argument, jsonObj, data, &resultF);
+        if (!errorH)
+            setup.pid_i = resultF;
+        argument = jsonObj[PID_D];
+        errorH = checkParamFloat(PID_D, argument, jsonObj, data, &resultF);
+        if (!errorH)
+            setup.pid_d = resultF;
+        String response;
+        if (!errorH)
+        {
+            data["done"] = 1;
+            data["error"] = "";
+            eprom_storeSetup(setup);
+        }
+        else
+            data["done"] = 0;
+        Serial.println(" vor serialisierung : ");
+        serializeJson(data, response);
+        // request->redirect("/login");
+        request->send(200, "application/json", response);
+        // esp_restart();
+    }
+    );
     // Start the server
+    server.addHandler(handler);
     server.begin();
 }
 

@@ -63,3 +63,29 @@ void printHWInfo()
 
     Serial.printf("Chip id: %x\n", chipId);
 }
+bool isNumber(char s[])
+{
+    for (int i = 0; s[i] != '\0'; i++)
+    {
+        if (isdigit(s[i]) == 0)
+            return false;
+    }
+    return true;
+}
+
+bool floatNum(char *s)
+{
+    const char *ptr = s;
+    double x = strtod(ptr, &s);
+
+    // check if converted to long int
+    if (*s == 0)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+    return false;
+}
