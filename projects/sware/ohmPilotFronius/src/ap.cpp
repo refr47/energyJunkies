@@ -177,7 +177,6 @@ void ap_init()
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
         Serial.println("SPIFFS Mount Failed");
-        
         return;
     }
 
@@ -268,11 +267,13 @@ void ap_init()
         Serial.println(argument);
         errorH = isFieldFilled(WLAN_ESSID, argument, data);
         if (!errorH)
-            setup.ssid = jsonObj[WLAN_ESSID];
+            strcpy(setup.ssid,jsonObj[WLAN_ESSID]);
         argument = jsonObj[WLAN_PASSWD];
+         Serial.print(" 2 arg: ");
+        Serial.println(argument);
         errorH = isFieldFilled(WLAN_PASSWD, argument, data);
         if (!errorH)
-            setup.passwd = jsonObj[WLAN_ESSID];
+           strcpy(setup.passwd, jsonObj[WLAN_PASSWD]);
         argument = jsonObj[HEIZPATRONE];
         Serial.print(" heizpatrone arg: ");
         Serial.println(argument);

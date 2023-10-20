@@ -1,8 +1,12 @@
 #define __UTILS_CPP__
-
-#include <stdarg.h>
-#include <Arduino.h>
 #include "utils.h"
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <errno.h>
+#include <string.h>
+
+// using namespace std; // im lazy
 
 void Serialprintln(const char *input...)
 {
@@ -88,4 +92,56 @@ bool floatNum(char *s)
         return false;
     }
     return false;
+}
+
+String ipv4_int_to_string(uint32_t in, bool *const success)
+{
+    char ret[INET_ADDRSTRLEN];
+    in = htonl(in);
+    const bool _success = (NULL != inet_ntop(AF_INET, &in, &ret[0], INET_ADDRSTRLEN));
+    if (success)
+    {
+        *success = _success;
+    }
+    /* Serial.print("Return in ipv4_int_to_string ...");
+    Serial.print(", success: ");Serial.print(_success);Serial.print(" ,ret: "); Serial.print(ret); */
+    if (_success)
+    {
+        // ret.pop_back(); // remove null-terminator required by inet_ntop
+    }
+    else
+    {
+        char buf[200] = {0};
+        strerror_r(errno, buf, sizeof(buf));
+        Serial.print("Error inipv4_int_to_string ");
+        Serial.println(strerror(errno));
+
+        // throw std::runtime_error(String("error converting ipv4 int to String ") + to_string(errno) + String(": ") + String(buf));
+        // ret = buf;
+    }
+
+    Serial.println("===");
+    return String(ret);
+}
+// return is native-endian
+// when an error occurs: if success ptr is given, it's set to false, otherwise a std::runtime_error is thrown.
+uint32_t ipv4_string_to_int(String &in, bool *const success)
+{
+    uint32_t ret;
+    const bool _success = (1 == inet_pton(AF_INET, in.c_str(), &ret));
+    ret = ntohl(ret);
+    if (success)
+    {
+        *success = _success;
+    }
+    else if (!_success)
+    {
+        char buf[200] = {0};
+        strerror_r(errno, buf, sizeof(buf));
+        Serial.print("Error in ipv4_string_to_int ");
+        Serial.println(strerror(errno));
+        in = buf;
+        // throw std::runtime_error(String("error converting ipv4 String to int ") + to_string(errno) + String(": ") + String(buf));
+    }
+    return ret;
 }

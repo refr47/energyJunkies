@@ -4,7 +4,7 @@
 #include "wlan.h"
 #include "modbusReader.h"
 #include "cardRW.h"
-
+#include "utils.h"
 #include "tft.h"
 // #include "graphicTest.h"
 #include "eprom.h"
@@ -44,7 +44,10 @@ HSPI	GPIO 13	GPIO 12	GPIO 14	GPIO 15
 */
 
 char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
-static bool networkCredentialsInEEprom = false;
+static bool networkCredentialsInEEprom = true;
+
+static const char *wlanE = "Milchbehaelter";
+static const char *passW = "47754775";
 
 void pHW()
 {
@@ -103,6 +106,14 @@ void setup()
   // wifi_scan_network();
   tft_clearScreen();
   // meterSim();
+
+  /*
+  Serial.println(">>>>>>>>>>>eprom test");
+   eprom_test_write_Eprom(wlanE, passW);
+   eprom_test_read_Eprom();
+   Serial.println(">>>>>>>>>>>eprom test end");
+   delay(1000);
+   */
   cardRW_setup();
   Setup setup;
   eprom_getSetup(setup);
@@ -115,9 +126,11 @@ void setup()
   if (networkCredentialsInEEprom)
   {
     WiFi.mode(WIFI_STA);
-    WiFi.begin(setup.ssid, setup.passwd);
+    // WiFi.begin(setup.ssid, setup.passwd);
+    WiFi.begin(wlanE, passW);
     Serial.print("Connecting to WiFi ..");
     int counter = 0;
+
     while (WiFi.status() != WL_CONNECTED)
     {
       Serial.print('.');
@@ -128,8 +141,9 @@ void setup()
     }
     if (!wifi_init())
     {
-      Serial.println("Cannot connect");
+      Serial.println("Cannot connect - show available networks: ");
       tft_drawNetworkInfo(NULL);
+      wifi_scan_network();
       ap_init();
     }
     else

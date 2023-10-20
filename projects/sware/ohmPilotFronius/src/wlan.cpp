@@ -87,7 +87,7 @@ bool wifi_init()
 
 void wifi_scan_network()
 {
-   /*  char buff[512];
+    char buff[512];/* 
     tft_getRoot().setTextColor(TFT_GREEN, TFT_BLACK);
     tft_getRoot().fillScreen(TFT_BLACK);
     tft_getRoot().setTextDatum(MC_DATUM);
@@ -107,16 +107,18 @@ void wifi_scan_network()
     }
     else
     {
+        Serial.println(" ======   WLAN Networks ============");
         tft_getRoot().setTextDatum(TL_DATUM);
         tft_getRoot().setCursor(0, 0, 4);
         Serial.printf("Found %d net\n", n);
         for (int i = 0; i < n; ++i)
         {
-            /* sprintf(buff,
+             sprintf(buff,
                     "[%d]:%s(%d)",
                     i + 1,
                     WiFi.SSID(i).c_str(),
-                    WiFi.RSSI(i)); */
+                    WiFi.RSSI(i)); 
+             Serial.println(buff);
             tft_showAvailableNetworks(1, "" + (i + 1), WiFi.SSID(i).c_str(), "" + WiFi.RSSI(i));
            
         }
