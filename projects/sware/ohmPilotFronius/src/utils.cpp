@@ -145,3 +145,46 @@ uint32_t ipv4_string_to_int(String &in, bool *const success)
     }
     return ret;
 }
+bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocument<100> &data)
+{
+    if (strlen(argument) == 0)
+    {
+        char buf[50];
+        sprintf(buf, "Argument: %s kann nicht leer sein.", key);
+        data["error"] = buf;
+        return false;
+    }
+    return true;
+}
+
+bool util_checkParamInt(const char *key, const char *argument, /*const JsonObject &jsonObj, */StaticJsonDocument<100> &data, int *result)
+{
+    if (util_isFieldFilled(key, argument, data))
+        *result = atoi(argument);
+    else
+        return false;
+    if (*result == 0)
+    {
+        char buf[50];
+        sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
+        data["error"] = buf;
+        return false;
+    }
+    return true;
+}
+
+bool util_checkParamFloat(const char *key, const char *argument,/* const JsonObject &jsonObj, */StaticJsonDocument<100> &data, float *result)
+{
+    if (util_isFieldFilled(key, argument, data))
+        *result = atof(argument);
+    else
+        return false;
+    if (*result == 0.0)
+    {
+        char buf[50];
+        sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
+        data["error"] = buf;
+        return false;
+    }
+    return true;
+}

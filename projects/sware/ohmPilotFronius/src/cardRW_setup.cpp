@@ -28,12 +28,21 @@ bool cardRW_setup()
      SPI.setFrequency(4000000); // at 8000000 I get CPU panic reboots
   */
     // if (!SD.begin(SS))
-    if (!SD.begin(SS))
+    try
     {
+        if (!SD.begin(SS))
+        {
 
+            Serial.println("Card Mount Failed");
+            return false;
+        }
+    }
+    catch (...)
+    {
         Serial.println("Card Mount Failed");
         return false;
     }
+
     uint8_t cardType = SD.cardType();
 
     if (cardType == CARD_NONE)

@@ -49,6 +49,18 @@ static bool networkCredentialsInEEprom = true;
 static const char *wlanE = "Milchbehaelter";
 static const char *passW = "47754775";
 
+void test()
+{
+  StaticJsonDocument<100> data;
+  const char *argument = "234";
+  bool errorH = util_isFieldFilled("123", argument, data);
+  int result = 1;
+  errorH = util_checkParamInt(HEIZPATRONE, argument, data, &result);
+  int r = 0;
+  r = atoi(argument);
+  Serial.println(r);
+}
+
 void pHW()
 {
   esp_chip_info_t chip_info;
@@ -79,8 +91,9 @@ void setup()
   while (!Serial)
     ;
   Serial.println("Hello T-Display-S3");
-  tft_init();
-  tft_printSetup();
+ //test();
+  /*  tft_init();
+   tft_printSetup(); */
   int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
   Serial.print("internal bu: ");
   Serial.println(currentState);
@@ -100,25 +113,25 @@ void setup()
   /* pinMode(INTERNAL_BUTTON_1_GPIO, INPUT_PULLUP);
   pinMode(INTERNAL_BUTTON_2_GPIO, INPUT_PULLUP);
   pinMode(PIN, OUTPUT); */
-  delay(500);
-  pHW();
-  // digitalWrite(PIN, 0);
-  // wifi_scan_network();
-  tft_clearScreen();
+  // delay(500);
+  // pHW();
+  //  digitalWrite(PIN, 0);
+  //  wifi_scan_network();
+  // tft_clearScreen();
   // meterSim();
 
-  /*
-  Serial.println(">>>>>>>>>>>eprom test");
-   eprom_test_write_Eprom(wlanE, passW);
-   eprom_test_read_Eprom();
-   Serial.println(">>>>>>>>>>>eprom test end");
-   delay(1000);
-   */
-  cardRW_setup();
+  /* Serial.println(">>>>>>>>>>>eprom test");
+  eprom_test_write_Eprom(wlanE, passW);
+  eprom_test_read_Eprom();
+  Serial.println(">>>>>>>>>>>eprom test end");
+  delay(1000);
+
+  eprom_test_read_Eprom(); */
+  // cardRW_setup();
   Setup setup;
   eprom_getSetup(setup);
 
-  if (setup.ssid == "")
+  if (strcmp(setup.ssid, "---") == 0)
   {
     networkCredentialsInEEprom = false;
     ap_init(); // act as access point
@@ -127,7 +140,7 @@ void setup()
   {
     WiFi.mode(WIFI_STA);
     // WiFi.begin(setup.ssid, setup.passwd);
-    WiFi.begin(wlanE, passW);
+    WiFi.begin(setup.ssid, setup.passwd);
     Serial.print("Connecting to WiFi ..");
     int counter = 0;
 

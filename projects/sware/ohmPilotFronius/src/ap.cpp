@@ -126,50 +126,6 @@ void handleSetup(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/login.html", "text/html", false);
 }
 
-bool isFieldFilled(const char *key, const char *argument, StaticJsonDocument<100> &data)
-{
-    if (strlen(argument) == 0)
-    {
-        char buf[50];
-        sprintf(buf, "Argument: %s kann nicht leer sein.", key);
-        data["error"] = buf;
-        return false;
-    }
-    return true;
-}
-
-bool checkParamInt(const char *key, const char *argument, const JsonObject &jsonObj, StaticJsonDocument<100> &data, int *result)
-{
-    if (isFieldFilled(key, argument, data))
-        *result = atoi(argument);
-    else
-        return false;
-    if (*result == 0)
-    {
-        char buf[50];
-        sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
-        data["error"] = buf;
-        return false;
-    }
-    return true;
-}
-
-bool checkParamFloat(const char *key, const char *argument, const JsonObject &jsonObj, StaticJsonDocument<100> &data, float *result)
-{
-    if (isFieldFilled(key, argument, data))
-        *result = atof(argument);
-    else
-        return false;
-    if (*result == 0.0)
-    {
-        char buf[50];
-        sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
-        data["error"] = buf;
-        return false;
-    }
-    return true;
-}
-
 void ap_init()
 {
     // Initialize SPIFFS
@@ -251,80 +207,79 @@ void ap_init()
       request->send(404, "text/plain", "File not found");
     } });
 
-    AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest * request, JsonVariant & json)
-    {
-        const JsonObject &jsonObj = json.as<JsonObject>();
-        StaticJsonDocument<100> data;
-        char *cP = NULL;
-        Setup setup; // eprom write
-        const char *argument = jsonObj[WLAN_ESSID];
-        int result = 0;
-        float resultF = 0.0;
-        bool errorH = false;
-        Serial.println("STart parsing json object");
-        argument = jsonObj[WLAN_ESSID];
-        Serial.print(" 1 arg: ");
-        Serial.println(argument);
-        errorH = isFieldFilled(WLAN_ESSID, argument, data);
-        if (!errorH)
-            strcpy(setup.ssid,jsonObj[WLAN_ESSID]);
-        argument = jsonObj[WLAN_PASSWD];
-         Serial.print(" 2 arg: ");
-        Serial.println(argument);
-        errorH = isFieldFilled(WLAN_PASSWD, argument, data);
-        if (!errorH)
-           strcpy(setup.passwd, jsonObj[WLAN_PASSWD]);
-        argument = jsonObj[HEIZPATRONE];
-        Serial.print(" heizpatrone arg: ");
-        Serial.println(argument);
-        errorH = checkParamInt(HEIZPATRONE, argument, jsonObj, data, &result);
-        if (!errorH)
-            setup.leistungHeizpatroneInW = result;
-        Serial.print(" hysteryse arg: ");
-        argument = jsonObj[HYSTERESE];
-        errorH = checkParamInt(HYSTERESE, argument, jsonObj, data, &result);
-        if (!errorH)
-            setup.regelbereichHysterese = result;
-        argument = jsonObj[EINSPEISEBESCHRAENKUNG];
-        errorH = checkParamInt(EINSPEISEBESCHRAENKUNG, argument, jsonObj, data, &result);
-        if (!errorH)
-            setup.einspeiseBeschraenkingInW = result;
-        argument = jsonObj[MINDEST_LAUFZEIT];
-        errorH = checkParamInt(MINDEST_LAUFZEIT, argument, jsonObj, data, &result);
-        if (!errorH)
-            setup.mindestLaufzeitInMin = result;
-        argument = jsonObj[AUSSCHALT_TEMP];
-        errorH = checkParamInt(AUSSCHALT_TEMP, argument, jsonObj, data, &result);
-        if (!errorH)
-            setup.ausschaltTempInGradCel = result;
-        argument = jsonObj[PID_P];
-        errorH = checkParamFloat(PID_P, argument, jsonObj, data, &resultF);
-        if (!errorH)
-            setup.pid_p = resultF;
-        argument = jsonObj[PID_I];
-        errorH = checkParamFloat(PID_I, argument, jsonObj, data, &resultF);
-        if (!errorH)
-            setup.pid_i = resultF;
-        argument = jsonObj[PID_D];
-        errorH = checkParamFloat(PID_D, argument, jsonObj, data, &resultF);
-        if (!errorH)
-            setup.pid_d = resultF;
-        String response;
-        if (!errorH)
-        {
-            data["done"] = 1;
-            data["error"] = "";
-            eprom_storeSetup(setup);
-        }
-        else
-            data["done"] = 0;
-        Serial.println(" vor serialisierung : ");
-        serializeJson(data, response);
-        // request->redirect("/login");
-        request->send(200, "application/json", response);
-        // esp_restart();
-    }
-    );
+    AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest *request, JsonVariant &json)
+                            {
+                                const JsonObject &jsonObj = json.as<JsonObject>();
+                                StaticJsonDocument<100> data;
+                                char *cP = NULL;
+                                Setup setup; // eprom write
+                                const char *argument = jsonObj[WLAN_ESSID];
+                                int result = 0;
+                                float resultF = 0.0;
+                                bool errorH = false;
+                                Serial.println("STart parsing json object");
+                                argument = jsonObj[WLAN_ESSID];
+                                Serial.print(" 1 arg: ");
+                                Serial.println(argument);
+                                errorH = util_isFieldFilled(WLAN_ESSID, argument, data);
+                                if (!errorH)
+                                    strcpy(setup.ssid, jsonObj[WLAN_ESSID]);
+                                argument = jsonObj[WLAN_PASSWD];
+                                Serial.print(" 2 arg: ");
+                                Serial.println(argument);
+                                errorH = util_isFieldFilled(WLAN_PASSWD, argument, data);
+                                if (!errorH)
+                                    strcpy(setup.passwd, jsonObj[WLAN_PASSWD]);
+                                argument = jsonObj[HEIZPATRONE];
+                                Serial.print(" heizpatrone arg: ");
+                                Serial.println(argument);
+                                errorH = util_checkParamInt(HEIZPATRONE, argument,  data, &result);
+                                if (!errorH)
+                                    setup.leistungHeizpatroneInW = result;
+                                Serial.print(" hysteryse arg: ");
+                                argument = jsonObj[HYSTERESE];
+                                errorH = util_checkParamInt(HYSTERESE, argument,  data, &result);
+                                if (!errorH)
+                                    setup.regelbereichHysterese = result;
+                                argument = jsonObj[EINSPEISEBESCHRAENKUNG];
+                                errorH = util_checkParamInt(EINSPEISEBESCHRAENKUNG, argument,  data, &result);
+                                if (!errorH)
+                                    setup.einspeiseBeschraenkingInW = result;
+                                argument = jsonObj[MINDEST_LAUFZEIT];
+                                errorH = util_checkParamInt(MINDEST_LAUFZEIT, argument,  data, &result);
+                                if (!errorH)
+                                    setup.mindestLaufzeitInMin = result;
+                                argument = jsonObj[AUSSCHALT_TEMP];
+                                errorH = util_checkParamInt(AUSSCHALT_TEMP, argument,  data, &result);
+                                if (!errorH)
+                                    setup.ausschaltTempInGradCel = result;
+                                argument = jsonObj[PID_P];
+                                errorH = util_checkParamFloat(PID_P, argument,  data, &resultF);
+                                if (!errorH)
+                                    setup.pid_p = resultF;
+                                argument = jsonObj[PID_I];
+                                errorH = util_checkParamFloat(PID_I, argument,  data, &resultF);
+                                if (!errorH)
+                                    setup.pid_i = resultF;
+                                argument = jsonObj[PID_D];
+                                errorH = util_checkParamFloat(PID_D, argument,  data, &resultF);
+                                if (!errorH)
+                                    setup.pid_d = resultF;
+                                String response;
+                                if (!errorH)
+                                {
+                                    data["done"] = 1;
+                                    data["error"] = "";
+                                    eprom_storeSetup(setup);
+                                }
+                                else
+                                    data["done"] = 0;
+                                Serial.println(" vor serialisierung : ");
+                                serializeJson(data, response);
+                                // request->redirect("/login");
+                                request->send(200, "application/json", response);
+                                // esp_restart();
+                            });
     // Start the server
     server.addHandler(handler);
     server.begin();

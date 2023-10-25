@@ -40,6 +40,8 @@ void eprom_getSetup(Setup &setup)
     if (ssid == "" || passwd == "")
     {
         Serial.println("No values saved for ssid or password");
+        strcpy(setup.ssid, "---");
+        strcpy(setup.passwd, "");
     }
     else
     {
@@ -52,10 +54,10 @@ void eprom_getSetup(Setup &setup)
     setup.einspeiseBeschraenkingInW = preferences.getUInt(_EINSPEISEBESCHRAENKUNG);
     setup.mindestLaufzeitInMin = preferences.getUInt(_MINDESTLAUFZEIT);
     setup.ausschaltTempInGradCel = preferences.getUInt(_AUSSCHALT_TEMP);
-     bool result = true;
-    //Serial.print("IP-Inverter: ");
-     setup.ipInverterAsString = ipv4_int_to_string(setup.ipInverter, &result);
-    //Serial.println(setup.ipInverter);
+    bool result = true;
+    // Serial.print("IP-Inverter: ");
+    setup.ipInverterAsString = ipv4_int_to_string(setup.ipInverter, &result);
+    // Serial.println(setup.ipInverter);
 
     setup.pid_p = preferences.getFloat(_PID_P);
     setup.pid_i = preferences.getFloat(_PID_I);
