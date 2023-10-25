@@ -91,7 +91,7 @@ void setup()
   while (!Serial)
     ;
   Serial.println("Hello T-Display-S3");
- //test();
+  // test();
   /*  tft_init();
    tft_printSetup(); */
   int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
@@ -119,7 +119,6 @@ void setup()
   //  wifi_scan_network();
   // tft_clearScreen();
   // meterSim();
-
   /* Serial.println(">>>>>>>>>>>eprom test");
   eprom_test_write_Eprom(wlanE, passW);
   eprom_test_read_Eprom();
