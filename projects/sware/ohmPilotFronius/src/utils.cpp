@@ -157,7 +157,7 @@ bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocumen
     return true;
 }
 
-bool util_checkParamInt(const char *key, const char *argument, /*const JsonObject &jsonObj, */StaticJsonDocument<100> &data, int *result)
+bool util_checkParamInt(const char *key, const char *argument, /*const JsonObject &jsonObj, */ StaticJsonDocument<100> &data, int *result)
 {
     if (util_isFieldFilled(key, argument, data))
         *result = atoi(argument);
@@ -173,7 +173,7 @@ bool util_checkParamInt(const char *key, const char *argument, /*const JsonObjec
     return true;
 }
 
-bool util_checkParamFloat(const char *key, const char *argument,/* const JsonObject &jsonObj, */StaticJsonDocument<100> &data, float *result)
+bool util_checkParamFloat(const char *key, const char *argument, /* const JsonObject &jsonObj, */ StaticJsonDocument<100> &data, float *result)
 {
     if (util_isFieldFilled(key, argument, data))
         *result = atof(argument);
@@ -187,4 +187,25 @@ bool util_checkParamFloat(const char *key, const char *argument,/* const JsonObj
         return false;
     }
     return true;
+}
+
+void util_pHW()
+{
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+
+    Serial.println("Hardware info");
+    Serial.printf("%d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+                  (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+    Serial.printf("Silicon revision: %d\n", chip_info.revision);
+    Serial.printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
+                  (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embeded" : "external");
+
+    // get chip id
+    String chipId = String((uint32_t)ESP.getEfuseMac(), HEX);
+    chipId.toUpperCase();
+
+    Serial.printf("Chip id: %s\n", chipId.c_str());
+    Serial.print("Model: ");
+    Serial.println(chip_info.model);
 }

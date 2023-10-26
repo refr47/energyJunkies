@@ -7,27 +7,19 @@
 #include "utils.h"
 #include "SD_MMC.h"
 #include "pin_config.h"
-/*
-#define CARD_MISO 27 // GPIO27
-#define CARD_MOSI 26 // GPIO26
-#define CARD_SCK 25  // GIPO25
-#define CARD_CS 33   // GPIO33
-#define SDSPEED 27000000 */
-
-// static SPIClass spi = SPIClass(HSPI);
+// https://randomnerdtutorials.com/esp32-spi-communication-arduino/
 
 void appendFile(fs::FS &fs, const char *path, const char *message);
 
 bool cardRW_setup()
 {
+    Serial.println("CardReader -- Setup");
     Serialprintln("CLOCK: %d, MISO: %d, MOSI: %d, CS: %d", SCK, MISO, MOSI, SS);
 
-    // pinMode(SS, OUTPUT);
-    // digitalWrite(SS, LOW); // Setze CS-Pin auf HIGH (inaktiv)
-    /*  SPI.begin(SCK, MISO, MOSI);
-     SPI.setFrequency(4000000); // at 8000000 I get CPU panic reboots
-  */
-    // if (!SD.begin(SS))
+    pinMode(SS, OUTPUT);
+    digitalWrite(SS, LOW); //  enable CS pin to read from peripheral 1
+    SPI.begin(SCK, MISO, MOSI, SS);
+
     try
     {
         if (!SD.begin(SS))
@@ -109,15 +101,15 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
 }
 
 // Append data to the SD card (DON'T MODIFY THIS FUNCTION)
-void appendFile(fs::FS &fs, const char *path, const char *message)
+bool cardRW_appendFile(const char *path, const char *message)
 {
     Serial.printf("Appending to file: %s\n", path);
 
-    File file = fs.open(path, FILE_APPEND);
+    File file = SD.open(path, FILE_APPEND);
     if (!file)
     {
         Serial.println("Failed to open file for appending");
-        return;
+        return false;
     }
     if (file.print(message))
     {
@@ -130,11 +122,11 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
     file.close();
 }
 
-void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
+void cardRW_listDir(const char *dirname, uint8_t levels)
 {
     Serial.printf("Listing directory: %s\n", dirname);
 
-    File root = fs.open(dirname);
+    File root = SD.open(dirname);
     if (!root)
     {
         Serial.println("Failed to open directory");
@@ -155,7 +147,7 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
             Serial.println(file.name());
             if (levels)
             {
-                listDir(fs, file.name(), levels - 1);
+                cardRW_listDir(file.name(), levels - 1);
             }
         }
         else
@@ -169,122 +161,69 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
     }
 }
 
-void createDir(fs::FS &fs, const char *path)
+bool cardRW_createDir(const char *path)
 {
     Serial.printf("Creating Dir: %s\n", path);
-    if (fs.mkdir(path))
+    if (SD.mkdir(path))
     {
         Serial.println("Dir created");
+        return true;
     }
     else
     {
         Serial.println("mkdir failed");
+        return false;
     }
 }
 
-void removeDir(fs::FS &fs, const char *path)
+bool cardRW_removeDir(const char *path)
 {
     Serial.printf("Removing Dir: %s\n", path);
-    if (fs.rmdir(path))
+    if (SD.rmdir(path))
     {
         Serial.println("Dir removed");
+        return true;
     }
     else
     {
         Serial.println("rmdir failed");
+        return false;
     }
 }
 
-void readFile1(fs::FS &fs, const char *path)
-{
-    Serial.printf("Reading file: %s\n", path);
-
-    File file = fs.open(path);
-    if (!file)
-    {
-        Serial.println("Failed to open file for reading");
-        return;
-    }
-
-    Serial.print("Read from file: ");
-    while (file.available())
-    {
-        Serial.write(file.read());
-    }
-    file.close();
-}
-
-void writeFile1(fs::FS &fs, const char *path, const char *message)
-{
-    Serial.printf("Writing file: %s\n", path);
-
-    File file = fs.open(path, FILE_WRITE);
-    if (!file)
-    {
-        Serial.println("Failed to open file for writing");
-        return;
-    }
-    if (file.print(message))
-    {
-        Serial.println("File written");
-    }
-    else
-    {
-        Serial.println("Write failed");
-    }
-    file.close();
-}
-
-void appendFile1(fs::FS &fs, const char *path, const char *message)
-{
-    Serial.printf("Appending to file: %s\n", path);
-
-    File file = fs.open(path, FILE_APPEND);
-    if (!file)
-    {
-        Serial.println("Failed to open file for appending");
-        return;
-    }
-    if (file.print(message))
-    {
-        Serial.println("Message appended");
-    }
-    else
-    {
-        Serial.println("Append failed");
-    }
-    file.close();
-}
-
-void renameFile(fs::FS &fs, const char *path1, const char *path2)
+bool cardRW_renameFile(const char *path1, const char *path2)
 {
     Serial.printf("Renaming file %s to %s\n", path1, path2);
-    if (fs.rename(path1, path2))
+    if (SD.rename(path1, path2))
     {
         Serial.println("File renamed");
+        return true;
     }
     else
     {
         Serial.println("Rename failed");
+        return false;
     }
 }
 
-void deleteFile(fs::FS &fs, const char *path)
+bool cardRW_deleteFile(const char *path)
 {
     Serial.printf("Deleting file: %s\n", path);
-    if (fs.remove(path))
+    if (SD.remove(path))
     {
         Serial.println("File deleted");
+        return true;
     }
     else
     {
         Serial.println("Delete failed");
+        return false;
     }
 }
 
-void testFileIO(fs::FS &fs, const char *path)
+void cardRW_testFileIO(const char *path)
 {
-    File file = fs.open(path);
+    File file = SD.open(path);
     static uint8_t buf[512];
     size_t len = 0;
     uint32_t start = millis();
@@ -313,7 +252,7 @@ void testFileIO(fs::FS &fs, const char *path)
         Serial.println("Failed to open file for reading");
     }
 
-    file = fs.open(path, FILE_WRITE);
+    file = SD.open(path, FILE_WRITE);
     if (!file)
     {
         Serial.println("Failed to open file for writing");

@@ -10,6 +10,7 @@
 #include "eprom.h"
 
 #include "ap.h"
+#include "temp.h"
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -61,50 +62,24 @@ void test()
   Serial.println(r);
 }
 
-void pHW()
+void test_cardReader()
 {
-  esp_chip_info_t chip_info;
-  esp_chip_info(&chip_info);
-
-  Serial.println("Hardware info");
-  Serial.printf("%d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-                (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
-  Serial.printf("Silicon revision: %d\n", chip_info.revision);
-  Serial.printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-                (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embeded" : "external");
-
-  // get chip id
-  String chipId = String((uint32_t)ESP.getEfuseMac(), HEX);
-  chipId.toUpperCase();
-
-  Serial.printf("Chip id: %s\n", chipId.c_str());
-  Serial.print("Model: ");
-  Serial.println(chip_info.model);
+  cardRW_listDir("/", 3);
 }
 
 void setup()
 {
-  /* pinMode(PIN_POWER_ON, OUTPUT);
-  digitalWrite(PIN_POWER_ON, HIGH); */
 
   Serial.begin(115200);
   while (!Serial)
     ;
-  Serial.println("Hello T-Display-S3");
+  Serial.println("Energie-Junkies -- Harvester ---");
   // test();
   /*  tft_init();
    tft_printSetup(); */
   int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
   Serial.print("internal bu: ");
   Serial.println(currentState);
-  /* Serial.print("MOSI: ");
-  Serial.println(MOSI);
-  Serial.print("MISO: ");
-  Serial.println(MISO);
-  Serial.print("SCK: ");
-  Serial.println(SCK);
-  Serial.print("SS: ");
-  Serial.println(SS); */
 
   /*
    printHWInfo();
@@ -119,14 +94,17 @@ void setup()
   //  wifi_scan_network();
   // tft_clearScreen();
   // meterSim();
+  // eprom_test_write_Eprom(wlanE, passW);
   /* Serial.println(">>>>>>>>>>>eprom test");
   eprom_test_write_Eprom(wlanE, passW);
   eprom_test_read_Eprom();
   Serial.println(">>>>>>>>>>>eprom test end");
-  delay(1000);
+  delay(1000); */
 
-  eprom_test_read_Eprom(); */
+  // eprom_test_read_Eprom();
   // cardRW_setup();
+  // test_cardReader();
+  temp_init();
   Setup setup;
   eprom_getSetup(setup);
 
@@ -200,7 +178,12 @@ void loop()
     mb_readInverter();
     */
     tft_printTxt(30, 50, 2, "test");
-    cardRW_setup();
+    // cardRW_setup();
+    // test_cardReader();
+    // temp_init();
+    Serial.println(" TEMP :::::::::::");
+    Serial.print(getTempSensor1());
+
     delay(1000);
     /* if (!mb_readInverter())
     {
@@ -210,6 +193,6 @@ void loop()
     int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
     Serial.print("internal bu: ");
     Serial.println(currentState);
-    delay(500);
+    delay(5000);
   }
 }

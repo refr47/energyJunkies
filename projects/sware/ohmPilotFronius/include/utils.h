@@ -15,5 +15,5 @@ uint32_t ipv4_string_to_int(String &in, bool *const success = nullptr);
 bool util_checkParamFloat(const char *key, const char *argument, StaticJsonDocument<100> &data, float *result);
 bool util_checkParamInt(const char *key, const char *argument, StaticJsonDocument<100> &data, int *result);
 bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocument<100> &data);
-
+void util_pHW();
 #endif

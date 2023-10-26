@@ -22,6 +22,7 @@ void eprom_storeSetup(Setup &setup)
     preferences.putUInt(_MINDESTLAUFZEIT, setup.mindestLaufzeitInMin);
     preferences.putUInt(_AUSSCHALT_TEMP, setup.ausschaltTempInGradCel);
     preferences.putUInt(_INVERTER_IP, setup.ipInverter);
+    preferences.putBool(_EXTERNER_SPEICHER, setup.externerSpeicher);
     preferences.putFloat(_PID_P, setup.pid_p);
     preferences.putFloat(_PID_I, setup.pid_i);
     preferences.putFloat(_PID_D, setup.pid_d);
@@ -54,6 +55,7 @@ void eprom_getSetup(Setup &setup)
     setup.einspeiseBeschraenkingInW = preferences.getUInt(_EINSPEISEBESCHRAENKUNG);
     setup.mindestLaufzeitInMin = preferences.getUInt(_MINDESTLAUFZEIT);
     setup.ausschaltTempInGradCel = preferences.getUInt(_AUSSCHALT_TEMP);
+    setup.externerSpeicher = preferences.getBool(_EXTERNER_SPEICHER);
     bool result = true;
     // Serial.print("IP-Inverter: ");
     setup.ipInverterAsString = ipv4_int_to_string(setup.ipInverter, &result);
@@ -83,6 +85,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.einspeiseBeschraenkingInW = 90;
     setup.mindestLaufzeitInMin = 2;
     setup.ausschaltTempInGradCel = 80;
+    setup.externerSpeicher = false;
     String ipInv = "10.0.0.7";
     bool result = true;
 
@@ -118,6 +121,8 @@ void eprom_test_read_Eprom()
     Serial.println(setup.mindestLaufzeitInMin);
     Serial.print("AusschaltTemp: ");
     Serial.println(setup.ausschaltTempInGradCel);
+    Serial.print("Externer Speicher: ");
+    Serial.println(setup.externerSpeicher);
     bool result = true;
     Serial.print("IP-Inverter: ");
     String ip = ipv4_int_to_string(setup.ipInverter, &result);

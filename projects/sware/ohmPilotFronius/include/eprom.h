@@ -10,6 +10,7 @@
 #define _MINDESTLAUFZEIT "ml"
 #define _AUSSCHALT_TEMP "ausT"
 #define _INVERTER_IP "invertIP"
+#define _EXTERNER_SPEICHER "eS"
 #define _PID_P "pid_p"
 #define _PID_I "pid_i"
 #define _PID_D "pid_d"
@@ -26,6 +27,7 @@ typedef struct
     unsigned int mindestLaufzeitInMin;
     unsigned int ausschaltTempInGradCel;
     unsigned int ipInverter;
+    bool externerSpeicher;
     String ipInverterAsString;
     float pid_p;
     float pid_i;
