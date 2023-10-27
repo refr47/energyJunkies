@@ -1,5 +1,5 @@
 #include <Arduino.h>
-
+#include "esp_clk.h"
 #include <SPI.h>
 #include "wlan.h"
 #include "modbusReader.h"
@@ -80,6 +80,11 @@ void setup()
   int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
   Serial.print("internal bu: ");
   Serial.println(currentState);
+  uint32_t cpu_freq = esp_clk_cpu_freq();
+  Serial.print(" CPU freq: ");
+  Serial.println(cpu_freq);
+  uint32_t PRESCALE = 240; // for 240MHZ
+  
 
   /*
    printHWInfo();
@@ -168,6 +173,8 @@ void setup()
 
 void loop()
 {
+  TEMPERATURE container;
+
   if (networkCredentialsInEEprom == false)
   { // act as AP
     ap_run();
@@ -181,8 +188,12 @@ void loop()
     // cardRW_setup();
     // test_cardReader();
     // temp_init();
-    Serial.println(" TEMP :::::::::::");
-    Serial.print(getTempSensor1());
+    Serial.println(" TEMP in Celsius");
+    temp_getTemperature(container);
+    Serial.print("Sensor1: ");
+    Serial.print(container.sensor1);
+    Serial.print(", Sensor 2: ");
+    Serial.println(container.sensor2);
 
     delay(1000);
     /* if (!mb_readInverter())
@@ -193,6 +204,6 @@ void loop()
     int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
     Serial.print("internal bu: ");
     Serial.println(currentState);
-    delay(5000);
+    delay(1000);
   }
 }
