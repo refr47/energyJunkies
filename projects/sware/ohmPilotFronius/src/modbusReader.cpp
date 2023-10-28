@@ -9,7 +9,11 @@
 #include "modbusRegister.h"
 #include "defines.h"
 
-/*             DEFINES                      */
+/*
+    *********************************************************
+ DEFINES
+ ************************************************************
+           */
 
 #define TEXT_LEN 256
 
@@ -24,14 +28,18 @@
 #define MOD_BASE_REG 40083 // ac power
 #define MOD_BASE_REG_COUNT 10
 
-/*          GLOBAL Variables                      */
+/*
+https://esp32io.com/tutorials/esp32-modbus
+    ***********************************************************************
+ GLOBAL Variables
+    ***********************************************************************
+   */
 
 // ip address of modbus tcp slave
-IPAddress remote(MODBUS_TCP1, MODBUS_TCP2, MODBUS_TCP3, MODBUS_TCP4);
+IPAddress remote;
 ModbusIP mb;
 
 // meter modbus register array
-int16_t inverterRegs[MODBUS_COMMMON_LEN + 1];
 
 u8_t getHighByte(uint16_t b)
 {
@@ -66,28 +74,41 @@ bool isConnectedAndReconnect()
     if (!mb.isConnected(remote))
     {
         success = mb.connect(remote);
-        Serial.println("modbus do connect ....");
+        Serial.print("modbus do connect ....");
+        Serial.println(success);
+        Serial.println(strerror(errno));
     }
 
     return success;
 }
 
-bool mb_init()
+bool mb_init(Setup &setup)
 {
+    Serial.print(" Inverter Addr: ");
+    Serial.println(setup.ipInverterAsString);
+    Serial.println(setup.ipInverter);
+
+    if (!remote.fromString(setup.ipInverterAsString))
+    {
+        Serial.println("mb_init:: - cannot convert IP-Adresse of Converter from string");
+        return false;
+    }
+
     mb.client();
     return isConnectedAndReconnect();
 }
 
-bool mb_readInverter()
+bool mb_readInverterStatic()
 {
     char text[TEXT_LEN];
+    int16_t inverterRegs[MODBUS_STATIC_LEN + 1];
     char *pText = text;
     uint16_t transId = 0;
     if (!isConnectedAndReconnect())
         return false;
     Serial.println("Modbus/TCP connected");
 
-    transId = mb.readHreg(remote, MODBUS_COMMMON, (uint16_t *)&inverterRegs, MODBUS_COMMMON_LEN, NULL, INVERTER_ID); // Initiate Read Holding Register from Modbus Slave
+    transId = mb.readHreg(remote, MODBUS_COMMMON, (uint16_t *)&inverterRegs, MODBUS_STATIC_LEN, NULL, INVERTER_ID); // Initiate Read Holding Register from Modbus Slave
     Serial.print("transID: ");
     Serial.println(transId);
     if (transId == 0)
@@ -110,8 +131,13 @@ bool mb_readInverter()
     {
 
         /*  Serial.println(inverterRegs.manufactor);*/
-        /* for (int jj = 0; jj < MODBUS_COMMMON_LEN; jj++)
-            Serial.println(inverterRegs[jj]); */
+        /*    for (int jj = 0; jj < MODBUS_COMMMON_LEN; jj++)
+           {
+               Serial.print(jj);
+               Serial.print(": ");
+               Serial.println(inverterRegs[jj], HEX);
+           }
+    */
         Serial.print("Manufactorer: ");
         int offset = 0;
         makeString(0, MODBUS_INVERTER_MANUFACTURER_LEN, inverterRegs, &pText);
@@ -121,7 +147,13 @@ bool mb_readInverter()
         makeString(offset, offset + MODBUS_INVERTER_DEVICE_LEN, inverterRegs, &pText);
         Serial.println(pText);
         Serial.print("SW Version: ");
-        offset = 
+        offset += MODBUS_INVERTER_MANUFACTURER_LEN;
+        offset += MODBUS_INVERTER_OPTIONS;
+
+        Serial.print("SW-Version: ");
+        Serial.print(offset);
+        makeString(offset, offset + MODBUS_INVERTER_SW_VERS, inverterRegs, &pText);
+        Serial.println(pText);
 
         Serial.println("Done");
     }

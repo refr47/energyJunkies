@@ -7,6 +7,9 @@
 
 /*   DEFInES
  */
+#define WIFI_RECONNECT_START "Reconnect"
+#define WIFI_RECONNECT_DONE "Connected"
+#define WIFI_RECONNECT_FALSE "Not Connected"
 
 #define WIFI_TRY_DELAY 1000
 #define WIFI_NUMBER_OF_TRIES 20
@@ -14,17 +17,17 @@
 
 unsigned long previousMillis = 0;
 
-bool wifi_init()
+bool wifi_init(Setup &setup)
 {
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
 
     Serial.println();
 
-    tft_initNetwork(2, "Connect to", MY_SSID);
+    tft_initNetwork(2, "Connect to", setup.ssid);
     Serial.print("[Wifi] Connecting to ");
-    Serial.println(MY_SSID);
+    Serial.println(setup.ssid);
     WiFi.mode(WIFI_STA);
-    WiFi.begin(MY_SSID, MY_PASSWD, true);
+    WiFi.begin(setup.ssid, setup.passwd, true);
 
     // Will try for about 10 seconds (20x 500ms)
     // Wait for the WiFi event
@@ -36,27 +39,27 @@ bool wifi_init()
         {
         case WL_NO_SSID_AVAIL:
             Serial.println("[WiFi] SSID not found");
-            tft_initNetwork(3, "Connect to", MY_SSID, "SSID not found");
+            tft_initNetwork(3, "Connect to", setup.ssid, "SSID not found");
             break;
         case WL_CONNECT_FAILED:
             Serial.print("[WiFi] Failed - WiFi not connected! Reason: ");
-            tft_initNetwork(3, "Connect to", MY_SSID, "No connection");
+            tft_initNetwork(3, "Connect to", setup.ssid, "No connection");
             return false;
             break;
         case WL_CONNECTION_LOST:
             Serial.println("[WiFi] Connection was lost");
-            tft_initNetwork(3, "Connect to", MY_SSID, "Connection lost");
+            tft_initNetwork(3, "Connect to", setup.ssid, "Connection lost");
             break;
         case WL_SCAN_COMPLETED:
             Serial.println("[WiFi] Scan is completed");
             break;
         case WL_DISCONNECTED:
             Serial.println("[WiFi] WiFi is disconnected");
-            tft_initNetwork(3, "Connect to", MY_SSID, "Disconnected");
+            tft_initNetwork(3, "Connect to", setup.ssid, "Disconnected");
             break;
         case WL_CONNECTED:
             Serial.println("[WiFi] WiFi is connected!");
-            tft_initNetwork(3, "Connect to", MY_SSID, "Connected!");
+            tft_initNetwork(3, "Connect to", setup.ssid, "Connected!");
             Serial.print("[WiFi] IP address: ");
             Serial.println(WiFi.localIP());
             return true;
@@ -64,7 +67,7 @@ bool wifi_init()
         default:
             Serial.print("[WiFi] WiFi Status: ");
             Serial.println(WiFi.status());
-            tft_initNetwork(3, "Connect to", MY_SSID, (char *)WiFi.status());
+            tft_initNetwork(3, "Connect to", setup.ssid, (char *)WiFi.status());
             break;
         }
         delay(WIFI_TRY_DELAY);
@@ -87,18 +90,18 @@ bool wifi_init()
 
 void wifi_scan_network()
 {
-    char buff[512];/* 
-    tft_getRoot().setTextColor(TFT_GREEN, TFT_BLACK);
-    tft_getRoot().fillScreen(TFT_BLACK);
-    tft_getRoot().setTextDatum(MC_DATUM);
-    tft_getRoot().setTextSize(3);
+    char buff[512]; /*
+     tft_getRoot().setTextColor(TFT_GREEN, TFT_BLACK);
+     tft_getRoot().fillScreen(TFT_BLACK);
+     tft_getRoot().setTextDatum(MC_DATUM);
+     tft_getRoot().setTextSize(3);
 
-    tft_getRoot().drawString("Scan Network", tft_getWidth() / 2, tft_getHeight() / 2); */
+     tft_getRoot().drawString("Scan Network", tft_getWidth() / 2, tft_getHeight() / 2); */
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
     delay(500);
-   
+
     int16_t n = WiFi.scanNetworks();
     tft_getRoot().fillScreen(TFT_BLACK);
     if (n == 0)
@@ -113,14 +116,13 @@ void wifi_scan_network()
         Serial.printf("Found %d net\n", n);
         for (int i = 0; i < n; ++i)
         {
-             sprintf(buff,
+            sprintf(buff,
                     "[%d]:%s(%d)",
                     i + 1,
                     WiFi.SSID(i).c_str(),
-                    WiFi.RSSI(i)); 
-             Serial.println(buff);
+                    WiFi.RSSI(i));
+            Serial.println(buff);
             tft_showAvailableNetworks(1, "" + (i + 1), WiFi.SSID(i).c_str(), "" + WiFi.RSSI(i));
-           
         }
     }
     // WiFi.mode(WIFI_OFF);

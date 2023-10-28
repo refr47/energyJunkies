@@ -71,7 +71,7 @@ bool temp_getTemperature(TEMPERATURE &container)
     // Serial.println("DONE");
 
     // Serial.print("Sensor 1(*C): ");
-    delay(400);
+    delay(1000);
     container.sensor1 = sensors.getTempC(sensor1);
     container.sensor2 = sensors.getTempC(sensor2);
     /* float tempC = sensors.getTempCByIndex(0);

@@ -15,40 +15,55 @@
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
 
-GPIO 34
-GPIO 35
-GPIO 36
-GPIO 39
 https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 */
-/*
-Many ESP32 boards come with default SPI pins pre-assigned. The pin mapping for most boards is as follows:
 
-SPI	MOSI	MISO	SCLK	CS
-VSPI	GPIO 23	GPIO 19	GPIO 18	GPIO 5
-HSPI	GPIO 13	GPIO 12	GPIO 14	GPIO 15
+/* ****************************************************************************
 
+  DEFInES
 
-*/
-
-/*   DEFInES
+  ****************************************************************************
  */
 
 #define GLOBAL_STRING_BUFFER_LEN 150
 #define INTERNAL_BUTTON_1_GPIO 0
 #define INTERNAL_BUTTON_2_GPIO 14
 
-#define PIN 21
+#define TEMPERATURE_INTERVAL 5000UL // 5 secs
+#define MODBUS_INTERVALL 5000UL
 
-/* ***********************************
+/* ****************************************************************************
   GLOBAL VARS
+  ****************************************************************************
 */
 
 char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
 static bool networkCredentialsInEEprom = true;
+static bool cardWriterOK = false;
 
 static const char *wlanE = "Milchbehaelter";
 static const char *passW = "47754775";
+static unsigned long previousMillTemp = 0UL;
+static unsigned long previousMillModbus = 0UL;
+static TEMPERATURE container;
+
+/*
+  TIMER
+
+hw_timer_t *timer5s = NULL;
+
+void IRAM_ATTR onTimer5Sec();
+
+void configTimer()
+{
+  Serial.print("Config timer");
+  timer5s = timerBegin(0, 240, true);
+  timerAttachInterrupt(timer5s, &onTimer5Sec, true);
+  timerAlarmWrite(timer5s, 1000000, true);
+  timerAlarmEnable(timer5s); // Just Enable
+  Serial.println(" ...  Done");
+}
+*/
 
 void test()
 {
@@ -84,8 +99,10 @@ void setup()
   Serial.print(" CPU freq: ");
   Serial.println(cpu_freq);
   uint32_t PRESCALE = 240; // for 240MHZ
-  
+  Setup setup;             // all input quantities
 
+  eprom_getSetup(setup);
+  eprom_test_read_Eprom();
   /*
    printHWInfo();
    */
@@ -101,17 +118,20 @@ void setup()
   // meterSim();
   // eprom_test_write_Eprom(wlanE, passW);
   /* Serial.println(">>>>>>>>>>>eprom test");
-  eprom_test_write_Eprom(wlanE, passW);
+   */
+  /* eprom_test_write_Eprom(wlanE, passW);
   eprom_test_read_Eprom();
   Serial.println(">>>>>>>>>>>eprom test end");
   delay(1000); */
 
   // eprom_test_read_Eprom();
-  // cardRW_setup();
-  // test_cardReader();
-  temp_init();
-  Setup setup;
-  eprom_getSetup(setup);
+  if (cardRW_setup())
+  {
+    cardWriterOK = true;
+    test_cardReader();
+  }
+
+  temp_init(); // temperature
 
   if (strcmp(setup.ssid, "---") == 0)
   {
@@ -120,8 +140,9 @@ void setup()
   }
   if (networkCredentialsInEEprom)
   {
+
     WiFi.mode(WIFI_STA);
-    // WiFi.begin(setup.ssid, setup.passwd);
+
     WiFi.begin(setup.ssid, setup.passwd);
     Serial.print("Connecting to WiFi ..");
     int counter = 0;
@@ -131,10 +152,10 @@ void setup()
       Serial.print('.');
       delay(1000);
       ++counter;
-      if (counter == 10)
+      if (counter == 5)
         break;
     }
-    if (!wifi_init())
+    if (!wifi_init(setup))
     {
       Serial.println("Cannot connect - show available networks: ");
       tft_drawNetworkInfo(NULL);
@@ -150,31 +171,62 @@ void setup()
       tft_drawNetworkInfo(globalStringBuffer);
     }
 
-    Serial.println("Setup card reader ...");
-    /* if (!cardRW_setup())
-    {
-      Serial.println("Cannot setup card reader ....");
-    }
-    else
-    {
-      Serial.println("Card_RW: has initialized");
-    }
     Serial.println("Setup modbus ...");
-    if (!mb_init())
+    if (!mb_init(setup))
     {
       Serial.println("Cannot initialize modbus ....");
     }
     else
     {
       mb_readInverter();
-    } */
+    }
   }
+  // configTimer();
 }
+
+/* void IRAM_ATTR onTimer5Sec()
+{
+  Serial.println(" 5 sec timer");
+   if (networkCredentialsInEEprom == false)
+    return;
+  Serial.print(" TEMP in Celsius");
+  temp_getTemperature(container);
+  Serial.print("Sensor1: ");
+  Serial.print(container.sensor1);
+  Serial.print(", Sensor 2: ");
+  Serial.println(container.sensor2);
+  Serial.println(" EXIT 5 sec timer ...");
+} */
 
 void loop()
 {
-  TEMPERATURE container;
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillTemp > TEMPERATURE_INTERVAL)
+  {
+    Serial.print(" TEMP in Celsius");
+    temp_getTemperature(container);
+    Serial.print("Sensor1: ");
+    Serial.print(container.sensor1);
+    Serial.print(", Sensor 2: ");
+    Serial.println(container.sensor2);
+    previousMillTemp = currentMillis;
+  }
+  /* if (networkCredentialsInEEprom == false)
+    return; */
+  if (currentMillis - previousMillModbus > MODBUS_INTERVALL)
 
+  {
+
+    if (!mb_readInverter())
+      Serial.println("Error in Reading modbus");
+    else
+      Serial.println(" --- MODBUS --- Query done");
+    previousMillModbus = currentMillis;
+  }
+  delay(4000);
+
+  if (!cardWriterOK)
+    cardWriterOK = cardRW_setup();
   if (networkCredentialsInEEprom == false)
   { // act as AP
     ap_run();
@@ -184,26 +236,19 @@ void loop()
     /*
     mb_readInverter();
     */
-    tft_printTxt(30, 50, 2, "test");
-    // cardRW_setup();
-    // test_cardReader();
-    // temp_init();
-    Serial.println(" TEMP in Celsius");
-    temp_getTemperature(container);
-    Serial.print("Sensor1: ");
-    Serial.print(container.sensor1);
-    Serial.print(", Sensor 2: ");
-    Serial.println(container.sensor2);
+    // tft_printTxt(30, 50, 2, "test");
+    //  cardRW_setup();
+    //  test_cardReader();
+    //  temp_init();
 
-    delay(1000);
+    // delay(1000);
     /* if (!mb_readInverter())
     {
       Serial.println("Cannot read Inverter ...");
     } */
-    Serial.println(" .... LOOP .....");
+    /* Serial.println(" .... LOOP .....");
     int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
     Serial.print("internal bu: ");
-    Serial.println(currentState);
-    delay(1000);
+    Serial.println(currentState); */
   }
 }

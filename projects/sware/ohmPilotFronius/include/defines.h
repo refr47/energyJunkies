@@ -1,18 +1,25 @@
 #ifndef __DEFINES__H
 #define __DEFINES__H
 
-/*
-#define SSID "WLAN-HTLW"
-#define PASSWD "HTL-Wels"
-*/
+#define LEN_WLAN 30
+typedef struct
+{
+    char ssid[LEN_WLAN];
+    char passwd[LEN_WLAN];
+    unsigned int leistungHeizpatroneInW;
+    unsigned int regelbereichHysterese;
+    unsigned int einspeiseBeschraenkingInW;
+    unsigned int mindestLaufzeitInMin;
+    unsigned int ausschaltTempInGradCel;
+    unsigned int ipInverter;
+    bool externerSpeicher;
+    String ipInverterAsString;
+    float pid_p;
+    float pid_i;
+    float pid_d;
 
-#define MY_SSID "BART_LOW"
-#define MY_PASSWD "47754775"
+} Setup;
 
-#define MODBUS_TCP1 192
-#define MODBUS_TCP2 168
-#define MODBUS_TCP3 0
-#define MODBUS_TCP4 98
 #define MODBUS_PORT "502"
 
 #endif
