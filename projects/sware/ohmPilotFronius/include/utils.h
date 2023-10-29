@@ -1,8 +1,8 @@
-#ifndef __UTILS_H
-#define __UTILS_H
+#pragma once
+
 #include <Arduino.h>
 #include <AsyncJson.h>
-
+#include "debugConsole.h"
 void Serialprintln(const char *input...);
 void printHWInfo();
 
@@ -16,4 +16,3 @@ bool util_checkParamFloat(const char *key, const char *argument, StaticJsonDocum
 bool util_checkParamInt(const char *key, const char *argument, StaticJsonDocument<100> &data, int *result);
 bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocument<100> &data);
 void util_pHW();
-#endif

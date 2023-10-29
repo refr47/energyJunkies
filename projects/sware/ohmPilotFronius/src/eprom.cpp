@@ -40,7 +40,7 @@ void eprom_getSetup(Setup &setup)
 
     if (ssid == "" || passwd == "")
     {
-        Serial.println("No values saved for ssid or password");
+        DBGln("No values saved for ssid or password");
         strcpy(setup.ssid, "---");
         strcpy(setup.passwd, "");
     }
@@ -57,9 +57,9 @@ void eprom_getSetup(Setup &setup)
     setup.ausschaltTempInGradCel = preferences.getUInt(_AUSSCHALT_TEMP);
     setup.externerSpeicher = preferences.getBool(_EXTERNER_SPEICHER);
     bool result = true;
-    // Serial.print("IP-Inverter: ");
+    // DBG("IP-Inverter: ");
     setup.ipInverterAsString = ipv4_int_to_string(setup.ipInverter, &result);
-    // Serial.println(setup.ipInverter);
+    // DBGln(setup.ipInverter);
 
     setup.pid_p = preferences.getFloat(_PID_P);
     setup.pid_i = preferences.getFloat(_PID_I);
@@ -74,12 +74,12 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 
     strncpy(setup.ssid, wlanE, LEN_WLAN - 1);
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
-    Serial.println("in test writing wlan ...");
-    Serial.print("WLAN: ");
-    Serial.println(wlanE);
-    Serial.println(setup.ssid);
-    Serial.print("passw: ");
-    Serial.println(setup.passwd);
+    DBGln("in test writing wlan ...");
+    DBG("WLAN: ");
+    DBGln(wlanE);
+    DBGln(setup.ssid);
+    DBG("passw: ");
+    DBGln(setup.passwd);
     setup.leistungHeizpatroneInW = 5000;
     setup.regelbereichHysterese = 100;
     setup.einspeiseBeschraenkingInW = 90;
@@ -91,9 +91,9 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 
     setup.ipInverter = ipv4_string_to_int(ipInv, &result);
     if (!result)
-        Serial.println("IP translate did not succeed.");
-    Serial.print("IP in uint: ");
-    Serial.println(setup.ipInverter);
+        DBGln("IP translate did not succeed.");
+    DBG("IP in uint: ");
+    DBGln(setup.ipInverter);
     setup.pid_p = 1.0;
     setup.pid_i = 0.5;
     setup.pid_d = 0.0;
@@ -106,30 +106,30 @@ void eprom_test_read_Eprom()
 
     eprom_getSetup(setup);
 
-    Serial.println("  EPROM   -- Content ---");
-    Serial.print("WLAN: ");
-    Serial.println(setup.ssid);
-    Serial.print("passw: ");
-    Serial.println(setup.passwd);
-    Serial.print("Heizpatr: ");
-    Serial.println(setup.leistungHeizpatroneInW);
-    Serial.print("Hysterese: ");
-    Serial.println(setup.regelbereichHysterese);
-    Serial.print("EinspeiseB: ");
-    Serial.println(setup.einspeiseBeschraenkingInW);
-    Serial.print("MindesLZ: ");
-    Serial.println(setup.mindestLaufzeitInMin);
-    Serial.print("AusschaltTemp: ");
-    Serial.println(setup.ausschaltTempInGradCel);
-    Serial.print("Externer Speicher: ");
-    Serial.println(setup.externerSpeicher);
+    DBGln("  EPROM   -- Content ---");
+    DBG("WLAN: ");
+    DBGln(setup.ssid);
+    DBG("passw: ");
+    DBGln(setup.passwd);
+    DBG("Heizpatr: ");
+    DBGln(setup.leistungHeizpatroneInW);
+    DBG("Hysterese: ");
+    DBGln(setup.regelbereichHysterese);
+    DBG("EinspeiseB: ");
+    DBGln(setup.einspeiseBeschraenkingInW);
+    DBG("MindesLZ: ");
+    DBGln(setup.mindestLaufzeitInMin);
+    DBG("AusschaltTemp: ");
+    DBGln(setup.ausschaltTempInGradCel);
+    DBG("Externer Speicher: ");
+    DBGln(setup.externerSpeicher);
     bool result = true;
-    Serial.print("IP-Inverter: ");
+    DBG("IP-Inverter: ");
     String ip = ipv4_int_to_string(setup.ipInverter, &result);
-    Serial.println(setup.ipInverter);
+    DBGln(setup.ipInverter);
     if (!result)
-        Serial.println("Transfer from uint to string for ip did not succeed.");
-    Serial.println(ip);
-    Serial.print("PID_P: ");
-    Serial.println(setup.pid_p);
+        DBGln("Transfer from uint to string for ip did not succeed.");
+    DBGln(ip);
+    DBG("PID_P: ");
+    DBGln(setup.pid_p);
 }

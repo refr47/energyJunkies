@@ -1,5 +1,4 @@
-#ifndef __ACCESS_POINT_H
-#define __ACCESS_POINT_
+#pragma once
 
 #define WLAN_ESSID "WLAN (ESSID)"
 #define WLAN_PASSWD "WLAN (Password)"
@@ -12,8 +11,7 @@
 #define PID_I "Ausgangsregler (I-Anteil)"
 #define PID_D "Ausgangsregler (D-Anteil)"
 
+#include "debugConsole.h"
+
 void ap_init();
-void ap_run(); 
-
-
-#endif
+void ap_run();

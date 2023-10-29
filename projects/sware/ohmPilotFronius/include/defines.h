@@ -1,7 +1,7 @@
-#ifndef __DEFINES__H
-#define __DEFINES__H
+#pragma once
 
 #define LEN_WLAN 30
+#define MODBUS_PORT "502"
 typedef struct
 {
     char ssid[LEN_WLAN];
@@ -20,6 +20,4 @@ typedef struct
 
 } Setup;
 
-#define MODBUS_PORT "502"
-
-#endif
+#include "debugConsole.h"

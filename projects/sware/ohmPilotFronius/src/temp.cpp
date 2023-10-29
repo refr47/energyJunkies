@@ -1,8 +1,10 @@
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
+
 #include "pin_config.h"
 #include "temp.h"
+#include "debugConsole.h"
 
 // GPIO where the DS18B20 is connected to
 // SENSOR 1: 28 9A 2C 57 4 E1 3C D5
@@ -24,25 +26,25 @@ void printAddress(DeviceAddress deviceAddress)
 {
     for (uint8_t i = 0; i < 8; i++)
     {
-        Serial.print(" ");
-        Serial.print(deviceAddress[i], HEX);
+        DBG(" ");
+        DBG1(deviceAddress[i], HEX);
     }
 }
 void temp_init()
 {
     int numberOfDevices = 0;
     DeviceAddress tempDeviceAddress;
-    Serial.println("Init Temp Sensor...");
+    DBGln("Init Temp Sensor...");
     sensors.setResolution(11);
     sensors.begin();
     // Grab a count of devices on the wire
     numberOfDevices = sensors.getDeviceCount();
-
+ 
     // locate devices on the bus
-    Serial.print("Locating devices...");
-    Serial.print("Found ");
-    Serial.print(numberOfDevices, DEC);
-    Serial.println(" devices.");
+    DBG("Locating devices...");
+    DBG("Found ");
+    DBG1(numberOfDevices, DEC);
+    DBGln(" devices.");
 
     // Loop through each device, print out address
     for (int i = 0; i < numberOfDevices; i++)
@@ -50,17 +52,17 @@ void temp_init()
         // Search the wire for address
         if (sensors.getAddress(tempDeviceAddress, i))
         {
-            Serial.print("Found device ");
-            Serial.print(i, DEC);
-            Serial.print(" with address: ");
+            DBG("Found device ");
+            DBG1(i, DEC);
+            DBG(" with address: ");
             printAddress(tempDeviceAddress);
-            Serial.println();
+            DBGln();
         }
         else
         {
-            Serial.print("Found ghost device at ");
-            Serial.print(i, DEC);
-            Serial.print(" but could not detect address. Check power and cabling");
+            DBG("Found ghost device at ");
+            DBG1(i, DEC);
+            DBG(" but could not detect address. Check power and cabling");
         }
     }
 }
@@ -68,20 +70,25 @@ void temp_init()
 bool temp_getTemperature(TEMPERATURE &container)
 {
     sensors.requestTemperatures(); // Send the command to get temperatures
-    // Serial.println("DONE");
+    // DBGln("DONE");
 
-    // Serial.print("Sensor 1(*C): ");
+    // DBG("Sensor 1(*C): ");
     delay(1000);
     container.sensor1 = sensors.getTempC(sensor1);
     container.sensor2 = sensors.getTempC(sensor2);
     /* float tempC = sensors.getTempCByIndex(0);
     float tempC1 = sensors.getTempCByIndex(1);
-    Serial.print("Sensor 1: ");
-    Serial.print(tempC);
-    Serial.print(", Sensor 2: ");
-    Serial.println(tempC1); */
-    /* Serial.print(temperatureF);
-    Serial.print(" Sensor 1(*F): ");
-    Serial.println(sensors.getTempF(sensor1)); */
+    DBG("Sensor 1: ");
+    DBG(tempC);
+    DBG(", Sensor 2: ");
+    DBGln(tempC1); */
+    /* DBG(temperatureF);
+    DBG(" Sensor 1(*F): ");
+    DBGln(sensors.getTempF(sensor1)); */
     return true;
+}
+
+int temp_getNumberOfDevices()
+{
+    return 2;
 }

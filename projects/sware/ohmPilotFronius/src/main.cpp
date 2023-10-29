@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "esp_clk.h"
 #include <SPI.h>
+#include "debugConsole.h"
 #include "wlan.h"
 #include "modbusReader.h"
 #include "cardRW.h"
@@ -8,6 +9,7 @@
 #include "tft.h"
 // #include "graphicTest.h"
 #include "eprom.h"
+#include "pidRegler.h"
 
 #include "ap.h"
 #include "temp.h"
@@ -47,24 +49,6 @@ static unsigned long previousMillTemp = 0UL;
 static unsigned long previousMillModbus = 0UL;
 static TEMPERATURE container;
 
-/*
-  TIMER
-
-hw_timer_t *timer5s = NULL;
-
-void IRAM_ATTR onTimer5Sec();
-
-void configTimer()
-{
-  Serial.print("Config timer");
-  timer5s = timerBegin(0, 240, true);
-  timerAttachInterrupt(timer5s, &onTimer5Sec, true);
-  timerAlarmWrite(timer5s, 1000000, true);
-  timerAlarmEnable(timer5s); // Just Enable
-  Serial.println(" ...  Done");
-}
-*/
-
 void test()
 {
   StaticJsonDocument<100> data;
@@ -74,7 +58,7 @@ void test()
   errorH = util_checkParamInt(HEIZPATRONE, argument, data, &result);
   int r = 0;
   r = atoi(argument);
-  Serial.println(r);
+  DBGln(r);
 }
 
 void test_cardReader()
@@ -88,21 +72,22 @@ void setup()
   Serial.begin(115200);
   while (!Serial)
     ;
-  Serial.println("Energie-Junkies -- Harvester ---");
+  DBGln("Energie-Junkies -- Harvester ---");
   // test();
   /*  tft_init();
    tft_printSetup(); */
   int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
-  Serial.print("internal bu: ");
-  Serial.println(currentState);
+  DBG("internal bu: ");
+  DBGln(currentState);
   uint32_t cpu_freq = esp_clk_cpu_freq();
-  Serial.print(" CPU freq: ");
-  Serial.println(cpu_freq);
+  DBG(" CPU freq: ");
+  DBGln(cpu_freq);
   uint32_t PRESCALE = 240; // for 240MHZ
   Setup setup;             // all input quantities
-
+  eprom_test_write_Eprom(wlanE, passW);
   eprom_getSetup(setup);
   eprom_test_read_Eprom();
+
   /*
    printHWInfo();
    */
@@ -117,12 +102,12 @@ void setup()
   // tft_clearScreen();
   // meterSim();
   // eprom_test_write_Eprom(wlanE, passW);
-  /* Serial.println(">>>>>>>>>>>eprom test");
+  /* DBGln(">>>>>>>>>>>eprom test");
    */
-  /* eprom_test_write_Eprom(wlanE, passW);
-  eprom_test_read_Eprom();
-  Serial.println(">>>>>>>>>>>eprom test end");
-  delay(1000); */
+  /*  eprom_test_write_Eprom(wlanE, passW);
+   eprom_test_read_Eprom();
+   DBGln(">>>>>>>>>>>eprom test end");
+   delay(1000); */
 
   // eprom_test_read_Eprom();
   if (cardRW_setup())
@@ -144,12 +129,12 @@ void setup()
     WiFi.mode(WIFI_STA);
 
     WiFi.begin(setup.ssid, setup.passwd);
-    Serial.print("Connecting to WiFi ..");
+    DBG("Connecting to WiFi ..");
     int counter = 0;
 
     while (WiFi.status() != WL_CONNECTED)
     {
-      Serial.print('.');
+      DBG('.');
       delay(1000);
       ++counter;
       if (counter == 5)
@@ -157,58 +142,48 @@ void setup()
     }
     if (!wifi_init(setup))
     {
-      Serial.println("Cannot connect - show available networks: ");
+      DBGln("Cannot connect - show available networks: ");
       tft_drawNetworkInfo(NULL);
       wifi_scan_network();
       ap_init();
     }
     else
     {
-      Serial.print("Connected with ip: ");
+      DBG("Connected with ip: ");
       char *pBuf = globalStringBuffer;
       wifi_getLocalIP(&pBuf);
-      Serial.println(globalStringBuffer);
+      DBGln(globalStringBuffer);
       tft_drawNetworkInfo(globalStringBuffer);
     }
 
-    Serial.println("Setup modbus ...");
+    DBGln("Setup modbus ...");
     if (!mb_init(setup))
     {
-      Serial.println("Cannot initialize modbus ....");
+      DBGln("Cannot initialize modbus ....");
+    }
+
+    if (!pid_init(&setup))
+    {
+      DBGln("Cannot initialize pid controller:");
     }
     else
     {
-      mb_readInverter();
+      DBGln("PID controller initializred successfully ....");
     }
   }
-  // configTimer();
 }
-
-/* void IRAM_ATTR onTimer5Sec()
-{
-  Serial.println(" 5 sec timer");
-   if (networkCredentialsInEEprom == false)
-    return;
-  Serial.print(" TEMP in Celsius");
-  temp_getTemperature(container);
-  Serial.print("Sensor1: ");
-  Serial.print(container.sensor1);
-  Serial.print(", Sensor 2: ");
-  Serial.println(container.sensor2);
-  Serial.println(" EXIT 5 sec timer ...");
-} */
 
 void loop()
 {
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillTemp > TEMPERATURE_INTERVAL)
   {
-    Serial.print(" TEMP in Celsius");
+    DBG(" TEMP in Celsius");
     temp_getTemperature(container);
-    Serial.print("Sensor1: ");
-    Serial.print(container.sensor1);
-    Serial.print(", Sensor 2: ");
-    Serial.println(container.sensor2);
+    DBG("Sensor1: ");
+    DBG(container.sensor1);
+    DBG(", Sensor 2: ");
+    DBGln(container.sensor2);
     previousMillTemp = currentMillis;
   }
   /* if (networkCredentialsInEEprom == false)
@@ -217,11 +192,12 @@ void loop()
 
   {
 
-    if (!mb_readInverter())
-      Serial.println("Error in Reading modbus");
+    if (!mb_readInverterStatic())
+      DBGln("Error in Reading modbus");
     else
-      Serial.println(" --- MODBUS --- Query done");
+      DBGln(" --- MODBUS --- Query done");
     previousMillModbus = currentMillis;
+    pid_run(400.0);
   }
   delay(4000);
 
@@ -244,11 +220,11 @@ void loop()
     // delay(1000);
     /* if (!mb_readInverter())
     {
-      Serial.println("Cannot read Inverter ...");
+      DBGln("Cannot read Inverter ...");
     } */
-    /* Serial.println(" .... LOOP .....");
+    /* DBGln(" .... LOOP .....");
     int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
-    Serial.print("internal bu: ");
-    Serial.println(currentState); */
+    DBG("internal bu: ");
+    DBGln(currentState); */
   }
 }

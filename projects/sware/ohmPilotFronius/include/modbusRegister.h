@@ -6,6 +6,10 @@ https://github.com/lostcontrol/wattpilot
 
 */
 /*
+// fronius inverter is device id 1, storage registers start at 400345, read 24 registers
+// smart meter is device 200, meter registers start at 40087, read 5 registers
+*/
+/*
 40084 AC power + 40085 Skalierungsfaktor
 40094 AC energy + 40096 Skalierungsfaktor
 40101 DC power + 40102 Skalierungsfaktor

@@ -1,5 +1,6 @@
 
 #include <SPI.h>
+#include "debugConsole.h"
 #include "tft.h"
 #include "img/wlanPic24.h"
 
@@ -39,10 +40,10 @@ void tft_init()
     tft.setSwapBytes(true);
     width = tft.width();
     height = tft.height();
-    Serial.print("TFT Width,Height: ");
-    Serial.print(width);
-    Serial.print(":");
-    Serial.println(height);
+    DBG("TFT Width,Height: ");
+    DBG(width);
+    DBG(":");
+    DBGln(height);
     tft.setRotation(1);
     for (int jj = 0; jj < 5; jj++)
     {
@@ -104,114 +105,114 @@ void tft_printSetup()
 #if defined(ESP32) || defined(ARDUINO_ARCH_ESP8266)
     if (user.esp < 0x32F000 || user.esp > 0x32FFFF)
     {
-        Serial.print("Frequency    = ");
-        Serial.print(ESP.getCpuFreqMHz());
-        Serial.println("MHz");
+        DBG("Frequency    = ");
+        DBG(ESP.getCpuFreqMHz());
+        DBGln("MHz");
     }
 #endif
-    Serial.print("Interface    = ");
-    Serial.println((user.serial == 1) ? "SPI" : "Parallel");
-    Serial.println("Check tft SPI");
+    DBG("Interface    = ");
+    DBGln((user.serial == 1) ? "SPI" : "Parallel");
+    DBGln("Check tft SPI");
     if (user.pin_tft_mosi != -1)
     {
-        Serial.print("MOSI    = ");
-        Serial.print("GPIO ");
-        Serial.println(getPinName(user.pin_tft_mosi, user));
+        DBG("MOSI    = ");
+        DBG("GPIO ");
+        DBGln(getPinName(user.pin_tft_mosi, user));
     }
     if (user.pin_tft_miso != -1)
     {
-        Serial.print("MISO    = ");
-        Serial.print("GPIO ");
-        Serial.println(getPinName(user.pin_tft_miso, user));
+        DBG("MISO    = ");
+        DBG("GPIO ");
+        DBGln(getPinName(user.pin_tft_miso, user));
     }
     if (user.pin_tft_clk != -1)
     {
-        Serial.print("SCK     = ");
-        Serial.print("GPIO ");
-        Serial.println(getPinName(user.pin_tft_clk, user));
+        DBG("SCK     = ");
+        DBG("GPIO ");
+        DBGln(getPinName(user.pin_tft_clk, user));
     }
-    Serial.println("Check tft SPI");
+    DBGln("Check tft SPI");
     String pinNameRef = "GPIO ";
 #ifdef ARDUINO_ARCH_ESP8266
     pinNameRef = "PIN_D";
 #endif
     /*  if (user.esp == 0x32F)
      {
-         Serial.println("\n>>>>> Note: STM32 pin references above D15 may not reflect board markings <<<<<");
+         DBGln("\n>>>>> Note: STM32 pin references above D15 may not reflect board markings <<<<<");
          pinNameRef = "D";
      }
      if (user.pin_tft_cs != -1)
      {
-         Serial.print("TFT_CS   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_cs, user));
+         DBG("TFT_CS   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_cs, user));
      }
      if (user.pin_tft_dc != -1)
      {
-         Serial.print("TFT_DC   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_dc, user));
+         DBG("TFT_DC   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_dc, user));
      }
      if (user.pin_tft_rst != -1)
      {
-         Serial.print("TFT_RST  = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_rst, user));
+         DBG("TFT_RST  = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_rst, user));
      }
 
      if (user.pin_tch_cs != -1)
      {
-         Serial.print("TOUCH_CS = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tch_cs, user));
+         DBG("TOUCH_CS = " + pinNameRef);
+         DBGln(getPinName(user.pin_tch_cs, user));
      }
 
      if (user.pin_tft_wr != -1)
      {
-         Serial.print("TFT_WR   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_wr, user));
+         DBG("TFT_WR   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_wr, user));
      }
      if (user.pin_tft_rd != -1)
      {
-         Serial.print("TFT_RD   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_rd, user));
+         DBG("TFT_RD   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_rd, user));
      }
 
      if (user.pin_tft_d0 != -1)
      {
-         Serial.print("\nTFT_D0   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_d0, user));
+         DBG("\nTFT_D0   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_d0, user));
      }
      if (user.pin_tft_d1 != -1)
      {
-         Serial.print("TFT_D1   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_d1, user));
+         DBG("TFT_D1   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_d1, user));
      }
      if (user.pin_tft_d2 != -1)
      {
-         Serial.print("TFT_D2   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_d2, user));
+         DBG("TFT_D2   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_d2, user));
      }
      if (user.pin_tft_d3 != -1)
      {
-         Serial.print("TFT_D3   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_d3, user));
+         DBG("TFT_D3   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_d3, user));
      }
      if (user.pin_tft_d4 != -1)
      {
-         Serial.print("TFT_D4   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_d4, user));
+         DBG("TFT_D4   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_d4, user));
      }
      if (user.pin_tft_d5 != -1)
      {
-         Serial.print("TFT_D5   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_d5, user));
+         DBG("TFT_D5   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_d5, user));
      }
      if (user.pin_tft_d6 != -1)
      {
-         Serial.print("TFT_D6   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_d6, user));
+         DBG("TFT_D6   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_d6, user));
      }
      if (user.pin_tft_d7 != -1)
      {
-         Serial.print("TFT_D7   = " + pinNameRef);
-         Serial.println(getPinName(user.pin_tft_d7, user));
+         DBG("TFT_D7   = " + pinNameRef);
+         DBGln(getPinName(user.pin_tft_d7, user));
      } */
 }
 
@@ -245,9 +246,9 @@ void tft_initNetwork(int num, ...)
     for (int i = 0; i < num; i++)
     {
         msg = va_arg(valist, char *);
-        /* Serial.print(msg);
-        Serial.print(", ");
-        Serial.println(FONTSIZE_2_ONE_LINE * i); */
+        /* DBG(msg);
+        DBG(", ");
+        DBGln(FONTSIZE_2_ONE_LINE * i); */
         tft_printTxt(0, 0, FONTSIZE_2, "Init Network ... ");
         if (i == 1)
         {
@@ -267,9 +268,9 @@ void tft_showAvailableNetworks(int num, ...)
     for (int i = 0; i < num; i++)
     {
         msg = va_arg(valist, char *);
-        /* Serial.print(msg);
-        Serial.print(", ");
-        Serial.println(FONTSIZE_2_ONE_LINE * i); */
+        /* DBG(msg);
+        DBG(", ");
+        DBGln(FONTSIZE_2_ONE_LINE * i); */
         tft_printTxt(0, 0, FONTSIZE_2, "Init Network ... ");
         if (i == 1)
         {

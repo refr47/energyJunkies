@@ -74,9 +74,9 @@ bool isConnectedAndReconnect()
     if (!mb.isConnected(remote))
     {
         success = mb.connect(remote);
-        Serial.print("modbus do connect ....");
-        Serial.println(success);
-        Serial.println(strerror(errno));
+        DBG("modbus do connect ....");
+        DBGln(success);
+        DBGln(strerror(errno));
     }
 
     return success;
@@ -84,13 +84,13 @@ bool isConnectedAndReconnect()
 
 bool mb_init(Setup &setup)
 {
-    Serial.print(" Inverter Addr: ");
-    Serial.println(setup.ipInverterAsString);
-    Serial.println(setup.ipInverter);
+    DBG(" Inverter Addr: ");
+    DBGln(setup.ipInverterAsString);
+    DBGln(setup.ipInverter);
 
     if (!remote.fromString(setup.ipInverterAsString))
     {
-        Serial.println("mb_init:: - cannot convert IP-Adresse of Converter from string");
+        DBGln("mb_init:: - cannot convert IP-Adresse of Converter from string");
         return false;
     }
 
@@ -106,60 +106,60 @@ bool mb_readInverterStatic()
     uint16_t transId = 0;
     if (!isConnectedAndReconnect())
         return false;
-    Serial.println("Modbus/TCP connected");
+    DBGln("Modbus/TCP connected");
 
     transId = mb.readHreg(remote, MODBUS_COMMMON, (uint16_t *)&inverterRegs, MODBUS_STATIC_LEN, NULL, INVERTER_ID); // Initiate Read Holding Register from Modbus Slave
-    Serial.print("transID: ");
-    Serial.println(transId);
+    DBG("transID: ");
+    DBGln(transId);
     if (transId == 0)
     {
 
         sprintf(text, "Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", INVERTER_ID, MOD_BASE_REG, MOD_BASE_REG_COUNT);
-        Serial.println(text);
+        DBGln(text);
         delay(5000);
         //    } else {
-        //      Serial.println("Modbus/TCP register read succeeded");
+        //      DBGln("Modbus/TCP register read succeeded");
         //      Serial2.println("Modbus/TCP register read succeeded");
     }
     else
     {
-        Serial.println(" modbus done successfully ....");
+        DBGln(" modbus done successfully ....");
     }
 
     mb.task(); // Common local Modbus task
     if (transId != 0)
     {
 
-        /*  Serial.println(inverterRegs.manufactor);*/
+        /*  DBGln(inverterRegs.manufactor);*/
         /*    for (int jj = 0; jj < MODBUS_COMMMON_LEN; jj++)
            {
-               Serial.print(jj);
-               Serial.print(": ");
-               Serial.println(inverterRegs[jj], HEX);
+               DBG(jj);
+               DBG(": ");
+               DBGln(inverterRegs[jj], HEX);
            }
     */
-        Serial.print("Manufactorer: ");
+        DBG("Manufactorer: ");
         int offset = 0;
         makeString(0, MODBUS_INVERTER_MANUFACTURER_LEN, inverterRegs, &pText);
-        Serial.println(pText);
-        Serial.print("Device: ");
+        DBGln(pText);
+        DBG("Device: ");
         offset = MODBUS_INVERTER_MANUFACTURER_LEN;
         makeString(offset, offset + MODBUS_INVERTER_DEVICE_LEN, inverterRegs, &pText);
-        Serial.println(pText);
-        Serial.print("SW Version: ");
+        DBGln(pText);
+        DBG("SW Version: ");
         offset += MODBUS_INVERTER_MANUFACTURER_LEN;
         offset += MODBUS_INVERTER_OPTIONS;
 
-        Serial.print("SW-Version: ");
-        Serial.print(offset);
+        DBG("SW-Version: ");
+        DBG(offset);
         makeString(offset, offset + MODBUS_INVERTER_SW_VERS, inverterRegs, &pText);
-        Serial.println(pText);
+        DBGln(pText);
 
-        Serial.println("Done");
+        DBGln("Done");
     }
     else
     {
-        Serial.println("transid is 0");
+        DBGln("transid is 0");
     }
     return true;
 }

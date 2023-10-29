@@ -30,28 +30,28 @@ bool isAuthenticated = false;
 
 void listDir(char *dir)
 {
-    Serial.println("listdir");
+    DBGln("listdir");
     File root = SPIFFS.open(dir);
 
     if (!root)
     {
-        Serial.println("- failed to open directory");
+        DBGln("- failed to open directory");
         return;
     }
     if (!root.isDirectory())
     {
-        Serial.println(" - not a directory");
+        DBGln(" - not a directory");
         return;
     }
 
-    Serial.println(root);
+    DBGln(root);
     File file = root.openNextFile();
-    Serial.println(file);
+    DBGln(file);
     while (file)
     {
 
-        Serial.print("FILE: ");
-        Serial.println(file.name());
+        DBG("FILE: ");
+        DBGln(file.name());
 
         file = root.openNextFile();
     }
@@ -72,7 +72,7 @@ void sendHTML(String &path, AsyncWebServerRequest *request)
 
 void handleLogin(AsyncWebServerRequest *request)
 {
-    Serial.println("handleLogin");
+    DBGln("handleLogin");
     bool standingData = false;
     // Check if the request method is POST
     if (request->method() == HTTP_POST)
@@ -87,8 +87,8 @@ void handleLogin(AsyncWebServerRequest *request)
         {
             isAuthenticated = true;
             standingData = request->arg("standingData") == "true";
-            Serial.print("Stammdaten: ");
-            Serial.println(standingData);
+            DBG("Stammdaten: ");
+            DBGln(standingData);
 
             if (standingData)
                 request->send(SPIFFS, "/setupData.html", String(), false);
@@ -109,7 +109,7 @@ void handleLogin(AsyncWebServerRequest *request)
 void handleRoot(AsyncWebServerRequest *request)
 {
     // Check if the user is authenticated
-    Serial.println("handleRoot");
+    DBGln("handleRoot");
     if (isAuthenticated)
         request->send(SPIFFS, "/index.html", String(), false);
     else
@@ -119,7 +119,7 @@ void handleRoot(AsyncWebServerRequest *request)
 void handleSetup(AsyncWebServerRequest *request)
 {
     // Check if the user is authenticated
-    Serial.println("handleSetup");
+    DBGln("handleSetup");
     if (isAuthenticated)
         request->send(SPIFFS, "/setupData.html", "text/html", false);
     else
@@ -132,18 +132,18 @@ void ap_init()
 
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
-        Serial.println("SPIFFS Mount Failed");
+        DBGln("SPIFFS Mount Failed");
         return;
     }
 
     listDir("/");
     //  Connect to Wi-Fi network with SSID
-    Serial.print("Setting AP (Access Point)…");
+    DBG("Setting AP (Access Point)…");
     WiFi.mode(WIFI_AP);
     WiFi.softAP(ssid);
     /*   if (!MDNS.begin(host))
       { // Use http://esp32.local for web server page
-          Serial.println("Error setting up MDNS responder!");
+          DBGln("Error setting up MDNS responder!");
           while (1)
               109
               {
@@ -152,9 +152,9 @@ void ap_init()
       } */
 
     IPAddress IP = WiFi.softAPIP();
-    Serial.print("AP IP address: ");
+    DBG("AP IP address: ");
     // char *p = (char *)IP.toString().c_str();
-    Serial.println(IP);
+    DBGln(IP);
     tft_initNetwork(6, "Keine Netzwerkparameter", "ACCESS-Point Modus", "SSID=>", ssid, "IP=>", (char *)IP.toString().c_str());
 
     server.on("/login", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -190,9 +190,9 @@ void ap_init()
                       {
 
     String path = request->url();
-    Serial.print("Path (!found): ");
-    Serial.print(path.c_str());
-    Serial.println(";");
+    DBG("Path (!found): ");
+    DBG(path.c_str());
+    DBGln(";");
     if (!isAuthenticated) {
       // Redirect to the login page if not authenticated
       request->redirect("/login");
@@ -217,26 +217,26 @@ void ap_init()
                                                                                int result = 0;
                                                                                float resultF = 0.0;
                                                                                bool errorH = false;
-                                                                               Serial.println("STart parsing json object");
+                                                                               DBGln("STart parsing json object");
                                                                                argument = jsonObj[WLAN_ESSID];
-                                                                               Serial.print(" 1 arg: ");
-                                                                               Serial.println(argument);
+                                                                               DBG(" 1 arg: ");
+                                                                               DBGln(argument);
                                                                                errorH = util_isFieldFilled(WLAN_ESSID, argument, data);
                                                                                if (!errorH)
                                                                                    strcpy(setup.ssid, jsonObj[WLAN_ESSID]);
                                                                                argument = jsonObj[WLAN_PASSWD];
-                                                                               Serial.print(" 2 arg: ");
-                                                                               Serial.println(argument);
+                                                                               DBG(" 2 arg: ");
+                                                                               DBGln(argument);
                                                                                errorH = util_isFieldFilled(WLAN_PASSWD, argument, data);
                                                                                if (!errorH)
                                                                                    strcpy(setup.passwd, jsonObj[WLAN_PASSWD]);
                                                                                argument = jsonObj[HEIZPATRONE];
-                                                                               Serial.print(" heizpatrone arg: ");
-                                                                               Serial.println(argument);
+                                                                               DBG(" heizpatrone arg: ");
+                                                                               DBGln(argument);
                                                                                errorH = util_checkParamInt(HEIZPATRONE, argument, data, &result);
                                                                                if (!errorH)
                                                                                    setup.leistungHeizpatroneInW = result;
-                                                                               Serial.print(" hysteryse arg: ");
+                                                                               DBG(" hysteryse arg: ");
                                                                                argument = jsonObj[HYSTERESE];
                                                                                errorH = util_checkParamInt(HYSTERESE, argument, data, &result);
                                                                                if (!errorH)
@@ -274,7 +274,7 @@ void ap_init()
                                                                                }
                                                                                else
                                                                                    data["done"] = 0;
-                                                                               Serial.println(" vor serialisierung : ");
+                                                                               DBGln(" vor serialisierung : ");
                                                                                serializeJson(data, response);
                                                                                // request->redirect("/login");
                                                                                request->send(200, "application/json", response);
@@ -295,9 +295,9 @@ void ap_run()
     WiFiClient client = server.available(); // Listen for incoming clients
 
     if (client)
-    {                                  // If a new client connects,
-        Serial.println("New Client."); // print a message out in the serial port
-        String currentLine = "";       // make a String to hold incoming data from the client
+    {                            // If a new client connects,
+        DBGln("New Client.");    // print a message out in the serial port
+        String currentLine = ""; // make a String to hold incoming data from the client
         while (client.connected())
         { // loop while the client's connected
             if (client.available())
@@ -322,20 +322,20 @@ void ap_run()
                         if (header.indexOf("GET /26/on") >= 0)
                         {
                             output26State = "on";
-                            Serial.println("GPIO 26 on");
+                            DBGln("GPIO 26 on");
                         }
                         else if (header.indexOf("GET /26/off") >= 0)
                         {
-                            Serial.println("GPIO 26 off");
+                            DBGln("GPIO 26 off");
                             output26State = "off";
                         }
                         else if (header.indexOf("GET /27/on") >= 0)
                         {
-                            Serial.println("GPIO 27 on");
+                            DBGln("GPIO 27 on");
                         }
                         else if (header.indexOf("GET /27/off") >= 0)
                         {
-                            Serial.println("GPIO 27 off");
+                            DBGln("GPIO 27 off");
                         }
 
                         // Display the HTML web page
@@ -398,8 +398,8 @@ void ap_run()
         header = "";
         // Close the connection
         client.stop();
-        Serial.println("Client disconnected.");
-        Serial.println("");
+        DBGln("Client disconnected.");
+        DBGln("");
     }
     delay(1000);
 }

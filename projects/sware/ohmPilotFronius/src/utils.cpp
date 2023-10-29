@@ -17,47 +17,47 @@ void Serialprintln(const char *input...)
     {
         if (*i != '%')
         {
-            Serial.print(*i);
+            DBG(*i);
             continue;
         }
         switch (*(++i))
         {
         case '%':
-            Serial.print('%');
+            DBG('%');
             break;
         case 's':
-            Serial.print(va_arg(args, char *));
+            DBG(va_arg(args, char *));
             break;
         case 'd':
-            Serial.print(va_arg(args, int), DEC);
+            Serial.println(va_arg(args, int), DEC);
             break;
         case 'b':
-            Serial.print(va_arg(args, int), BIN);
+            Serial.println(va_arg(args, int), BIN);
             break;
         case 'o':
-            Serial.print(va_arg(args, int), OCT);
+            Serial.println(va_arg(args, int), OCT);
             break;
         case 'x':
-            Serial.print(va_arg(args, int), HEX);
+            Serial.println(va_arg(args, int), HEX);
             break;
         case 'f':
-            Serial.print(va_arg(args, double), 2);
+            Serial.println(va_arg(args, double), 2);
             break;
         }
     }
-    Serial.println();
+    DBGln();
     va_end(args);
 }
 
 void printHWInfo()
 {
-    Serial.print("MEM: ");
-    Serial.println(esp_get_free_heap_size());
+    DBG("MEM: ");
+    DBGln(esp_get_free_heap_size());
 
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
 
-    Serial.println("Hardware info");
+    DBGln("Hardware info");
     Serial.printf("%d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
                   (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
     Serial.printf("Silicon revision: %d\n", chip_info.revision);
@@ -103,8 +103,8 @@ String ipv4_int_to_string(uint32_t in, bool *const success)
     {
         *success = _success;
     }
-    /* Serial.print("Return in ipv4_int_to_string ...");
-    Serial.print(", success: ");Serial.print(_success);Serial.print(" ,ret: "); Serial.print(ret); */
+    /* DBG("Return in ipv4_int_to_string ...");
+    DBG(", success: ");DBG(_success);DBG(" ,ret: "); DBG(ret); */
     if (_success)
     {
         // ret.pop_back(); // remove null-terminator required by inet_ntop
@@ -113,14 +113,14 @@ String ipv4_int_to_string(uint32_t in, bool *const success)
     {
         char buf[200] = {0};
         strerror_r(errno, buf, sizeof(buf));
-        Serial.print("Error inipv4_int_to_string ");
-        Serial.println(strerror(errno));
+        DBG("Error inipv4_int_to_string ");
+        DBGln(strerror(errno));
 
         // throw std::runtime_error(String("error converting ipv4 int to String ") + to_string(errno) + String(": ") + String(buf));
         // ret = buf;
     }
 
-    Serial.println("===");
+    DBGln("===");
     return String(ret);
 }
 // return is native-endian
@@ -138,8 +138,8 @@ uint32_t ipv4_string_to_int(String &in, bool *const success)
     {
         char buf[200] = {0};
         strerror_r(errno, buf, sizeof(buf));
-        Serial.print("Error in ipv4_string_to_int ");
-        Serial.println(strerror(errno));
+        DBG("Error in ipv4_string_to_int ");
+        DBGln(strerror(errno));
         in = buf;
         // throw std::runtime_error(String("error converting ipv4 String to int ") + to_string(errno) + String(": ") + String(buf));
     }
@@ -194,7 +194,7 @@ void util_pHW()
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
 
-    Serial.println("Hardware info");
+    DBGln("Hardware info");
     Serial.printf("%d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
                   (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
     Serial.printf("Silicon revision: %d\n", chip_info.revision);
@@ -206,6 +206,6 @@ void util_pHW()
     chipId.toUpperCase();
 
     Serial.printf("Chip id: %s\n", chipId.c_str());
-    Serial.print("Model: ");
-    Serial.println(chip_info.model);
+    DBG("Model: ");
+    DBGln(chip_info.model);
 }

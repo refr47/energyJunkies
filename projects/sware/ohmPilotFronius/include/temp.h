@@ -1,5 +1,4 @@
-#ifndef __TEMP
-#define __TEMP
+#pragma once
 
 typedef struct
 {
@@ -11,4 +10,3 @@ typedef struct
 void temp_init();
 int temp_getNumberOfDevices();
 bool temp_getTemperature(TEMPERATURE &container);
-#endif
