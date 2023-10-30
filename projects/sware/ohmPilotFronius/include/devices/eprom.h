@@ -1,5 +1,4 @@
-#ifndef __EEPROM_H
-#define __EEPROM_H
+#pragma once
 
 #include "defines.h"
 
@@ -22,5 +21,3 @@ void eprom_getSetup(Setup &setup);
 
 void eprom_test_write_Eprom(const char *, const char *);
 void eprom_test_read_Eprom();
-
-#endif

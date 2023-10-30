@@ -8,7 +8,7 @@
 #define DBG1ln(a, f) (Serial.println(a, f))
 
 #define DBG(a) (Serial.print(a))
-#define DBG1(a, f) (Serial.println(a, f))
+#define DBG1(a, f) (Serial.print(a, f))
 #else
 #define DBGln(a)
 #define DBG(a)

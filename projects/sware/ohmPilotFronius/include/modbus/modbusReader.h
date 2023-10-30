@@ -1,5 +1,5 @@
-#ifndef _MODBUS_READER
-#define _MODBUS_READER
+#pragma once
+
 #include "defines.h"
 /*
 gen24 symo registers
@@ -10,5 +10,3 @@ gen24 symo registers
 
 bool mb_init(Setup &);
 bool mb_readInverterStatic();
-
-#endif

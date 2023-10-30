@@ -84,7 +84,7 @@ void setup()
   DBGln(cpu_freq);
   uint32_t PRESCALE = 240; // for 240MHZ
   Setup setup;             // all input quantities
-  eprom_test_write_Eprom(wlanE, passW);
+  // eprom_test_write_Eprom(wlanE, passW);
   eprom_getSetup(setup);
   eprom_test_read_Eprom();
 
@@ -162,14 +162,14 @@ void setup()
       DBGln("Cannot initialize modbus ....");
     }
 
-    if (!pid_init(&setup))
+    /* if (!pid_init(&setup))
     {
       DBGln("Cannot initialize pid controller:");
     }
     else
     {
       DBGln("PID controller initializred successfully ....");
-    }
+    } */
   }
 }
 
@@ -197,7 +197,7 @@ void loop()
     else
       DBGln(" --- MODBUS --- Query done");
     previousMillModbus = currentMillis;
-    pid_run(400.0);
+    // pid_run(400.0);
   }
   delay(4000);
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #define _WIFI_CPP
 
 #include <WiFi.h>

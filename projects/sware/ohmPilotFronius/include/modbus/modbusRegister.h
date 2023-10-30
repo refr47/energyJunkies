@@ -1,5 +1,4 @@
-#ifndef __MODBUS_REGISTER__H__
-#define __MODBUS_REGISTER__H__
+#pragma once
 
 /*
 https://github.com/lostcontrol/wattpilot
@@ -41,5 +40,3 @@ https://github.com/lostcontrol/wattpilot
 #define DC_POWER 40101
 
 #define MODBUS_STATIC_LEN (MODBUS_INVERTER_MANUFACTURER_LEN + MODBUS_INVERTER_DEVICE_LEN + MODBUS_INVERTER_OPTIONS + MODBUS_INVERTER_SW_VERS)
-
-#endif

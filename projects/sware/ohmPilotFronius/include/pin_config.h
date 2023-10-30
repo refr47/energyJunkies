@@ -35,5 +35,22 @@
 #define CARDREADER_SPI_CLK 12
 #define CARDREADER_SPI_MISO 13
 
+#ifdef ESP_S3
 #define ONE_WIRE_TEMP_GPIO 5
 #define PID_REGLER_GPIO 1
+#define SWITCH_KEY_UP 43
+#define SWITCH_KEY_DOWN 44
+#define SWITCH_KEY_ESC 18
+#define SWITCH_KEY_ENTER 17
+#define RELAY1 16
+#define RELEAY2 21
+#else
+#define ONE_WIRE_TEMP_GPIO 3
+#define PID_REGLER_GPIO 1
+#define SWITCH_KEY_UP 43
+#define SWITCH_KEY_DOWN 44
+#define SWITCH_KEY_ESC 18
+#define SWITCH_KEY_ENTER 17
+#define RELAY1 16
+#define RELEAY2 21
+#endif

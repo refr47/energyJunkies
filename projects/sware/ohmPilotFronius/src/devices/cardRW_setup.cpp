@@ -17,7 +17,7 @@ bool cardRW_setup()
     Serialprintln("CLOCK: %d, MISO: %d, MOSI: %d, CS: %d", SCK, MISO, MOSI, SS);
 
     pinMode(SS, OUTPUT);
-    digitalWrite(SS, LOW); //  enable CS pin to read from peripheral 1
+    digitalWrite(SS, HIGH); //  enable CS pin to read from peripheral 1
     SPI.begin(SCK, MISO, MOSI, SS);
 
     try
