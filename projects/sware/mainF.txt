@@ -1,0 +1,425 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <ModbusIP_ESP8266.h>
+
+// structures for byte/word swapping
+typedef union regValue32
+{
+    byte bytes[4];
+    uint16_t regs[2];
+    uint32_t value32;
+} regValue32_t;
+ 
+typedef union regValue64
+{
+    byte bytes[8];
+    uint16_t regs[4];
+    uint32_t value32[2];
+    uint64_t value64;
+} regValue64_t;
+
+// scaling relations
+// multiple register values are combined to one value and then scaled
+// targetArray[target] = sourceArray[source] * pow(sourceArray[scale]);
+typedef struct scaleIndex
+{
+    int targetIndex; // index into target values array
+    int sourceIndex; // index into value registers array (value to be scaled)
+    int scaleIndex;  // index into value registers array (scale factor), -1 if no scaling required
+    int regCount;    // number of registers to combine into one float value
+} scaleIndex_t;
+
+// value name length
+#define VALUE_NAME_LEN 24
+
+// inverter summary values register definitions
+#define INVERTER_SUM_BLOCK_ID 0
+#define INVERTER_SUM_REGS_START 40083
+#define INVERTER_SUM_REGS_LEN 19
+#define INVERTER_SUM_VALUE_LEN 3
+
+// meter modbus register array
+int16_t inverterSumRegs[INVERTER_SUM_REGS_LEN];
+#include <ModbusIP_ESP8266.h>
+// meter values union consisting of float array and float structure components
+typedef union inverterSumValue
+{
+    double value[INVERTER_SUM_VALUE_LEN];
+    struct inverterSumData
+    {
+        double acCurrentPower; // AC power in kW
+        double acTotalEnergy;  // total AC energy produced
+        double dcCurrentPower; // DC current power
+    } data;
+} inverterSumValue_t;
+
+// meter value names
+char inverterSumValueNames[INVERTER_SUM_VALUE_LEN][VALUE_NAME_LEN] = {
+    "  acCurrPower", "acTotalEnergy", "  dcCurrPower"};
+
+// meter values
+inverterSumValue_t inverterSumValues;
+
+// scaling relations for meter values
+scaleIndex_t scaleInverterSum[INVERTER_SUM_VALUE_LEN] = {
+    {0, 40083 - INVERTER_SUM_REGS_START, 40084 - INVERTER_SUM_REGS_START, 1}, // AC current power
+    {1, 40093 - INVERTER_SUM_REGS_START, 40095 - INVERTER_SUM_REGS_START, 2}, // AC total energy exported
+    {2, 40100 - INVERTER_SUM_REGS_START, 40101 - INVERTER_SUM_REGS_START, 1}  // AC total energy imported
+};
+
+// inverter summary values register definitions
+#define INVERTER_STATE_BLOCK_ID 1
+#define INVERTER_STATE_REGS_START 40140
+#define INVERTER_STATE_REGS_LEN 50
+#define INVERTER_STATE_VALUE_LEN 4
+
+// meter modbus register array
+int16_t inverterStateRegs[INVERTER_STATE_REGS_LEN];
+
+// meter values union consisting of float array and float structure components
+typedef union inverterStateValue
+{
+    double value[INVERTER_STATE_VALUE_LEN];
+    struct inverterStateData
+    {
+        double capacity;           // storage capacity in Wh
+        double chargeRateLimit;    // max. charge rate
+        double dischargeRateLimit; // max discharge rate
+        double lifetimeEnergy;     // lifetime energy stored
+    } data;
+} inverterStateValue_t;
+
+// meter value names
+char inverterStateValueNames[INVERTER_STATE_VALUE_LEN][VALUE_NAME_LEN] = {
+    "     capacity", "chrgRateLimit", "dichgRteLimit", "lifetmeEnergy"};
+
+// meter values
+inverterStateValue_t inverterStateValues;
+
+// scaling relations for meter values
+scaleIndex_t scaleInverterState[INVERTER_STATE_VALUE_LEN] = {
+    {0, 40140 - INVERTER_STATE_REGS_START, 40141 - INVERTER_STATE_REGS_START, 1}, // storage capacity in Wh
+    {1, 40144 - INVERTER_STATE_REGS_START, 40145 - INVERTER_STATE_REGS_START, 1}, // max. charge rate
+    {2, 40146 - INVERTER_STATE_REGS_START, 40147 - INVERTER_STATE_REGS_START, 1}, // max. discharge rate
+    {3, 40186 - INVERTER_STATE_REGS_START, -1, 4}                                 // lifetime energy
+};
+
+// inverter summary values register definitions
+#define INVERTER_STRG_BLOCK_ID 2
+#define INVERTER_STRG_REGS_START 40345
+#define INVERTER_STRG_REGS_LEN 24
+#define INVERTER_STRG_VALUE_LEN 7
+
+// meter modbus register array
+int16_t inverterStrgRegs[INVERTER_STRG_REGS_LEN];
+
+// meter values union consisting of float array and float structure components
+typedef union inverterStrgValue
+{
+    double value[INVERTER_STRG_VALUE_LEN];
+    struct inverterStrgData
+    {
+        double maxChargePower;   // max. charge rate in W
+        double maxChargeRate;    // max. charge rate in %
+        double maxDischargeRate; // max discharge rate in %
+        double minReservePct;    // min. emergency reserve in %
+        double stateOfCharge;    // state of charge in %
+        double chargeRate;       // charge rate in %
+        double dischargeRate;    // discharge rate in %
+    } data;
+} inverterStrgValue_t;
+
+// meter value names
+char inverterStrgValueNames[INVERTER_STRG_VALUE_LEN][VALUE_NAME_LEN] = {
+    "  chargePower", "maxChargeRate", "maxDischgRate", "minReservePct",
+    "stateOfCharge", "   chargeRate", "dischargeRate"};
+
+// meter values
+inverterStrgValue_t inverterStrgValues;
+
+// scaling relations for meter values
+scaleIndex_t scaleInverterStrg[INVERTER_STRG_VALUE_LEN] = {
+    {0, 40345 - INVERTER_STRG_REGS_START, 40361 - INVERTER_STRG_REGS_START, 1}, // max. charge power in W
+    {1, 40346 - INVERTER_STRG_REGS_START, 40362 - INVERTER_STRG_REGS_START, 1}, // max. charge rate in %
+    {2, 40347 - INVERTER_STRG_REGS_START, 40362 - INVERTER_STRG_REGS_START, 1}, // max. discharge rate %
+    {3, 40350 - INVERTER_STRG_REGS_START, 40364 - INVERTER_STRG_REGS_START, 1}, // min. emergency reserve %
+    {4, 40351 - INVERTER_STRG_REGS_START, 40365 - INVERTER_STRG_REGS_START, 1}, // state of charge %
+    {5, 40355 - INVERTER_STRG_REGS_START, 40368 - INVERTER_STRG_REGS_START, 1}, // charge rate in %
+    {6, 40356 - INVERTER_STRG_REGS_START, 40368 - INVERTER_STRG_REGS_START, 1}  // discharge rate in %
+};
+
+// meter values register definitions
+#define METER_BLOCK_ID 3
+#define METER_REGS_START 40071
+#define METER_REGS_LEN 70
+#define METER_VALUE_LEN 3
+
+// meter modbus register array
+int16_t meterRegs[METER_REGS_LEN];
+
+// meter values union consisting of float array and float structure components
+typedef union meterValue
+{
+    double value[METER_VALUE_LEN];
+    struct meterData
+    {
+        double acCurrentPower;   // AC power in kW
+        double acTotalEnergyExp; // total AC energy exported in Wh
+        double acTotalEnergyImp; // total AC energy imported in Wh
+    } data;
+} meterValue_t;
+
+// meter value names
+char meterValueNames[METER_VALUE_LEN][VALUE_NAME_LEN] = {
+    "  acCurrPower", "acTotlEnergExp", "acTotlEnergImp"};
+
+// meter values
+meterValue_t meterValues;
+
+// scaling relations for meter values
+scaleIndex_t scaleMeter[METER_VALUE_LEN] = {
+    {0, 40087 - METER_REGS_START, 40091 - METER_REGS_START, 1}, // AC current power
+    {1, 40107 - METER_REGS_START, 40123 - METER_REGS_START, 2}, // AC total energy exported
+    {2, 40115 - METER_REGS_START, 40123 - METER_REGS_START, 2}  // AC total energy imported
+};
+
+// scale values: set target to source * scale factor, number of elements
+int scaleValues(double target[], int16_t source[], scaleIndex_t relation[], int count);
+
+// swap bytes of an byte array
+void swapBytes(byte bytes[], int count)
+{
+    byte temp;
+    for (int i = 0; i < count / 2; i++)
+    {
+        temp = bytes[i];
+        bytes[i] = bytes[count - 1 - i];
+        bytes[count - 1 - i] = temp;
+    }
+}
+
+// swap bytes of an byte array
+void swapRegs(uint16_t regs[], int count)
+{
+    uint16_t temp;
+    for (int i = 0; i < count / 2; i++)
+    {
+        temp = regs[i];
+        regs[i] = regs[count - 1 - i];
+        regs[count - 1 - i] = temp;
+    }
+}
+
+int scaleValues(double target[], int16_t source[], scaleIndex_t relation[], int count)
+{
+    int64_t value;
+    for (int i = 0; i < count; i++)
+    {
+        switch (relation[i].regCount)
+        {
+        case 4:
+        {
+            regValue64_t valueUnion64;
+            valueUnion64.regs[0] = source[relation[i].sourceIndex];
+            valueUnion64.regs[1] = source[relation[i].sourceIndex + 1];
+            valueUnion64.regs[2] = source[relation[i].sourceIndex + 2];
+            valueUnion64.regs[3] = source[relation[i].sourceIndex + 3];
+            // swapBytes(valueUnion64.bytes, relation[i].regCount * 2);
+            swapRegs(valueUnion64.regs, relation[i].regCount);
+            value = valueUnion64.value64;
+            break;
+        }
+        case 2:
+        {
+            regValue32_t valueUnion32;
+            valueUnion32.regs[0] = source[relation[i].sourceIndex];
+            valueUnion32.regs[1] = source[relation[i].sourceIndex + 1];
+            // swapBytes(valueUnion32.bytes, relation[i].regCount * 2);
+            swapRegs(valueUnion32.regs, relation[i].regCount);
+            value = valueUnion32.value32;
+            // value = ((uint32_t)(source[relation[i].sourceIndex + 1])) << 16;
+            // value |= (uint16_t)source[relation[i].sourceIndex];
+            // value = swapBytes((uint16_t)(source[relation[i].sourceIndex + 1]));
+            // value = value << 16 + swapBytes(source[relation[i].sourceIndex]);
+            break;
+        }
+        case 1:
+        default:
+            value = source[relation[i].sourceIndex];
+        }
+        // only scale values having a scale factor (-1 denotes do not scale)
+        if (relation[i].scaleIndex < 0)
+        {
+            target[relation[i].targetIndex] = value;
+        }
+        else
+        {
+            target[relation[i].targetIndex] = value * pow(10, source[relation[i].scaleIndex]);
+        }
+    }
+    return 0;
+}
+
+// max. length of modbus device names
+#define DEVICE_NAME_LEN 24 // ModbusIP object
+// max. length of text
+#define TEXT_LEN 256
+
+// modbus register block description
+typedef struct
+{
+    int blockId;                // index of modbus block
+    int deviceId;               // modbus device id: inverter: 1, smart meter: 200
+    int baseAddr;               // register number (already reduced by 1)
+    int count;                  // number of registers to read
+    char text[DEVICE_NAME_LEN]; // device name
+} modbus_read_t;
+
+// number of register blocks to read
+#define REG_BLOCK_COUNT 4
+
+// modbus device id of inverter
+#define INVERTER_ID 1
+
+// modbus device id of smart meter
+#define METER_ID 200
+
+// description of modbus register block to be read
+// inverter is device id 1, storage registers start at 400345, read 24 registers, ...
+// smart meter is device 200, meter registers start at 40071, read 70 registers
+modbus_read_t regsToRead[REG_BLOCK_COUNT] = {
+    {INVERTER_SUM_BLOCK_ID, INVERTER_ID, INVERTER_SUM_REGS_START, INVERTER_SUM_REGS_LEN, "Inverter"},
+    {INVERTER_STATE_BLOCK_ID, INVERTER_ID, INVERTER_STATE_REGS_START, INVERTER_STATE_REGS_LEN, "Inverter"},
+    {INVERTER_STRG_BLOCK_ID, INVERTER_ID, INVERTER_STRG_REGS_START, INVERTER_STRG_REGS_LEN, "Inverter"},
+    {METER_BLOCK_ID, METER_ID, METER_REGS_START, METER_REGS_LEN, "Smart Meter"}};
+// highest number of registers to be printed (derived of regsToRead highest register number)
+const int regsCount = METER_REGS_LEN; // max(max(INVERTER_SUM_REGS_LEN, INVERTER_STATE_REGS_LEN), max(INVERTER_STRG_REGS_LEN, METER_REGS_LEN));
+
+// ip address of modbus tcp slave
+static IPAddress remote(10, 0, 0, 7);
+
+// ModbusIP object
+static ModbusIP mb;
+
+// character array to prepare mesages
+static char text[TEXT_LEN];
+
+static void drawHeader()
+{
+    // draw heading
+    Serial.println();
+    /*
+    0.000; 23997487.340;        0.000;       -0.000;       -0.000;       -0.000; 23997487.000;        0.000;        0.000;        0.000;        0.000;        0.000;        0.000;        0.000;      355.000; 16032533.000;  9365775.000;
+    */
+    sprintf(text, "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s",
+            inverterSumValueNames[0], inverterSumValueNames[1], inverterSumValueNames[2],
+            inverterStateValueNames[0], inverterStateValueNames[1], inverterStateValueNames[2], inverterStateValueNames[3],
+            inverterStrgValueNames[0], inverterStrgValueNames[1], inverterStrgValueNames[2], inverterStrgValueNames[3],
+            inverterStrgValueNames[4], inverterStrgValueNames[5], inverterStrgValueNames[6],
+            meterValueNames[0], meterValueNames[1], meterValueNames[2]);
+    Serial.println(text);
+    Serial.println();
+}
+
+void setup()
+{
+    Serial.begin(115200);
+
+    WiFi.begin("Milchbehaelter", "47754775");
+
+    Serial.print(F("Connecting to WIFI network "));
+    Serial.print("Connecting to WIFI network ");
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(500);
+        Serial.print(".");
+        Serial.print(".");
+    };
+    Serial.println(F(" succeeded"));
+    sprintf(text, "IP address: %s", WiFi.localIP().toString());
+    Serial.println(text);
+
+    mb.client();
+}
+
+uint16_t res = 0;
+int16_t resArr[REG_BLOCK_COUNT][regsCount];
+float realPower;
+
+void loop()
+{
+    // index into modbus read block array
+    static int readIndex = 0;
+    // result of modbus access functions
+    uint16_t transId = 0;
+    if (mb.isConnected(remote))
+    { // Check if connection to Modbus Slave is established
+        // Serial.println("Modbus/TCP connected");
+        // mb.readHreg(remote, REG, &res);  // Initiate Read Coil from Modbus Slave
+        transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId); // Initiate Read Holding Register from Modbus Slave
+        if (transId == 0)
+        {
+            sprintf(text, "Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", regsToRead[readIndex].deviceId,
+                    regsToRead[readIndex].baseAddr, regsToRead[readIndex].count);
+            Serial.println(text);
+            delay(5000);
+            //    } else {
+            //      Serial.println("Modbus/TCP register read succeeded");
+        }
+    }
+    else
+    {
+        bool success = mb.connect(remote); // Try to connect if no connection
+        Serial.println(success ? F("Successfully connected to Modbus server") : F("Failed to connect to Modbus server"));
+
+        if (success)
+        {
+           Serial.println(" MB connected successfully ...");
+        }
+    }
+    mb.task(); // Common local Modbus task
+    if (transId != 0)
+    {
+        delay(1000);    // Pulling interval
+        text[0] = '\0'; // reset text to empty
+        switch (regsToRead[readIndex].blockId)
+        {
+        case METER_BLOCK_ID:
+            scaleValues(meterValues.value, resArr[readIndex], scaleMeter, METER_VALUE_LEN);
+            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", /*regsToRead[readIndex].text, */ meterValues.data.acCurrentPower,
+                    meterValues.data.acTotalEnergyExp, meterValues.data.acTotalEnergyImp);
+            break;
+        case INVERTER_SUM_BLOCK_ID:
+
+            scaleValues(inverterSumValues.value, resArr[readIndex], scaleInverterSum, INVERTER_SUM_VALUE_LEN);
+            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", /*regsToRead[readIndex].text, */ inverterSumValues.data.acCurrentPower,
+                    inverterSumValues.data.acTotalEnergy, inverterSumValues.data.dcCurrentPower);
+            break;
+        case INVERTER_STATE_BLOCK_ID:
+            scaleValues(inverterStateValues.value, resArr[readIndex], scaleInverterState, INVERTER_STATE_VALUE_LEN);
+            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;", /*regsToRead[readIndex].text, */ inverterStateValues.data.capacity,
+                    inverterStateValues.data.chargeRateLimit, inverterStateValues.data.dischargeRateLimit, inverterStateValues.data.lifetimeEnergy);
+            break;
+        case INVERTER_STRG_BLOCK_ID:
+            scaleValues(inverterStrgValues.value, resArr[readIndex], scaleInverterStrg, INVERTER_STRG_VALUE_LEN);
+            double maxChargePower; // max. charge rate in W
+            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;",
+                    /*regsToRead[readIndex].text, */ inverterStrgValues.data.maxChargePower,
+                    inverterStrgValues.data.maxChargeRate, inverterStrgValues.data.maxDischargeRate,
+                    inverterStrgValues.data.minReservePct, inverterStrgValues.data.stateOfCharge,
+                    inverterStrgValues.data.chargeRate, inverterStrgValues.data.dischargeRate);
+            break;
+        }
+        if (text[0] != '\0')
+        {
+            Serial.print(text);
+        }
+        // make a line feed at the last block
+        if (readIndex == REG_BLOCK_COUNT - 1)
+        {
+            Serial.println();
+           
+        }
+        readIndex = (readIndex + 1) % REG_BLOCK_COUNT;
+    }
+}

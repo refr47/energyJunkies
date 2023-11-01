@@ -10,3 +10,4 @@ gen24 symo registers
 
 bool mb_init(Setup &);
 bool mb_readInverterStatic();
+bool mb_readInverterDynamic();

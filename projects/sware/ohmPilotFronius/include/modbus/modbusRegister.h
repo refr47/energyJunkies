@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Arduino.h>
+
 /*
 https://github.com/lostcontrol/wattpilot
 
@@ -20,7 +22,12 @@ https://github.com/lostcontrol/wattpilot
 40352 Ladestand in % (SoC)
 
 */
-#define INVERTER 1
+
+// modbus device id of inverter
+#define INVERTER_ID 1
+// modbus device id of smart meter
+#define METER_ID 200
+
 #define MODBUS_BASE 40000 // 40001 -1
 // STATIC
 #define MODBUS_COMMMON MODBUS_BASE + 4
@@ -30,13 +37,156 @@ https://github.com/lostcontrol/wattpilot
 #define MODBUS_INVERTER_SW_VERS 8
 
 // DYNAMIC
-#define DC_POWER 40100
-#define AC_POWER 40083 // PAC  AC POwer negativ if consuming
+/* #define DC_POWER 40100
+#define AC_POWER 40083
 #define DC_CURRENT_COMMULATED 40072 = > IDC in solar web
 #define DC_CURRENT_A 40073
 #define DC_CURRENT_B
 #define DC_CURRENT_C 40075
 #define DC_SF 40076
-#define DC_POWER 40101
+#define DC_POWER 40101 */
 
 #define MODBUS_STATIC_LEN (MODBUS_INVERTER_MANUFACTURER_LEN + MODBUS_INVERTER_DEVICE_LEN + MODBUS_INVERTER_OPTIONS + MODBUS_INVERTER_SW_VERS)
+
+// value name length
+#define VALUE_NAME_LEN 24
+
+// INVerTER SUM METER - SMARTMETER
+#define INVERTER_SUM_BLOCK_ID 0
+#define INVERTER_SUM_REGS_START 40083
+#define INVERTER_SUM_REGS_LEN 19
+#define INVERTER_SUM_VALUE_LEN 3
+
+// inverter summary values register definitions
+#define INVERTER_STATE_BLOCK_ID 1
+#define INVERTER_STATE_REGS_START 40140
+#define INVERTER_STATE_REGS_LEN 50
+#define INVERTER_STATE_VALUE_LEN 4
+
+// inverter summary values register definitions
+#define INVERTER_STRG_BLOCK_ID 2
+#define INVERTER_STRG_REGS_START 40345
+#define INVERTER_STRG_REGS_LEN 24
+#define INVERTER_STRG_VALUE_LEN 7
+
+// meter values register definitions
+#define METER_BLOCK_ID 3
+#define METER_REGS_START 40071
+#define METER_REGS_LEN 70
+#define METER_VALUE_LEN 3
+
+// max. length of modbus device names
+#define DEVICE_NAME_LEN 24 // ModbusIP object
+// number of register blocks to read
+#define REG_BLOCK_COUNT 4
+
+// modbus device id of inverter
+#define INVERTER_ID 1
+
+// modbus device id of smart meter
+#define METER_ID 200
+
+/*
+        **************************************************************************
+        ADT
+        **************************************************************************
+
+*/
+typedef union regValue32
+{
+    byte bytes[4];
+    uint16_t regs[2];
+    uint32_t value32;
+} REG_VALUE32_t;
+
+typedef union regValue64
+{
+    byte bytes[8];
+    uint16_t regs[4];
+    uint32_t value32[2];
+    uint64_t value64;
+} REG_VALUE64_t;
+
+// scaling relations
+// multiple register values are combined to one value and then scaled
+// targetArray[target] = sourceArray[source] * pow(sourceArray[scale]);
+typedef struct scaleIndex
+{
+    int targetIndex; // index into target values array
+    int sourceIndex; // index into value registers array (value to be scaled)
+    int scaleIndex;  // index into value registers array (scale factor), -1 if no scaling required
+    int regCount;    // number of registers to combine into one float value
+} SCALE_INDEX_t;
+
+typedef union inverterSumValue
+{
+    double value[INVERTER_SUM_VALUE_LEN];
+    struct inverterSumData
+    {
+        double acCurrentPower; // AC power in kW
+        double acTotalEnergy;  // total AC energy produced
+        double dcCurrentPower; // DC current power
+    } data;
+} INVERTER_SUM_VALUE_t;
+
+typedef union inverterStateValue
+{
+    double value[INVERTER_STATE_VALUE_LEN];
+    struct inverterStateData
+    {
+        double capacity;           // storage capacity in Wh
+        double chargeRateLimit;    // max. charge rate
+        double dischargeRateLimit; // max discharge rate
+        double lifetimeEnergy;     // lifetime energy stored
+    } data;
+} INVERTER_STATE_VALUE_t;
+
+// meter values union consisting of float array and float structure components
+typedef union inverterStrgValue
+{
+    double value[INVERTER_STRG_VALUE_LEN];
+    struct inverterStrgData
+    {
+        double maxChargePower;   // max. charge rate in W
+        double maxChargeRate;    // max. charge rate in %
+        double maxDischargeRate; // max discharge rate in %
+        double minReservePct;    // min. emergency reserve in %
+        double stateOfCharge;    // state of charge in %
+        double chargeRate;       // charge rate in %
+        double dischargeRate;    // discharge rate in %
+    } data;
+} inverterStrgValue_t;
+
+// meter values union consisting of float array and float structure components
+typedef union meterValue
+{
+    double value[METER_VALUE_LEN];
+    struct meterData
+    {
+        double acCurrentPower;   // AC power in kW
+        double acTotalEnergyExp; // total AC energy exported in Wh
+        double acTotalEnergyImp; // total AC energy imported in Wh
+    } data;
+} meterValue_t;
+
+typedef struct
+{
+    int blockId;                // index of modbus block
+    int deviceId;               // modbus device id: inverter: 1, smart meter: 200
+    int baseAddr;               // register number (already reduced by 1)
+    int count;                  // number of registers to read
+    char text[DEVICE_NAME_LEN]; // device name
+} modbus_read_t;
+
+// scale values: set target to source * scale factor, number of elements
+int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int count);
+
+// swap bytes of an byte array
+void swapBytes(byte bytes[], int count);
+
+// swap bytes of an byte array
+void swapRegs(uint16_t regs[], int count);
+
+u8_t getHighByte(uint16_t b);
+u8_t getLowByte(uint16_t b);
+void makeString(int indexF, int indexT, int16_t *regArr, char **stringBase);
