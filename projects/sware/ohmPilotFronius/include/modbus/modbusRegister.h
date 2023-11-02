@@ -57,23 +57,25 @@ https://github.com/lostcontrol/wattpilot
 #define INVERTER_SUM_REGS_LEN 19
 #define INVERTER_SUM_VALUE_LEN 3
 
-// inverter summary values register definitions
-#define INVERTER_STATE_BLOCK_ID 1
+// inverter summary values register definitions 1
+#define AKKU_STATE_BLOCK_ID 2
 #define INVERTER_STATE_REGS_START 40140
 #define INVERTER_STATE_REGS_LEN 50
 #define INVERTER_STATE_VALUE_LEN 4
 
-// inverter summary values register definitions
-#define INVERTER_STRG_BLOCK_ID 2
+// inverter summary values register definitions 2
+#define AKKU_STRG_BLOCK_ID 3
 #define INVERTER_STRG_REGS_START 40345
 #define INVERTER_STRG_REGS_LEN 24
 #define INVERTER_STRG_VALUE_LEN 7
 
-// meter values register definitions
-#define METER_BLOCK_ID 3
+// meter values register definitions 3
+#define METER_BLOCK_ID 1
 #define METER_REGS_START 40071
 #define METER_REGS_LEN 70
 #define METER_VALUE_LEN 3
+
+
 
 // max. length of modbus device names
 #define DEVICE_NAME_LEN 24 // ModbusIP object
@@ -139,7 +141,7 @@ typedef union inverterStateValue
         double dischargeRateLimit; // max discharge rate
         double lifetimeEnergy;     // lifetime energy stored
     } data;
-} INVERTER_STATE_VALUE_t;
+} AKKU_STATE_VALUE_t;
 
 // meter values union consisting of float array and float structure components
 typedef union inverterStrgValue
@@ -155,7 +157,7 @@ typedef union inverterStrgValue
         double chargeRate;       // charge rate in %
         double dischargeRate;    // discharge rate in %
     } data;
-} inverterStrgValue_t;
+} AKKU_STRG_VALUE_t;
 
 // meter values union consisting of float array and float structure components
 typedef union meterValue
@@ -167,7 +169,7 @@ typedef union meterValue
         double acTotalEnergyExp; // total AC energy exported in Wh
         double acTotalEnergyImp; // total AC energy imported in Wh
     } data;
-} meterValue_t;
+} METER_VALUE_t;
 
 typedef struct
 {
@@ -176,7 +178,7 @@ typedef struct
     int baseAddr;               // register number (already reduced by 1)
     int count;                  // number of registers to read
     char text[DEVICE_NAME_LEN]; // device name
-} modbus_read_t;
+} MODBUS_READ_t;
 
 // scale values: set target to source * scale factor, number of elements
 int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int count);

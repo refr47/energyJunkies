@@ -10,9 +10,9 @@ enum OutputType
     Digital
 };
 
-class Output
+class Pins
 {
-    friend class OutputManager;
+    friend class PinManager;
 
 private:
     void init(int pin, int onTime, OutputType type)
@@ -70,15 +70,15 @@ private:
     int mValue;
 };
 
-class OutputManager
+class PinManager
 {
 public:
-    OutputManager(Setup &setup, int digOut1, int digOut2, int anOut);
-
+    PinManager(int digOut1, int digOut2, int anOut);
+    void config(Setup &setup);
     int task(int power);
 
 private:
-    Output mOuts[3];
+    Pins mOuts[3];
     double mAnalogOut;
     double mPidSetPoint;
     double mCurrentPower;

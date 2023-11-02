@@ -16,6 +16,7 @@
            */
 
 #define TEXT_LEN 256
+#define MODBUS_WAIT_FOR_DATA_IN_MS 1000
 
 /*
 https://esp32io.com/tutorials/esp32-modbus
@@ -30,7 +31,7 @@ static ModbusIP mb;
 
 // meter modbus register array
 // meter values
-meterValue_t meterValues;
+METER_VALUE_t meterValues;
 static int16_t inverterSumRegs[INVERTER_SUM_REGS_LEN];
 
 // meter modbus register array
@@ -43,8 +44,8 @@ static int16_t inverterStrgRegs[INVERTER_STRG_REGS_LEN];
 // meter modbus register array
 static int16_t meterRegs[METER_REGS_LEN];
 
-static INVERTER_STATE_VALUE_t inverterStateValues;
-static inverterStrgValue_t inverterStrgValues;
+static AKKU_STATE_VALUE_t inverterStateValues;
+static AKKU_STRG_VALUE_t inverterStrgValues;
 
 // scaling relations for meter values
 static SCALE_INDEX_t scaleInverterSum[INVERTER_SUM_VALUE_LEN] = {
@@ -84,11 +85,19 @@ static SCALE_INDEX_t scaleMeter[METER_VALUE_LEN] = {
 // description of modbus register block to be read
 // inverter is device id 1, storage registers start at 400345, read 24 registers, ...
 // smart meter is device 200, meter registers start at 40071, read 70 registers
-static modbus_read_t regsToRead[REG_BLOCK_COUNT] = {
+/*
+ @see also modbusRegister.h::
+    INVERTER_SUM_BLOCK_ID
+    METER_BLOCK_ID
+    AKKU_STATE_BLOCK_ID
+    AKKU_STRG_BLOCK_ID
+*/
+static MODBUS_READ_t regsToRead[REG_BLOCK_COUNT] = {
     {INVERTER_SUM_BLOCK_ID, INVERTER_ID, INVERTER_SUM_REGS_START, INVERTER_SUM_REGS_LEN, "Inverter"},
-    {INVERTER_STATE_BLOCK_ID, INVERTER_ID, INVERTER_STATE_REGS_START, INVERTER_STATE_REGS_LEN, "Inverter"},
-    {INVERTER_STRG_BLOCK_ID, INVERTER_ID, INVERTER_STRG_REGS_START, INVERTER_STRG_REGS_LEN, "Inverter"},
-    {METER_BLOCK_ID, METER_ID, METER_REGS_START, METER_REGS_LEN, "Smart Meter"}};
+    {METER_BLOCK_ID, METER_ID, METER_REGS_START, METER_REGS_LEN, "Smart Meter"},
+    {AKKU_STATE_BLOCK_ID, INVERTER_ID, INVERTER_STATE_REGS_START, INVERTER_STATE_REGS_LEN, "Inverter"},
+    {AKKU_STRG_BLOCK_ID, INVERTER_ID, INVERTER_STRG_REGS_START, INVERTER_STRG_REGS_LEN, "Inverter"}};
+
 // highest number of registers to be printed (derived of regsToRead highest register number)
 const int regsCount = METER_REGS_LEN; // max(max(INVERTER_SUM_REGS_LEN, INVERTER_STATE_REGS_LEN), max(INVERTER_STRG_REGS_LEN, METER_REGS_LEN));
 
@@ -104,21 +113,27 @@ bool isConnectedAndReconnect()
     if (!mb.isConnected(remote))
     {
         success = mb.connect(remote);
+        delay(1000);
         DBG("modbus do connect ....");
         DBGln(success);
-        DBGln(strerror(errno));
+        if (!success)
+        {
+            DBG("Error in connection to Inverter via Modbus: ");
+            DBGln(strerror(errno));
+        }
     }
 
     return success;
 }
 
-bool mb_init(Setup &setup)
+bool mb_init(Setup &setUpData)
 {
-    DBG(" Inverter Addr: ");
-    DBGln(setup.ipInverterAsString);
-    DBGln(setup.ipInverter);
 
-    if (!remote.fromString(setup.ipInverterAsString))
+    DBG(" Inverter Addr: ");
+    DBGln(setUpData.ipInverterAsString);
+    DBGln(setUpData.ipInverter);
+
+    if (!remote.fromString(setUpData.ipInverterAsString))
     {
         DBGln("mb_init:: - cannot convert IP-Adresse of Converter from string");
         return false;
@@ -160,14 +175,7 @@ bool mb_readInverterStatic()
     if (transId != 0)
     {
 
-        /*  DBGln(inverterRegs.manufactor);*/
-        /*    for (int jj = 0; jj < MODBUS_COMMMON_LEN; jj++)
-           {
-               DBG(jj);
-               DBG(": ");
-               DBGln(inverterRegs[jj], HEX);
-           }
-    */
+        delay(3 * MODBUS_WAIT_FOR_DATA_IN_MS); // Pulling interval
         DBG("Manufactorer: ");
         int offset = 0;
         makeString(0, MODBUS_INVERTER_MANUFACTURER_LEN, inverterRegs, &pText);
@@ -203,15 +211,21 @@ uint16_t res = 0;
 int16_t resArr[REG_BLOCK_COUNT][regsCount];
 float realPower;
 
-bool mb_readInverterDynamic()
+bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
 {
+
+    // if
+    if ((setUpData.externerSpeicher == false) && (readIndex >= AKKU_STATE_BLOCK_ID))
+    {
+        readIndex = (readIndex + 1) % REG_BLOCK_COUNT;
+        return true;
+    }
 
     // result of modbus access functions
     uint16_t transId = 0;
     if (mb.isConnected(remote))
     { // Check if connection to Modbus Slave is established
-        // Serial.println("Modbus/TCP connected");
-        // mb.readHreg(remote, REG, &res);  // Initiate Read Coil from Modbus Slave
+
         transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId); // Initiate Read Holding Register from Modbus Slave
         if (transId == 0)
         {
@@ -238,34 +252,38 @@ bool mb_readInverterDynamic()
     mb.task(); // Common local Modbus task
     if (transId != 0)
     {
-        delay(1000);    // Pulling interval
-        text[0] = '\0'; // reset text to empty
+        delay(MODBUS_WAIT_FOR_DATA_IN_MS); // Pulling interval
+        text[0] = '\0';                    // reset text to empty
         switch (regsToRead[readIndex].blockId)
         {
         case METER_BLOCK_ID:
             scaleValues(meterValues.value, resArr[readIndex], scaleMeter, METER_VALUE_LEN);
-            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", /*regsToRead[readIndex].text, */ meterValues.data.acCurrentPower,
+            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", meterValues.data.acCurrentPower,
                     meterValues.data.acTotalEnergyExp, meterValues.data.acTotalEnergyImp);
+            memcpy(&container.meterValues.data, &meterValues.data, sizeof(meterValues.data));
             break;
         case INVERTER_SUM_BLOCK_ID:
 
             scaleValues(inverterSumValues.value, resArr[readIndex], scaleInverterSum, INVERTER_SUM_VALUE_LEN);
-            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", /*regsToRead[readIndex].text, */ inverterSumValues.data.acCurrentPower,
+            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", inverterSumValues.data.acCurrentPower,
                     inverterSumValues.data.acTotalEnergy, inverterSumValues.data.dcCurrentPower);
-            break;
-        case INVERTER_STATE_BLOCK_ID:
+            memcpy(&container.inverterSumValues.data, &inverterSumValues.data, sizeof(inverterSumValues.data));
+
+        case AKKU_STATE_BLOCK_ID:
             scaleValues(inverterStateValues.value, resArr[readIndex], scaleInverterState, INVERTER_STATE_VALUE_LEN);
-            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;", /*regsToRead[readIndex].text, */ inverterStateValues.data.capacity,
+            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;", inverterStateValues.data.capacity,
                     inverterStateValues.data.chargeRateLimit, inverterStateValues.data.dischargeRateLimit, inverterStateValues.data.lifetimeEnergy);
+            memcpy(&container.akkuState.data, &inverterSumValues.data, sizeof(inverterSumValues.data));
             break;
-        case INVERTER_STRG_BLOCK_ID:
+        case AKKU_STRG_BLOCK_ID:
             scaleValues(inverterStrgValues.value, resArr[readIndex], scaleInverterStrg, INVERTER_STRG_VALUE_LEN);
             double maxChargePower; // max. charge rate in W
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;",
-                    /*regsToRead[readIndex].text, */ inverterStrgValues.data.maxChargePower,
+                    inverterStrgValues.data.maxChargePower,
                     inverterStrgValues.data.maxChargeRate, inverterStrgValues.data.maxDischargeRate,
                     inverterStrgValues.data.minReservePct, inverterStrgValues.data.stateOfCharge,
                     inverterStrgValues.data.chargeRate, inverterStrgValues.data.dischargeRate);
+            memcpy(&container.akkuStr.data, &inverterStrgValues.data, sizeof(inverterStrgValues.data));
             break;
         }
         if (text[0] != '\0')

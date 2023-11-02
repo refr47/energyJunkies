@@ -26,6 +26,10 @@ void eprom_storeSetup(Setup &setup)
     preferences.putFloat(_PID_P, setup.pid_p);
     preferences.putFloat(_PID_I, setup.pid_i);
     preferences.putFloat(_PID_D, setup.pid_d);
+    preferences.putUInt(_PID_DIG_OUT_ON_DELAY_MS, setup.pid_min_time_without_contoller_inMS);
+    preferences.putUInt(_PID_DIG_OUT_OFF_DELAY_MS, setup.pid_min_time_before_switch_off_channel_inMS);
+    preferences.putUInt(_PID_MIN_ON_TIME_MS, setup.pid_min_time_for_dig_output_inMS);
+    preferences.putUInt(_PID_TARGET_POWER, setup.pid_targetPowerInWatt);
 
     preferences.end();
 }
@@ -65,6 +69,11 @@ void eprom_getSetup(Setup &setup)
     setup.pid_i = preferences.getFloat(_PID_I);
     setup.pid_d = preferences.getFloat(_PID_D);
 
+    setup.pid_min_time_without_contoller_inMS = preferences.getUInt(_PID_DIG_OUT_ON_DELAY_MS);
+    setup.pid_min_time_before_switch_off_channel_inMS = preferences.getUInt(_PID_DIG_OUT_OFF_DELAY_MS);
+    setup.pid_min_time_for_dig_output_inMS = preferences.getUInt(_PID_MIN_ON_TIME_MS);
+    setup.pid_targetPowerInWatt = preferences.getUInt(_PID_TARGET_POWER);
+
     preferences.end();
 }
 
@@ -97,39 +106,23 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.pid_p = 1.0;
     setup.pid_i = 0.5;
     setup.pid_d = 0.0;
+
+    setup.pid_min_time_without_contoller_inMS = 5000;
+    setup.pid_min_time_before_switch_off_channel_inMS = 2000;
+    setup.pid_min_time_for_dig_output_inMS = 10000;
+    setup.pid_targetPowerInWatt = 5950;
+
     eprom_storeSetup(setup);
 }
 
 void eprom_test_read_Eprom()
 {
     Setup setup;
-
     eprom_getSetup(setup);
+    char buffer[500];
+    sprintf(buffer, "EPROM out \n WLAN: %s, Passwd: %s HeizpatroneInWatt: %d Hysterese: %d, Einspeisebeschränkung: %d MindestLaufZeitInMin: %d AusschaltTempInC %d externer SPeicher: %d TCP: %d PID_P: %f.2 PID_I: %f.2 PID_D %f.2  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d END OF EPROM",
+            setup.ssid, setup.passwd, setup.leistungHeizpatroneInW, setup.regelbereichHysterese, setup.einspeiseBeschraenkingInW, setup.mindestLaufzeitInMin, setup.ausschaltTempInGradCel, setup.externerSpeicher, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_targetPowerInWatt
 
-    DBGln("  EPROM   -- Content ---");
-    DBG("WLAN: ");
-    DBGln(setup.ssid);
-    DBG("passw: ");
-    DBGln(setup.passwd);
-    DBG("Heizpatr: ");
-    DBGln(setup.leistungHeizpatroneInW);
-    DBG("Hysterese: ");
-    DBGln(setup.regelbereichHysterese);
-    DBG("EinspeiseB: ");
-    DBGln(setup.einspeiseBeschraenkingInW);
-    DBG("MindesLZ: ");
-    DBGln(setup.mindestLaufzeitInMin);
-    DBG("AusschaltTemp: ");
-    DBGln(setup.ausschaltTempInGradCel);
-    DBG("Externer Speicher: ");
-    DBGln(setup.externerSpeicher);
-    bool result = true;
-    DBG("IP-Inverter: ");
-    String ip = ipv4_int_to_string(setup.ipInverter, &result);
-    DBGln(setup.ipInverter);
-    if (!result)
-        DBGln("Transfer from uint to string for ip did not succeed.");
-    DBGln(ip);
-    DBG("PID_P: ");
-    DBGln(setup.pid_p);
+    );
+    DBGln(buffer);
 }

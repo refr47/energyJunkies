@@ -10,7 +10,7 @@
 #include "tft.h"
 #include "eprom.h"
 #include "utils.h"
-#include "ap.h"
+#include "www.h"
 
 // WiFiServer server(80);
 const char *PARAM_INPUT_1 = "passwd";
@@ -126,7 +126,7 @@ void handleSetup(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/login.html", "text/html", false);
 }
 
-void ap_init()
+void www_init(char *ipAddr)
 {
     // Initialize SPIFFS
 
@@ -137,25 +137,19 @@ void ap_init()
     }
 
     listDir("/");
-    //  Connect to Wi-Fi network with SSID
-    DBG("Setting AP (Access Point)…");
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(ssid);
-    /*   if (!MDNS.begin(host))
-      { // Use http://esp32.local for web server page
-          DBGln("Error setting up MDNS responder!");
-          while (1)
-              109
-              {
-                  delay(1000);
-              }
-      } */
+    if (ipAddr == NULL)
+    {
+        //  Connect to Wi-Fi network with SSID
+        DBG("Setting AP (Access Point)…");
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP(ssid);
+        IPAddress IP = WiFi.softAPIP();
+        DBG("AP IP address: ");
+        ipAddr = (char *)IP.toString().c_str();
+        DBGln(ipAddr);
+    }
 
-    IPAddress IP = WiFi.softAPIP();
-    DBG("AP IP address: ");
-    // char *p = (char *)IP.toString().c_str();
-    DBGln(IP);
-    tft_initNetwork(6, "Keine Netzwerkparameter", "ACCESS-Point Modus", "SSID=>", ssid, "IP=>", (char *)IP.toString().c_str());
+    tft_initNetwork(6, "Keine Netzwerkparameter", "ACCESS-Point Modus", "SSID=>", ssid, "IP=>", ipAddr);
 
     server.on("/login", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/login.html", "text/html", false, NULL); });
@@ -285,12 +279,12 @@ void ap_init()
     server.begin();
 }
 
-void ap_run()
+void www_run()
 {
 }
 
 #ifdef III
-void ap_run()
+void www_run()
 {
     WiFiClient client = server.available(); // Listen for incoming clients
 

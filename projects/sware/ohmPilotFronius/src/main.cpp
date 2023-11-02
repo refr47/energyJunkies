@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "esp_clk.h"
 #include <SPI.h>
+
 #include "debugConsole.h"
 #include "wlan.h"
 #include "modbusReader.h"
@@ -9,10 +10,11 @@
 #include "tft.h"
 // #include "graphicTest.h"
 #include "eprom.h"
-#include "pidRegler.h"
-
-#include "ap.h"
+#include "pidManager.h" // pid controller +
+#include "pin_config.h"
+#include "www.h"
 #include "temp.h"
+#include "curTime.h"
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -48,6 +50,9 @@ static const char *passW = "47754775";
 static unsigned long previousMillTemp = 0UL;
 static unsigned long previousMillModbus = 0UL;
 static TEMPERATURE container;
+static MB_CONTAINER modbusData;
+static Setup setupData;
+static PinManager pidPinManager(RELAY_L1, RELAY_L2, PWM_FOR_PID);
 
 void test()
 {
@@ -72,10 +77,12 @@ void setup()
     Serial.begin(115200);
     while (!Serial)
         ;
+
     DBGln("Energie-Junkies -- Harvester ---");
     // test();
     /*  tft_init();
      tft_printSetup(); */
+
     int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
     DBG("internal bu: ");
     DBGln(currentState);
@@ -83,34 +90,34 @@ void setup()
     DBG(" CPU freq: ");
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ
-    Setup setup;             // all input quantities
+
     // eprom_test_write_Eprom(wlanE, passW);
-    eprom_getSetup(setup);
+    eprom_getSetup(setupData);
     eprom_test_read_Eprom();
 
-/*
- printHWInfo();
- */
-/*enable internal buttons*/
-/* pinMode(INTERNAL_BUTTON_1_GPIO, INPUT_PULLUP);
-pinMode(INTERNAL_BUTTON_2_GPIO, INPUT_PULLUP);
-pinMode(PIN, OUTPUT); */
-// delay(500);
-// pHW();
-//  digitalWrite(PIN, 0);
-//  wifi_scan_network();
-// tft_clearScreen();
-// meterSim();
-// eprom_test_write_Eprom(wlanE, passW);
-/* DBGln(">>>>>>>>>>>eprom test");
- */
-/*  eprom_test_write_Eprom(wlanE, passW);
- eprom_test_read_Eprom();
- DBGln(">>>>>>>>>>>eprom test end");
- delay(1000); */
-// wifi_scan_network();
-//  eprom_test_read_Eprom();
-#ifdef II
+    /*
+     printHWInfo();
+     */
+    /*enable internal buttons*/
+    /* pinMode(INTERNAL_BUTTON_1_GPIO, INPUT_PULLUP);
+    pinMode(INTERNAL_BUTTON_2_GPIO, INPUT_PULLUP);
+    pinMode(PIN, OUTPUT); */
+    // delay(500);
+    // pHW();
+    //  digitalWrite(PIN, 0);
+    //  wifi_scan_network();
+    // tft_clearScreen();
+    // meterSim();
+    // eprom_test_write_Eprom(wlanE, passW);
+    /* DBGln(">>>>>>>>>>>eprom test");
+     */
+    /*  eprom_test_write_Eprom(wlanE, passW);
+     eprom_test_read_Eprom();
+     DBGln(">>>>>>>>>>>eprom test end");
+     delay(1000); */
+    // wifi_scan_network();
+    //  eprom_test_read_Eprom();
+
     if (cardRW_setup())
     {
         cardWriterOK = true;
@@ -118,18 +125,18 @@ pinMode(PIN, OUTPUT); */
     }
 
     temp_init(); // temperature
-#endif
-    if (strcmp(setup.ssid, "---") == 0)
+
+    if (strcmp(setupData.ssid, "---") == 0)
     {
         networkCredentialsInEEprom = false;
-        ap_init(); // act as access point
+        www_init(NULL); // act as access point
     }
     if (networkCredentialsInEEprom)
     {
 
         WiFi.mode(WIFI_STA);
 
-        WiFi.begin(setup.ssid, setup.passwd);
+        WiFi.begin(setupData.ssid, setupData.passwd);
         DBG("Connecting to WiFi ..");
         int counter = 0;
 
@@ -141,12 +148,12 @@ pinMode(PIN, OUTPUT); */
             if (counter == 5)
                 break;
         }
-        if (!wifi_init(setup))
+        if (!wifi_init(setupData))
         {
             DBGln("Cannot connect - show available networks: ");
             tft_drawNetworkInfo(NULL);
             wifi_scan_network();
-            ap_init();
+            www_init(NULL); // act as access point
         }
         else
         {
@@ -155,24 +162,19 @@ pinMode(PIN, OUTPUT); */
             wifi_getLocalIP(&pBuf);
             DBGln(globalStringBuffer);
             tft_drawNetworkInfo(globalStringBuffer);
+            www_init(pBuf); // do not act as apoint
         }
 
         DBGln("Setup modbus ...");
-        if (!mb_init(setup))
+        if (!mb_init(setupData))
         {
             DBGln("Cannot initialize modbus ....");
         }
+        memset(&modbusData, 0, sizeof(modbusData));
         if (!mb_readInverterStatic())
             DBGln("Error in Reading modbus");
-
-        /* if (!pid_init(&setup))
-        {
-          DBGln("Cannot initialize pid controller:");
-        }
-        else
-        {
-          DBGln("PID controller initializred successfully ....");
-        } */
+        DBGln("Setup PID-Controller");
+        pidPinManager.config(setupData);
     }
 }
 
@@ -181,6 +183,7 @@ void loop()
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillTemp > TEMPERATURE_INTERVAL)
     {
+        time_print();
         DBG(" TEMP in Celsius");
         temp_getTemperature(container);
         DBG("Sensor1: ");
@@ -196,7 +199,9 @@ void loop()
     {
 
         DBGln(" --- MODBUS --- Query done");
-        mb_readInverterDynamic();
+        mb_readInverterDynamic(setupData, modbusData);
+        DBG("Available power in W: ");
+        DBGln(modbusData.inverterSumValues.data.acCurrentPower);
 
         previousMillModbus = currentMillis;
         // pid_run(400.0);
@@ -205,7 +210,7 @@ void loop()
 
     if (networkCredentialsInEEprom == false)
     { // act as AP
-        ap_run();
+        www_run();
     }
     else
     {

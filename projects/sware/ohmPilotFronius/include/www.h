@@ -13,5 +13,5 @@
 
 #include "debugConsole.h"
 
-void ap_init();
-void ap_run();
+void www_init(char *ipAddr); // IF NULL, ACT as Access Point
+void www_run();
