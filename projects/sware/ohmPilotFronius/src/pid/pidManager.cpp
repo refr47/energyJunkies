@@ -57,6 +57,11 @@ int PinManager::task(Setup &setup, int power)
         setup.pidChanged = false;
     }
     mCurrentPower = power;
+    DBG("=============================");
+    DBG(power);
+    DBG("; ");
+    DBG(mCurrentPower);
+    DBGln(" =====================<");
     mPid.Compute();
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
 

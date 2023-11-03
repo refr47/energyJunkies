@@ -178,9 +178,12 @@ void setup()
     }
 }
 
+static unsigned long currentMillis = millis();
+static int availableWatt;
+
 void loop()
 {
-    unsigned long currentMillis = millis();
+    currentMillis = millis();
     if (currentMillis - previousMillTemp > TEMPERATURE_INTERVAL)
     {
         time_print();
@@ -201,12 +204,14 @@ void loop()
         // DBGln(" --- MODBUS --- Query done");
         mb_readInverterDynamic(setupData, modbusData);
         DBG("Available power in W: ");
-        DBGln(modbusData.meterValues.data.acTotalEnergyExp);
+        DBGln(modbusData.meterValues.data.acCurrentPower);
 
         previousMillModbus = currentMillis;
-        if (modbusData.meterValues.data.acTotalEnergyExp < 0) // energy export
+        availableWatt = (int)(modbusData.meterValues.data.acCurrentPower + 0.5);
+
+        if (availableWatt < 0) // energy export
         {
-            pidPinManager.task(setupData, modbusData.meterValues.data.acTotalEnergyExp * -1);
+            pidPinManager.task(setupData, availableWatt * -1);
         }
         else
         {
