@@ -12,53 +12,60 @@
 
 // power has to be above set point for this time, before next digital output
 // is activated (in ms)
-static int DELAY_DIG_OUT_ON = 5000;
+// //static int DELAY_DIG_OUT_ON = 5000;
 // delay turning of next digital output for this time (in ms)
-static int DELAY_DIG_OUT_OFF = 2000;
+// //static int DELAY_DIG_OUT_OFF = 2000;
 
 // minimal on time for digital output (in ms)
 static int MIN_ON_TIME = 10000;
 // target power - max available power
-static int TARGET_POWER = 5950;
+// //static int TARGET_POWER = 5950;
 
-static const int idxDig1 = 0;
-static const int idxDig2 = 1;
-static const int idxAn = 2;
+static const int id_DIG_PIN_1 = 0;
+static const int id_DIG_PIN_2 = 1;
+static const int id_ANA_PWM = 2;
 
 PinManager::PinManager(int digOut1, int digOut2, int anOut)
     : mPid(&mCurrentPower, &mAnalogOut, &mPidSetPoint, KP, KI, KD, REVERSE)
 {
-    mOuts[idxDig1].init(digOut1, MIN_ON_TIME, Digital);
-    mOuts[idxDig2].init(digOut2, MIN_ON_TIME, Digital);
-    mOuts[idxAn].init(anOut, MIN_ON_TIME, Analog);
+    mOuts[id_DIG_PIN_1].init(digOut1, MIN_ON_TIME, Digital);
+    mOuts[id_DIG_PIN_2].init(digOut2, MIN_ON_TIME, Digital);
+    mOuts[id_ANA_PWM].init(anOut, MIN_ON_TIME, Analog);
 
     mDelayDigOutOn = millis();
     mDelayDigOutOff = millis();
 
-    mPidSetPoint = TARGET_POWER;
+    // mPidSetPoint = TARGET_POWER;
     mPid.SetMode(AUTOMATIC);
     mPid.SetOutputLimits(OUTPUT_MIN, OUTPUT_MAX);
     mPid.SetSampleTime(50);
 }
 void PinManager::config(Setup &setup)
 {
-    DELAY_DIG_OUT_ON = setup.pid_min_time_without_contoller_inMS;
-    DELAY_DIG_OUT_OFF = setup.pid_min_time_before_switch_off_channel_inMS;
-    MIN_ON_TIME = setup.pid_min_time_for_dig_output_inMS;
-    TARGET_POWER = setup.pid_targetPowerInWatt;
+    /*  DELAY_DIG_OUT_ON = setup.pid_min_time_without_contoller_inMS;
+     DELAY_DIG_OUT_OFF = setup.pid_min_time_before_switch_off_channel_inMS;
+     MIN_ON_TIME = setup.pid_min_time_for_dig_output_inMS;
+     TARGET_POWER = setup.pid_targetPowerInWatt; */
+    mPidSetPoint = setup.pid_targetPowerInWatt;
 }
-int PinManager::task(int power)
+int PinManager::task(Setup &setup, int power)
 {
+    if (setup.pidChanged)
+    {
+        this->config(setup);
+        DBGln("PID Params changed / updated");
+        setup.pidChanged = false;
+    }
     mCurrentPower = power;
     mPid.Compute();
-    mOuts[idxAn].setValue(mAnalogOut);
+    mOuts[id_ANA_PWM].setValue(mAnalogOut);
 
     // turn on digital output if power suffices
     if (mCurrentPower > mPidSetPoint && mAnalogOut > OUTPUT_MAX - 1)
     {
-        if (millis() - mDelayDigOutOn > DELAY_DIG_OUT_ON)
+        if (millis() - mDelayDigOutOn > setup.pid_min_time_without_contoller_inMS)
         {
-            for (int i = idxDig1; i <= idxDig2; i++)
+            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
             {
                 if (!mOuts[i].isDigOn())
                 {
@@ -74,9 +81,9 @@ int PinManager::task(int power)
         mDelayDigOutOn = millis();
     }
     // turn off digital output if power is low
-    if (mCurrentPower < mPidSetPoint && mAnalogOut < OUTPUT_MIN + 1 && millis() - mDelayDigOutOff > DELAY_DIG_OUT_OFF)
+    if (mCurrentPower < mPidSetPoint && mAnalogOut < OUTPUT_MIN + 1 && millis() - mDelayDigOutOff > setup.pid_min_time_before_switch_off_channel_inMS)
     {
-        for (int i = idxDig2; i >= idxDig1; i--)
+        for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
         {
             if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
             {
@@ -89,17 +96,17 @@ int PinManager::task(int power)
 
     // dbg("power:");
     // dbg(power);
-    /* dbg("    mCurrPower:");
-    dbg(mCurrentPower);
-    dbg("    anaOut:");
-    dbg(mAnalogOut);
-    dbg("    setpoint:");
-    dbg(mPidSetPoint);
-    dbg("    dig1:");
-    dbg(mOuts[idxDig1].isDigOn());
-    dbg("    dig2:");
-    dbg(mOuts[idxDig2].isDigOn());
-    dbgln("");
- */
+    DBG("   PID  mCurrPower (W):");
+    DBG(mCurrentPower);
+    DBG("    anaOut(PWM):");
+    DBG(mAnalogOut);
+    DBG("    Einspeisebeschränkung:");
+    DBG(mPidSetPoint);
+    DBG("    dig1:");
+    DBG(mOuts[id_DIG_PIN_1].isDigOn());
+    DBG("    dig2:");
+    DBG(mOuts[id_DIG_PIN_2].isDigOn());
+    DBGln(" ");
+
     return 0;
 }

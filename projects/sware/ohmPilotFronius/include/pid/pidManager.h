@@ -75,7 +75,16 @@ class PinManager
 public:
     PinManager(int digOut1, int digOut2, int anOut);
     void config(Setup &setup);
-    int task(int power);
+    int task(Setup &setup, int power);
+
+    int getStateOfDigPin(short pin) // 0, 1
+    {
+        return mOuts[pin].isDigOn();
+    }
+    int getStateOfAnaPin()
+    {
+        return mOuts[2].mValue;
+    }
 
 private:
     Pins mOuts[3];

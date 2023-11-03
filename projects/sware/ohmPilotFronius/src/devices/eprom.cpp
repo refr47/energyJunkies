@@ -73,7 +73,7 @@ void eprom_getSetup(Setup &setup)
     setup.pid_min_time_before_switch_off_channel_inMS = preferences.getUInt(_PID_DIG_OUT_OFF_DELAY_MS);
     setup.pid_min_time_for_dig_output_inMS = preferences.getUInt(_PID_MIN_ON_TIME_MS);
     setup.pid_targetPowerInWatt = preferences.getUInt(_PID_TARGET_POWER);
-
+    setup.pidChanged = false;
     preferences.end();
 }
 
@@ -110,7 +110,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.pid_min_time_without_contoller_inMS = 5000;
     setup.pid_min_time_before_switch_off_channel_inMS = 2000;
     setup.pid_min_time_for_dig_output_inMS = 10000;
-    setup.pid_targetPowerInWatt = 5950;
+    setup.pid_targetPowerInWatt = 10;
 
     eprom_storeSetup(setup);
 }
@@ -120,8 +120,8 @@ void eprom_test_read_Eprom()
     Setup setup;
     eprom_getSetup(setup);
     char buffer[500];
-    sprintf(buffer, "EPROM out \n WLAN: %s, Passwd: %s HeizpatroneInWatt: %d Hysterese: %d, Einspeisebeschränkung: %d MindestLaufZeitInMin: %d AusschaltTempInC %d externer SPeicher: %d TCP: %d PID_P: %f.2 PID_I: %f.2 PID_D %f.2  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d END OF EPROM",
-            setup.ssid, setup.passwd, setup.leistungHeizpatroneInW, setup.regelbereichHysterese, setup.einspeiseBeschraenkingInW, setup.mindestLaufzeitInMin, setup.ausschaltTempInGradCel, setup.externerSpeicher, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_targetPowerInWatt
+    sprintf(buffer, "EPROM out \n WLAN: %s, Passwd: %s HeizpatroneInWatt: %d Hysterese: %d, Einspeisebeschränkung: %d MindestLaufZeitInMin: %d AusschaltTempInC %d externer SPeicher: %d TCP: %d PID_P: %f.2 PID_I: %f.2 PID_D %f.2  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d  ----- END OF EPROM",
+            setup.ssid, setup.passwd, setup.leistungHeizpatroneInW, setup.regelbereichHysterese, setup.einspeiseBeschraenkingInW, setup.mindestLaufzeitInMin, setup.ausschaltTempInGradCel, setup.externerSpeicher, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_targetPowerInWatt, setup.pidChanged
 
     );
     DBGln(buffer);

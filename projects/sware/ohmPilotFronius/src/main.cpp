@@ -91,10 +91,10 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ
 
-    // eprom_test_write_Eprom(wlanE, passW);
+    eprom_test_write_Eprom(wlanE, passW);
     eprom_getSetup(setupData);
     eprom_test_read_Eprom();
-
+    time_init(); // init time
     /*
      printHWInfo();
      */
@@ -198,13 +198,20 @@ void loop()
 
     {
 
-        DBGln(" --- MODBUS --- Query done");
+        // DBGln(" --- MODBUS --- Query done");
         mb_readInverterDynamic(setupData, modbusData);
         DBG("Available power in W: ");
-        DBGln(modbusData.inverterSumValues.data.acCurrentPower);
+        DBGln(modbusData.meterValues.data.acTotalEnergyExp);
 
         previousMillModbus = currentMillis;
-        // pid_run(400.0);
+        if (modbusData.meterValues.data.acTotalEnergyExp < 0) // energy export
+        {
+            pidPinManager.task(setupData, modbusData.meterValues.data.acTotalEnergyExp * -1);
+        }
+        else
+        {
+            pidPinManager.task(setupData, 4);
+        }
     }
     delay(4000);
 

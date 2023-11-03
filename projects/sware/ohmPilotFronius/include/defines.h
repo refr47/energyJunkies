@@ -23,5 +23,5 @@ typedef struct
     unsigned int pid_min_time_before_switch_off_channel_inMS;
     unsigned int pid_min_time_for_dig_output_inMS;
     unsigned int pid_targetPowerInWatt;
+    bool pidChanged;
 } Setup;
- 
