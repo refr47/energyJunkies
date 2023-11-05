@@ -184,75 +184,7 @@ void www_init(char *ipAddr)
     server.on("/img/Energies.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/img/Energies.jpg", "image/jpg"); });
 
-    server.on("/storeSetup", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-                DBGln(" ... /storeSetup ....");
-              
-                StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
-                 StaticJsonDocument<200> doc;
-                AsyncWebParameter *p = request->getParam(0);
-                
-                    String s = p->value();
-                    const char *json = p->value().c_str();
-
-                    DeserializationError error = deserializeJson(doc, s.c_str());
-                    if (error)
-                    {
-                        Serial.print(F("deserializeJson() failed: "));
-                        Serial.println(error.f_str());
-                        return;
-                    }
-                     char *wl = doc["WLAN"];
-                    DBGln(wl);
-                        // Memory pool
-                        char buf[100];
-                    /*
-                                        int params = request->params();
-                                        DBG("Save settings, ");
-                                        DBG(params);
-                                        DBGln("params");
-                                        for (int i = 0; i < params; i++)
-                                        {
-                                            AsyncWebParameter *p = request->getParam(i);
-                                            if (p->isFile())
-                                            {
-                                                DBGf("_FILE[%s]: %s, size: %u", p->name().c_str(), p->value().c_str(), p->size());
-                                            }
-                                            else if (p->isPost())
-                                            {
-                                                DBGf("_POST[%s]: %s", p->name().c_str(), p->value().c_str());
-                                            }
-                                            else
-                                            {
-                                                DBGf("_GET[%s]: %s", p->name().c_str(), p->value().c_str());
-                                            }
-                                        }
-                     */
-                    if (request->hasParam(WLAN_ESSID))
-                    {
-                        data[WLAN_ESSID] = request->getParam(WLAN_ESSID)->value();
-                        DBGln("Done successfully ...");
-                    }
-                    else
-                    {
-                        DBGln("Param not found ...");
-                    }
-                    String response;
-                    bool errorH=false;
-                    if (!errorH)
-                    {
-                        data["done"] = 1;
-                        data["error"] = "";
-                        // eprom_storeSetup(setup);
-                    }
-                    else
-                        data["done"] = 0;
-                    DBGln(" vor serialisierung : ");
-                    serializeJson(data, response);
-                    // request->redirect("/login");
-                    request->send(200, "application/json", response); });
-
-    // Route for serving static files from SPIFFS
+       // Route for serving static files from SPIFFS
     server.onNotFound([](AsyncWebServerRequest *request)
                       {
 
@@ -273,94 +205,98 @@ void www_init(char *ipAddr)
     } else {
       request->send(404, "text/plain", "File not found");
     } });
-#ifdef III
+
+// https://github.com/me-no-dev/ESPAsyncWebServer
+
     AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest *request, JsonVariant &json)
                                                                            {
-                                                                               const JsonObject &jsonObj = json.as<JsonObject>();
-                                                                               StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
-                                                                               char *cP = NULL;
-                                                                               Setup setup; // eprom write
-                                                                               const char *argument = jsonObj[WLAN_ESSID];
-                                                                               int result = 0;
-                                                                               float resultF = 0.0;
-                                                                               bool errorH = false;
-                                                                               DBGln("STart parsing json object");
-                                                                               argument = jsonObj[WLAN_ESSID];
-                                                                               DBG(" 1 arg: ");
-                                                                               DBGln(argument);
-                                                                               errorH = util_isFieldFilled(WLAN_ESSID, argument, data);
-                                                                               if (!errorH)
-                                                                                   strcpy(setup.ssid, jsonObj[WLAN_ESSID]);
-                                                                               argument = jsonObj[WLAN_PASSWD];
-                                                                               DBG(" 2 arg: ");
-                                                                               DBGln(argument);
-                                                                               errorH = util_isFieldFilled(WLAN_PASSWD, argument, data);
-                                                                               if (!errorH)
-                                                                                   strcpy(setup.passwd, jsonObj[WLAN_PASSWD]);
-                                                                               argument = jsonObj[HEIZPATRONE];
-                                                                               DBG(" heizpatrone arg: ");
-                                                                               DBGln(argument);
-                                                                               errorH = util_checkParamInt(HEIZPATRONE, argument, data, &result);
-                                                                               if (!errorH)
-                                                                                   setup.leistungHeizpatroneInW = result;
-                                                                               DBG(" hysteryse arg: ");
-                                                                               argument = jsonObj[HYSTERESE];
-                                                                               DBGln(argument);
-                                                                               errorH = util_checkParamInt(HYSTERESE, argument, data, &result);
-                                                                               if (!errorH)
-                                                                                   setup.regelbereichHysterese = result;
-                                                                               argument = jsonObj[EINSPEISEBESCHRAENKUNG];
-                                                                               DBG(" EINSPEISEBESCHRAENKUNG: ");
-                                                                               DBGln(argument);
-                                                                               errorH = util_checkParamInt(EINSPEISEBESCHRAENKUNG, argument, data, &result);
-                                                                               if (!errorH)
-                                                                                   setup.einspeiseBeschraenkingInW = result;
-                                                                               argument = jsonObj[MINDEST_LAUFZEIT];
-                                                                               DBG(" MINDEST_LAUFZEIT: ");
-                                                                               DBGln(argument);
-                                                                               errorH = util_checkParamInt(MINDEST_LAUFZEIT, argument, data, &result);
-                                                                               if (!errorH)
-                                                                                   setup.mindestLaufzeitInMin = result;
-                                                                               argument = jsonObj[AUSSCHALT_TEMP];
-                                                                               DBG(" AUSSCHALT_TEMP: ");
-                                                                               DBGln(argument);
-                                                                               errorH = util_checkParamInt(AUSSCHALT_TEMP, argument, data, &result);
-                                                                               if (!errorH)
-                                                                                   setup.ausschaltTempInGradCel = result;
-                                                                               argument = jsonObj[PID_P];
-                                                                               DBG(" PID_P: ");
-                                                                               DBGln(argument);
-                                                                               errorH = util_checkParamFloat(PID_P, argument, data, &resultF);
-                                                                               if (!errorH)
-                                                                                   setup.pid_p = resultF;
-                                                                               argument = jsonObj[PID_I];
-                                                                               DBG(" PID_I: ");
-                                                                               DBGln(argument);
-                                                                               errorH = util_checkParamFloat(PID_I, argument, data, &resultF);
-                                                                               if (!errorH)
-                                                                                   setup.pid_i = resultF;
-                                                                               argument = jsonObj[PID_D];
-                                                                               errorH = util_checkParamFloat(PID_D, argument, data, &resultF);
-                                                                               if (!errorH)
-                                                                                   setup.pid_d = resultF;
-                                                                               String response;
-                                                                               if (!errorH)
-                                                                               {
-                                                                                   data["done"] = 1;
-                                                                                   data["error"] = "";
-                                                                                   // eprom_storeSetup(setup);
-                                                                               }
-                                                                               else
-                                                                                   data["done"] = 0;
-                                                                               DBGln(" vor serialisierung : ");
-                                                                               serializeJson(data, response);
-                                                                               // request->redirect("/login");
-                                                                               request->send(200, "application/json", response);
-                                                                               // esp_restart();
+                                    const JsonObject &jsonObj = json.as<JsonObject>();
+                                    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+                                    char *cP = NULL;
+                                    Setup setup; // eprom write
+                                    const char *argument = jsonObj[WLAN_ESSID];
+                                    int result = 0;
+                                    float resultF = 0.0;
+                                    bool errorH = false;
+                                    DBGln("STart parsing json object");
+                                    argument = jsonObj[WLAN_ESSID];
+                                    DBG(" 1 arg: ");
+                                    DBGln(argument);
+                                #ifdef III
+                                    errorH = util_isFieldFilled(WLAN_ESSID, argument, data);
+                                    if (!errorH)
+                                        strcpy(setup.ssid, jsonObj[WLAN_ESSID]);
+                                    argument = jsonObj[WLAN_PASSWD];
+                                    DBG(" 2 arg: ");
+                                    DBGln(argument);
+                                    errorH = util_isFieldFilled(WLAN_PASSWD, argument, data);
+                                    if (!errorH)
+                                        strcpy(setup.passwd, jsonObj[WLAN_PASSWD]);
+                                    argument = jsonObj[HEIZPATRONE];
+                                    DBG(" heizpatrone arg: ");
+                                    DBGln(argument);
+                                    errorH = util_checkParamInt(HEIZPATRONE, argument, data, &result);
+                                    if (!errorH)
+                                        setup.leistungHeizpatroneInW = result;
+                                    DBG(" hysteryse arg: ");
+                                    argument = jsonObj[HYSTERESE];
+                                    DBGln(argument);
+                                    errorH = util_checkParamInt(HYSTERESE, argument, data, &result);
+                                    if (!errorH)
+                                        setup.regelbereichHysterese = result;
+                                    argument = jsonObj[EINSPEISUNG_MUSS];
+                                    DBG(" EINSPEISUNG_MUSS: ");
+                                    DBGln(argument);
+                                    errorH = util_checkParamInt(EINSPEISUNG_MUSS, argument, data, &result);
+                                    if (!errorH)
+                                        setup.einspeiseBeschraenkingInW = result;
+                                    argument = jsonObj[MINDEST_LAUFZEIT];
+                                    DBG(" MINDEST_LAUFZEIT: ");
+                                    DBGln(argument);
+                                    errorH = util_checkParamInt(MINDEST_LAUFZEIT, argument, data, &result);
+                                    if (!errorH)
+                                        setup.mindestLaufzeitInMin = result;
+                                    argument = jsonObj[AUSSCHALT_TEMP];
+                                    DBG(" AUSSCHALT_TEMP: ");
+                                    DBGln(argument);
+                                    errorH = util_checkParamInt(AUSSCHALT_TEMP, argument, data, &result);
+                                    if (!errorH)
+                                        setup.ausschaltTempInGradCel = result;
+                                    argument = jsonObj[PID_P];
+                                    DBG(" PID_P: ");
+                                    DBGln(argument);
+                                    errorH = util_checkParamFloat(PID_P, argument, data, &resultF);
+                                    if (!errorH)
+                                        setup.pid_p = resultF;
+                                    argument = jsonObj[PID_I];
+                                    DBG(" PID_I: ");
+                                    DBGln(argument);
+                                    errorH = util_checkParamFloat(PID_I, argument, data, &resultF);
+                                    if (!errorH)
+                                        setup.pid_i = resultF;
+                                    argument = jsonObj[PID_D];
+                                    errorH = util_checkParamFloat(PID_D, argument, data, &resultF);
+                                    if (!errorH)
+                                        setup.pid_d = resultF;
+                                #endif
+                                    String response;
+                                    if (!errorH)
+                                    {
+                                        data["done"] = 1;
+                                        data["error"] = "";
+                                        // eprom_storeSetup(setup);
+                                    }
+                                    else
+                                        data["done"] = 0;
+                                    DBGln(" vor serialisierung : ");
+                                    serializeJson(data, response);
+                                    // request->redirect("/login");
+                                    request->send(200, "application/json", response);
+                                    // esp_restart();
                                                                            });
     // Start the server
     server.addHandler(handler);
-#endif
+
     server.begin();
 }
 

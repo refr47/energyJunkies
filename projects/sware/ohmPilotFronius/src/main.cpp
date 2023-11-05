@@ -60,7 +60,7 @@ void test()
     const char *argument = "234";
     bool errorH = util_isFieldFilled("123", argument, data);
     int result = 1;
-    errorH = util_checkParamInt(HEIZPATRONE, argument, data, &result);
+    errorH = util_checkParamInt(IP_INVERTER, argument, data, &result);
     int r = 0;
     r = atoi(argument);
     DBGln(r);
