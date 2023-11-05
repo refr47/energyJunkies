@@ -186,44 +186,71 @@ void www_init(char *ipAddr)
 
     server.on("/storeSetup", HTTP_GET, [](AsyncWebServerRequest *request)
               {
-                 StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
-                 bool errorH=false;
-                 char buf[100];
-                 DBGln(" ... /get-message ....");
-                 int params = request->params();
-                 DBG("Save settings, "); DBG(params);DBGln ("params");
-                for(int i = 0; i < params; i++) {
-                    AsyncWebParameter* p = request->getParam(i);
-                    if(p->isFile()){
-                        DBGf("_FILE[%s]: %s, size: %u", p->name().c_str(), p->value().c_str(), p->size());
-                    } else if(p->isPost()){
-                        DBGf("_POST[%s]: %s", p->name().c_str(), p->value().c_str());
-                    } else {
-                        DBGf("_GET[%s]: %s", p->name().c_str(), p->value().c_str());
+                DBGln(" ... /storeSetup ....");
+                JSON.parse();
+                StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+                 StaticJsonDocument<200> doc;
+                AsyncWebParameter *p = request->getParam(0);
+                
+                    String s = p->value();
+                    const char *json = p->value().c_str();
+
+                    DeserializationError error = deserializeJson(doc, s.c_str());
+                    if (error)
+                    {
+                        Serial.print(F("deserializeJson() failed: "));
+                        Serial.println(error.f_str());
+                        return;
                     }
-                }
-                 
-                if (request->hasParam(WLAN_ESSID))
-                {
-                    data[WLAN_ESSID] = request->getParam(WLAN_ESSID)->value();
-                    DBGln( "Done successfully ...");
-                }
-                else {
-                      DBGln( "Param not found ...");
-                } 
-                 String response;
-                if (!errorH)
-                {
-                    data["done"] = 1;
-                    data["error"] = "";
-                    // eprom_storeSetup(setup);
-                }
-                else
-                    data["done"] = 0;
-                DBGln(" vor serialisierung : ");
-                serializeJson(data, response);
-                // request->redirect("/login");
-                request->send(200, "application/json", response); });
+                     char *wl = doc["WLAN"];
+                    DBGln(wl);
+                        // Memory pool
+                        char buf[100];
+                    /*
+                                        int params = request->params();
+                                        DBG("Save settings, ");
+                                        DBG(params);
+                                        DBGln("params");
+                                        for (int i = 0; i < params; i++)
+                                        {
+                                            AsyncWebParameter *p = request->getParam(i);
+                                            if (p->isFile())
+                                            {
+                                                DBGf("_FILE[%s]: %s, size: %u", p->name().c_str(), p->value().c_str(), p->size());
+                                            }
+                                            else if (p->isPost())
+                                            {
+                                                DBGf("_POST[%s]: %s", p->name().c_str(), p->value().c_str());
+                                            }
+                                            else
+                                            {
+                                                DBGf("_GET[%s]: %s", p->name().c_str(), p->value().c_str());
+                                            }
+                                        }
+                     */
+                    if (request->hasParam(WLAN_ESSID))
+                    {
+                        data[WLAN_ESSID] = request->getParam(WLAN_ESSID)->value();
+                        DBGln("Done successfully ...");
+                    }
+                    else
+                    {
+                        DBGln("Param not found ...");
+                    }
+                    String response;
+                    bool errorH=false;
+                    if (!errorH)
+                    {
+                        data["done"] = 1;
+                        data["error"] = "";
+                        // eprom_storeSetup(setup);
+                    }
+                    else
+                        data["done"] = 0;
+                    DBGln(" vor serialisierung : ");
+                    serializeJson(data, response);
+                    // request->redirect("/login");
+                    request->send(200, "application/json", response); });
 
     // Route for serving static files from SPIFFS
     server.onNotFound([](AsyncWebServerRequest *request)
