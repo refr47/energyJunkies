@@ -179,6 +179,36 @@ void www_init(char *ipAddr)
     server.on("/img/Energies.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/img/Energies.jpg", "image/jpg"); });
 
+    server.on("/get-message", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                 StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+                 bool errorH=false;
+
+                 DBGln(" ... /get-message ....");
+
+                if (request->hasParam(WLAN_ESSID))
+                {
+                    data["message"] = request->getParam(WLAN_ESSID)->value();
+                    DBGln( "Done successfully ...");
+                }
+                else {
+                      DBGln( "Param not found ...");
+                } 
+                 String response;
+                if (!errorH)
+                {
+                    data["done"] = 1;
+                    data["error"] = "";
+                    // eprom_storeSetup(setup);
+                }
+                else
+                    data["done"] = 0;
+                DBGln(" vor serialisierung : ");
+                serializeJson(data, response);
+                // request->redirect("/login");
+                request->send(200, "application/json", response);
+            });
+
     // Route for serving static files from SPIFFS
     server.onNotFound([](AsyncWebServerRequest *request)
                       {
@@ -200,7 +230,7 @@ void www_init(char *ipAddr)
     } else {
       request->send(404, "text/plain", "File not found");
     } });
-
+#ifdef III
     AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest *request, JsonVariant &json)
                                                                            {
                                                                                const JsonObject &jsonObj = json.as<JsonObject>();
@@ -275,7 +305,7 @@ void www_init(char *ipAddr)
                                                                                {
                                                                                    data["done"] = 1;
                                                                                    data["error"] = "";
-                                                                                   eprom_storeSetup(setup);
+                                                                                   // eprom_storeSetup(setup);
                                                                                }
                                                                                else
                                                                                    data["done"] = 0;
@@ -287,6 +317,7 @@ void www_init(char *ipAddr)
                                                                            });
     // Start the server
     server.addHandler(handler);
+    #endif
     server.begin();
 }
 
