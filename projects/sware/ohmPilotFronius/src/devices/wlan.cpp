@@ -12,7 +12,7 @@
 #define WIFI_RECONNECT_FALSE "Not Connected"
 
 #define WIFI_TRY_DELAY 1000
-#define WIFI_NUMBER_OF_TRIES 20
+#define WIFI_NUMBER_OF_TRIES 30
 #define WIFI_RECONNECT_TRY_IN_INTERVALL 30000
 
 static unsigned long previousMillis = 0;
@@ -38,7 +38,8 @@ bool wifi_init(Setup &setup)
         switch (WiFi.status())
         {
         case WL_NO_SSID_AVAIL:
-            DBGln("[WiFi] SSID not found");
+            DBG("[WiFi] SSID not found: ");
+            DBGln(setup.ssid);
             tft_initNetwork(3, "Connect to", setup.ssid, "SSID not found");
             break;
         case WL_CONNECT_FAILED:

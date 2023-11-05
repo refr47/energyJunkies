@@ -45,7 +45,7 @@
 #define RELAY_L1 16
 #define RELAY_L2 21
 #else
-#define ONE_WIRE_TEMP_GPIO 3
+#define ONE_WIRE_TEMP_GPIO 2
 #define PWM_FOR_PID 1
 #define SWITCH_KEY_UP 43
 #define SWITCH_KEY_DOWN 44

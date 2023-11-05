@@ -5,7 +5,7 @@
 #define HEIZPATRONE "Leistung Heizpatrone (W)"
 #define HYSTERESE "Regelbereich Hysterese"
 #define EINSPEISEBESCHRAENKUNG "Einspeisebeschraenkung (%)"
-#define MINDEST_LAUFZEIT "Mindest Laufzeit (min) (%)"
+#define MINDEST_LAUFZEIT "Mindest Laufzeit (min)"
 #define AUSSCHALT_TEMP "Ausschalt-Temperatur (in Grad Celisius)"
 #define PID_P "Ausgangsregler (P-Anteil)"
 #define PID_I "Ausgangsregler (I-Anteil)"

@@ -145,7 +145,7 @@ uint32_t ipv4_string_to_int(String &in, bool *const success)
     }
     return ret;
 }
-bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocument<100> &data)
+bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data)
 {
     if (strlen(argument) == 0)
     {
@@ -157,7 +157,7 @@ bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocumen
     return true;
 }
 
-bool util_checkParamInt(const char *key, const char *argument, /*const JsonObject &jsonObj, */ StaticJsonDocument<100> &data, int *result)
+bool util_checkParamInt(const char *key, const char *argument, /*const JsonObject &jsonObj, */ StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data, int *result)
 {
     if (util_isFieldFilled(key, argument, data))
         *result = atoi(argument);
@@ -173,7 +173,7 @@ bool util_checkParamInt(const char *key, const char *argument, /*const JsonObjec
     return true;
 }
 
-bool util_checkParamFloat(const char *key, const char *argument, /* const JsonObject &jsonObj, */ StaticJsonDocument<100> &data, float *result)
+bool util_checkParamFloat(const char *key, const char *argument, /* const JsonObject &jsonObj, */ StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data, float *result)
 {
     if (util_isFieldFilled(key, argument, data))
         *result = atof(argument);

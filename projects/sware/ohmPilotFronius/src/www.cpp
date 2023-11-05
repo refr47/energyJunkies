@@ -204,7 +204,7 @@ void www_init(char *ipAddr)
     AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest *request, JsonVariant &json)
                                                                            {
                                                                                const JsonObject &jsonObj = json.as<JsonObject>();
-                                                                               StaticJsonDocument<100> data;
+                                                                               StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
                                                                                char *cP = NULL;
                                                                                Setup setup; // eprom write
                                                                                const char *argument = jsonObj[WLAN_ESSID];
@@ -232,26 +232,37 @@ void www_init(char *ipAddr)
                                                                                    setup.leistungHeizpatroneInW = result;
                                                                                DBG(" hysteryse arg: ");
                                                                                argument = jsonObj[HYSTERESE];
+                                                                               DBGln(argument);
                                                                                errorH = util_checkParamInt(HYSTERESE, argument, data, &result);
                                                                                if (!errorH)
                                                                                    setup.regelbereichHysterese = result;
                                                                                argument = jsonObj[EINSPEISEBESCHRAENKUNG];
+                                                                               DBG(" EINSPEISEBESCHRAENKUNG: ");
+                                                                               DBGln(argument);
                                                                                errorH = util_checkParamInt(EINSPEISEBESCHRAENKUNG, argument, data, &result);
                                                                                if (!errorH)
                                                                                    setup.einspeiseBeschraenkingInW = result;
                                                                                argument = jsonObj[MINDEST_LAUFZEIT];
+                                                                               DBG(" MINDEST_LAUFZEIT: ");
+                                                                               DBGln(argument);
                                                                                errorH = util_checkParamInt(MINDEST_LAUFZEIT, argument, data, &result);
                                                                                if (!errorH)
                                                                                    setup.mindestLaufzeitInMin = result;
                                                                                argument = jsonObj[AUSSCHALT_TEMP];
+                                                                               DBG(" AUSSCHALT_TEMP: ");
+                                                                               DBGln(argument);
                                                                                errorH = util_checkParamInt(AUSSCHALT_TEMP, argument, data, &result);
                                                                                if (!errorH)
                                                                                    setup.ausschaltTempInGradCel = result;
                                                                                argument = jsonObj[PID_P];
+                                                                               DBG(" PID_P: ");
+                                                                               DBGln(argument);
                                                                                errorH = util_checkParamFloat(PID_P, argument, data, &resultF);
                                                                                if (!errorH)
                                                                                    setup.pid_p = resultF;
                                                                                argument = jsonObj[PID_I];
+                                                                               DBG(" PID_I: ");
+                                                                               DBGln(argument);
                                                                                errorH = util_checkParamFloat(PID_I, argument, data, &resultF);
                                                                                if (!errorH)
                                                                                    setup.pid_i = resultF;

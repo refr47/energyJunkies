@@ -56,7 +56,7 @@ static PinManager pidPinManager(RELAY_L1, RELAY_L2, PWM_FOR_PID);
 
 void test()
 {
-    StaticJsonDocument<100> data;
+    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
     const char *argument = "234";
     bool errorH = util_isFieldFilled("123", argument, data);
     int result = 1;
@@ -80,8 +80,9 @@ void setup()
 
     DBGln("Energie-Junkies -- Harvester ---");
     // test();
-    /*  tft_init();
-     tft_printSetup(); */
+    tft_init();
+
+    tft_printSetup();
 
     int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
     DBG("internal bu: ");
@@ -91,7 +92,7 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ
 
-    eprom_test_write_Eprom(wlanE, passW);
+    // eprom_test_write_Eprom(wlanE, passW);
     eprom_getSetup(setupData);
     eprom_test_read_Eprom();
     time_init(); // init time
@@ -137,13 +138,18 @@ void setup()
         WiFi.mode(WIFI_STA);
 
         WiFi.begin(setupData.ssid, setupData.passwd);
+        DBG("WIFI: ");
+        DBG(setupData.ssid);
+        DBG(",:");
+        DBG(setupData.passwd);
+        DBG(" ... ");
         DBG("Connecting to WiFi ..");
         int counter = 0;
 
         while (WiFi.status() != WL_CONNECTED)
         {
             DBG('.');
-            delay(1000);
+            delay(2000);
             ++counter;
             if (counter == 5)
                 break;
@@ -204,11 +210,12 @@ void loop()
         // DBGln(" --- MODBUS --- Query done");
         mb_readInverterDynamic(setupData, modbusData);
         DBG("Available power in W: ");
-        DBGln(modbusData.meterValues.data.acCurrentPower);
+        DBG(modbusData.meterValues.data.acCurrentPower);
 
         previousMillModbus = currentMillis;
         availableWatt = (int)(modbusData.meterValues.data.acCurrentPower + 0.5);
-
+        DBG(", int: ");
+        DBGln(availableWatt);
         if (availableWatt < 0) // energy export
         {
             pidPinManager.task(setupData, availableWatt * -1);
