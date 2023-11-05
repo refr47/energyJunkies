@@ -188,8 +188,20 @@ void www_init(char *ipAddr)
               {
                  StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
                  bool errorH=false;
-                
+                 char buf[100];
                  DBGln(" ... /get-message ....");
+                 int params = request->params();
+                 DBG("Save settings, "); DBG(params);DBGln ("params");
+                for(int i = 0; i < params; i++) {
+                    AsyncWebParameter* p = request->getParam(i);
+                    if(p->isFile()){
+                        DBGf("_FILE[%s]: %s, size: %u", p->name().c_str(), p->value().c_str(), p->size());
+                    } else if(p->isPost()){
+                        DBGf("_POST[%s]: %s", p->name().c_str(), p->value().c_str());
+                    } else {
+                        DBGf("_GET[%s]: %s", p->name().c_str(), p->value().c_str());
+                    }
+                }
                  
                 if (request->hasParam(WLAN_ESSID))
                 {

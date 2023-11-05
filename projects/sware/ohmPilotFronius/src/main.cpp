@@ -74,7 +74,7 @@ void test_cardReader()
 void setup()
 {
 
-    Serial.begin(115200);
+    DBGbgn(115200);
     while (!Serial)
         ;
 
