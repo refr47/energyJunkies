@@ -148,6 +148,11 @@ void www_init(char *ipAddr)
         ipAddr = (char *)IP.toString().c_str();
         DBGln(ipAddr);
     }
+    else
+    {
+        DBG("WWW init server with ip: ");
+        DBGln(ipAddr);
+    }
 
     tft_initNetwork(6, "Keine Netzwerkparameter", "ACCESS-Point Modus", "SSID=>", ssid, "IP=>", ipAddr);
 
@@ -179,16 +184,16 @@ void www_init(char *ipAddr)
     server.on("/img/Energies.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/img/Energies.jpg", "image/jpg"); });
 
-    server.on("/get-message", HTTP_GET, [](AsyncWebServerRequest *request)
+    server.on("/storeSetup", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                  StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
                  bool errorH=false;
-
+                
                  DBGln(" ... /get-message ....");
-
+                 
                 if (request->hasParam(WLAN_ESSID))
                 {
-                    data["message"] = request->getParam(WLAN_ESSID)->value();
+                    data[WLAN_ESSID] = request->getParam(WLAN_ESSID)->value();
                     DBGln( "Done successfully ...");
                 }
                 else {
@@ -206,8 +211,7 @@ void www_init(char *ipAddr)
                 DBGln(" vor serialisierung : ");
                 serializeJson(data, response);
                 // request->redirect("/login");
-                request->send(200, "application/json", response);
-            });
+                request->send(200, "application/json", response); });
 
     // Route for serving static files from SPIFFS
     server.onNotFound([](AsyncWebServerRequest *request)
@@ -317,7 +321,7 @@ void www_init(char *ipAddr)
                                                                            });
     // Start the server
     server.addHandler(handler);
-    #endif
+#endif
     server.begin();
 }
 
