@@ -187,7 +187,7 @@ void www_init(char *ipAddr)
     server.on("/storeSetup", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                 DBGln(" ... /storeSetup ....");
-                JSON.parse();
+              
                 StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
                  StaticJsonDocument<200> doc;
                 AsyncWebParameter *p = request->getParam(0);
