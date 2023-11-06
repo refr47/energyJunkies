@@ -23,3 +23,4 @@ void eprom_getSetup(Setup &setup);
 
 void eprom_test_write_Eprom(const char *, const char *);
 void eprom_test_read_Eprom();
+void eprom_show(Setup &setup);

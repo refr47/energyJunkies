@@ -118,10 +118,6 @@ $(document).ready(function () {
       dataAjax[row.data()[0]] = row.data()[1]
     }
 
-    /*   const dataAjax = {
-        name: row.data()[0],
-        email: row.data[0],
-      }; */
 
     console.log("Ajax - call EP .... /storeSetup")
     $.ajax({
@@ -152,6 +148,7 @@ $(document).ready(function () {
       "bPaginate": false,
       "responsive": true,
       "ordering": false,
+      "iDisplayLength": 100,
       columns: [
         { title: 'Titel' },
         {

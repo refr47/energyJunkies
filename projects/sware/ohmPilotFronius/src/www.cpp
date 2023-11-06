@@ -19,16 +19,31 @@ const char *PARAM_INPUT_2 = "state";
 /* You only need to format SPIFFS the first time you run a
    test or else use the SPIFFS plugin to create a partition
    https://github.com/me−no−dev/arduino−esp32fs−plugin */
+
+/*
+ ***********************  DEFINES
+ */
+
 #define FORMAT_SPIFFS_IF_FAILED true
 
-// Create AsyncWebServer object on port 80
-AsyncWebServer server(80);
+#define SSID_FOR_ACCESS_POINT "EnergieJunkies"
+/*
+ ***********************  prototypes
+ */
+static void handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json);
+static void sendHTML(String &path, AsyncWebServerRequest *request);
+static void listDir(char *dir);
 
-static const char *ssidForAccessPoint = "EnergieJunkies";
+/*
+ ***********************  local variables
+ */
+
+static AsyncWebServer server(80);
+
 // Flag to check if the user is authenticated
-bool isAuthenticated = false;
+static bool isAuthenticated = false;
 
-void listDir(char *dir)
+static void listDir(char *dir)
 {
     DBGln("listdir");
     File root = SPIFFS.open(dir);
@@ -56,7 +71,8 @@ void listDir(char *dir)
         file = root.openNextFile();
     }
 }
-void sendHTML(String &path, AsyncWebServerRequest *request)
+
+static void sendHTML(String &path, AsyncWebServerRequest *request)
 {
     if (SPIFFS.exists(path))
     {
@@ -70,7 +86,7 @@ void sendHTML(String &path, AsyncWebServerRequest *request)
     }
 }
 
-void handleLogin(AsyncWebServerRequest *request)
+static void handleLogin(AsyncWebServerRequest *request)
 {
     DBGln("handleLogin");
     bool standingData = false;
@@ -106,7 +122,7 @@ void handleLogin(AsyncWebServerRequest *request)
     }
 }
 
-void handleRoot(AsyncWebServerRequest *request)
+static void handleRoot(AsyncWebServerRequest *request)
 {
     // Check if the user is authenticated
     DBGln("handleRoot");
@@ -116,7 +132,7 @@ void handleRoot(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/login.html", "text/html", false);
 }
 
-void handleSetup(AsyncWebServerRequest *request)
+static void handleSetup(AsyncWebServerRequest *request)
 {
     // Check if the user is authenticated
     DBGln("handleSetup");
@@ -124,6 +140,172 @@ void handleSetup(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/setupData.html", "text/html", false);
     else
         request->send(SPIFFS, "/login.html", "text/html", false);
+}
+
+static void returnFromStoreSetup(bool inputCorrect, StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data, AsyncWebServerRequest *request)
+{
+    String response;
+    if (inputCorrect)
+    {
+        data["done"] = 1;
+        data["error"] = "";
+        DBGln("returnFromStoreSetup - no errors ");
+        // eprom_storeSetup(setup);
+    }
+    else
+    {
+        data["done"] = 0;
+        DBGln("returnFromStoreSetup -  errors ");
+    }
+
+    DBGln(" vor serialisierung : ");
+    serializeJson(data, response);
+    DBG("storeSetUp - return: ");
+    DBGln(response);
+    request->send(200, "application/json", response);
+}
+
+static void dbg(char *key, const char *val)
+{
+    DBG("ARG: ");
+    DBG(key);
+    DBG(" VAL: ");
+    DBGln(val);
+}
+
+static void handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json)
+{
+    const JsonObject &jsonObj = json.as<JsonObject>();
+    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+
+    for (JsonPair keyValue : jsonObj)
+    {
+        Serial.print(keyValue.key().c_str());
+    }
+    char *cP = NULL;
+    Setup setup; // eprom write
+    const char *argument = jsonObj[WLAN_ESSID];
+    int result = 0;
+    float resultF = 0.0;
+    bool errorH = false;
+    DBGln("STart parsing json object");
+    dbg(WLAN_ESSID, argument);
+    errorH = util_isFieldFilled(WLAN_ESSID, argument, data);
+    if (errorH)
+        strcpy(setup.ssid, jsonObj[WLAN_ESSID]);
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[WLAN_PASSWD];
+    dbg(WLAN_PASSWD, argument);
+    errorH = util_isFieldFilled(WLAN_PASSWD, argument, data);
+    if (errorH)
+        strcpy(setup.passwd, jsonObj[WLAN_PASSWD]);
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[IP_INVERTER];
+    dbg(IP_INVERTER, argument);
+    errorH = util_isFieldFilled(IP_INVERTER, argument, data);
+    if (errorH)
+    {
+        bool result = true;
+        String ipInv = argument;
+        if (!result)
+        {
+            DBG("handleStoreSetup IP translate did not succeed for IP: ");
+            DBGln(argument);
+            data["error"] = "IP-Transformation war nicht erfolgreich!";
+            return returnFromStoreSetup(false, data, request);
+        }
+        else
+            setup.ipInverter = ipv4_string_to_int(ipInv, &result);
+    }
+    else
+        return returnFromStoreSetup(errorH, data, request);
+
+    argument = jsonObj[HYSTERESE];
+    dbg(HYSTERESE, argument);
+    errorH = util_checkParamInt(HYSTERESE, argument, data, &result);
+    if (errorH)
+        setup.regelbereichHysterese = result;
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[EINSPEISUNG_MUSS];
+    dbg(EINSPEISUNG_MUSS, argument);
+    errorH = util_checkParamInt(EINSPEISUNG_MUSS, argument, data, &result);
+    if (errorH)
+        setup.pid_targetPowerInWatt = result;
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[MINDEST_LAUFZEIT_DIGITALER_OUT];
+    dbg(MINDEST_LAUFZEIT_DIGITALER_OUT, argument);
+
+    errorH = util_checkParamInt(MINDEST_LAUFZEIT_DIGITALER_OUT, argument, data, &result);
+    if (errorH)
+        setup.pid_min_time_before_switch_off_channel_inMS = result;
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[MINDEST_LAUFZEIT_PORT_ON];
+    dbg(MINDEST_LAUFZEIT_PORT_ON, argument);
+    errorH = util_checkParamInt(MINDEST_LAUFZEIT_PORT_ON, argument, data, &result);
+    if (errorH)
+        setup.pid_min_time_for_dig_output_inMS = result;
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[MINDEST_LAUFZEIT_REGLER_KONSTANT];
+    dbg(MINDEST_LAUFZEIT_REGLER_KONSTANT, argument);
+    errorH = util_checkParamInt(MINDEST_LAUFZEIT_REGLER_KONSTANT, argument, data, &result);
+    if (errorH)
+        setup.pid_min_time_without_contoller_inMS = result;
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[EXTERNER_SPEICHER];
+    dbg(EXTERNER_SPEICHER, argument);
+    if (util_isFieldFilled(EXTERNER_SPEICHER, argument, data))
+    {
+        setup.externerSpeicher = *argument == 'j' ? true : false;
+    }
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[EXTERNER_SPEICHER_PRIORI];
+    dbg(EXTERNER_SPEICHER_PRIORI, argument);
+    if (util_isFieldFilled(EXTERNER_SPEICHER_PRIORI, argument, data))
+    {
+        setup.externerSpeicherPriori = *argument; // j1|2|3
+    }
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[AUSSCHALT_TEMP];
+    dbg(AUSSCHALT_TEMP, argument);
+    errorH = util_checkParamInt(AUSSCHALT_TEMP, argument, data, &result);
+    if (errorH)
+        setup.ausschaltTempInGradCel = result;
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[PID_P];
+    dbg(PID_P, argument);
+    errorH = util_checkParamFloat(PID_P, argument, data, &resultF);
+    if (errorH)
+        setup.pid_p = resultF;
+    argument = jsonObj[PID_I];
+    dbg(PID_I, argument);
+
+    errorH = util_checkParamFloat(PID_I, argument, data, &resultF);
+    if (errorH)
+        setup.pid_i = resultF;
+    else
+        return returnFromStoreSetup(errorH, data, request);
+    argument = jsonObj[PID_D];
+    dbg(PID_D, argument);
+    errorH = util_checkParamFloat(PID_D, argument, data, &resultF);
+    if (errorH)
+        setup.pid_d = resultF;
+    else
+        return returnFromStoreSetup(errorH, data, request);
+
+    eprom_storeSetup(setup);
+    eprom_test_read_Eprom();
+    return returnFromStoreSetup(errorH, data, request);
+    // esp_restart();
 }
 
 void www_init(char *ipAddr, char *wlanAsClientSSID)
@@ -139,16 +321,16 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     // listDir("/");
     if (ipAddr == NULL)
     {
-        //  Connect to Wi-Fi network with ssidForAccessPoint
+        //  Connect to Wi-Fi network with SSID_FOR_ACCESS_POINT
         DBG("Setting AP (Access Point)…");
         WiFi.mode(WIFI_AP);
-        WiFi.softAP(ssidForAccessPoint);
+        WiFi.softAP(SSID_FOR_ACCESS_POINT);
         IPAddress IP = WiFi.softAPIP();
         DBG("AP IP address: ");
         ipAddr = (char *)IP.toString().c_str();
         DBG(IP.toString());
         DBGln(ipAddr);
-        tft_initNetwork(6, "Netzwerkparameter", "ACCESS-Point Modus", "ssid=>", ssidForAccessPoint, "IP=>", IP.toString().c_str());
+        tft_initNetwork(6, "Netzwerkparameter", "ACCESS-Point Modus", "ssid=>", SSID_FOR_ACCESS_POINT, "IP=>", IP.toString().c_str());
     }
     else
     {
@@ -172,12 +354,16 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     // Route to load style.css file
     server.on("/css/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/css/main.css", "text/css"); });
+    server.on("/css/menu.css", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/css/menu.css", "text/css"); });
     server.on("/css/jquery-3.7.1.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/css/jquery-3.7.1.min.css", "text/css"); });
     server.on("/css/datatables.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/css/datatables.min.css", "text/css"); });
     server.on("/js/jquery-3.7.1.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/js/jquery-3.7.1.min.js", String()); });
+    server.on("/js/stammdaten.js", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/js/stammdaten.js", String()); });
     server.on("/js/datatables.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/js/datatables.min.js", String()); });
     server.on("/img/icon.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -188,91 +374,7 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     // https://github.com/me-no-dev/ESPAsyncWebServer
 
     AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest *request, JsonVariant &json)
-                    {
-                        const JsonObject &jsonObj = json.as<JsonObject>();
-                        StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
-                        char *cP = NULL;
-                        Setup setup; // eprom write
-                        const char *argument = jsonObj[WLAN_ESSID];
-                        int result = 0;
-                        float resultF = 0.0;
-                        bool errorH = false;
-                        DBGln("STart parsing json object");
-                        argument = jsonObj[WLAN_ESSID];
-                        DBG(" 1 arg: ");
-                        DBGln(argument);
-#ifdef III
-                        errorH = util_isFieldFilled(WLAN_Essid, argument, data);
-                        if (!errorH)
-                            strcpy(setup.ssidForAccessPoint, jsonObj[WLAN_Essid]);
-                        argument = jsonObj[WLAN_PASSWD];
-                        DBG(" 2 arg: ");
-                        DBGln(argument);
-                        errorH = util_isFieldFilled(WLAN_PASSWD, argument, data);
-                        if (!errorH)
-                            strcpy(setup.passwd, jsonObj[WLAN_PASSWD]);
-                        argument = jsonObj[HEIZPATRONE];
-                        DBG(" heizpatrone arg: ");
-                        DBGln(argument);
-                        errorH = util_checkParamInt(HEIZPATRONE, argument, data, &result);
-                        if (!errorH)
-                            setup.leistungHeizpatroneInW = result;
-                        DBG(" hysteryse arg: ");
-                        argument = jsonObj[HYSTERESE];
-                        DBGln(argument);
-                        errorH = util_checkParamInt(HYSTERESE, argument, data, &result);
-                        if (!errorH)
-                            setup.regelbereichHysterese = result;
-                        argument = jsonObj[EINSPEISUNG_MUSS];
-                        DBG(" EINSPEISUNG_MUSS: ");
-                        DBGln(argument);
-                        errorH = util_checkParamInt(EINSPEISUNG_MUSS, argument, data, &result);
-                        if (!errorH)
-                            setup.einspeiseBeschraenkingInW = result;
-                        argument = jsonObj[MINDEST_LAUFZEIT];
-                        DBG(" MINDEST_LAUFZEIT: ");
-                        DBGln(argument);
-                        errorH = util_checkParamInt(MINDEST_LAUFZEIT, argument, data, &result);
-                        if (!errorH)
-                            setup.mindestLaufzeitInMin = result;
-                        argument = jsonObj[AUSSCHALT_TEMP];
-                        DBG(" AUSSCHALT_TEMP: ");
-                        DBGln(argument);
-                        errorH = util_checkParamInt(AUSSCHALT_TEMP, argument, data, &result);
-                        if (!errorH)
-                            setup.ausschaltTempInGradCel = result;
-                        argument = jsonObj[PID_P];
-                        DBG(" PID_P: ");
-                        DBGln(argument);
-                        errorH = util_checkParamFloat(PID_P, argument, data, &resultF);
-                        if (!errorH)
-                            setup.pid_p = resultF;
-                        argument = jsonObj[PID_I];
-                        DBG(" PID_I: ");
-                        DBGln(argument);
-                        errorH = util_checkParamFloat(PID_I, argument, data, &resultF);
-                        if (!errorH)
-                            setup.pid_i = resultF;
-                        argument = jsonObj[PID_D];
-                        errorH = util_checkParamFloat(PID_D, argument, data, &resultF);
-                        if (!errorH)
-                            setup.pid_d = resultF;
-#endif
-                        String response;
-                        if (!errorH)
-                        {
-                            data["done"] = 1;
-                            data["error"] = "";
-                            // eprom_storeSetup(setup);
-                        }
-                        else
-                            data["done"] = 0;
-                        DBGln(" vor serialisierung : ");
-                        serializeJson(data, response);
-                        // request->redirect("/login");
-                        request->send(200, "application/json", response);
-                        // esp_restart();
-                    });
+                                                                           { handleStoreSetup(request, json); });
     // Start the server
     server.addHandler(handler);
     // Route for serving static files from SPIFFS

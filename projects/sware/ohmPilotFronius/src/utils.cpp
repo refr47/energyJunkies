@@ -149,25 +149,38 @@ bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocumen
 {
     if (strlen(argument) == 0)
     {
-        char buf[50];
+        char buf[100];
         sprintf(buf, "Argument: %s kann nicht leer sein.", key);
         data["error"] = buf;
+        DBG("util_isFieldFilled: ");
+        DBG(key);
+        DBGln("Field is empty");
         return false;
     }
     return true;
 }
 
-bool util_checkParamInt(const char *key, const char *argument, /*const JsonObject &jsonObj, */ StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data, int *result)
+bool util_checkParamInt(const char *key, const char *argument, StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data, int *result)
 {
     if (util_isFieldFilled(key, argument, data))
         *result = atoi(argument);
     else
+    {
+        DBG("utilCheckParamInt: ");
+        DBG(key);
+        DBGln("Field is empty");
         return false;
+    }
+
     if (*result == 0)
     {
-        char buf[50];
+        char buf[100];
         sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
         data["error"] = buf;
+        DBG("utilCheckParamInt: ");
+        DBG(key);
+        DBG(" kein numerischer Wert");
+        DBGln(argument);
         return false;
     }
     return true;
@@ -178,12 +191,21 @@ bool util_checkParamFloat(const char *key, const char *argument, /* const JsonOb
     if (util_isFieldFilled(key, argument, data))
         *result = atof(argument);
     else
+    {
+        DBG("util_checkParamFloat: ");
+        DBG(key);
+        DBGln("Field is empty");
         return false;
+    }
     if (*result == 0.0)
     {
-        char buf[50];
+        char buf[100];
         sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
         data["error"] = buf;
+        DBG("util_checkParamFloat: ");
+        DBG(key);
+        DBG(" kein numerischer Wert");
+        DBGln(argument);
         return false;
     }
     return true;
@@ -192,6 +214,7 @@ bool util_checkParamFloat(const char *key, const char *argument, /* const JsonOb
 void util_pHW()
 {
     esp_chip_info_t chip_info;
+
     esp_chip_info(&chip_info);
 
     DBGln("Hardware info");
