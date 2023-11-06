@@ -6,19 +6,17 @@
 
 #define DEBUG_OUTPUT
 
-
 #ifdef DEBUG_OUTPUT
 
 #ifndef DEBUG_PORT
 #define DEBUG_PORT Serial
 #endif
 
-#define DBGbgn(speed)  DEBUG_PORT.begin(speed)
+#define DBGbgn(speed) Serial.begin(speed)
 
-
-#define DBGf(format, ...)  DEBUG_PORT.printf(format "\n", ##__VA_ARGS__)
-#define DBG(...)           DEBUG_PORT.print(__VA_ARGS__)
-#define DBGln(...)         DEBUG_PORT.println(__VA_ARGS__)
+#define DBGf(format, ...) Serial.printf(format "\n", ##__VA_ARGS__)
+#define DBG(...) DEBUG_PORT.print(__VA_ARGS__)
+#define DBGln(...) DEBUG_PORT.println(__VA_ARGS__)
 #define DBG1(a, f) (Serial.print(a, f))
 
 /* #define DBGln(a) (Serial.println(a))

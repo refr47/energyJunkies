@@ -44,6 +44,7 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
 static bool networkCredentialsInEEprom = true;
 static bool cardWriterOK = false;
+static bool networkOK = false;
 
 static const char *wlanE = "Milchbehaelter";
 static const char *passW = "47754775";
@@ -122,7 +123,7 @@ void setup()
     if (cardRW_setup())
     {
         cardWriterOK = true;
-        test_cardReader();
+        // test_cardReader();
     }
 
     temp_init(); // temperature
@@ -130,7 +131,7 @@ void setup()
     if (strcmp(setupData.ssid, "---") == 0)
     {
         networkCredentialsInEEprom = false;
-        www_init(NULL); // act as access point
+        www_init(NULL, NULL); // act as access point
     }
     if (networkCredentialsInEEprom)
     {
@@ -159,7 +160,8 @@ void setup()
             DBGln("Cannot connect - show available networks: ");
             tft_drawNetworkInfo(NULL);
             wifi_scan_network();
-            www_init(NULL); // act as access point
+            www_init(NULL, NULL); // act as access point
+            networkOK = false;
         }
         else
         {
@@ -168,9 +170,14 @@ void setup()
             wifi_getLocalIP(&pBuf);
             DBGln(globalStringBuffer);
             tft_drawNetworkInfo(globalStringBuffer);
-            www_init(pBuf); // do not act as apoint
+            www_init(pBuf, setupData.ssid); // do not act as apoint
+            networkOK = true;
         }
-
+        if (!networkOK)
+        {
+            DBGln("Network does not work!");
+            return;
+        }
         DBGln("Setup modbus ...");
         if (!mb_init(setupData))
         {
@@ -189,6 +196,12 @@ static int availableWatt;
 
 void loop()
 {
+    if (!networkOK)
+    {
+        DBGln("Network does not work - no further task are available...");
+        delay(10000);
+        return;
+    }
     currentMillis = millis();
     if (currentMillis - previousMillTemp > TEMPERATURE_INTERVAL)
     {

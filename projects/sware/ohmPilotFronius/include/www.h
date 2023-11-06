@@ -1,7 +1,7 @@
 #pragma once
 
 #define WLAN_ESSID "WLAN_ESSID"
-#define WLAN_PASSWD "WLAN_Password" 
+#define WLAN_PASSWD "WLAN_Password"
 #define IP_INVERTER "IP_Inverter"
 #define HYSTERESE "Hysterese"
 #define EINSPEISUNG_MUSS "Einspeisung"
@@ -17,5 +17,5 @@
 
 #include "debugConsole.h"
 
-void www_init(char *ipAddr); // IF NULL, ACT as Access Point
+void www_init(char *ipAddr, char *); // IF NULL, ACT as Access Point
 void www_run();

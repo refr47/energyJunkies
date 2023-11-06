@@ -41,7 +41,7 @@ bool wifi_init(Setup &setup)
             DBG("[WiFi] SSID not found: ");
             DBGln(setup.ssid);
             tft_initNetwork(3, "Connect to", setup.ssid, "SSID not found");
-            break;
+            break; 
         case WL_CONNECT_FAILED:
             DBG("[WiFi] Failed - WiFi not connected! Reason: ");
             tft_initNetwork(3, "Connect to", setup.ssid, "No connection");

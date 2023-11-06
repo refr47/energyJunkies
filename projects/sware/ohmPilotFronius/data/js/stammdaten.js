@@ -27,11 +27,11 @@ function evalIt(value, index) {
     case 2: if (!value)
       return showError("Eingabe (TCP-Adresse) erforderlich")
 
-      let ipaddress = 
-            /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/; 
-         
-      if (!ipaddress.test(value)) 
-      return showError("Keine gültige IP-Adresse!")
+      let ipaddress =
+        /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/;
+
+      if (!ipaddress.test(value))
+        return showError("Keine gültige IP-Adresse!")
 
       break;
     case 3: if (isNaN(value))  // hyterese
@@ -56,7 +56,7 @@ function evalIt(value, index) {
       return showError("Feld kann nicht leer sein.")
       if (value == 'j') return;
       if (value == 'n') return;
-        return showError("Antwort kann nur 'j' oder 'n' sein.")
+      return showError("Antwort kann nur 'j' oder 'n' sein.")
       break;
     case 7: if (isNaN(value)) // priorität einspeisung
       return showError("Numerische Eingabe erforderlich")
@@ -91,13 +91,13 @@ function evalIt(value, index) {
     case 12: if (isNaN(value)) // pid i anteil
       return showError("Numerische Eingabe erforderlich")
       fnum = parseInt(value)
-      if (fnum < 1 ||  fnum > 1)
+      if (fnum < 1 || fnum > 1)
         return showError("Wertebereich ungültig (>0 und <= 1)")
       break;
     case 13: if (isNaN(value)) // pid d anteil
       return showError("Numerische Eingabe erforderlich")
       fnum = parseInt(value)
-      if (fnum < 1 ||  fnum > 1)
+      if (fnum < 1 || fnum > 1)
         return showError("Wertebereich ungültig (>0 und <= 1)")
       break;
 
@@ -113,12 +113,10 @@ $(document).ready(function () {
     //let dataTable = $('#stamm');
     let numberRows = dataTable.rows().count()
     let dataAjax = {}
-    // for (jj = 0; jj < numberRows; jj++) {
-    //   let row = dataTable.row(jj);
-    //   dataAjax[row.data()[0]] = row.data()[1]
-    // }
-    dataAjax["WLAN"] = "1234";
-    dataAjax["PASSWD"] = "ret";
+    for (jj = 0; jj < numberRows; jj++) {
+      let row = dataTable.row(jj);
+      dataAjax[row.data()[0]] = row.data()[1]
+    }
 
     /*   const dataAjax = {
         name: row.data()[0],
@@ -127,7 +125,7 @@ $(document).ready(function () {
 
     console.log("Ajax - call EP .... /storeSetup")
     $.ajax({
-      type: 'GET',
+      type: 'POST',
       url: '/storeSetup',
       data: JSON.stringify(dataAjax),
       contentType: 'application/json',

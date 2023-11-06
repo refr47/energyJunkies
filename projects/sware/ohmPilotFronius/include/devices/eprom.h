@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-#define CREDENTIALS "credentials"
+#define CREDENTIALS "setup"
 #define _SSID "ssid"
 #define _PASSWORD "pw"
 #define _HYSTERESE "hy"

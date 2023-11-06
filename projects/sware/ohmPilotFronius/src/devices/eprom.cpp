@@ -18,9 +18,9 @@ void eprom_storeSetup(Setup &setup)
     preferences.putString(_PASSWORD, setup.passwd);
     preferences.putUInt(_HYSTERESE, setup.regelbereichHysterese);
     preferences.putUInt(_AUSSCHALT_TEMP, setup.ausschaltTempInGradCel);
-    preferences.putUInt(_INVERTER_IP, setup.ipInverter);;
+    preferences.putUInt(_INVERTER_IP, setup.ipInverter);
     preferences.putBool(_EXTERNER_SPEICHER, setup.externerSpeicher);
-    preferences.putBool(_EXTERNER_SPEICHER_PRIORI, setup.externerSpeicherPriori);
+    preferences.putChar(_EXTERNER_SPEICHER_PRIORI, setup.externerSpeicherPriori);
     preferences.putFloat(_PID_P, setup.pid_p);
     preferences.putFloat(_PID_I, setup.pid_i);
     preferences.putFloat(_PID_D, setup.pid_d);
@@ -51,15 +51,21 @@ void eprom_getSetup(Setup &setup)
         strncpy(setup.ssid, (const char *)ssid.c_str(), LEN_WLAN - 1);
         strncpy(setup.passwd, passwd.c_str(), LEN_WLAN - 1);
     }
-    
-    setup.ausschaltTempInGradCel = preferences.getUInt(_AUSSCHALT_TEMP);
-    bool result = true;
-    // DBG("IP-Inverter: ");
-    setup.ipInverterAsString = ipv4_int_to_string(setup.ipInverter, &result);
     setup.regelbereichHysterese = preferences.getUInt(_HYSTERESE);
+    setup.ausschaltTempInGradCel = preferences.getUInt(_AUSSCHALT_TEMP);
     setup.ipInverter = preferences.getUInt(_INVERTER_IP);
+    bool result = true;
+  /*   DBG("===>IP-Inverter eprom_getSetup: ");
+    DBGln(setup.ipInverter);
+    DBG(" as string: "); */
+    setup.ipInverterAsString = ipv4_int_to_string(setup.ipInverter, &result);
+    if (!result)
+        DBGln("ERPROM - Error in converting IPAdress!!");
+    else
+        DBGln(setup.ipInverterAsString);
+
     setup.externerSpeicher = preferences.getBool(_EXTERNER_SPEICHER);
-    setup.externerSpeicherPriori= preferences.getBool(_EXTERNER_SPEICHER_PRIORI);
+    setup.externerSpeicherPriori = preferences.getChar(_EXTERNER_SPEICHER_PRIORI);
     setup.pid_p = preferences.getFloat(_PID_P);
     setup.pid_i = preferences.getFloat(_PID_I);
     setup.pid_d = preferences.getFloat(_PID_D);
@@ -85,17 +91,18 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     DBG("passw: ");
     DBGln(setup.passwd);
     setup.regelbereichHysterese = 100;
-     setup.ausschaltTempInGradCel = 80;
+    setup.ausschaltTempInGradCel = 80;
     String ipInv = "10.0.0.7";
     bool result = true;
 
     setup.ipInverter = ipv4_string_to_int(ipInv, &result);
     if (!result)
         DBGln("IP translate did not succeed.");
-      DBG("IP in uint: ");
+    DBG("SETUP WRITE IP in uint: ");
     DBGln(setup.ipInverter);
 
     setup.externerSpeicher = false;
+    setup.externerSpeicherPriori = 1;
     setup.pid_p = 1.0;
     setup.pid_i = 0.5;
     setup.pid_d = 0.0;
@@ -114,7 +121,7 @@ void eprom_test_read_Eprom()
     eprom_getSetup(setup);
     char buffer[500];
     sprintf(buffer, "EPROM out \n WLAN: %s, Passwd: %s Hysterese: %d, AusschaltTempInC: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f.2 PID_I: %f.2 PID_D %f.2  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d  ----- END OF EPROM",
-            setup.ssid, setup.passwd, setup.regelbereichHysterese, setup.ausschaltTempInGradCel, setup.externerSpeicher, setup.externerSpeicherPriori,  setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_targetPowerInWatt, setup.pidChanged
+            setup.ssid, setup.passwd, setup.regelbereichHysterese, setup.ausschaltTempInGradCel, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_targetPowerInWatt, setup.pidChanged
 
     );
     DBGln(buffer);

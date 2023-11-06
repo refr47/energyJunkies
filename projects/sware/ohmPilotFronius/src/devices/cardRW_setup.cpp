@@ -14,7 +14,7 @@ void appendFile(fs::FS &fs, const char *path, const char *message);
 bool cardRW_setup()
 {
     DBGln("CardReader -- Setup");
-    Serialprintln("CLOCK: %d, MISO: %d, MOSI: %d, CS: %d", SCK, MISO, MOSI, SS);
+    // Serialprintln("CLOCK: %d, MISO: %d, MOSI: %d, CS: %d", SCK, MISO, MOSI, SS);
 
     pinMode(SS, OUTPUT);
     digitalWrite(SS, HIGH); //  enable CS pin to read from peripheral 1
@@ -62,6 +62,7 @@ bool cardRW_setup()
     }
 
     uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+    // DBGln("SD Card Size: %lluMB\n", cardSize);
     Serial.printf("SD Card Size: %lluMB\n", cardSize);
 
     return true;
