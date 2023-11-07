@@ -5,6 +5,8 @@ body {
     padding: 0;
     overflow-y: auto;
     overflow-y: auto;
+    margin-bottom: 60px;
+    /* footer height */
 }
 
 h1 {
@@ -52,6 +54,7 @@ input[type="submit"]:hover {
     color: #ff0000;
     margin-top: 5px;
 }
+
 .listItem {
     display: flex;
     list-style: none;
@@ -61,12 +64,14 @@ input[type="submit"]:hover {
     width: 15%;
     justify-content: space-between;
 }
+
 .headerFont {
     font-size: 2.5em;
 }
+
 #loginB {
     margin-left: auto;
-    margin-right:auto;
+    margin-right: auto;
     width: 100px;
 }
 
@@ -74,11 +79,12 @@ input[type="submit"]:hover {
 .tooltip {
     position: relative;
     display: inline-block;
-    border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
-  }
-  
-  /* Tooltip text */
-  .tooltip .tooltiptext {
+    border-bottom: 1px dotted black;
+    /* If you want dots under the hoverable text */
+}
+
+/* Tooltip text */
+.tooltip .tooltiptext {
     visibility: hidden;
     width: 120px;
     background-color: black;
@@ -86,13 +92,25 @@ input[type="submit"]:hover {
     text-align: center;
     padding: 5px 0;
     border-radius: 6px;
-   
+
     /* Position the tooltip text - see examples below! */
     position: absolute;
     z-index: 1;
-  }
-  
-  /* Show the tooltip text when you mouse over the tooltip container */
-  .tooltip:hover .tooltiptext {
+}
+
+/* Show the tooltip text when you mouse over the tooltip container */
+.tooltip:hover .tooltiptext {
     visibility: visible;
-  }
+}
+
+footer {
+    display: flex;
+    margin-top: 100px;
+    justify-content: center;
+    padding: 5px;
+    background-color: #45a1ff;
+    color: #fff;
+    height: 70px;
+    color: #1783dc;
+    background-image: url("../img/Energies.jpg");
+}

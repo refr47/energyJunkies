@@ -342,9 +342,14 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
 
     server.on("/login", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/login.html", "text/html", false, NULL); });
+    server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/about.html", "text/html", false, NULL); });
     server.on("/headerF.html", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/headerF.html", "text/html"); });
-
+    server.on("/output.html", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/output.html", "text/html"); });
+    server.on("/logs.html", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/logs.html", "text/html"); });
     // Route for serving the login page and handling login requests
     server.on("/login", HTTP_POST, handleLogin);
 

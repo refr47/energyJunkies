@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+
+<html lang="de">
+
+<head>
+    <title>About</title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <link rel="stylesheet" type="text/css" href="css/menu.css" />
+    <link rel="stylesheet" type="text/css" href="css/main.css" />
+    <link rel="stylesheet" type="text/css" href="css/datatables.min.css" />
+    <div id="backGr"></div>
+    <script type="text/javascript" src="js/navigation.js"></script>
+    <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+    <script src="js/jquery-3.7.1.min.js"></script>
+    <script src="js/datatables.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#navBar').load('headerF.html #navB');
+            $('#backGr').load('headerF.html #backG')
+
+            $('#myFooter').load('headerF.html #myFooter')
+            var data = $('#overview').DataTable({
+                "dom": 'rtip',
+                "lengthChange": false,
+                "info": false,
+                "bPaginate": false,
+                "responsive": true
+            });
+            $(".dataTables_filter").hide();
+            document.title = 'Aktuelle Daten';
+        })
+    </script>
+</head>
+
+
+
+
+<body>
+
+    <h1>Übersicht</h1>
+    <table id="overview" class="stripe" style="width:60%">
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>Ausprägung</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>IP-Adresse</td>
+                <td>10.0.0.7</td>
+            </tr>
+            <tr>
+                <td>Aktuelle Produktion</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td>Phase 1</td>
+                <td>100</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+<div id="myFooter"></div>
+</html>
