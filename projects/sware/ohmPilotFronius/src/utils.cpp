@@ -7,7 +7,7 @@
 #include <string.h>
 
 // using namespace std; // im lazy
-
+#define BUFFER_LEN_FOR_ARG_CHECK 100
 void Serialprintln(const char *input...)
 {
     va_list args;
@@ -111,7 +111,7 @@ String ipv4_int_to_string(uint32_t in, bool *const success)
     }
     else
     {
-        char buf[200] = {0};
+        char buf[BUFFER_LEN_FOR_ARG_CHECK] = {0};
         strerror_r(errno, buf, sizeof(buf));
         DBG("Error inipv4_int_to_string ");
         DBGln(strerror(errno));
@@ -136,7 +136,7 @@ uint32_t ipv4_string_to_int(String &in, bool *const success)
     }
     else if (!_success)
     {
-        char buf[200] = {0};
+        char buf[BUFFER_LEN_FOR_ARG_CHECK] = {0};
         strerror_r(errno, buf, sizeof(buf));
         DBG("Error in ipv4_string_to_int ");
         DBGln(strerror(errno));
@@ -149,7 +149,7 @@ bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocumen
 {
     if (strlen(argument) == 0)
     {
-        char buf[100];
+        char buf[BUFFER_LEN_FOR_ARG_CHECK];
         sprintf(buf, "Argument: %s kann nicht leer sein.", key);
         data["error"] = buf;
         DBG("util_isFieldFilled: ");
@@ -174,7 +174,7 @@ bool util_checkParamInt(const char *key, const char *argument, StaticJsonDocumen
 
     if (*result == 0)
     {
-        char buf[100];
+        char buf[BUFFER_LEN_FOR_ARG_CHECK];
         sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
         data["error"] = buf;
         DBG("utilCheckParamInt: ");
@@ -199,8 +199,8 @@ bool util_checkParamFloat(const char *key, const char *argument, /* const JsonOb
     }
     if (*result == 0.0)
     {
-        char buf[100];
-        sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
+        char buf[BUFFER_LEN_FOR_ARG_CHECK];
+        sprintf(buf, "Argument: %s ist kein FLießkommawert (z.B. 0.0,...)", key);
         data["error"] = buf;
         DBG("util_checkParamFloat: ");
         DBG(key);

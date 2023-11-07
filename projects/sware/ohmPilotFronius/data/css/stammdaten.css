@@ -2,6 +2,9 @@ tbody tr button {
     display: block;
     float: right;
   }
+  #stamm table {
+    overflow-y: auto;
+  }
   #stamm td {
     text-align: left;
     /* center checkbox horizontally */

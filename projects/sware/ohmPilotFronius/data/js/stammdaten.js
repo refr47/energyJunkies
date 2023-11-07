@@ -16,7 +16,21 @@ function showError(text) {
   return false
 
 }
+function showAjaxError(text) {
 
+  $('#errorAjax').animate({
+    backgroundColor: '#ddd',
+  }, 1000, function () {
+    $(this).css({
+      "background-color": 'red',
+      "color": "white"
+    });
+  });
+  $('#errorAjax').val(text)
+  $('#errorAjax').show()
+  return false
+
+}
 function evalIt(value, index) {
   console.log("val: " + value + " , ind: " + index)
   if (value == "")
@@ -62,7 +76,7 @@ function evalIt(value, index) {
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
       if (nu < 1 || nu > 3)
-        return showError("Wertebereich ungültig (>0 und <= 3)")
+        return showError("We  $('#errorAjax').hide();rtebereich ungültig (>0 und <= 3)")
       break;
     case 8: if (isNaN(value)) // Mindestlaufzeit digitaler kanal
       return showError("Numerische Eingabe erforderlich")
@@ -85,20 +99,22 @@ function evalIt(value, index) {
     case 11: if (isNaN(value)) // pid regler, p anteil
       return showError("Numerische Eingabe erforderlich")
       fnum = parseFloat(value)
-      if (fnum < 0 || fnum > 1)
-        return showError("Wertebereich ungültig (=0 und <= 1)")
+      if (fnum < 0.0 || fnum > 1.0)
+        return showError("Wertebereich ungültig (>=0.0 und <= 1.0)")
       break;
     case 12: if (isNaN(value)) // pid i anteil
       return showError("Numerische Eingabe erforderlich")
-      fnum = parseInt(value)
-      if (fnum < 1 || fnum > 1)
-        return showError("Wertebereich ungültig (>0 und <= 1)")
+      fnum = parseFloat(value)
+      if (fnum < 0.0 || fnum > 1.0)
+        return showError("Wertebereich ungültig (>=0.0 und <= 1.0)")
+      break;
       break;
     case 13: if (isNaN(value)) // pid d anteil
       return showError("Numerische Eingabe erforderlich")
-      fnum = parseInt(value)
-      if (fnum < 1 || fnum > 1)
-        return showError("Wertebereich ungültig (>0 und <= 1)")
+      fnum = parseFloat(value)
+      if (fnum < 0.0 || fnum > 1.0)
+        return showError("Wertebereich ungültig (>=0.0 und <= 1.0)")
+      break;
       break;
 
   }
@@ -120,6 +136,7 @@ $(document).ready(function () {
 
 
     console.log("Ajax - call EP .... /storeSetup")
+    $('#errorAjax').hide();
     $.ajax({
       type: 'POST',
       url: '/storeSetup',
@@ -127,10 +144,16 @@ $(document).ready(function () {
       contentType: 'application/json',
     })
       .done((dataC) => {
+        //const answ = JSON.parse(dataC);
+        if (dataC.done == 0)
+          showAjaxError(dataC.error);
+        else
+          alert("Daten wurden erfolgreich gespeichert!\nBei Änderung der IP-Adresse wird neu gebootet!")
         console.log({ dataC });
       })
       .fail((err) => {
         console.error(err);
+        showAjaxError("Kommunikationsfehler ist aufgetreten!");
       })
       .always(() => {
         console.log('always called');
@@ -146,9 +169,11 @@ $(document).ready(function () {
       "lengthChange": false,
       "info": false,
       "bPaginate": false,
-      "responsive": true,
       "ordering": false,
       "iDisplayLength": 100,
+      "paging": false,
+      "scrollCollapse": true,
+      "scrollY": '200px',
       columns: [
         { title: 'Titel' },
         {
@@ -197,6 +222,7 @@ $(document).ready(function () {
     e.preventDefault();
     $('#editBlock').show();
     $('#error').hide();
+    $('#errorAjax').hide();
     const row = dataTable.row($(event.target).closest('tr'));
     currentIndex = row.index()
     //get affected row().index() and append that to 'Submit' button attributes

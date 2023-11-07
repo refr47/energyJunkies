@@ -162,6 +162,7 @@ static void returnFromStoreSetup(bool inputCorrect, StaticJsonDocument<JSON_OBJE
     serializeJson(data, response);
     DBG("storeSetUp - return: ");
     DBGln(response);
+
     request->send(200, "application/json", response);
 }
 
