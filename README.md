@@ -21,6 +21,10 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 -  EJ-Power Unit3 (Pulspakete, eventuell Schülerprojekt 23/24, wenig EMV Probleme, AMIS Zähler?)
 -  EJ-Power Unit4 (eine Art 7 Takt Schaltung wie bei den alten E-Herd Platten, sehr wenig EMV Probleme, keine stufenlose Regelung)
 
+#### Verbesserungsvorschläge
+- Rote LED, welche eine Warnung/Fehler anzeigt; dieser wird zusätzlich am Display angezeigt
+- die dzt. 4 Taster sollten mit einer Brücke einstellbar sein ; somit stehen 4 GPIOs zur Verfügung, die anderweitig eingesetzt werden können (potentialfreie Ausgänge, über Buchse ausführen
+
 ### SW
 
 * Setup: Folgende Parameter sind benutzer- bzw. analagenabhängig:
