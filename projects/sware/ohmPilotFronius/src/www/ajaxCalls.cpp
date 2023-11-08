@@ -42,9 +42,8 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[PID_I] = buff;
     sprintf(buff, "%f.2", setup.pid_d);
     data[PID_D] = buff;
-    
 
-        return returnFromStoreSetup(true, data, request);
+    return returnFromStoreSetup(true, data, request);
 }
 
 void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json)
