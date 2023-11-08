@@ -174,6 +174,13 @@ static void dbg(char *key, const char *val)
     DBGln(val);
 }
 
+static void handleGetSetup(AsyncWebServerRequest *request)
+{
+    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+
+    return returnFromStoreSetup(true, data, request);
+}
+
 static void handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json)
 {
     const JsonObject &jsonObj = json.as<JsonObject>();
@@ -354,6 +361,7 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     // Route for serving the root page  request->send(SPIFFS, "/index.html", String(), false, callBack);
     server.on("/", HTTP_GET, handleRoot);
     server.on("/setup", HTTP_GET, handleSetup);
+    server.on("/getSetup", HTTP_GET, handleGetSetup);
 
     // Route to load style.css file
     server.on("/css/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -387,6 +395,7 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
 
     AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest *request, JsonVariant &json)
                                                                            { handleStoreSetup(request, json); });
+
     // Start the server
     server.addHandler(handler);
     // Route for serving static files from SPIFFS
@@ -531,15 +540,4 @@ void www_run()
     }
     delay(1000);
 }
-#endif
-
-#ifdef III
-/*
- * This ESP32 code is created by esp32io.com
- *
- * This ESP32 code is released in the public domain
- *
- * For more detail (instruction and wiring diagram), visit https://esp32io.com/tutorials/esp32-http-request
- */
-
 #endif

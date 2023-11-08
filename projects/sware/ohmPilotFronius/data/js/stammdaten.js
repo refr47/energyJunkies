@@ -204,43 +204,43 @@ function storeDataAjax() {
 
 function buildStaticTable() {
   dataTable = $('#stamm').DataTable
-  ({
-    "dom": 'Bfrtip',
-    "lengthChange": true,
-    "info": true,
-    "bPaginate": true,
-    "ordering": true,
-    "responsive": true,
-    columns: [
-      {
-        title: 'Titel',
-        width: "30%"
-      },
-      {
-        title: 'Wert',
-        render: dataTable => `${dataTable}<td><button action="edit">Edit</button></td>`
-      },
-      /* {
-        title: 'Bemerkung',
-        width: "40%"
-      } */
+    ({
+      "dom": 'Bfrtip',
+      "lengthChange": true,
+      "info": true,
+      "bPaginate": true,
+      "ordering": true,
+      "responsive": true,
+      columns: [
+        {
+          title: 'Titel',
+          width: "30%"
+        },
+        {
+          title: 'Wert',
+          render: dataTable => `${dataTable}<td><button action="edit">Edit</button></td>`
+        },
+        /* {
+          title: 'Bemerkung',
+          width: "40%"
+        } */
 
 
-    ],
-    columnDefs: [
-      {
-        target: 1,
-        visible: true,
-        searchable: false
-      },
+      ],
+      columnDefs: [
+        {
+          target: 1,
+          visible: true,
+          searchable: false
+        },
 
-    ]
-  });
+      ]
+    });
 }
 
 function buildDynTable() {
   $.ajax({
-    type: "POST",
+    type: "GET",
     url: "getSetup",
     async: true,
     contentType: "application/json; charset=utf-8",
@@ -274,8 +274,8 @@ function buildDynTable() {
               title: 'Bemerkung',
               width: "40%"
             }
-  
-  
+
+
           ],
           columnDefs: [
             {
@@ -283,9 +283,9 @@ function buildDynTable() {
               visible: true,
               searchable: false
             },
-  
+
           ],
-        
+
           select: {
             style: 'os',
             selector: 'td:first-child'
