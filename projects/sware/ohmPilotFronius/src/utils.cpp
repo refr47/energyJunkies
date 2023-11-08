@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <string.h>
+#include <Arduino.h>
 
 // using namespace std; // im lazy
 #define BUFFER_LEN_FOR_ARG_CHECK 100
