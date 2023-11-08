@@ -1,6 +1,5 @@
-document.title = 'Setup';
-document.referrer = 'setup'
-var dataTable = null;
+
+
 function showError(text) {
 
   $('#error').animate({
@@ -68,8 +67,8 @@ function evalIt(value, index) {
       break;
     case 6: if (!value) // externer speicher
       return showError("Feld kann nicht leer sein.")
-      if (value == 'j') return;
-      if (value == 'n') return;
+      if (value == 'j') return true;
+      if (value == 'n') return true;
       return showError("Antwort kann nur 'j' oder 'n' sein.")
       break;
     case 7: if (isNaN(value)) // priorität einspeisung
@@ -120,9 +119,49 @@ function evalIt(value, index) {
   }
   return true
 }
-$(document).ready(function () {
-  $("#headerContent").load("headerF.html #headerSection");
-  document.title = 'Setup';
+var currentIndex = 0
+var dataTable = null
+
+function initHandler() {
+  $('#addRow').on('click', function (e) {
+    e.preventDefault()
+    //when submit button acts to submit edits
+    if ($(this).attr('action') == 'confirmEdit') {
+      val = $('#theValue').val();
+      if (!evalIt(val, currentIndex))
+        return
+
+      $('#editBlock').hide();
+      dataTable.row($(this).attr('rowindex')).data([$("#theTitle").val(), $("#theValue").val()]).draw();
+    }
+    //clean up form, switch it to default state
+    $('#theTitle').val("");
+    $('#theValue').val("");
+
+  });
+
+
+  //'Edit' button click handler
+  $('#stamm').on('click', 'tbody tr button[action="edit"]', function (e) {
+    e.preventDefault();
+    $('#editBlock').show();
+    $('#theTitle').focus();
+    $('#error').hide();
+    $('#errorAjax').hide();
+    const row = dataTable.row($(event.target).closest('tr'));
+    currentIndex = row.index()
+    //get affected row().index() and append that to 'Submit' button attributes
+    //you may use global variable for that purpose if you prefer
+    $('#addRow').attr('rowindex', row.index());
+    //switch 'Submit' button role to 'confirmEdit'
+    $('#addRow').attr('action', 'confirmEdit');
+    //set up 'Type' and 'Amount' values according to the selected entry
+    $('#theTitle').val(row.data()[0]);
+    $('#theValue').val(row.data()[1]);
+  });
+}
+
+function storeDataAjax() {
   $('#form_store').on('submit', function (e) {
     //$(('button[id^="store"]')).click(function () {
     e.preventDefault();
@@ -137,6 +176,7 @@ $(document).ready(function () {
 
     console.log("Ajax - call EP .... /storeSetup")
     $('#errorAjax').hide();
+
     $.ajax({
       type: 'POST',
       url: '/storeSetup',
@@ -160,78 +200,112 @@ $(document).ready(function () {
       });
 
   });
+}
 
-
-  var currentIndex = 0
+function buildStaticTable() {
   dataTable = $('#stamm').DataTable
-    ({
-      "dom": 'r',
-      "lengthChange": false,
-      "info": false,
-      "bPaginate": false,
-      "ordering": false,
-      "iDisplayLength": 100,
-      "paging": false,
-      "scrollCollapse": true,
-      "scrollY": '200px',
-      columns: [
-        { title: 'Titel' },
-        {
-          title: 'Wert',
-          render: dataTable => `${dataTable}<td><button action="edit">Edit</button></td>`
-        },
+  ({
+    "dom": 'Bfrtip',
+    "lengthChange": true,
+    "info": true,
+    "bPaginate": true,
+    "ordering": true,
+    "responsive": true,
+    columns: [
+      {
+        title: 'Titel',
+        width: "30%"
+      },
+      {
+        title: 'Wert',
+        render: dataTable => `${dataTable}<td><button action="edit">Edit</button></td>`
+      },
+      /* {
+        title: 'Bemerkung',
+        width: "40%"
+      } */
 
 
-      ],
-      columnDefs: [
-        {
-          target: 1,
-          visible: true,
-          searchable: false
-        },
+    ],
+    columnDefs: [
+      {
+        target: 1,
+        visible: true,
+        searchable: false
+      },
 
-      ]
-    });
-  $(".dataTables_filter").hide();
-  $('#editBlock').hide();
+    ]
+  });
+}
 
-  $('#addRow').on('click', function (e) {
-    e.preventDefault()
-    //when submit button acts to submit edits
-    if ($(this).attr('action') == 'confirmEdit') {
-      //change affected row data and re-draw the table
+function buildDynTable() {
+  $.ajax({
+    type: "POST",
+    url: "getSetup",
+    async: true,
+    contentType: "application/json; charset=utf-8",
+    dataType: "json",
+    success: function (data) {
+      if (data !== null && data.length > 0) {
+        let tableData = JSON.parse(data);
 
-      //console.log("update ..." + currentIndex)
-      val = $('#theValue').val();
-      if (!evalIt(val, currentIndex))
-        return
+        $("#stamm").DataTable().destroy();
 
-      $('#editBlock').hide();
-      dataTable.row($(this).attr('rowindex')).data([$("#theTitle").val(), $("#theValue").val()]).draw();
+
+        dataTable = $("#stamm").DataTable({
+          dom: "Bfrtip",
+          data: tableData,
+
+          "lengthChange": false,
+          "info": false,
+          "bPaginate": false,
+          "ordering": false,
+          "responsive": true,
+          columns: [
+            {
+              title: 'Titel',
+              width: "30%"
+            },
+            {
+              title: 'Wert',
+              render: dataTable => `${dataTable}<td><button action="edit">Edit</button></td>`
+            },
+            {
+              title: 'Bemerkung',
+              width: "40%"
+            }
+  
+  
+          ],
+          columnDefs: [
+            {
+              target: 1,
+              visible: true,
+              searchable: false
+            },
+  
+          ],
+        
+          select: {
+            style: 'os',
+            selector: 'td:first-child'
+          }
+          , buttons: [
+            { extend: "create", editor: editor },
+            { extend: "edit", editor: editor },
+            { extend: "remove", editor: editor }
+          ]
+
+        });
+
+
+      }
+    },
+    error: function Error(result, error) {
+      alert("error " + result.status + " " + result.statusText);
     }
-    //clean up form, switch it to default state
-    $('#theTitle').val("");
-    $('#theValue').val("");
-
   });
 
 
-  //'Edit' button click handler
-  $('#stamm').on('click', 'tbody tr button[action="edit"]', function (e) {
-    //get affected row entry
-    e.preventDefault();
-    $('#editBlock').show();
-    $('#error').hide();
-    $('#errorAjax').hide();
-    const row = dataTable.row($(event.target).closest('tr'));
-    currentIndex = row.index()
-    //get affected row().index() and append that to 'Submit' button attributes
-    //you may use global variable for that purpose if you prefer
-    $('#addRow').attr('rowindex', row.index());
-    //switch 'Submit' button role to 'confirmEdit'
-    $('#addRow').attr('action', 'confirmEdit');
-    //set up 'Type' and 'Amount' values according to the selected entry
-    $('#theTitle').val(row.data()[0]);
-    $('#theValue').val(row.data()[1]);
-  });
-});
+}
+

@@ -53,3 +53,9 @@ tbody tr button {
     border-radius: 3px;
     margin-bottom: 15px;
   }
+  .dataTables_info {
+    margin-left:100px;
+  }
+  .dataTables_paginate {
+    margin-right:100px;
+  }

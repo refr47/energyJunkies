@@ -1,14 +1,39 @@
 <!DOCTYPE html>
 <html lang="de">
 
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<title>About</title>
 
+<link rel="stylesheet" type="text/css" href="css/menu.css" />
+<link rel="stylesheet" type="text/css" href="css/main.css" />
+<link rel="stylesheet" type="text/css" href="css/datatables.min.css" />
 <link rel="stylesheet" type="text/css" href="css/stammdaten.css" />
-
+<div id="backGr"></div>
+<script type="text/javascript" src="js/navigation.js"></script>
+<script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
 <script src="js/datatables.min.js"></script>
 <script src="js/stammdaten.js"></script>
 
+<script>
+  document.title = 'Stammdaten';
+  document.referrer = 'setup'
+  $('#navBar').load('headerF.html #navB');
+  $('#backGr').load('headerF.html #backG')
 
-<div id="headerContent"></div>
+  $('#myFooter').load('headerF.html #myFooter')
+
+  $(document).ready(function () {
+   
+    storeDataAjax();
+    buildStaticTable();
+    //buildDynTable();
+    $(".dataTables_filter").hide();
+    $('#editBlock').hide();
+    initHandler();
+  })
+
+
+</script>
 
 
 <body>
@@ -44,6 +69,7 @@
         <tr>
           <td>WLAN_Password</td>
           <td>100</td>
+          <td>Password</td>
         </tr>
         <tr>
           <td>IP_Inverter</td>
@@ -74,7 +100,7 @@
         <tr>
           <td>Prioritaet</td>
           <td>1</td>
-          <td>Priorität (1|2|3)</td>
+          <td>1: Externer Speicher vorrangig, 2: nachrangig</td>
         </tr>
         <tr>
           <td>Mindeslaufzeit_Digital</td>
@@ -110,12 +136,9 @@
       </tbody>
     </table>
   </form>
-  <footer class="footer">
-    <p>Author: Hege Refsnes</p>
-    <p><a href="mailto:hege@example.com">hege@example.com</a></p>
-  </footer> 
+
 </body>
 
-
+<div id="myFooter"></div>
 
 </html>

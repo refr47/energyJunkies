@@ -340,8 +340,7 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
         tft_initNetwork(6, "Netzwerkparameter", "Client", "ssid=>", wlanAsClientSSID, "IP=>", ipAddr);
     }
 
-    server.on("/login", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/login.html", "text/html", false, NULL); });
+  
     server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/about.html", "text/html", false, NULL); });
     server.on("/headerF.html", HTTP_GET, [](AsyncWebServerRequest *request)
