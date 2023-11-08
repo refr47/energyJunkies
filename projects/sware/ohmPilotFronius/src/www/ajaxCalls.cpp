@@ -15,23 +15,36 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     Setup setup;
     eprom_getSetup(setup);
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+    char buff[50];
 
     data[WLAN_ESSID] = setup.ssid;
     data[WLAN_PASSWD] = setup.passwd;
     data[IP_INVERTER] = setup.ipInverterAsString;
-    data[HYSTERESE] = setup.regelbereichHysterese;
-    data[EINSPEISUNG_MUSS] = setup.pid_targetPowerInWatt;
-    data[MINDEST_LAUFZEIT_DIGITALER_OUT] = setup.pid_min_time_before_switch_off_channel_inMS;
-    data[MINDEST_LAUFZEIT_PORT_ON] = setup.ipInverterAsString;
-    data[MINDEST_LAUFZEIT_REGLER_KONSTANT] = setup.pid_min_time_for_dig_output_inMS;
-    data[EXTERNER_SPEICHER] = setup.externerSpeicher;
-    data[EXTERNER_SPEICHER_PRIORI] = setup.externerSpeicherPriori;
-    data[AUSSCHALT_TEMP] = setup.ausschaltTempInGradCel;
-    data[PID_P] = setup.pid_p;
-    data[PID_I] = setup.pid_i;
-    data[PID_D] = setup.pid_d;
 
-    return returnFromStoreSetup(true, data, request);
+    sprintf(buff, "%d", setup.regelbereichHysterese);
+    data[HYSTERESE] = buff;
+    sprintf(buff, "%d", setup.pid_targetPowerInWatt);
+    data[EINSPEISUNG_MUSS] = buff;
+    sprintf(buff, "%d", setup.pid_min_time_before_switch_off_channel_inMS);
+    data[MINDEST_LAUFZEIT_DIGITALER_OUT] = buff;
+    sprintf(buff, "%d", setup.pid_min_time_without_contoller_inMS);
+    data[MINDEST_LAUFZEIT_PORT_ON] = buff;
+    sprintf(buff, "%d", setup.pid_min_time_for_dig_output_inMS);
+    data[MINDEST_LAUFZEIT_REGLER_KONSTANT] = buff;
+    data[EXTERNER_SPEICHER] = setup.externerSpeicher ? "j'" : "n";
+    sprintf(buff, "%c", setup.externerSpeicherPriori);
+    data[EXTERNER_SPEICHER_PRIORI] = buff;
+    sprintf(buff, "%d", setup.ausschaltTempInGradCel);
+    data[AUSSCHALT_TEMP] = buff;
+    sprintf(buff, "%f.2", setup.pid_p);
+    data[PID_P] = buff;
+    sprintf(buff, "%f.2", setup.pid_i);
+    data[PID_I] = buff;
+    sprintf(buff, "%f.2", setup.pid_d);
+    data[PID_D] = buff;
+    
+
+        return returnFromStoreSetup(true, data, request);
 }
 
 void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json)

@@ -21,5 +21,9 @@
 #define PID_I "Ausgangsregler (I-Anteil)"
 #define PID_D "Ausgangsregler (D-Anteil)"
 
+#define TEST_PID "TEST"
+#define AVAILABLE_POW "Available_energy"
+#define CONSUME_WATT "Consome_watt"
+
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json);
