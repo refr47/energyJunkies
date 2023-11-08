@@ -24,8 +24,8 @@
     $('#backGr').load('headerF.html #backG')
     $('#myFooter').load('headerF.html #myFooter')
     storeDataAjax();
-    buildStaticTable();
-    //buildDynTable();
+    //buildStaticTable();
+    buildDynTable();
     $(".dataTables_filter").hide();
     $('#editBlock').hide();
     initHandler();
@@ -90,17 +90,17 @@
         </tr>
         <tr>
           <td>
-            Einspeisung</td>
+            Mindest_Einspeisung</td>
           <td>100</td>
           <td>Strom, der vom Heizregler nicht verwendet werden darf (in W)</td>
         </tr>
         <tr>
-          <td>Externer_Speicher</td>
+          <td>Speicher</td>
           <td>n</td>
           <td>Externer Speicher steht zur Verfügung (j,n)</td>
         </tr>
         <tr>
-          <td>Prioritaet</td>
+          <td>Speicher_Prioritaet</td>
           <td>1</td>
           <td>1: Externer Speicher vorrangig, 2: nachrangig</td>
         </tr>
@@ -134,6 +134,17 @@
           <td>0.0</td>
           <td>PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)</td>
         </tr>
+        <tr>
+          <td>Z_TEST</td>
+          <td>j</td>
+          <td>j|n</td>
+        </tr>
+        <tr>
+          <td>Z_Available_energy</td>
+          <td>2000</td>
+          <td>Momentaner Export </td>
+        </tr>
+        
 
       </tbody>
     </table>

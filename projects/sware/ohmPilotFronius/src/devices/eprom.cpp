@@ -29,6 +29,9 @@ void eprom_storeSetup(Setup &setup)
     preferences.putUInt(_PID_MIN_ON_TIME_MS, setup.pid_min_time_for_dig_output_inMS);
     preferences.putUInt(_PID_TARGET_POWER, setup.pid_targetPowerInWatt);
 
+    // only for testing pid controller
+    preferences.putChar(_PID_TEST, setup.testPid);
+    preferences.putUInt(_EN_EXPORT, setup.exportWatt);
     preferences.end();
 }
 
@@ -75,6 +78,8 @@ void eprom_getSetup(Setup &setup)
     setup.pid_min_time_for_dig_output_inMS = preferences.getUInt(_PID_MIN_ON_TIME_MS);
     setup.pid_targetPowerInWatt = preferences.getUInt(_PID_TARGET_POWER);
     setup.pidChanged = false;
+    setup.testPid = preferences.getChar(_PID_TEST);
+    setup.exportWatt = preferences.getUInt(_EN_EXPORT);
     preferences.end();
 }
 

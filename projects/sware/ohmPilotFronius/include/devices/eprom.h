@@ -18,6 +18,8 @@
 #define _PID_MIN_ON_TIME_MS "dmin"       // minimal on time for digital output (in ms)
 #define _PID_TARGET_POWER "tpow"         // target power - max available power
 
+#define _PID_TEST "pT"
+#define _EN_EXPORT "eX"
 void eprom_storeSetup(Setup &setup);
 void eprom_getSetup(Setup &setup);
 

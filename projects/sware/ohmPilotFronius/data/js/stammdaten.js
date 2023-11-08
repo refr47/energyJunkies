@@ -145,7 +145,7 @@ function initHandler() {
   $('#stamm').on('click', 'tbody tr button[action="edit"]', function (e) {
     e.preventDefault();
     $('#editBlock').show();
-    $('#theTitle').focus();
+    $('#theValue').focus();
     $('#error').hide();
     $('#errorAjax').hide();
     const row = dataTable.row($(event.target).closest('tr'));
