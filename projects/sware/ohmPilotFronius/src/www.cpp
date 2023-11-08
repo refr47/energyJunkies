@@ -340,7 +340,6 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
         tft_initNetwork(6, "Netzwerkparameter", "Client", "ssid=>", wlanAsClientSSID, "IP=>", ipAddr);
     }
 
-  
     server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/about.html", "text/html", false, NULL); });
     server.on("/headerF.html", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -361,20 +360,28 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
               { request->send(SPIFFS, "/css/main.css", "text/css"); });
     server.on("/css/menu.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/css/menu.css", "text/css"); });
+    server.on("/css/stammdaten.css", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/css/stammdaten.css", "text/css"); });
     server.on("/css/jquery-3.7.1.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/css/jquery-3.7.1.min.css", "text/css"); });
     server.on("/css/datatables.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/css/datatables.min.css", "text/css"); });
+
     server.on("/js/jquery-3.7.1.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/js/jquery-3.7.1.min.js", String()); });
     server.on("/js/stammdaten.js", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/js/stammdaten.js", String()); });
+    server.on("/js/navigation.js", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/js/navigation.js", String()); });
     server.on("/js/datatables.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/js/datatables.min.js", String()); });
+
     server.on("/img/icon.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/img/icon.jpg", "image/jpg"); });
     server.on("/img/Energies.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/img/Energies.jpg", "image/jpg"); });
+    server.on("/img/harvester.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/img/harvester.jpg", "image/jpg"); });
 
     // https://github.com/me-no-dev/ESPAsyncWebServer
 

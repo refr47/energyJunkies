@@ -3,12 +3,12 @@
 
 <meta http-equiv="content-type" content="text/html; charset=utf-8">
 <title>About</title>
-
+<div id="backGr"></div>
 <link rel="stylesheet" type="text/css" href="css/menu.css" />
 <link rel="stylesheet" type="text/css" href="css/main.css" />
 <link rel="stylesheet" type="text/css" href="css/datatables.min.css" />
 <link rel="stylesheet" type="text/css" href="css/stammdaten.css" />
-<div id="backGr"></div>
+
 <script type="text/javascript" src="js/navigation.js"></script>
 <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
 <script src="js/datatables.min.js"></script>
@@ -19,11 +19,10 @@
   document.referrer = 'setup'
   $('#navBar').load('headerF.html #navB');
   $('#backGr').load('headerF.html #backG')
-
   $('#myFooter').load('headerF.html #myFooter')
 
   $(document).ready(function () {
-   
+
     storeDataAjax();
     buildStaticTable();
     //buildDynTable();
