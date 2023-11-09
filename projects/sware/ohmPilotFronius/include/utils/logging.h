@@ -3,11 +3,8 @@
 #include <esp_log.h>
 #include "cardRW.h"
 #ifndef TAG
-    #define TAG "ENERGIEJUNKIES"
+#define TAG "ENERGIEJUNKIES"
 #endif
-#define LOG_LEVEL ESP_LOG_INFO
-#define MY_ESP_LOG_LEVEL ESP_LOG_WARN
-
 
 void logging_init();
 

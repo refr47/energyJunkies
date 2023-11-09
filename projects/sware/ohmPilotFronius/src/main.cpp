@@ -15,6 +15,7 @@
 #include "www.h"
 #include "temp.h"
 #include "curTime.h"
+#include "logging.h"
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -35,6 +36,7 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 
 #define TEMPERATURE_INTERVAL 5000UL // 5 secs
 #define MODBUS_INTERVALL 5000UL
+#define LOGGING_FLUSH_INTERVALL 60000
 
 /* ****************************************************************************
   GLOBAL VARS
@@ -50,6 +52,7 @@ static const char *wlanE = "Milchbehaelter";
 static const char *passW = "47754775";
 static unsigned long previousMillTemp = 0UL;
 static unsigned long previousMillModbus = 0UL;
+static unsigned long previousMillFlush = 0UL;
 static TEMPERATURE container;
 static MB_CONTAINER modbusData;
 static Setup setupData;
@@ -122,7 +125,12 @@ void setup()
     if (cardRW_setup())
     {
         cardWriterOK = true;
+        logging_init();
         // test_cardReader();
+    }
+    else
+    {
+        DBGf("Logging to file cannot be initiated ...");
     }
 
     temp_init(); // temperature
@@ -185,6 +193,7 @@ void setup()
         DBGf("Setup PID-Controller");
         pidPinManager.config(setupData);
     }
+    ESP_LOGW(TAG, "Warning message: %s", "Hello");
 }
 
 static unsigned long currentMillis = millis();
@@ -230,6 +239,11 @@ void loop()
         {
             pidPinManager.task(setupData, 4);
         }
+    }
+    if (currentMillis - previousMillModbus > LOGGING_FLUSH_INTERVALL)
+    {
+        cardRW_flushLoggingFile();
+        previousMillModbus = currentMillis;
     }
     delay(4000);
 

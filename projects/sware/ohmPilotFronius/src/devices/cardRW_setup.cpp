@@ -16,6 +16,7 @@ const char *logFileSys = "logSys.txt";
 #endif
 
 static File loggingFile;
+static bool loggingAvailable = false;
 
 void appendFile(fs::FS &fs, const char *path, const char *message);
 
@@ -76,46 +77,38 @@ bool cardRW_setup()
     return true;
 }
 
-// Write the sensor readings on the SD card
-void logSDCard()
+bool cardRW_createLoggingFile()
 {
-    // dataMessage = String(readingID) + "," + String(dayStamp) + "," + String(timeStamp) + "," +
-    //               String(temperature) + "\r\n";
-    const char *dataMessage = "Hello World \n";
-    DBGf("Save data: %s ", "j");
-    DBGf("Mess: %s ", dataMessage);
-    appendFile(SD, "/data1.txt", (const char *)dataMessage);
-}
+    DBGf("cardRW_createLoggingFile  file: %s\n", logFileSys);
 
-bool cardRW_createLoggingFile(const char *path)
-{
-    Serial.printf("Appending to file: %s\n", path);
-
-    loggingFile = SD.open(path, FILE_WRITE);
+    loggingFile = SD.open(logFileSys, FILE_WRITE);
     if (!loggingFile)
     {
-        Serial.printf("Failed to open file: %s - error: %s", path, strerror(errno));
+        Serial.printf("Failed to open file: %s - error: %s", logFileSys, strerror(errno));
         return false;
     }
     loggingFile.close();
-    if (SD.exists(path))
+    if (SD.exists(logFileSys))
     {
 
-        loggingFile = SD.open(path, FILE_APPEND);
+        loggingFile = SD.open(logFileSys, FILE_APPEND);
+        loggingAvailable = true;
+
         return true;
     }
 
     return false;
 }
 
-bool cardRW_flushLoggingFile(const char *path)
+bool cardRW_flushLoggingFile()
 {
     loggingFile.flush();
 
-    loggingFile = SD.open(path, FILE_APPEND);
+    loggingFile = SD.open(logFileSys, FILE_APPEND);
     if (!loggingFile)
     {
-        Serial.printf("Failed to open file: %s - error: %s", path, strerror(errno));
+        Serial.printf("Failed to open file: %s - error: %s", logFileSys, strerror(errno));
+        loggingAvailable = false;
         return false;
     }
     return true;
@@ -130,7 +123,9 @@ bool cardRW_closeLoggingFile()
 
 int sdCardLogOutput(const char *format, va_list args)
 {
-    Serial.println("Callback running");
+    DBGf("Callback running, logging available: %x", loggingAvailable);
+    if (!loggingAvailable)
+        return 0;
     char buf[128];
     int ret = vsnprintf(buf, sizeof(buf), format, args);
     if (SD.exists(logFileSys))
@@ -140,6 +135,8 @@ int sdCardLogOutput(const char *format, va_list args)
     }
     return ret;
 }
+
+/* ****************************************************************************************** */
 // Write to the SD card (DON'T MODIFY THIS FUNCTION)
 void writeFile(fs::FS &fs, const char *path, const char *message)
 {
