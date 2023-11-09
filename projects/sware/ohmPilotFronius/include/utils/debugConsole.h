@@ -1,8 +1,14 @@
 #pragma once
 #include <Arduino.h>
 
+
 #define TEXTIFY(A) #A
 #define ESCAPEQUOTE(A) TEXTIFY(A)
+
+
+
+
+
 
 #define DEBUG_OUTPUT
 

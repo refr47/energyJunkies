@@ -9,6 +9,8 @@
 #include "pin_config.h"
 // https://randomnerdtutorials.com/esp32-spi-communication-arduino/
 
+static FILE loggingFile;
+
 void appendFile(fs::FS &fs, const char *path, const char *message);
 
 bool cardRW_setup()
@@ -77,6 +79,37 @@ void logSDCard()
     DBG("Save data: ");
     DBGln(dataMessage);
     appendFile(SD, "/data1.txt", (const char *)dataMessage);
+}
+
+bool cardRW_createLoggingFile(const char *path)
+{
+    Serial.printf("Appending to file: %s\n", path);
+
+    loggingFile = SD.open(path,"a",true);
+    if (!loggingFile)
+    {
+        Serial.printf("Failed to open file: %s - error: %s", path, strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+bool cardRW_flushLoggingFile(const char *path)
+{
+    loggingFile._close(); // flush ???
+     loggingFile = SD.open(path,"a");
+    if (!loggingFile)
+    {
+        Serial.printf("Failed to open file: %s - error: %s", path, strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+bool cardRW_closeLoggingFile()
+{
+    if (loggingFile)
+        loggingFile.close();
 }
 
 // Write to the SD card (DON'T MODIFY THIS FUNCTION)
