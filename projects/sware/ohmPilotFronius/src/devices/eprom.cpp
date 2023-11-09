@@ -45,7 +45,7 @@ void eprom_getSetup(Setup &setup)
 
     if (ssid == "" || passwd == "")
     {
-        DBGln("No values saved for ssid or password");
+        DBGf("No values saved for ssid or password");
         strcpy(setup.ssid, "---");
         strcpy(setup.passwd, "");
     }
@@ -63,9 +63,9 @@ void eprom_getSetup(Setup &setup)
       DBG(" as string: "); */
     setup.ipInverterAsString = ipv4_int_to_string(setup.ipInverter, &result);
     if (!result)
-        DBGln("ERPROM - Error in converting IPAdress!!");
+        DBGf("ERPROM - Error in converting IPAdress!!");
     else
-        DBGln(setup.ipInverterAsString);
+        DBGf("IP as String: %s", setup.ipInverterAsString);
 
     setup.externerSpeicher = preferences.getBool(_EXTERNER_SPEICHER);
     setup.externerSpeicherPriori = preferences.getChar(_EXTERNER_SPEICHER_PRIORI);
@@ -89,12 +89,8 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 
     strncpy(setup.ssid, wlanE, LEN_WLAN - 1);
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
-    DBGln("in test writing wlan ...");
-    DBG("WLAN: ");
-    DBGln(wlanE);
-    DBGln(setup.ssid);
-    DBG("passw: ");
-    DBGln(setup.passwd);
+    DBGf("in test writing wlan ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
+
     setup.regelbereichHysterese = 100;
     setup.ausschaltTempInGradCel = 80;
     String ipInv = "10.0.0.7";
@@ -102,9 +98,8 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 
     setup.ipInverter = ipv4_string_to_int(ipInv, &result);
     if (!result)
-        DBGln("IP translate did not succeed.");
-    DBG("SETUP WRITE IP in uint: ");
-    DBGln(setup.ipInverter);
+        DBGf("IP translate did not succeed.");
+    DBGf("SETUP WRITE IP in uint: %d", setup.ipInverter);
 
     setup.externerSpeicher = false;
     setup.externerSpeicherPriori = 1;
@@ -127,7 +122,7 @@ static void printEprom(Setup &setup)
             setup.ssid, setup.passwd, setup.regelbereichHysterese, setup.ausschaltTempInGradCel, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_targetPowerInWatt, setup.pidChanged
 
     );
-    DBGln(buffer);
+    DBGf("%s",buffer);
 }
 
 void eprom_test_read_Eprom()

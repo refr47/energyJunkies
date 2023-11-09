@@ -64,7 +64,7 @@ void test()
     errorH = util_checkParamInt(IP_INVERTER, argument, data, &result);
     int r = 0;
     r = atoi(argument);
-    DBGln(r);
+    DBGf("RetVal: %d", r);
 }
 
 void test_cardReader()
@@ -79,19 +79,18 @@ void setup()
     while (!Serial)
         ;
 
-    DBGln("Energie-Junkies -- Harvester ---");
+    DBGf("Energie-Junkies -- Harvester ---");
     // test();
     tft_init();
 
     tft_printSetup();
 
     int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
-    DBG("internal bu: ");
-    DBGln(currentState);
-    uint32_t cpu_freq = esp_clk_cpu_freq();
+
+    /* uint32_t cpu_freq = esp_clk_cpu_freq();
     DBG(" CPU freq: ");
     DBGln(cpu_freq);
-    uint32_t PRESCALE = 240; // for 240MHZ
+    uint32_t PRESCALE = 240; // for 240MHZ */
 
     // eprom_test_write_Eprom(wlanE, passW);
     eprom_getSetup(setupData);
@@ -139,17 +138,13 @@ void setup()
         WiFi.mode(WIFI_STA);
 
         WiFi.begin(setupData.ssid, setupData.passwd);
-        DBG("WIFI: ");
-        DBG(setupData.ssid);
-        DBG(",:");
-        DBG(setupData.passwd);
-        DBG(" ... ");
-        DBG("Connecting to WiFi ..");
+        DBGf("WIFI: %s, Passwd: %s", setupData.ssid, setupData.passwd);
+        DBGf("Connecting to WiFi ..");
         int counter = 0;
 
         while (WiFi.status() != WL_CONNECTED)
         {
-            DBG('.');
+            DBG("%c", '.');
             delay(2000);
             ++counter;
             if (counter == 5)
@@ -157,7 +152,7 @@ void setup()
         }
         if (!wifi_init(setupData))
         {
-            DBGln("Cannot connect - show available networks: ");
+            DBGf("Cannot connect - show available networks: ");
             tft_drawNetworkInfo(NULL);
             wifi_scan_network();
             www_init(NULL, NULL); // act as access point
@@ -165,28 +160,29 @@ void setup()
         }
         else
         {
-            DBG("Connected with ip: ");
+
             char *pBuf = globalStringBuffer;
             wifi_getLocalIP(&pBuf);
-            DBGln(globalStringBuffer);
+            DBGf("Connected with ip: %s", globalStringBuffer);
+
             tft_drawNetworkInfo(globalStringBuffer);
             www_init(pBuf, setupData.ssid); // do not act as apoint
             networkOK = true;
         }
         if (!networkOK)
         {
-            DBGln("Network does not work!");
+            DBGf("Network does not work!");
             return;
         }
-        DBGln("Setup modbus ...");
+        DBGf("Setup modbus ...");
         if (!mb_init(setupData))
         {
-            DBGln("Cannot initialize modbus ....");
+            DBGf("Cannot initialize modbus ....");
         }
         memset(&modbusData, 0, sizeof(modbusData));
         if (!mb_readInverterStatic())
-            DBGln("Error in Reading modbus");
-        DBGln("Setup PID-Controller");
+            DBGf("Error in Reading modbus");
+        DBGf("Setup PID-Controller");
         pidPinManager.config(setupData);
     }
 }
@@ -198,7 +194,7 @@ void loop()
 {
     if (!networkOK)
     {
-        DBGln("Network does not work - no further task are available...");
+        DBGf("Network does not work - no further task are available...");
         delay(10000);
         return;
     }
@@ -206,12 +202,10 @@ void loop()
     if (currentMillis - previousMillTemp > TEMPERATURE_INTERVAL)
     {
         time_print();
-        DBG(" TEMP in Celsius");
         temp_getTemperature(container);
-        DBG("Sensor1: ");
-        DBG(container.sensor1);
-        DBG(", Sensor 2: ");
-        DBGln(container.sensor2);
+
+        DBGf(" TEMP in Celsius, S1: %d, S2: %d", container.sensor1, container.sensor2);
+
         previousMillTemp = currentMillis;
     }
     /* if (networkCredentialsInEEprom == false)
@@ -222,13 +216,12 @@ void loop()
 
         // DBGln(" --- MODBUS --- Query done");
         mb_readInverterDynamic(setupData, modbusData);
-        DBG("Available power in W: ");
-        DBG(modbusData.meterValues.data.acCurrentPower);
+        DBGf("Available power in W: %d", modbusData.meterValues.data.acCurrentPower);
 
         previousMillModbus = currentMillis;
         availableWatt = (int)(modbusData.meterValues.data.acCurrentPower + 0.5);
-        DBG(", int: ");
-        DBGln(availableWatt);
+        DBGf(", int: %d", availableWatt);
+
         if (availableWatt < 0) // energy export
         {
             pidPinManager.task(setupData, availableWatt * -1);

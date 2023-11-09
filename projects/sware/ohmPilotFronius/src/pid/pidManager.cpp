@@ -53,15 +53,12 @@ int PinManager::task(Setup &setup, int power)
     if (setup.pidChanged)
     {
         this->config(setup);
-        DBGln("PID Params changed / updated");
+        DBGf("PID Params changed / updated");
         setup.pidChanged = false;
     }
     mCurrentPower = power;
-    DBG("=============================");
-    DBG(power);
-    DBG("; ");
-    DBG(mCurrentPower);
-    DBGln(" =====================<");
+    DBGf("Power: %d, currentPower: %d", power, mCurrentPower);
+
     mPid.Compute();
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
 
@@ -101,17 +98,7 @@ int PinManager::task(Setup &setup, int power)
 
     // dbg("power:");
     // dbg(power);
-    DBG("   PID  mCurrPower (W):");
-    DBG(mCurrentPower);
-    DBG("    anaOut(PWM):");
-    DBG(mAnalogOut);
-    DBG("    Einspeisebeschränkung:");
-    DBG(mPidSetPoint);
-    DBG("    dig1:");
-    DBG(mOuts[id_DIG_PIN_1].isDigOn());
-    DBG("    dig2:");
-    DBG(mOuts[id_DIG_PIN_2].isDigOn());
-    DBGln(" ");
+    DBGf("   PID  mCurrPower (W): %d, anaOutput(PWM) %d, Einspeisung: %d, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, mOuts[id_DIG_PIN_1].isDigOn(), mOuts[id_DIG_PIN_2].isDigOn());
 
     return 0;
 }

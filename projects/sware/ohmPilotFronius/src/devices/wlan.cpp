@@ -21,11 +21,9 @@ bool wifi_init(Setup &setup)
 {
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
 
-    DBGln();
-
     tft_initNetwork(2, "Connect to", setup.ssid);
-    DBG("[Wifi] Connecting to ");
-    DBGln(setup.ssid);
+    DBGf("[Wifi] Connecting to %s ", setup.ssid);
+
     WiFi.mode(WIFI_STA);
     WiFi.begin(setup.ssid, setup.passwd, true);
 
@@ -38,36 +36,36 @@ bool wifi_init(Setup &setup)
         switch (WiFi.status())
         {
         case WL_NO_SSID_AVAIL:
-            DBG("[WiFi] SSID not found: ");
-            DBGln(setup.ssid);
+            DBGf("[WiFi] SSID not found: %s", setup.ssid);
+
             tft_initNetwork(3, "Connect to", setup.ssid, "SSID not found");
-            break; 
+            break;
         case WL_CONNECT_FAILED:
             DBG("[WiFi] Failed - WiFi not connected! Reason: ");
             tft_initNetwork(3, "Connect to", setup.ssid, "No connection");
             return false;
             break;
         case WL_CONNECTION_LOST:
-            DBGln("[WiFi] Connection was lost");
+            DBG("[WiFi] Connection was lost");
             tft_initNetwork(3, "Connect to", setup.ssid, "Connection lost");
             break;
         case WL_SCAN_COMPLETED:
-            DBGln("[WiFi] Scan is completed");
+            DBG("[WiFi] Scan is completed");
             break;
         case WL_DISCONNECTED:
-            DBGln("[WiFi] WiFi is disconnected");
+            DBG("[WiFi] WiFi is disconnected");
             tft_initNetwork(3, "Connect to", setup.ssid, "Disconnected");
             break;
         case WL_CONNECTED:
-            DBGln("[WiFi] WiFi is connected!");
+            DBG("[WiFi] WiFi is connected!");
             tft_initNetwork(3, "Connect to", setup.ssid, "Connected!");
-            DBG("[WiFi] IP address: ");
-            DBGln(WiFi.localIP());
+            DBGf("[WiFi] IP address: %s", WiFi.localIP());
+
             return true;
             break;
         default:
-            DBG("[WiFi] WiFi Status: ");
-            DBGln(WiFi.status());
+            DBG("[WiFi] WiFi Status: %x", WiFi.status());
+
             tft_initNetwork(3, "Connect to", setup.ssid, (char *)WiFi.status());
             break;
         }
@@ -75,8 +73,8 @@ bool wifi_init(Setup &setup)
 
         if (numberOfTries <= 0)
         {
-            DBG("[WiFi] Failed to connect to WiFi!");
-            DBGln(WiFi.status());
+            DBGf("[WiFi] Failed to connect to WiFi! %d", WiFi.status());
+
             // Use disconnect function to force stop trying to connect
             WiFi.disconnect();
             return false;
@@ -91,13 +89,13 @@ bool wifi_init(Setup &setup)
 
 void wifi_scan_network()
 {
-    char buff[512]; /*
-     tft_getRoot().setTextColor(TFT_GREEN, TFT_BLACK);
-     tft_getRoot().fillScreen(TFT_BLACK);
-     tft_getRoot().setTextDatum(MC_DATUM);
-     tft_getRoot().setTextSize(3);
+    /*
+    tft_getRoot().setTextColor(TFT_GREEN, TFT_BLACK);
+    tft_getRoot().fillScreen(TFT_BLACK);
+    tft_getRoot().setTextDatum(MC_DATUM);
+    tft_getRoot().setTextSize(3);
 
-     tft_getRoot().drawString("Scan Network", tft_getWidth() / 2, tft_getHeight() / 2); */
+    tft_getRoot().drawString("Scan Network", tft_getWidth() / 2, tft_getHeight() / 2); */
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
@@ -111,18 +109,14 @@ void wifi_scan_network()
     }
     else
     {
-        DBGln(" ======   WLAN Networks ============");
+        DBGf(" ======   WLAN Networks ============");
         tft_getRoot().setTextDatum(TL_DATUM);
         tft_getRoot().setCursor(0, 0, 4);
-        Serial.printf("Found %d net\n", n);
+        DBGf("Found %d net", n);
         for (int i = 0; i < n; ++i)
         {
-            sprintf(buff,
-                    "[%d]:%s(%d)",
-                    i + 1,
-                    WiFi.SSID(i).c_str(),
-                    WiFi.RSSI(i));
-            DBGln(buff);
+            DBGf("[%d]:%s(%d)", i + 1, WiFi.SSID(i).c_str(), WiFi.RSSI(i));
+
             tft_showAvailableNetworks(1, "" + (i + 1), WiFi.SSID(i).c_str(), "" + WiFi.RSSI(i));
         }
     }
@@ -151,8 +145,8 @@ bool wifi_tryToReconnect(char **action)
 
     if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >= WIFI_RECONNECT_TRY_IN_INTERVALL))
     {
-        DBG(millis());
-        DBGln("Reconnecting to WiFi...");
+
+        DBGf("Reconnecting to WiFi...");
         WiFi.disconnect();
         WiFi.reconnect();
         previousMillis = currentMillis;

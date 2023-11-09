@@ -40,10 +40,8 @@ void tft_init()
     tft.setSwapBytes(true);
     width = tft.width();
     height = tft.height();
-    DBG("TFT Width,Height: ");
-    DBG(width);
-    DBG(":");
-    DBGln(height);
+    DBGf("TFT Width %d,Height: %d", width, height);
+
     tft.setRotation(1);
     for (int jj = 0; jj < 5; jj++)
     {
@@ -105,115 +103,30 @@ void tft_printSetup()
 #if defined(ESP32) || defined(ARDUINO_ARCH_ESP8266)
     if (user.esp < 0x32F000 || user.esp > 0x32FFFF)
     {
-        DBG("Frequency    = ");
-        DBG(ESP.getCpuFreqMHz());
-        DBGln("MHz");
+        DBGf("Frequency    =  %d MHz", ESP.getCpuFreqMHz());
     }
 #endif
-    DBG("Interface    = ");
-    DBGln((user.serial == 1) ? "SPI" : "Parallel");
-    DBGln("Check tft SPI");
+
+    DBGf("Check tft SPI");
     if (user.pin_tft_mosi != -1)
     {
-        DBG("MOSI    = ");
-        DBG("GPIO ");
-        DBGln(getPinName(user.pin_tft_mosi, user));
+        DBGf("MOSI    =  %d", getPinName(user.pin_tft_mosi, user));
     }
     if (user.pin_tft_miso != -1)
     {
-        DBG("MISO    = ");
-        DBG("GPIO ");
-        DBGln(getPinName(user.pin_tft_miso, user));
+
+        DBGf("MISO    =  %d", getPinName(user.pin_tft_miso, user));
     }
     if (user.pin_tft_clk != -1)
     {
-        DBG("SCK     = ");
-        DBG("GPIO ");
-        DBGln(getPinName(user.pin_tft_clk, user));
+
+        DBGf("SCK    =  %d", getPinName(user.pin_tft_clk, user));
     }
-    DBGln("Check tft SPI");
+
     String pinNameRef = "GPIO ";
 #ifdef ARDUINO_ARCH_ESP8266
     pinNameRef = "PIN_D";
 #endif
-    /*  if (user.esp == 0x32F)
-     {
-         DBGln("\n>>>>> Note: STM32 pin references above D15 may not reflect board markings <<<<<");
-         pinNameRef = "D";
-     }
-     if (user.pin_tft_cs != -1)
-     {
-         DBG("TFT_CS   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_cs, user));
-     }
-     if (user.pin_tft_dc != -1)
-     {
-         DBG("TFT_DC   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_dc, user));
-     }
-     if (user.pin_tft_rst != -1)
-     {
-         DBG("TFT_RST  = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_rst, user));
-     }
-
-     if (user.pin_tch_cs != -1)
-     {
-         DBG("TOUCH_CS = " + pinNameRef);
-         DBGln(getPinName(user.pin_tch_cs, user));
-     }
-
-     if (user.pin_tft_wr != -1)
-     {
-         DBG("TFT_WR   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_wr, user));
-     }
-     if (user.pin_tft_rd != -1)
-     {
-         DBG("TFT_RD   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_rd, user));
-     }
-
-     if (user.pin_tft_d0 != -1)
-     {
-         DBG("\nTFT_D0   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_d0, user));
-     }
-     if (user.pin_tft_d1 != -1)
-     {
-         DBG("TFT_D1   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_d1, user));
-     }
-     if (user.pin_tft_d2 != -1)
-     {
-         DBG("TFT_D2   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_d2, user));
-     }
-     if (user.pin_tft_d3 != -1)
-     {
-         DBG("TFT_D3   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_d3, user));
-     }
-     if (user.pin_tft_d4 != -1)
-     {
-         DBG("TFT_D4   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_d4, user));
-     }
-     if (user.pin_tft_d5 != -1)
-     {
-         DBG("TFT_D5   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_d5, user));
-     }
-     if (user.pin_tft_d6 != -1)
-     {
-         DBG("TFT_D6   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_d6, user));
-     }
-     if (user.pin_tft_d7 != -1)
-     {
-         DBG("TFT_D7   = " + pinNameRef);
-         DBGln(getPinName(user.pin_tft_d7, user));
-     } */
 }
 
 TFT_eSPI &tft_getRoot()
@@ -246,9 +159,7 @@ void tft_initNetwork(int num, ...)
     for (int i = 0; i < num; i++)
     {
         msg = va_arg(valist, char *);
-        /* DBG(msg);
-        DBG(", ");
-        DBGln(FONTSIZE_2_ONE_LINE * i); */
+
         tft_printTxt(0, 0, FONTSIZE_2, "Init Network ... ");
         if (i == 1)
         {
@@ -268,9 +179,7 @@ void tft_showAvailableNetworks(int num, ...)
     for (int i = 0; i < num; i++)
     {
         msg = va_arg(valist, char *);
-        /* DBG(msg);
-        DBG(", ");
-        DBGln(FONTSIZE_2_ONE_LINE * i); */
+
         tft_printTxt(0, 0, FONTSIZE_2, "Init Network ... ");
         if (i == 1)
         {

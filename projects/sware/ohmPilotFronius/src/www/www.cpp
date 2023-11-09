@@ -42,28 +42,27 @@ static bool isAuthenticated = false;
 
 static void listDir(char *dir)
 {
-    DBGln("listdir");
+    DBGf("listdir");
     File root = SPIFFS.open(dir);
 
     if (!root)
     {
-        DBGln("- failed to open directory");
+        DBGf("- failed to open directory");
         return;
     }
     if (!root.isDirectory())
     {
-        DBGln(" - not a directory");
+        DBGf(" - not a directory");
         return;
     }
 
-    DBGln(root);
+    DBGf("%s", root);
     File file = root.openNextFile();
-    DBGln(file);
+
     while (file)
     {
 
-        DBG("FILE: ");
-        DBGln(file.name());
+        DBGf("FILE: %s", file.name());
 
         file = root.openNextFile();
     }
@@ -85,7 +84,7 @@ static void sendHTML(String &path, AsyncWebServerRequest *request)
 
 static void handleLogin(AsyncWebServerRequest *request)
 {
-    DBGln("handleLogin");
+
     bool standingData = false;
     // Check if the request method is POST
     if (request->method() == HTTP_POST)
@@ -100,8 +99,6 @@ static void handleLogin(AsyncWebServerRequest *request)
         {
             isAuthenticated = true;
             standingData = request->arg("standingData") == "true";
-            DBG("Stammdaten: ");
-            DBGln(standingData);
 
             if (standingData)
                 request->send(SPIFFS, "/setupData.html", String(), false);
@@ -122,7 +119,7 @@ static void handleLogin(AsyncWebServerRequest *request)
 static void handleRoot(AsyncWebServerRequest *request)
 {
     // Check if the user is authenticated
-    DBGln("handleRoot");
+
     if (isAuthenticated)
         request->send(SPIFFS, "/index.html", String(), false);
     else
@@ -132,7 +129,6 @@ static void handleRoot(AsyncWebServerRequest *request)
 static void handleSetup(AsyncWebServerRequest *request)
 {
     // Check if the user is authenticated
-    DBGln("handleSetup");
     if (isAuthenticated)
         request->send(SPIFFS, "/setupData.html", "text/html", false);
     else
@@ -145,7 +141,7 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
 
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
-        DBGln("SPIFFS Mount Failed");
+        DBGf("SPIFFS Mount Failed");
         return;
     }
 
@@ -157,16 +153,15 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
         WiFi.mode(WIFI_AP);
         WiFi.softAP(SSID_FOR_ACCESS_POINT);
         IPAddress IP = WiFi.softAPIP();
-        DBG("AP IP address: ");
         ipAddr = (char *)IP.toString().c_str();
-        DBG(IP.toString());
-        DBGln(ipAddr);
+        DBGf("AP IP address: %s", ipAddr);
+
         tft_initNetwork(6, "Netzwerkparameter", "ACCESS-Point Modus", "ssid=>", SSID_FOR_ACCESS_POINT, "IP=>", IP.toString().c_str());
     }
     else
     {
-        DBG("WWW init server with ip: ");
-        DBGln(ipAddr);
+        DBGf("WWW init server with ip: %s", ipAddr);
+
         tft_initNetwork(6, "Netzwerkparameter", "Client", "ssid=>", wlanAsClientSSID, "IP=>", ipAddr);
     }
 
@@ -227,9 +222,8 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
                       {
 
     String path = request->url();
-    DBG("Path (!found): ");
-    DBG(path.c_str());
-    DBGln(";");
+    DBGf("Path (!found): %s ",path.c_str());
+   
     if (!isAuthenticated) {
       // Redirect to the login page if not authenticated
       request->redirect("/login");

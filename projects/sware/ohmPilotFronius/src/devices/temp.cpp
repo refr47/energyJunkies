@@ -26,25 +26,21 @@ void printAddress(DeviceAddress deviceAddress)
 {
     for (uint8_t i = 0; i < 8; i++)
     {
-        DBG(" ");
-        DBG1(deviceAddress[i], HEX);
+        DBG(" %x", deviceAddress[i]);
     }
 }
 void temp_init()
 {
     int numberOfDevices = 0;
     DeviceAddress tempDeviceAddress;
-    DBGln("Init Temp Sensor...");
+    DBGf("Init Temp Sensor...");
     sensors.setResolution(11);
     sensors.begin();
     // Grab a count of devices on the wire
     numberOfDevices = sensors.getDeviceCount();
- 
+
     // locate devices on the bus
-    DBG("Locating devices...");
-    DBG("Found ");
-    DBG1(numberOfDevices, DEC);
-    DBGln(" devices.");
+    DBGf("Locating devices...Found :%d devices", numberOfDevices);
 
     // Loop through each device, print out address
     for (int i = 0; i < numberOfDevices; i++)
@@ -52,16 +48,14 @@ void temp_init()
         // Search the wire for address
         if (sensors.getAddress(tempDeviceAddress, i))
         {
-            DBG("Found device ");
-            DBG1(i, DEC);
-            DBG(" with address: ");
+            DBGf("Found device %d with address:", i);
+
             printAddress(tempDeviceAddress);
-            DBGln();
         }
         else
         {
-            DBG("Found ghost device at ");
-            DBG1(i, DEC);
+            DBGf("Found ghost device at  %d", i);
+
             DBG(" but could not detect address. Check power and cabling");
         }
     }

@@ -9,11 +9,10 @@
 #include "pin_config.h"
 // https://randomnerdtutorials.com/esp32-spi-communication-arduino/
 
-
 #ifdef LOGFILE_SYS
-    const char *logFileSys = LOGFILE_SYS;
+const char *logFileSys = LOGFILE_SYS;
 #else
-    const char *logFileSys = "logSys.txt";
+const char *logFileSys = "logSys.txt";
 #endif
 
 static File loggingFile;
@@ -22,7 +21,7 @@ void appendFile(fs::FS &fs, const char *path, const char *message);
 
 bool cardRW_setup()
 {
-    DBGln("CardReader -- Setup");
+    DBGf("CardReader %s", "BEGIN");
     // Serialprintln("CLOCK: %d, MISO: %d, MOSI: %d, CS: %d", SCK, MISO, MOSI, SS);
 
     pinMode(SS, OUTPUT);
@@ -34,13 +33,13 @@ bool cardRW_setup()
         if (!SD.begin(SS))
         {
 
-            DBGln("Card Mount Failed");
+            DBGf("Card Mount Failed");
             return false;
         }
     }
     catch (...)
     {
-        DBGln("Card Mount Failed");
+        DBGf("Card Mount Failed");
         return false;
     }
 
@@ -48,26 +47,26 @@ bool cardRW_setup()
 
     if (cardType == CARD_NONE)
     {
-        DBGln("No SD card attached");
+        DBGf("No SD card attached");
         return false;
     }
 
     DBG("SD Card Type: ");
     if (cardType == CARD_MMC)
     {
-        DBGln("MMC");
+        DBGf("MMC");
     }
     else if (cardType == CARD_SD)
     {
-        DBGln("SDSC");
+        DBGf("SDSC");
     }
     else if (cardType == CARD_SDHC)
     {
-        DBGln("SDHC");
+        DBGf("SDHC");
     }
     else
     {
-        DBGln("UNKNOWN");
+        DBGf("UNKNOWN");
     }
 
     uint64_t cardSize = SD.cardSize() / (1024 * 1024);
@@ -83,8 +82,8 @@ void logSDCard()
     // dataMessage = String(readingID) + "," + String(dayStamp) + "," + String(timeStamp) + "," +
     //               String(temperature) + "\r\n";
     const char *dataMessage = "Hello World \n";
-    DBG("Save data: ");
-    DBGln(dataMessage);
+    DBGf("Save data: %s ", "j");
+    DBGf("Mess: %s ", dataMessage);
     appendFile(SD, "/data1.txt", (const char *)dataMessage);
 }
 
@@ -99,19 +98,20 @@ bool cardRW_createLoggingFile(const char *path)
         return false;
     }
     loggingFile.close();
-    if (SD.exists(path)) {
+    if (SD.exists(path))
+    {
 
-         loggingFile = SD.open(path, FILE_APPEND);
-         return true;
+        loggingFile = SD.open(path, FILE_APPEND);
+        return true;
     }
-        
+
     return false;
 }
 
 bool cardRW_flushLoggingFile(const char *path)
 {
     loggingFile.flush();
-    
+
     loggingFile = SD.open(path, FILE_APPEND);
     if (!loggingFile)
     {
@@ -123,24 +123,22 @@ bool cardRW_flushLoggingFile(const char *path)
 
 bool cardRW_closeLoggingFile()
 {
-   
-       
+
     loggingFile.close();
     return true;
 }
 
-
 int sdCardLogOutput(const char *format, va_list args)
 {
-	Serial.println("Callback running");
-	char buf[128];
-	int ret = vsnprintf(buf, sizeof(buf), format, args);
-	if (SD.exists(logFileSys))
-	{
-		loggingFile.print(buf);
-		loggingFile.flush();
-	}
-	return ret;
+    Serial.println("Callback running");
+    char buf[128];
+    int ret = vsnprintf(buf, sizeof(buf), format, args);
+    if (SD.exists(logFileSys))
+    {
+        loggingFile.print(buf);
+        loggingFile.flush();
+    }
+    return ret;
 }
 // Write to the SD card (DON'T MODIFY THIS FUNCTION)
 void writeFile(fs::FS &fs, const char *path, const char *message)
@@ -150,16 +148,16 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
     File file = fs.open(path, FILE_WRITE);
     if (!file)
     {
-        DBGln("Failed to open file for writing");
+        DBGf("Failed to open file for writing");
         return;
     }
     if (file.print(message))
     {
-        DBGln("File written");
+        DBGf("File written");
     }
     else
     {
-        DBGln("Write failed");
+        DBGf("Write failed");
     }
     file.close();
 }
@@ -167,21 +165,21 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
 // Append data to the SD card (DON'T MODIFY THIS FUNCTION)
 bool cardRW_appendFile(const char *path, const char *message)
 {
-    Serial.printf("Appending to file: %s\n", path);
+    DBGf("Appending to file: %s\n", path);
 
     File file = SD.open(path, FILE_APPEND);
     if (!file)
     {
-        DBGln("Failed to open file for appending");
+        DBGf("Failed to open file for appending");
         return false;
     }
     if (file.print(message))
     {
-        DBGln("Message appended");
+        DBGf("Message appended");
     }
     else
     {
-        DBGln("Append failed");
+        DBGf("Append failed");
     }
     file.close();
     return true;
@@ -194,12 +192,12 @@ void cardRW_listDir(const char *dirname, uint8_t levels)
     File root = SD.open(dirname);
     if (!root)
     {
-        DBGln("Failed to open directory");
+        DBGf("Failed to open directory");
         return;
     }
     if (!root.isDirectory())
     {
-        DBGln("Not a directory");
+        DBGf("Not a directory");
         return;
     }
 
@@ -208,8 +206,7 @@ void cardRW_listDir(const char *dirname, uint8_t levels)
     {
         if (file.isDirectory())
         {
-            DBG("  DIR : ");
-            DBGln(file.name());
+            DBGf("  DIR : %s", file.name());
             if (levels)
             {
                 cardRW_listDir(file.name(), levels - 1);
@@ -217,10 +214,7 @@ void cardRW_listDir(const char *dirname, uint8_t levels)
         }
         else
         {
-            DBG("  FILE: ");
-            DBG(file.name());
-            DBG("  SIZE: ");
-            DBGln(file.size());
+            DBGf("  FILE: %s, Size: %d", file.name(), file.size());
         }
         file = root.openNextFile();
     }
@@ -228,60 +222,60 @@ void cardRW_listDir(const char *dirname, uint8_t levels)
 
 bool cardRW_createDir(const char *path)
 {
-    Serial.printf("Creating Dir: %s\n", path);
+    DBGf("Creating Dir: %s\n", path);
     if (SD.mkdir(path))
     {
-        DBGln("Dir created");
+        DBGf("Dir created");
         return true;
     }
     else
     {
-        DBGln("mkdir failed");
+        DBGf("mkdir failed");
         return false;
     }
 }
 
 bool cardRW_removeDir(const char *path)
 {
-    Serial.printf("Removing Dir: %s\n", path);
+    DBGf("Removing Dir: %s\n", path);
     if (SD.rmdir(path))
     {
-        DBGln("Dir removed");
+        DBGf("Dir removed");
         return true;
     }
     else
     {
-        DBGln("rmdir failed");
+        DBGf("rmdir failed");
         return false;
     }
 }
 
 bool cardRW_renameFile(const char *path1, const char *path2)
 {
-    Serial.printf("Renaming file %s to %s\n", path1, path2);
+    DBGf("Renaming file %s to %s\n", path1, path2);
     if (SD.rename(path1, path2))
     {
-        DBGln("File renamed");
+        DBGf("File renamed");
         return true;
     }
     else
     {
-        DBGln("Rename failed");
+        DBGf("Rename failed");
         return false;
     }
 }
 
 bool cardRW_deleteFile(const char *path)
 {
-    Serial.printf("Deleting file: %s\n", path);
+    DBGf("Deleting file: %s\n", path);
     if (SD.remove(path))
     {
-        DBGln("File deleted");
+        DBGf("File deleted");
         return true;
     }
     else
     {
-        DBGln("Delete failed");
+        DBGf("Delete failed");
         return false;
     }
 }
@@ -309,18 +303,18 @@ void cardRW_testFileIO(const char *path)
             len -= toRead;
         }
         end = millis() - start;
-        Serial.printf("%u bytes read for %u ms\n", flen, end);
+        DBGf("%u bytes read for %u ms\n", flen, end);
         file.close();
     }
     else
     {
-        DBGln("Failed to open file for reading");
+        DBGf("Failed to open file for reading");
     }
 
     file = SD.open(path, FILE_WRITE);
     if (!file)
     {
-        DBGln("Failed to open file for writing");
+        DBGf("Failed to open file for writing");
         return;
     }
 
@@ -331,6 +325,6 @@ void cardRW_testFileIO(const char *path)
         file.write(buf, 512);
     }
     end = millis() - start;
-    Serial.printf("%u bytes written for %u ms\n", 2048 * 512, end);
+    DBGf("%u bytes written for %u ms\n", 2048 * 512, end);
     file.close();
 }
