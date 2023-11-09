@@ -5,7 +5,24 @@
 #define TEXTIFY(A) #A
 #define ESCAPEQUOTE(A) TEXTIFY(A)
 
+/*
 
+#if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_NONE
+#ifndef USE_ESP_IDF_LOG
+#define log_n(format, ...) log_printf(ARDUHAL_LOG_FORMAT(E, format), ##__VA_ARGS__)
+#define isr_log_n(format, ...) ets_printf(ARDUHAL_LOG_FORMAT(E, format), ##__VA_ARGS__)
+#define log_buf_n(b,l) do{ARDUHAL_LOG_COLOR_PRINT(E);log_print_buf(b,l);ARDUHAL_LOG_COLOR_PRINT_END;}while(0)
+#else
+#define log_n(format, ...) do {ESP_LOG_LEVEL_LOCAL(ESP_LOG_ERROR, TAG, format, ##__VA_ARGS__);}while(0)
+#define isr_log_n(format, ...) do {ets_printf(LOG_FORMAT(E, format), esp_log_timestamp(), TAG, ##__VA_ARGS__);}while(0)
+#define log_buf_n(b,l) do {ESP_LOG_BUFFER_HEXDUMP(TAG, b, l, ESP_LOG_ERROR);}while(0)
+#endif
+#else
+#define log_n(format, ...) do {} while(0)
+#define isr_log_n(format, ...) do {} while(0)
+#define log_buf_n(b,l) do {} while(0)
+#endif
+*/
 
 
 

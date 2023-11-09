@@ -9,7 +9,14 @@
 #include "pin_config.h"
 // https://randomnerdtutorials.com/esp32-spi-communication-arduino/
 
-static FILE loggingFile;
+
+#ifdef LOGFILE_SYS
+    const char *logFileSys = LOGFILE_SYS;
+#else
+    const char *logFileSys = "logSys.txt";
+#endif
+
+static File loggingFile;
 
 void appendFile(fs::FS &fs, const char *path, const char *message);
 
@@ -85,19 +92,27 @@ bool cardRW_createLoggingFile(const char *path)
 {
     Serial.printf("Appending to file: %s\n", path);
 
-    loggingFile = SD.open(path,"a",true);
+    loggingFile = SD.open(path, FILE_WRITE);
     if (!loggingFile)
     {
         Serial.printf("Failed to open file: %s - error: %s", path, strerror(errno));
         return false;
     }
-    return true;
+    loggingFile.close();
+    if (SD.exists(path)) {
+
+         loggingFile = SD.open(path, FILE_APPEND);
+         return true;
+    }
+        
+    return false;
 }
 
 bool cardRW_flushLoggingFile(const char *path)
 {
-    loggingFile._close(); // flush ???
-     loggingFile = SD.open(path,"a");
+    loggingFile.flush();
+    
+    loggingFile = SD.open(path, FILE_APPEND);
     if (!loggingFile)
     {
         Serial.printf("Failed to open file: %s - error: %s", path, strerror(errno));
@@ -108,10 +123,25 @@ bool cardRW_flushLoggingFile(const char *path)
 
 bool cardRW_closeLoggingFile()
 {
-    if (loggingFile)
-        loggingFile.close();
+   
+       
+    loggingFile.close();
+    return true;
 }
 
+
+int sdCardLogOutput(const char *format, va_list args)
+{
+	Serial.println("Callback running");
+	char buf[128];
+	int ret = vsnprintf(buf, sizeof(buf), format, args);
+	if (SD.exists(logFileSys))
+	{
+		loggingFile.print(buf);
+		loggingFile.flush();
+	}
+	return ret;
+}
 // Write to the SD card (DON'T MODIFY THIS FUNCTION)
 void writeFile(fs::FS &fs, const char *path, const char *message)
 {
@@ -154,6 +184,7 @@ bool cardRW_appendFile(const char *path, const char *message)
         DBGln("Append failed");
     }
     file.close();
+    return true;
 }
 
 void cardRW_listDir(const char *dirname, uint8_t levels)
