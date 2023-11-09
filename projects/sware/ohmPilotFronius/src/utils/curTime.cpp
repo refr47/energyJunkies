@@ -90,6 +90,9 @@ bool time_print()
         return false;
     }
     Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+    time_t timestamp = time(NULL);
+    DBGf("TimeStamp: %d", timestamp);
+
     return true;
 }
 

@@ -7,6 +7,8 @@
 #include "utils.h"
 #include "SD_MMC.h"
 #include "pin_config.h"
+#include <time.h>
+
 // https://randomnerdtutorials.com/esp32-spi-communication-arduino/
 
 #ifdef LOGFILE_SYS
@@ -82,15 +84,15 @@ bool cardRW_createLoggingFile()
     DBGf("cardRW_createLoggingFile  file: %s\n", logFileSys);
 
     loggingFile = SD.open(logFileSys, FILE_WRITE);
-    if (!loggingFile)
-    {
-        Serial.printf("Failed to open file: %s - error: %s", logFileSys, strerror(errno));
-        return false;
-    }
+    /*  if (!loggingFile)
+     {
+         Serial.printf("Failed to open file: %s - error: %s", logFileSys, strerror(errno));
+         return false;
+     } */
     loggingFile.close();
     if (SD.exists(logFileSys))
     {
-
+        DBGf("Logfile existes on SD card!");
         loggingFile = SD.open(logFileSys, FILE_APPEND);
         loggingAvailable = true;
 
