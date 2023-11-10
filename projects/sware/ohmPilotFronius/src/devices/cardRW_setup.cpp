@@ -51,6 +51,7 @@ bool cardRW_setup()
     if (cardType == CARD_NONE)
     {
         DBGf("No SD card attached");
+
         return false;
     }
 
@@ -74,7 +75,7 @@ bool cardRW_setup()
 
     uint64_t cardSize = SD.cardSize() / (1024 * 1024);
     // DBGln("SD Card Size: %lluMB\n", cardSize);
-    Serial.printf("SD Card Size: %lluMB\n", cardSize);
+    DBGf("SD Card Size: %lluMB\n", cardSize);
 
     return true;
 }
@@ -82,24 +83,18 @@ bool cardRW_setup()
 bool cardRW_createLoggingFile()
 {
     DBGf("cardRW_createLoggingFile  file: %s\n", logFileSys);
-
-    loggingFile = SD.open(logFileSys, FILE_WRITE);
-    /*  if (!loggingFile)
-     {
-         Serial.printf("Failed to open file: %s - error: %s", logFileSys, strerror(errno));
-         return false;
-     } */
-    loggingFile.close();
     if (SD.exists(logFileSys))
     {
         DBGf("Logfile existes on SD card!");
-        loggingFile = SD.open(logFileSys, FILE_APPEND);
-        loggingAvailable = true;
-
-        return true;
     }
-
-    return false;
+    loggingFile = SD.open(logFileSys, FILE_APPEND);
+    if (!loggingFile)
+    {
+        DBGf("Failed to open file: %s - error: %s", logFileSys, strerror(errno));
+        return false;
+    }
+    loggingAvailable = true;
+    return true;
 }
 
 bool cardRW_flushLoggingFile()
@@ -113,6 +108,7 @@ bool cardRW_flushLoggingFile()
         loggingAvailable = false;
         return false;
     }
+    loggingAvailable = true;
     return true;
 }
 
@@ -126,15 +122,18 @@ bool cardRW_closeLoggingFile()
 int sdCardLogOutput(const char *format, va_list args)
 {
     DBGf("Callback running, logging available: %x", loggingAvailable);
+
     if (!loggingAvailable)
         return 0;
+    // loggingFile.size()
     char buf[128];
     int ret = vsnprintf(buf, sizeof(buf), format, args);
     if (SD.exists(logFileSys))
     {
         loggingFile.print(buf);
-        loggingFile.flush();
+        // loggingFile.flush();
     }
+    Serial.printf("%s\n", buf);
     return ret;
 }
 

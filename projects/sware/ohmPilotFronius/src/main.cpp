@@ -95,7 +95,7 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    eprom_test_write_Eprom(wlanE, passW);
+    // eprom_test_write_Eprom(wlanE, passW);
     eprom_getSetup(setupData);
     eprom_test_read_Eprom();
     time_init(); // init time
@@ -126,7 +126,8 @@ void setup()
     {
         cardWriterOK = true;
         logging_init();
-        // test_cardReader();
+        test_cardReader();
+        ESP_LOGW(TAG, "Warning message: %s", "Hello");
     }
     else
     {
