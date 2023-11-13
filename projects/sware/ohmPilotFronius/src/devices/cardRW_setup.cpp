@@ -125,6 +125,14 @@ int sdCardLogOutput(const char *format, va_list args)
 
     if (!loggingAvailable)
         return 0;
+    time_t current_time = time(NULL);
+
+    // Convert the current time to a struct tm.
+    struct tm *time_info = localtime(&current_time);
+
+    // Print the current time in the format "HH:MM:SS".
+    printf("%02d:%02d:%02d\n", time_info->tm_hour, time_info->tm_min, time_info->tm_sec);
+
     // loggingFile.size()
     char buf[128];
     int ret = vsnprintf(buf, sizeof(buf), format, args);

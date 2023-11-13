@@ -38,6 +38,9 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 #define MODBUS_INTERVALL 5000UL
 #define LOGGING_FLUSH_INTERVALL 60000
 
+#define LOG_LEVEL ESP_LOG_INFO
+#define MY_ESP_LOG_LEVEL ESP_LOG_WARN
+
 /* ****************************************************************************
   GLOBAL VARS
   ****************************************************************************
@@ -57,6 +60,25 @@ static TEMPERATURE container;
 static MB_CONTAINER modbusData;
 static Setup setupData;
 static PinManager pidPinManager(RELAY_L1, RELAY_L2, PWM_FOR_PID);
+
+/* **************************************************************************
+        ProtoTypes
+*/
+// int sdCardLogOutput(const char *format, va_list args); // LOG-System
+
+// https://community.platformio.org/t/redirect-esp32-log-messages-to-sd-card/33734/5
+void logging_init()
+{
+
+    DBGf("Setting log levels and callback");
+    esp_log_level_set("*", MY_ESP_LOG_LEVEL);
+    esp_log_level_set(TAG, LOG_LEVEL);
+    esp_log_set_vprintf(sdCardLogOutput);
+    if (!cardRW_createLoggingFile())
+    {
+        DBGf("Cannot create logging file on sd card");
+    }
+}
 
 void test()
 {

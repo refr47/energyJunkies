@@ -3,8 +3,10 @@
 #include <esp_log.h>
 #include "cardRW.h"
 #ifndef TAG
-#define TAG "ENERGIEJUNKIES"
+#define TAG "E-JUNKIES"
 #endif
+
+#define LOGFILE_SIZE 1024 * 1024
 
 void logging_init();
 
