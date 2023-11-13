@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "esp_clk.h"
 #include <SPI.h>
+#include <esp_log.h>
 
 #include "debugConsole.h"
 #include "wlan.h"
@@ -15,7 +16,7 @@
 #include "www.h"
 #include "temp.h"
 #include "curTime.h"
-#include "logging.h"
+
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -38,6 +39,9 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 #define MODBUS_INTERVALL 5000UL
 #define LOGGING_FLUSH_INTERVALL 60000
 
+#ifndef TAG
+#define TAG "E-JUNKIES"
+#endif
 #define LOG_LEVEL ESP_LOG_INFO
 #define MY_ESP_LOG_LEVEL ESP_LOG_WARN
 
@@ -73,7 +77,7 @@ void logging_init()
     DBGf("Setting log levels and callback");
     esp_log_level_set("*", MY_ESP_LOG_LEVEL);
     esp_log_level_set(TAG, LOG_LEVEL);
-    esp_log_set_vprintf(sdCardLogOutput);
+    esp_log_set_vprintf(cardRW_LogOutput);
     if (!cardRW_createLoggingFile())
     {
         DBGf("Cannot create logging file on sd card");

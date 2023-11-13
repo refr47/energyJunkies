@@ -1,11 +1,12 @@
 #pragma once
 
-#include "debugConsole.h"
+
 
 bool cardRW_setup();
 bool cardRW_createLoggingFile();
 bool cardRW_closeLoggingFile();
 bool cardRW_flushLoggingFile();
+int cardRW_LogOutput(const char *format, va_list args);
 
 void cardRW_listDir(const char *dirname, uint8_t levels = 4);
 bool cardRW_appendFile(const char *path, const char *message);
