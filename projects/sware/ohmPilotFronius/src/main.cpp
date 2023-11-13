@@ -124,7 +124,7 @@ void setup()
     // eprom_test_write_Eprom(wlanE, passW);
     eprom_getSetup(setupData);
     eprom_test_read_Eprom();
-    time_init(); // init time
+
     /*
      printHWInfo();
      */
@@ -148,20 +148,6 @@ void setup()
     // wifi_scan_network();
     //  eprom_test_read_Eprom();
 
-    if (cardRW_setup())
-    {
-        cardWriterOK = true;
-        logging_init();
-        test_cardReader();
-        ESP_LOGW(TAG, "Warning message: %s", "Hello");
-    }
-    else
-    {
-        DBGf("Logging to file cannot be initiated ...");
-    }
-
-    temp_init(); // temperature
-
     if (strcmp(setupData.ssid, "---") == 0)
     {
         networkCredentialsInEEprom = false;
@@ -177,14 +163,14 @@ void setup()
         DBGf("Connecting to WiFi ..");
         int counter = 0;
 
-        while (WiFi.status() != WL_CONNECTED)
+      /*   while (WiFi.status() != WL_CONNECTED)
         {
             DBG("%c", '.');
             delay(2000);
             ++counter;
             if (counter == 5)
                 break;
-        }
+        } */
         if (!wifi_init(setupData))
         {
             DBGf("Cannot connect - show available networks: ");
@@ -209,7 +195,24 @@ void setup()
             DBGf("Network does not work!");
             return;
         }
+        tft_printInfo("Init Time ");
+        time_init(); // init time
+        tft_printInfo("Init CardReader ");
+        if (cardRW_setup(false, false))
+        {
+            cardWriterOK = true;
+            logging_init();
+            test_cardReader();
+            ESP_LOGW(TAG, "Warning message: %s", "Hello");
+        }
+        else
+        {
+            DBGf("Logging to file cannot be initiated ...");
+        }
+
+        temp_init(); // temperature
         DBGf("Setup modbus ...");
+        tft_printInfo("Init Modbus ");
         if (!mb_init(setupData))
         {
             DBGf("Cannot initialize modbus ....");
@@ -218,9 +221,11 @@ void setup()
         if (!mb_readInverterStatic())
             DBGf("Error in Reading modbus");
         DBGf("Setup PID-Controller");
+        tft_printInfo("Init PID-Manager ");
         pidPinManager.config(setupData);
     }
-    ESP_LOGW(TAG, "Warning message: %s", "Hello");
+
+    ESP_LOGI(TAG, "Setup done - all components are working...");
 }
 
 static unsigned long currentMillis = millis();
@@ -253,7 +258,7 @@ void loop()
         // DBGln(" --- MODBUS --- Query done");
         mb_readInverterDynamic(setupData, modbusData);
         DBGf("Available power in W: %d", modbusData.meterValues.data.acCurrentPower);
-
+        ESP_LOGI(TAG, "Available power in W: %d", modbusData.meterValues.data.acCurrentPower);
         previousMillModbus = currentMillis;
         availableWatt = (int)(modbusData.meterValues.data.acCurrentPower + 0.5);
         DBGf(", int: %d", availableWatt);

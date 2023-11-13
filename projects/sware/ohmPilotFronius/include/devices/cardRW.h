@@ -1,8 +1,6 @@
 #pragma once
 
-
-
-bool cardRW_setup();
+bool cardRW_setup(bool, bool);
 bool cardRW_createLoggingFile();
 bool cardRW_closeLoggingFile();
 bool cardRW_flushLoggingFile();

@@ -20,21 +20,24 @@ const char *LOG_FILE_SYSTEM_NAME = "logSys.txt";
 #endif
 
 // #define MAX_LOG_SIZE 1024 * 1024
-#define MAX_LOG_SIZE 10
+#define MAX_LOG_SIZE 200
 #define MIN_SPACE_ON_SD_CARD_IN_BYTES 1025 * 512
 #define MAX_WRITES_BEFORE_FLASH 20
 
 static File loggingFile;
 static bool loggingAvailable = false;
 static unsigned int counterForFlush = 0;
+static bool logEventsToCard = false, logInverterToCard = false;
 
 void appendFile(fs::FS &fs, const char *path, const char *message);
 
-bool cardRW_setup()
+bool cardRW_setup(bool logToCard, bool logInverter)
 {
-    DBGf("CardReader %s", "BEGIN");
+    DBGf("CardReader, logToCard: %x, logInverterToCard: %x", logToCard, logInverter);
+    logEventsToCard = logToCard;
+    logInverterToCard = logInverter;
     // Serialprintln("CLOCK: %d, MISO: %d, MOSI: %d, CS: %d", SCK, MISO, MOSI, SS);
-    unsigned int counter=1;
+    unsigned int counter = 1;
     pinMode(SS, OUTPUT);
     digitalWrite(SS, HIGH); //  enable CS pin to read from peripheral 1
     SPI.begin(SCK, MISO, MOSI, SS);
@@ -42,14 +45,13 @@ bool cardRW_setup()
     while (!SD.begin(SS))
     {
 
-       
         delay(1000);
-         DBGf("Try to mount card (%d)",counter);
-        if (++counter > 20) {
-             DBGf("Card Mount Failed:  %d trials",counter);
-             return false;
+        DBGf("Try to mount card (%d)", counter);
+        if (++counter > 20)
+        {
+            DBGf("Card Mount Failed:  %d trials", counter);
+            return false;
         }
-        
     }
 
     uint8_t cardType = SD.cardType();
@@ -129,6 +131,7 @@ inline int printLog(bool writeSD, const char *format, va_list args)
 {
     char buf[128];
     int ret = vsnprintf(buf, sizeof(buf), format, args);
+    // DBGf("printLog, write: %x, SD_Exists: %x, counter: %d", writeSD, SD.exists(LOG_FILE_SYSTEM_NAME), counterForFlush);
     if (writeSD)
     {
         if (SD.exists(LOG_FILE_SYSTEM_NAME))
@@ -138,7 +141,7 @@ inline int printLog(bool writeSD, const char *format, va_list args)
             {
                 loggingFile.flush();
                 counterForFlush = 0;
-                DBGf("cardRW_flush:");
+                // DBGf("cardRW_flush:");
             }
         }
     }
@@ -150,42 +153,48 @@ inline int printLog(bool writeSD, const char *format, va_list args)
 // interface for ESP Logging System
 int cardRW_LogOutput(const char *format, va_list args)
 {
-    DBGf("Callback running, logging available: %x", loggingAvailable);
+    // DBGf("Callback running, logging available: %x, Size: %d", loggingAvailable, loggingFile.size());
 
-    if (loggingAvailable)
+    if (logEventsToCard)
     {
 
-        if (loggingFile.size() > MAX_LOG_SIZE)
+        if (loggingAvailable)
         {
-            time_t current_time = time(NULL);
-            // Convert the current time to a struct tm.
-            struct tm *time_info = localtime(&current_time);
-            // Print the current time in the format "HH:MM:SS".
-            printf("%02d:%02d:%02d\n", time_info->tm_hour, time_info->tm_min, time_info->tm_sec);
-            // SD.cardSize() / (1024 * 1024)
-            char newF[128];
-            strcpy(newF, LOG_FILE_SYSTEM_NAME);
-            char buf[30];
-            sprintf(buf, "%d%d%d%d%d", time_info->tm_year, time_info->tm_mon, time_info->tm_yday, time_info->tm_hour, time_info->tm_min);
-            strncat(newF, buf, strlen(buf));
-            if (!cardRW_renameFile(LOG_FILE_SYSTEM_NAME, newF))
+            if (loggingFile.size() > MAX_LOG_SIZE)
             {
-                loggingAvailable = false;
-                DBGf("Cannot rename Logging file: %s to %s", LOG_FILE_SYSTEM_NAME, newF);
-                printLog(false, format, args);
-                return 0;
-            }
-            if (SD.cardSize() - SD.usedBytes() < MIN_SPACE_ON_SD_CARD_IN_BYTES)
-            {
-                loggingAvailable = false;
-                DBGf("There is only a little space (%d) left on the map", SD.cardSize() - SD.usedBytes());
-                printLog(false, format, args);
-                return 0;
-            }
-            loggingFile.close();
-            if (!cardRW_createLoggingFile())
-            {
-                return 0;
+                time_t current_time = time(NULL);
+                // Convert the current time to a struct tm.
+                struct tm *time_info = localtime(&current_time);
+                // Print the current time in the format "HH:MM:SS".
+                printf("%02d:%02d:%02d\n", time_info->tm_hour, time_info->tm_min, time_info->tm_sec);
+                // SD.cardSize() / (1024 * 1024)
+                char newF[128];
+                memset(newF, 0, 128);
+                strncpy(newF, LOG_FILE_SYSTEM_NAME, strlen(LOG_FILE_SYSTEM_NAME) - 4);
+
+                char buf[30];
+                sprintf(buf, "-%d_%d_%d.txt", time_info->tm_mday, time_info->tm_hour, time_info->tm_min);
+                strncat(newF, buf, strlen(buf));
+                if (!cardRW_renameFile(LOG_FILE_SYSTEM_NAME, newF))
+                {
+                    loggingAvailable = false;
+                    DBGf("Cannot rename Logging file: %s to %s", LOG_FILE_SYSTEM_NAME, newF);
+                    printLog(false, format, args);
+                    return 0;
+                }
+                // DBGf("Logfile renamed to %s", newF);
+                if (SD.cardSize() - SD.usedBytes() < MIN_SPACE_ON_SD_CARD_IN_BYTES)
+                {
+                    loggingAvailable = false;
+                    DBGf("There is only a little space (%d) left on the map", SD.cardSize() - SD.usedBytes());
+                    printLog(false, format, args);
+                    return 0;
+                }
+                loggingFile.close();
+                if (!cardRW_createLoggingFile())
+                {
+                    return 0;
+                }
             }
         }
     }

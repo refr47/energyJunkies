@@ -13,6 +13,7 @@ void tft_showAvailableNetworks(int num, ...);
 void tft_drawNetworkInfo(char *ip);
 void tft_setCursor(int x, int y, int fontsize = 4);
 void tft_printTxt(int x, int y, int fontsize = 4, const char *txt = "dummy");
+void tft_printInfo(const char *txt);
 void tft_clearScreen();
 
 #endif

@@ -160,12 +160,12 @@ void tft_initNetwork(int num, ...)
     {
         msg = va_arg(valist, char *);
 
-        tft_printTxt(0, 0, FONTSIZE_2, "Init Network ... ");
+        tft_printTxt(0, 0, FONTSIZE_2, (const char *)"Init Network ... ");
         if (i == 1)
         {
             tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
         }
-        tft_printTxt(5, FONTSIZE_2_ONE_LINE * (i + 1), FONTSIZE_2, msg);
+        tft_printTxt(5, FONTSIZE_2_ONE_LINE * (i + 1), FONTSIZE_2, (const char *)msg);
     }
     va_end(valist);
     currentLine = num;
@@ -180,7 +180,7 @@ void tft_showAvailableNetworks(int num, ...)
     {
         msg = va_arg(valist, char *);
 
-        tft_printTxt(0, 0, FONTSIZE_2, "Init Network ... ");
+        tft_printTxt(0, 0, FONTSIZE_2, (const char *)"Init Network ... ");
         if (i == 1)
         {
             tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
@@ -203,6 +203,11 @@ void tft_drawNetworkInfo(char *ip)
     }
 }
 
+void tft_printInfo(const char *txt)
+{
+    tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, txt);
+}
+
 void tft_setCursor(int x, int y, int fontsize)
 {
     tft.setCursor(x, y, fontsize);
@@ -210,6 +215,7 @@ void tft_setCursor(int x, int y, int fontsize)
 
 void tft_printTxt(int x, int y, int fontsize, const char *txt)
 {
+
     tft.setCursor(x, y, fontsize);
     tft.print(txt);
 }

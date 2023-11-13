@@ -27,6 +27,7 @@ static vector<DATE_TIME> table;
 void time_init()
 {
     // esp_sntp_servermode_dhcp(1); // (optional)
+
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2);
     setenv("TZ", EUROPE_VIENNA_TZ, 1);
     tzset();
@@ -79,6 +80,9 @@ void time_init()
     cell.hourFrom = 17;
     cell.hourTo = 8;
     table.push_back(cell);
+    DBGf("Init time from ntp");
+    delay(2000);
+    time_print();
 }
 
 bool time_print()

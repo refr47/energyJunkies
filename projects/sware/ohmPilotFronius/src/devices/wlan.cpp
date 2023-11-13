@@ -41,19 +41,19 @@ bool wifi_init(Setup &setup)
             tft_initNetwork(3, "Connect to", setup.ssid, "SSID not found");
             break;
         case WL_CONNECT_FAILED:
-            DBG("[WiFi] Failed - WiFi not connected! Reason: ");
+            DBGf("[WiFi] Failed - WiFi not connected! Reason: ");
             tft_initNetwork(3, "Connect to", setup.ssid, "No connection");
             return false;
             break;
         case WL_CONNECTION_LOST:
-            DBG("[WiFi] Connection was lost");
+            DBGf("[WiFi] Connection was lost");
             tft_initNetwork(3, "Connect to", setup.ssid, "Connection lost");
             break;
         case WL_SCAN_COMPLETED:
-            DBG("[WiFi] Scan is completed");
+            DBGf("[WiFi] Scan is completed");
             break;
         case WL_DISCONNECTED:
-            DBG("[WiFi] WiFi is disconnected");
+            DBGf("[WiFi] WiFi is disconnected");
             tft_initNetwork(3, "Connect to", setup.ssid, "Disconnected");
             break;
         case WL_CONNECTED:
@@ -89,6 +89,7 @@ bool wifi_init(Setup &setup)
 
 void wifi_scan_network()
 {
+
     /*
     tft_getRoot().setTextColor(TFT_GREEN, TFT_BLACK);
     tft_getRoot().fillScreen(TFT_BLACK);
