@@ -21,7 +21,7 @@ bool wifi_init(Setup &setup)
 {
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
 
-    tft_initNetwork(2, "Connect to", setup.ssid);
+    tft_print_txt(2, "Connect to", setup.ssid);
     DBGf("[Wifi] Connecting to %s ", setup.ssid);
 
     WiFi.mode(WIFI_STA);
@@ -29,44 +29,60 @@ bool wifi_init(Setup &setup)
 
     // Will try for about 10 seconds (20x 500ms)
     // Wait for the WiFi event
+    wl_status_t stat = WL_IDLE_STATUS;
+    wl_status_t statWifi = WiFi.status();
+    bool printNewLine = true;
+    char buf[30];
 
     while (true)
     {
 
-        switch (WiFi.status())
+        switch (statWifi)
         {
         case WL_NO_SSID_AVAIL:
             DBGf("[WiFi] SSID not found: %s", setup.ssid);
-
-            tft_initNetwork(3, "Connect to", setup.ssid, "SSID not found");
+            sprintf(buf, " nicht gefunden [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            tft_printInfo(buf, printNewLine);
+            // tft_printTxt(2, "Connect to", setup.ssid, "SSID not found");
             break;
         case WL_CONNECT_FAILED:
             DBGf("[WiFi] Failed - WiFi not connected! Reason: ");
-            tft_initNetwork(3, "Connect to", setup.ssid, "No connection");
+            sprintf(buf, "Keine Verbindung [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            tft_printInfo(buf, printNewLine);
+            // tft_printTxt(3, "Connect to", setup.ssid, "No connection");
             return false;
             break;
         case WL_CONNECTION_LOST:
             DBGf("[WiFi] Connection was lost");
-            tft_initNetwork(3, "Connect to", setup.ssid, "Connection lost");
+            sprintf(buf, "Verbindung verloren [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            tft_printInfo(buf, printNewLine);
+            // tft_printTxt(3, "Connect to", setup.ssid, "Connection lost");
             break;
         case WL_SCAN_COMPLETED:
             DBGf("[WiFi] Scan is completed");
+            sprintf(buf, "Wifi scan: Fertig [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            tft_printInfo(buf, printNewLine);
             break;
         case WL_DISCONNECTED:
             DBGf("[WiFi] WiFi is disconnected");
-            tft_initNetwork(3, "Connect to", setup.ssid, "Disconnected");
+
+            sprintf(buf, "Verbindung abgebrochen[%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            tft_printInfo(buf, printNewLine);
+
             break;
         case WL_CONNECTED:
             DBG("[WiFi] WiFi is connected!");
-            tft_initNetwork(3, "Connect to", setup.ssid, "Connected!");
+            sprintf(buf, "WiFi connected[%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            tft_printInfo(buf, printNewLine);
             DBGf("[WiFi] IP address: %s", WiFi.localIP());
 
             return true;
             break;
         default:
             DBG("[WiFi] WiFi Status: %x", WiFi.status());
-
-            tft_initNetwork(3, "Connect to", setup.ssid, (char *)WiFi.status());
+            tft_printInfo((char *)WiFi.status(), printNewLine);
+            sprintf(buf, "%s [%d]", (char *)WiFi.status(), WIFI_NUMBER_OF_TRIES - numberOfTries);
+            tft_printInfo(buf, printNewLine);
             break;
         }
         delay(WIFI_TRY_DELAY);
@@ -83,6 +99,9 @@ bool wifi_init(Setup &setup)
         {
             numberOfTries--;
         }
+        stat = statWifi;
+        printNewLine = stat == statWifi ? false : true;
+        statWifi = WiFi.status();
     }
     return true;
 }

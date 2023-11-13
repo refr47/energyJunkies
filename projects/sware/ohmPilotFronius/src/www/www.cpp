@@ -156,13 +156,13 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
         ipAddr = (char *)IP.toString().c_str();
         DBGf("AP IP address: %s", ipAddr);
 
-        tft_initNetwork(6, "Netzwerkparameter", "ACCESS-Point Modus", "ssid=>", SSID_FOR_ACCESS_POINT, "IP=>", IP.toString().c_str());
+        tft_print_txt(5, "ACCESS-Point Modus", "SSID:", SSID_FOR_ACCESS_POINT, "IP: ", IP.toString().c_str());
     }
     else
     {
         DBGf("WWW init server with ip: %s", ipAddr);
 
-        tft_initNetwork(6, "Netzwerkparameter", "Client", "ssid=>", wlanAsClientSSID, "IP=>", ipAddr);
+        tft_print_txt(5, "Client", "SSID", wlanAsClientSSID, "IP", ipAddr);
     }
 
     server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)

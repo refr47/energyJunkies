@@ -161,20 +161,34 @@ void setup()
         WiFi.begin(setupData.ssid, setupData.passwd);
         DBGf("WIFI: %s, Passwd: %s", setupData.ssid, setupData.passwd);
         DBGf("Connecting to WiFi ..");
+        tft_printInfo("Connecting to WiFi");
         int counter = 0;
-
-      /*   while (WiFi.status() != WL_CONNECTED)
+        char buff[30];
+        memset(buff, 0, strlen(buff));
+        while (WiFi.status() != WL_CONNECTED)
         {
             DBG("%c", '.');
             delay(2000);
             ++counter;
+            for (int kk = 0; kk < counter; kk++)
+            {
+                buff[kk] = '.';
+            }
+            tft_printInfo(buff, false);
             if (counter == 5)
+            {
+                tft_printInfo("", true);
+
+                tft_printInfo("Scanning WiFi ..", true);
+                tft_printInfo("..........", true);
+
                 break;
-        } */
+            }
+        }
         if (!wifi_init(setupData))
         {
             DBGf("Cannot connect - show available networks: ");
-            tft_drawNetworkInfo(NULL);
+            tft_drawNetworkInfo(NULL, setupData.ssid);
             wifi_scan_network();
             www_init(NULL, NULL); // act as access point
             networkOK = false;
@@ -186,7 +200,7 @@ void setup()
             wifi_getLocalIP(&pBuf);
             DBGf("Connected with ip: %s", globalStringBuffer);
 
-            tft_drawNetworkInfo(globalStringBuffer);
+            tft_drawNetworkInfo(globalStringBuffer, setupData.ssid);
             www_init(pBuf, setupData.ssid); // do not act as apoint
             networkOK = true;
         }

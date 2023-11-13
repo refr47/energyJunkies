@@ -40,17 +40,18 @@ void tft_init()
     tft.setSwapBytes(true);
     width = tft.width();
     height = tft.height();
-    DBGf("TFT Width %d,Height: %d", width, height);
+    // DBGf("TFT Width %d,Height: %d", width, height);
 
     tft.setRotation(1);
     for (int jj = 0; jj < 5; jj++)
     {
         tft.setCursor(10 * jj, (jj * 10) + 30, 4);
-        tft.print("INIT .....");
+        tft.print("E-Harvester .....");
         // delay(3000);
     }
     delay(1000);
     tft.setRotation(0);
+    tft_clearScreen();
 }
 int8_t getPinName(int8_t pin, setup_t &user)
 {
@@ -148,9 +149,13 @@ void tft_clearScreen()
 }
 void tft_clearScreenFrom(int yFrom)
 {
+
     tft.fillRect(0, yFrom, width, height, TFT_BLACK); // Bild ausschalten
+    currentLine = yFrom % FONTSIZE_2;
+    DBGf("tft-clearScreen with currentLine: %d", currentLine);
 }
-void tft_initNetwork(int num, ...)
+
+void tft_print_txt(int num, ...)
 {
     va_list valist;
     va_start(valist, num);
@@ -160,15 +165,15 @@ void tft_initNetwork(int num, ...)
     {
         msg = va_arg(valist, char *);
 
-        tft_printTxt(0, 0, FONTSIZE_2, (const char *)"Init Network ... ");
-        if (i == 1)
-        {
-            tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
-        }
-        tft_printTxt(5, FONTSIZE_2_ONE_LINE * (i + 1), FONTSIZE_2, (const char *)msg);
+        /*  tft_printTxt(0, 0, FONTSIZE_2, (const char *)"Init Network ... ");
+         if (i == 1)
+         {
+             tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
+         } */
+        DBGf("          ::::tft_print_txt: %d,  text: %s", currentLine, msg);
+        tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, (const char *)msg);
     }
     va_end(valist);
-    currentLine = num;
 }
 void tft_showAvailableNetworks(int num, ...)
 {
@@ -180,37 +185,55 @@ void tft_showAvailableNetworks(int num, ...)
     {
         msg = va_arg(valist, char *);
 
-        tft_printTxt(0, 0, FONTSIZE_2, (const char *)"Init Network ... ");
-        if (i == 1)
-        {
-            tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
-        }
+        /*    tft_printTxt(0, 0, FONTSIZE_2, (const char *)"Init Network ... ");
+           if (i == 1)
+           {
+               tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
+           } */
         tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, msg);
     }
     va_end(valist);
 }
 
-void tft_drawNetworkInfo(char *ip)
+void tft_drawNetworkInfo(char *ip, const char *essid)
 {
+    tft_clearScreen();
     tft.setTextColor(TFT_WHITE);
+    tft_printInfo("WLAN ");
     if (ip != NULL)
     {
+        tft_printKeyValue("ESSID: ", essid);
+        tft_printKeyValue("IP: ", ip);
         // tft.pushImage(0, 0, 24, 24, wlanPic24);
-        tft.fillRect(0, FONTSIZE_2_ONE_LINE * 2, width, FONTSIZE_2_ONE_LINE, TFT_BLACK);
-        tft_printTxt(0, FONTSIZE_2_ONE_LINE * 2, FONTSIZE_2, "IP: ");
-        tft.setCursor(30, FONTSIZE_2_ONE_LINE * 2, FONTSIZE_2);
-        tft.println(ip);
+    }
+    else
+    {
+        tft_printInfo("Wlan nicht gefunden!");
     }
 }
 
-void tft_printInfo(const char *txt)
+void tft_printInfo(const char *txt, bool newLine)
 {
-    tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, txt);
+    if (!newLine)
+        tft.fillRect(0, FONTSIZE_2_ONE_LINE * currentLine, width, FONTSIZE_2, TFT_BLACK);
+    tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, txt);
+    if (newLine)
+        currentLine++;
+    DBGf("          ::::printInfo: %d, %s", currentLine, txt);
 }
 
 void tft_setCursor(int x, int y, int fontsize)
 {
     tft.setCursor(x, y, fontsize);
+}
+
+void tft_printKeyValue(const char *key, const char *value)
+{
+    DBGf("          ::::tft_printKeyValue: %d,  text: %s", currentLine, key);
+    delay(5000);
+    tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key);
+    tft_printTxt(strlen(key) * 4 + 5, FONTSIZE_2_ONE_LINE * (currentLine++), FONTSIZE_2, value);
+    delay(10000);
 }
 
 void tft_printTxt(int x, int y, int fontsize, const char *txt)
