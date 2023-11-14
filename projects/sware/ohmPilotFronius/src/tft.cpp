@@ -50,7 +50,7 @@ void tft_init()
     {
         tft.setCursor(10 * jj, (jj * 10) + 60, 4);
         tft.print("E-Harvester .....");
-        if (jj > 2)
+        if (jj > 1)
             tft.setTextColor(TFT_BLUE);
         // delay(3000);
     }
@@ -154,7 +154,9 @@ void tft_clearScreen()
 {
     tft.fillRect(0, 0, width, height, TFT_BLACK); // Bild ausschalten
     currentLine = 0;
+    tft.setTextColor(TFT_GREEN);
     tft_printInfo(HEADER);
+    tft.setTextColor(TFT_WHITE);
     /* DBGf("Clear screen ");
     delay(4000); */
 }
@@ -288,11 +290,11 @@ void displayErrorMessage(const char *message)
 
 void tft_prinBlock(int offsetX1, int offsetX2, bool alert, const char *key, const char *value)
 {
-    if (alert)
-        tft.setTextColor(TFT_RED);
+
     tft_printTxt(offsetX1, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key);
     tft.fillRect(tft.getCursorX(), tft.getCursorY(), width - tft.getCursorX(), FONTSIZE_2_ONE_LINE, TFT_BLACK);
-
+    if (alert)
+        tft.setTextColor(TFT_RED);
     tft_printTxt(offsetX2, FONTSIZE_2_ONE_LINE * (currentLine), FONTSIZE_2, value);
     if (alert)
         tft.setTextColor(TFT_WHITE);
@@ -303,6 +305,7 @@ static int saveCurLine;
 
 void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
 {
+
     saveCurLine = currentLine;
     bool setAlert = false;
     tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur");
@@ -311,10 +314,14 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     sprintf(buf, "%.2f", temp.sensor1);
     tft_prinBlock(14, 75, setAlert, "Sensor 1", buf);
     if (modb.meterValues.data.acCurrentPower >= 0.0)
+    {
+
         setAlert = true;
+    }
+
     DBGf("ALERT: %x", setAlert);
     sprintf(buf, "%.2f", modb.meterValues.data.acCurrentPower);
-    setAlert = false;
+
     tft_prinBlock(148, 230, setAlert, "Produktion", buf);
     ++currentLine;
     sprintf(buf, "%.2f", temp.sensor2);
