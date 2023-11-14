@@ -1,7 +1,7 @@
-#ifndef __TFT_H__
-#define __TFT_H__
+#pragma once
 #include <TFT_eSPI.h>
 #include "pin_config.h"
+#include "defines.h"
 
 void tft_init();
 void tft_printSetup();
@@ -16,5 +16,4 @@ void tft_setCursor(int x, int y, int fontsize = 4);
 void tft_printTxt(int x, int y, int fontsize = 4, const char *txt = "dummy");
 void tft_printInfo(const char *txt, bool newLine = true);
 void tft_clearScreen();
-
-#endif
+void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC);

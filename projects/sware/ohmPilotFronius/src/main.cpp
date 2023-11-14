@@ -43,7 +43,7 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 #define TAG "E-JUNKIES"
 #endif
 #define LOG_LEVEL ESP_LOG_INFO
-#define MY_ESP_LOG_LEVEL ESP_LOG_WARN
+#define MY_ESP_LOG_LEVEL ESP_LOG_INFO
 
 /* ****************************************************************************
   GLOBAL VARS
@@ -62,6 +62,7 @@ static unsigned long previousMillModbus = 0UL;
 static unsigned long previousMillFlush = 0UL;
 static TEMPERATURE container;
 static MB_CONTAINER modbusData;
+static PID_CONTAINER pidContainer;
 static Setup setupData;
 static PinManager pidPinManager(RELAY_L1, RELAY_L2, PWM_FOR_PID);
 
@@ -80,7 +81,7 @@ void logging_init()
     esp_log_set_vprintf(cardRW_LogOutput);
     if (!cardRW_createLoggingFile())
     {
-        DBGf("Cannot create logging file on sd card");
+        ESP_LOGE(TAG, "Cannot create logging file on sd card");
     }
 }
 
@@ -115,6 +116,7 @@ void setup()
     tft_printSetup();
 
     int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
+    DBGf("Interal button: %d", currentState);
 
     /* uint32_t cpu_freq = esp_clk_cpu_freq();
     DBG(" CPU freq: ");
@@ -178,17 +180,14 @@ void setup()
             if (counter == 5)
             {
                 tft_printInfo("", true);
-
                 tft_printInfo("Scanning WiFi ..", true);
-                tft_printInfo("..........", true);
-
                 break;
             }
         }
         if (!wifi_init(setupData))
         {
             DBGf("Cannot connect - show available networks: ");
-            tft_drawNetworkInfo(NULL, setupData.ssid);
+            // tft_drawNetworkInfo(NULL, setupData.ssid);
             wifi_scan_network();
             www_init(NULL, NULL); // act as access point
             networkOK = false;
@@ -207,43 +206,61 @@ void setup()
         if (!networkOK)
         {
             DBGf("Network does not work!");
+            tft_printInfo("No valid network!");
             return;
         }
-        tft_printInfo("Init Time ");
+        tft_printInfo("       ");
+        tft_printInfo("Init Time:ok ");
         time_init(); // init time
-        tft_printInfo("Init CardReader ");
+
         if (cardRW_setup(false, false))
         {
             cardWriterOK = true;
+            tft_printInfo("Init CardReader: ok ");
             logging_init();
             test_cardReader();
-            ESP_LOGW(TAG, "Warning message: %s", "Hello");
         }
         else
         {
             DBGf("Logging to file cannot be initiated ...");
+            tft_printInfo("Init CardReader: false ");
         }
 
-        temp_init(); // temperature
+        if (temp_init())
+        { // temperature
+            tft_printInfo("Init Sensors: ok ");
+        }
+        else
+        {
+            tft_printInfo("Init temparature:false ");
+        }
         DBGf("Setup modbus ...");
         tft_printInfo("Init Modbus ");
         if (!mb_init(setupData))
         {
             DBGf("Cannot initialize modbus ....");
+            tft_printInfo("Init mdobus: false");
+        }
+        else
+        {
+            tft_printInfo("Init mdobus: ok");
         }
         memset(&modbusData, 0, sizeof(modbusData));
-        if (!mb_readInverterStatic())
-            DBGf("Error in Reading modbus");
+        /*  if (!mb_readInverterStatic())
+             DBGf("Error in Reading modbus"); */
         DBGf("Setup PID-Controller");
-        tft_printInfo("Init PID-Manager ");
+        tft_printInfo("Init PID-Manager: ok ");
         pidPinManager.config(setupData);
     }
-
+    if (networkOK)
+    {
+        delay(3000);
+        tft_clearScreen();
+    }
     ESP_LOGI(TAG, "Setup done - all components are working...");
 }
 
 static unsigned long currentMillis = millis();
-static int availableWatt;
 
 void loop()
 {
@@ -259,32 +276,32 @@ void loop()
         time_print();
         temp_getTemperature(container);
 
-        DBGf(" TEMP in Celsius, S1: %d, S2: %d", container.sensor1, container.sensor2);
+        DBGf(" TEMP in Celsius, S1: %f, S2: %f", container.sensor1, container.sensor2);
 
         previousMillTemp = currentMillis;
     }
     /* if (networkCredentialsInEEprom == false)
       return; */
     if (currentMillis - previousMillModbus > MODBUS_INTERVALL)
-
     {
-
-        // DBGln(" --- MODBUS --- Query done");
         mb_readInverterDynamic(setupData, modbusData);
-        DBGf("Available power in W: %d", modbusData.meterValues.data.acCurrentPower);
-        ESP_LOGI(TAG, "Available power in W: %d", modbusData.meterValues.data.acCurrentPower);
+        DBGf("EXport in W: %d", modbusData.meterValues.data.acTotalEnergyExp);
+        ESP_LOGI(TAG, "Available power in W: %f8.0", modbusData.meterValues.data.acCurrentPower);
         previousMillModbus = currentMillis;
-        availableWatt = (int)(modbusData.meterValues.data.acCurrentPower + 0.5);
-        DBGf(", int: %d", availableWatt);
+        pidContainer.mCurrentPower = (int)(modbusData.meterValues.data.acCurrentPower + 0.5);
+        DBGf(", int: %d", pidContainer.mCurrentPower);
 
-        if (availableWatt < 0) // energy export
+        if (pidContainer.mCurrentPower < 0) // energy export
         {
-            pidPinManager.task(setupData, availableWatt * -1);
+            pidContainer.mCurrentPower = pidContainer.mCurrentPower * -1;
+            pidPinManager.task(setupData, pidContainer);
         }
         else
         {
-            pidPinManager.task(setupData, 4);
+            pidContainer.mCurrentPower = 4;
+            pidPinManager.task(setupData, pidContainer);
         }
+        tft_drawInfo(container, modbusData, pidContainer);
     }
     if (currentMillis - previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {

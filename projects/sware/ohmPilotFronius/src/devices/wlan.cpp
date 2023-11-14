@@ -32,7 +32,7 @@ bool wifi_init(Setup &setup)
     wl_status_t stat = WL_IDLE_STATUS;
     wl_status_t statWifi = WiFi.status();
     bool printNewLine = true;
-    char buf[30];
+    char buf[50];
 
     while (true)
     {
@@ -41,40 +41,40 @@ bool wifi_init(Setup &setup)
         {
         case WL_NO_SSID_AVAIL:
             DBGf("[WiFi] SSID not found: %s", setup.ssid);
-            sprintf(buf, " nicht gefunden [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            sprintf(buf, " not found [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
             // tft_printTxt(2, "Connect to", setup.ssid, "SSID not found");
             break;
         case WL_CONNECT_FAILED:
             DBGf("[WiFi] Failed - WiFi not connected! Reason: ");
-            sprintf(buf, "Keine Verbindung [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            sprintf(buf, "No Connection [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
             // tft_printTxt(3, "Connect to", setup.ssid, "No connection");
             return false;
             break;
         case WL_CONNECTION_LOST:
             DBGf("[WiFi] Connection was lost");
-            sprintf(buf, "Verbindung verloren [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            sprintf(buf, "Lost Connection [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
             // tft_printTxt(3, "Connect to", setup.ssid, "Connection lost");
             break;
         case WL_SCAN_COMPLETED:
-            DBGf("[WiFi] Scan is completed");
+            DBGf("[WiFi] Scan is ready");
             sprintf(buf, "Wifi scan: Fertig [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
             break;
         case WL_DISCONNECTED:
             DBGf("[WiFi] WiFi is disconnected");
 
-            sprintf(buf, "Verbindung abgebrochen[%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            sprintf(buf, "Disconnected[%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
 
             break;
         case WL_CONNECTED:
             DBG("[WiFi] WiFi is connected!");
-            sprintf(buf, "WiFi connected[%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
+            sprintf(buf, "WiFi connected [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
-            DBGf("[WiFi] IP address: %s", WiFi.localIP());
+            DBGf("[WiFi] IP address: %s", WiFi.localIP().toString().c_str());
 
             return true;
             break;
@@ -100,7 +100,10 @@ bool wifi_init(Setup &setup)
             numberOfTries--;
         }
         stat = statWifi;
-        printNewLine = stat == statWifi ? false : true;
+        if (numberOfTries == 0)
+            printNewLine = true;
+        else
+            printNewLine = stat == statWifi ? false : true;
         statWifi = WiFi.status();
     }
     return true;
@@ -120,27 +123,34 @@ void wifi_scan_network()
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
     delay(500);
-
+    tft_printInfo("Scan for Wlan ...");
     int16_t n = WiFi.scanNetworks();
-    tft_getRoot().fillScreen(TFT_BLACK);
+    // tft_getRoot().fillScreen(TFT_BLACK);
     if (n == 0)
     {
-        tft_showAvailableNetworks(1, "No networks found");
+        tft_printInfo("No networks found");
     }
     else
     {
         DBGf(" ======   WLAN Networks ============");
-        tft_getRoot().setTextDatum(TL_DATUM);
-        tft_getRoot().setCursor(0, 0, 4);
+        // tft_getRoot().setTextDatum(TL_DATUM);
+        // tft_getRoot().setCursor(0, 0, 4);
+        char buf[30];
+        tft_printInfo("Networks: ");
         DBGf("Found %d net", n);
         for (int i = 0; i < n; ++i)
         {
             DBGf("[%d]:%s(%d)", i + 1, WiFi.SSID(i).c_str(), WiFi.RSSI(i));
-
-            tft_showAvailableNetworks(1, "" + (i + 1), WiFi.SSID(i).c_str(), "" + WiFi.RSSI(i));
+            sprintf(buf, "[%s]:%d", WiFi.SSID(i).c_str(), WiFi.RSSI(i));
+            tft_printInfo(buf);
+            // tft_showAvailableNetworks(1, "" + (i + 1), WiFi.SSID(i).c_str(), "" + WiFi.RSSI(i));
         }
     }
     // WiFi.mode(WIFI_OFF);
+    tft_printInfo(" ");
+    tft_printInfo("Switch to AP-Mode!!");
+    tft_printInfo(" ");
+    tft_printInfo(" ");
     delay(3000);
 }
 

@@ -48,7 +48,7 @@ void PinManager::config(Setup &setup)
      TARGET_POWER = setup.pid_targetPowerInWatt; */
     mPidSetPoint = setup.pid_targetPowerInWatt;
 }
-int PinManager::task(Setup &setup, int power)
+int PinManager::task(Setup &setup, PID_CONTAINER &pidContainer)
 {
     if (setup.pidChanged)
     {
@@ -56,8 +56,8 @@ int PinManager::task(Setup &setup, int power)
         DBGf("PID Params changed / updated");
         setup.pidChanged = false;
     }
-    mCurrentPower = power;
-    DBGf("Power: %d, currentPower: %d", power, mCurrentPower);
+    mCurrentPower = pidContainer.mCurrentPower;
+    DBGf("Power: %f", mCurrentPower);
 
     mPid.Compute();
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
@@ -98,7 +98,12 @@ int PinManager::task(Setup &setup, int power)
 
     // dbg("power:");
     // dbg(power);
-    DBGf("   PID  mCurrPower (W): %d, anaOutput(PWM) %d, Einspeisung: %d, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, mOuts[id_DIG_PIN_1].isDigOn(), mOuts[id_DIG_PIN_2].isDigOn());
+    DBGf("   PID  mCurrPower (W): %f, anaOutput(PWM) %f, Einspeisung: %d, Dig1: %x, Dig2: %x", mCurrentPower, mAnalogOut, mPidSetPoint, mOuts[id_DIG_PIN_1].isDigOn(), mOuts[id_DIG_PIN_2].isDigOn());
+    pidContainer.mCurrentPower=mCurrentPower;
+    pidContainer.mAnalogOut=mAnalogOut;
+    pidContainer.powerNotUseable=mPidSetPoint;
+    pidContainer.pin1 = mOuts[id_DIG_PIN_1].isDigOn();
+    pidContainer.pin2 = mOuts[id_DIG_PIN_2].isDigOn();
 
     return 0;
 }

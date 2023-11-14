@@ -16,7 +16,9 @@
 #define FONTSIZE_4 4
 #define FONTSIZE_4_ONE_LINE 30
 #define FONTSIZE_2 2
-#define FONTSIZE_2_ONE_LINE 14
+#define FONTSIZE_2_ONE_LINE FONTSIZE_2 * 6
+#define HEADER "Energie-Junkies"
+#define FONT_WIDTH 7
 
 static TFT_eSPI tft = TFT_eSPI();
 static int height = 0, width = 0;
@@ -40,18 +42,23 @@ void tft_init()
     tft.setSwapBytes(true);
     width = tft.width();
     height = tft.height();
-    // DBGf("TFT Width %d,Height: %d", width, height);
+    DBGf("TFT Width %d,Height: %d", width, height);
 
     tft.setRotation(1);
+    tft.setTextColor(TFT_RED);
     for (int jj = 0; jj < 5; jj++)
     {
-        tft.setCursor(10 * jj, (jj * 10) + 30, 4);
+        tft.setCursor(10 * jj, (jj * 10) + 60, 4);
         tft.print("E-Harvester .....");
+        if (jj > 2)
+            tft.setTextColor(TFT_BLUE);
         // delay(3000);
     }
-    delay(1000);
-    tft.setRotation(0);
+    delay(4000);
+    tft.setTextColor(TFT_WHITE);
     tft_clearScreen();
+    /*  tft.setRotation(0);
+     tft_clearScreen(); */
 }
 int8_t getPinName(int8_t pin, setup_t &user)
 {
@@ -146,6 +153,10 @@ int tft_getWidth()
 void tft_clearScreen()
 {
     tft.fillRect(0, 0, width, height, TFT_BLACK); // Bild ausschalten
+    currentLine = 0;
+    tft_printInfo(HEADER);
+    /* DBGf("Clear screen ");
+    delay(4000); */
 }
 void tft_clearScreenFrom(int yFrom)
 {
@@ -202,8 +213,9 @@ void tft_drawNetworkInfo(char *ip, const char *essid)
     tft_printInfo("WLAN ");
     if (ip != NULL)
     {
-        tft_printKeyValue("ESSID: ", essid);
-        tft_printKeyValue("IP: ", ip);
+        tft_printInfo("Connected ");
+        /* tft_printKeyValue("ESSID: ", essid);
+        tft_printKeyValue("IP: ", ip); */
         // tft.pushImage(0, 0, 24, 24, wlanPic24);
     }
     else
@@ -215,11 +227,10 @@ void tft_drawNetworkInfo(char *ip, const char *essid)
 void tft_printInfo(const char *txt, bool newLine)
 {
     if (!newLine)
-        tft.fillRect(0, FONTSIZE_2_ONE_LINE * currentLine, width, FONTSIZE_2, TFT_BLACK);
+        tft.fillRect(0, FONTSIZE_2_ONE_LINE * currentLine, width, FONTSIZE_2_ONE_LINE, TFT_BLACK);
     tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, txt);
     if (newLine)
         currentLine++;
-    DBGf("          ::::printInfo: %d, %s", currentLine, txt);
 }
 
 void tft_setCursor(int x, int y, int fontsize)
@@ -229,11 +240,11 @@ void tft_setCursor(int x, int y, int fontsize)
 
 void tft_printKeyValue(const char *key, const char *value)
 {
-    DBGf("          ::::tft_printKeyValue: %d,  text: %s", currentLine, key);
-    delay(5000);
+    // DBGf("          ::::tft_printKeyValue: %d,  text: %s", currentLine, key);
+
     tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key);
-    tft_printTxt(strlen(key) * 4 + 5, FONTSIZE_2_ONE_LINE * (currentLine++), FONTSIZE_2, value);
-    delay(10000);
+
+    tft_printTxt(tft.getCursorX() + 10, FONTSIZE_2_ONE_LINE * (currentLine++), FONTSIZE_2, value);
 }
 
 void tft_printTxt(int x, int y, int fontsize, const char *txt)
@@ -264,4 +275,67 @@ void displayErrorMessage(const char *message)
     tft.setTextSize(2);          // Textgröße festlegen
     tft.setCursor(10, 10);       // Position des Textes auf dem Bildschirm festlegen
     tft.println(message);        // Fehlermeldung anzeigen
+}
+
+/* void tft_printInfo(const char *txt, bool newLine)
+{
+    if (!newLine)
+        tft.fillRect(0, FONTSIZE_2_ONE_LINE * currentLine, width, FONTSIZE_2_ONE_LINE, TFT_BLACK);
+    tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, txt);
+    if (newLine)
+        currentLine++;
+} */
+
+void tft_prinBlock(int offsetX1, int offsetX2, bool alert, const char *key, const char *value)
+{
+    if (alert)
+        tft.setTextColor(TFT_RED);
+    tft_printTxt(offsetX1, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key);
+    tft.fillRect(tft.getCursorX(), tft.getCursorY(), width - tft.getCursorX(), FONTSIZE_2_ONE_LINE, TFT_BLACK);
+
+    tft_printTxt(offsetX2, FONTSIZE_2_ONE_LINE * (currentLine), FONTSIZE_2, value);
+    if (alert)
+        tft.setTextColor(TFT_WHITE);
+}
+
+static char buf[50];
+static int saveCurLine;
+
+void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
+{
+    saveCurLine = currentLine;
+    bool setAlert = false;
+    tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur");
+    tft_printTxt(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie");
+    ++currentLine;
+    sprintf(buf, "%.2f", temp.sensor1);
+    tft_prinBlock(14, 75, setAlert, "Sensor 1", buf);
+    if (modb.meterValues.data.acCurrentPower >= 0.0)
+        setAlert = true;
+    DBGf("ALERT: %x", setAlert);
+    sprintf(buf, "%.2f", modb.meterValues.data.acCurrentPower);
+    setAlert = false;
+    tft_prinBlock(148, 230, setAlert, "Produktion", buf);
+    ++currentLine;
+    sprintf(buf, "%.2f", temp.sensor2);
+    tft_prinBlock(14, 75, setAlert, "Sensor 2", buf);
+    sprintf(buf, "%.2f", modb.meterValues.data.acTotalEnergyExp);
+    tft_prinBlock(148, 230, setAlert, "Einspeisung", buf);
+    ++currentLine;
+    sprintf(buf, "%.2f", modb.meterValues.data.acTotalEnergyImp);
+    tft_prinBlock(148, 230, setAlert, "Bezug", buf);
+    currentLine += 2;
+    /*   tft_printInfo("Energie");
+      DBGf("currentBlock y %d", tft.getCursorY());
+      sprintf(buf, "%.2f", modb.meterValues.data.acCurrentPower);
+      tft_prinBlock("Aktuelle Produktion", buf);
+      sprintf(buf, "%.2f", modb.meterValues.data.acTotalEnergyExp);
+      tft_prinBlock("Aktuelle EInspeisung", buf);
+      sprintf(buf, "%.2f", modb.meterValues.data.acTotalEnergyImp);
+      tft_prinBlock("Aktueller Bezug", buf); */
+    tft_printInfo("Bufferspeicher");
+    sprintf(buf, "%.2f", modb.meterValues.data.acTotalEnergyImp);
+    tft_printInfo("Speicher");
+
+    currentLine = saveCurLine;
 }

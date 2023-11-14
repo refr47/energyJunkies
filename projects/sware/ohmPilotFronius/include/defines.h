@@ -4,6 +4,7 @@
 #define MODBUS_PORT "502"
 #define JSON_OBJECT_SETUP_LEN 200 /// www.cpp,
 #include "debugConsole.h"
+#include "modbusRegister.h"
 
 typedef struct
 {
@@ -27,3 +28,28 @@ typedef struct
     char testPid;
     unsigned int exportWatt;
 } Setup;
+
+typedef struct
+{
+    unsigned int numberOfDevices;
+    float sensor1;
+    float sensor2;
+} TEMPERATURE;
+typedef struct mbContainer
+{
+    INVERTER_SUM_VALUE_t inverterSumValues;
+    METER_VALUE_t meterValues;
+    AKKU_STATE_VALUE_t akkuState;
+    AKKU_STRG_VALUE_t akkuStr;
+
+} MB_CONTAINER;
+
+typedef struct pidContaienr
+{
+
+    int mCurrentPower;
+    int mAnalogOut;
+    int powerNotUseable; // power, die nicht verbraucht werden darf
+    bool pin1;
+    bool pin2;
+} PID_CONTAINER;

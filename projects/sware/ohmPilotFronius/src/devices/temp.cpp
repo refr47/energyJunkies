@@ -1,6 +1,7 @@
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <esp_log.h>
 
 #include "pin_config.h"
 #include "temp.h"
@@ -29,16 +30,21 @@ void printAddress(DeviceAddress deviceAddress)
         DBG(" %x", deviceAddress[i]);
     }
 }
-void temp_init()
+bool temp_init()
 {
     int numberOfDevices = 0;
     DeviceAddress tempDeviceAddress;
     DBGf("Init Temp Sensor...");
+    bool result;
     sensors.setResolution(11);
     sensors.begin();
     // Grab a count of devices on the wire
     numberOfDevices = sensors.getDeviceCount();
-
+    if (numberOfDevices == 0)
+    {
+        ESP_LOGE(TAG, "temp_init() - keine Temperatursensorik gefunden.");
+        return false;
+    }
     // locate devices on the bus
     DBGf("Locating devices...Found :%d devices", numberOfDevices);
 
@@ -57,8 +63,10 @@ void temp_init()
             DBGf("Found ghost device at  %d", i);
 
             DBG(" but could not detect address. Check power and cabling");
+            ESP_LOGE(TAG, "temp_init() - keine Temperatursensorik gefunden.");
         }
     }
+    return true;
 }
 
 bool temp_getTemperature(TEMPERATURE &container)
@@ -70,6 +78,10 @@ bool temp_getTemperature(TEMPERATURE &container)
     delay(1000);
     container.sensor1 = sensors.getTempC(sensor1);
     container.sensor2 = sensors.getTempC(sensor2);
+    if (container.sensor1 < 0 || container.sensor2 < 0)
+    {
+        ESP_LOGE(TAG, "temp_getTemperature - Temperatur kann nicht negativ sein.");
+    }
     /* float tempC = sensors.getTempCByIndex(0);
     float tempC1 = sensors.getTempCByIndex(1);
     DBG("Sensor 1: ");

@@ -4,6 +4,7 @@
 #include <FS.h>
 #include <time.h>
 #include <string.h>
+#include <esp_log.h>
 
 #include "cardRW.h"
 #include "utils.h"
@@ -50,6 +51,7 @@ bool cardRW_setup(bool logToCard, bool logInverter)
         if (++counter > 20)
         {
             DBGf("Card Mount Failed:  %d trials", counter);
+            ESP_LOGE(TAG, "SD Card Reader kann nicht initialisiert werden!");
             return false;
         }
     }

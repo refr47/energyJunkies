@@ -75,7 +75,7 @@ class PinManager
 public:
     PinManager(int digOut1, int digOut2, int anOut);
     void config(Setup &setup);
-    int task(Setup &setup, int power);
+    int task(Setup &setup, PID_CONTAINER &pidContainer);
 
     int getStateOfDigPin(short pin) // 0, 1
     {
