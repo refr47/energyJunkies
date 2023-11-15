@@ -222,7 +222,7 @@ void util_pHW()
 }
 
 char   *util_format_Watt_kWatt(double val,char *formatBuf) {
-    if (fabs(val) / 1000.0 >= 0)
+    if (fabs(val) > 1000.0)
         sprintf(formatBuf,"%.2lf kW",val/1000);
     else
          sprintf(formatBuf,"%.2lf W",val);

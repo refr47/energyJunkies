@@ -296,7 +296,7 @@ void loop()
 
         DBGf("EXport %s", util_format_Watt_kWatt(modbusData.meterValues.data.acCurrentPower,formatBuffer) );
 
-        if (modbusData.meterValues.data.acCurrentPower<0.0 &&  (modbusData.inverterSumValues.data.acCurrentPower  + modbusData.meterValues.data.acCurrentPower > 0))
+        if (modbusData.meterValues.data.acCurrentPower<0.0 &&  (modbusData.inverterSumValues.data.acCurrentPower  + modbusData.meterValues.data.acCurrentPower < 0))
 
         {
             DBGf("Wrong meter value !");
@@ -305,7 +305,7 @@ void loop()
         {
            DBGf("Verbrauch in W: %s",util_format_Watt_kWatt( modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower,formatBuffer));
             pidContainer.mCurrentPower = (int)modbusData.meterValues.data.acCurrentPower + 0.5; // export!
-            DBGf(", int: %d", pidContainer.mCurrentPower);
+            //DBGf(", int: %d", pidContainer.mCurrentPower);
 
             if (pidContainer.mCurrentPower < 0) // energy export
             {
@@ -338,7 +338,7 @@ void loop()
         /*
         mb_readInverter();
         */
-        // tft_printTxt(30, 50, 2, "test");
+       
         //  cardRW_setup();
         //  test_cardReader();
         //  temp_init();

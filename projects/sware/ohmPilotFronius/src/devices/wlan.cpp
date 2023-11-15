@@ -1,9 +1,10 @@
 #define _WIFI_CPP
 
 #include <WiFi.h>
+#include <tft.h>
 #include "wlan.h"
 #include "defines.h"
-#include "tft.h"
+
 
 /*   DEFInES
  */
@@ -43,20 +44,20 @@ bool wifi_init(Setup &setup)
             DBGf("[WiFi] SSID not found: %s", setup.ssid);
             sprintf(buf, " not found [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
-            // tft_printTxt(2, "Connect to", setup.ssid, "SSID not found");
+            
             break;
         case WL_CONNECT_FAILED:
             DBGf("[WiFi] Failed - WiFi not connected! Reason: ");
             sprintf(buf, "No Connection [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
-            // tft_printTxt(3, "Connect to", setup.ssid, "No connection");
+            
             return false;
             break;
         case WL_CONNECTION_LOST:
             DBGf("[WiFi] Connection was lost");
             sprintf(buf, "Lost Connection [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
-            // tft_printTxt(3, "Connect to", setup.ssid, "Connection lost");
+            
             break;
         case WL_SCAN_COMPLETED:
             DBGf("[WiFi] Scan is ready");

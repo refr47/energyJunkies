@@ -16,13 +16,20 @@
 #define FONTSIZE_4 4
 #define FONTSIZE_4_ONE_LINE 30
 #define FONTSIZE_2 2
-#define FONTSIZE_2_ONE_LINE FONTSIZE_2 * 6
+#define FONTSIZE_2_ONE_LINE FONTSIZE_2 * 7
 #define HEADER "Energie-Junkies"
 #define FONT_WIDTH 7
 // #include <User_Setups/Setup206_LilyGo_T_Display_S3.h>
 static TFT_eSPI tft = TFT_eSPI();
 static int height = 0, width = 0;
 unsigned int currentLine = 0;
+
+
+
+
+static void tft_printTextToPos(int x, int y, int fontsize, const char *txt, u_int16_t colourText);
+static  void tft_prinBlock(int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value);
+
 
 void tft_init()
 {
@@ -51,14 +58,12 @@ void tft_init()
         tft.setCursor(10 * jj, (jj * 10) + 60, 4);
         tft.print("E-Harvester .....");
         if (jj > 1)
-            tft.setTextColor(TFT_BLUE);
+            tft.setTextColor(TFT_YELLOW);
         // delay(3000);
     }
     delay(4000);
     tft.setTextColor(TFT_WHITE);
     tft_clearScreen();
-    /*  tft.setRotation(0);
-     tft_clearScreen(); */
 }
 int8_t getPinName(int8_t pin, setup_t &user)
 {
@@ -154,11 +159,11 @@ void tft_clearScreen()
 {
     tft.fillRect(0, 0, width, height, TFT_BLACK); // Bild ausschalten
     currentLine = 0;
-    tft.setTextColor(TFT_GREEN);
+   
     int offset = (width - (strlen(HEADER) * FONT_WIDTH)) / 2;
-    tft_printTxt(offset, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, HEADER);
+    tft_printTextToPos(offset, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, HEADER,TFT_GREEN);
     // tft_printInfo(HEADER);
-    tft.setTextColor(TFT_WHITE);
+   
     ++currentLine;
     /* DBGf("Clear screen ");
     delay(4000); */
@@ -181,13 +186,13 @@ void tft_print_txt(int num, ...)
     {
         msg = va_arg(valist, char *);
 
-        /*  tft_printTxt(0, 0, FONTSIZE_2, (const char *)"Init Network ... ");
+        /*  tft_printTextToPos(0, 0, FONTSIZE_2, (const char *)"Init Network ... ");
          if (i == 1)
          {
              tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
          } */
         DBGf("          ::::tft_print_txt: %d,  text: %s", currentLine, msg);
-        tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, (const char *)msg);
+        tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, (const char *)msg,TFT_WHITE);
     }
     va_end(valist);
 }
@@ -201,12 +206,12 @@ void tft_showAvailableNetworks(int num, ...)
     {
         msg = va_arg(valist, char *);
 
-        /*    tft_printTxt(0, 0, FONTSIZE_2, (const char *)"Init Network ... ");
+        /*    tft_printTextToPos(0, 0, FONTSIZE_2, (const char *)"Init Network ... ");
            if (i == 1)
            {
                tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
            } */
-        tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, msg);
+        tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, msg,TFT_WHITE);
     }
     va_end(valist);
 }
@@ -233,7 +238,7 @@ void tft_printInfo(const char *txt, bool newLine)
 {
     if (!newLine)
         tft.fillRect(0, FONTSIZE_2_ONE_LINE * currentLine, width, FONTSIZE_2_ONE_LINE, TFT_BLACK);
-    tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, txt);
+    tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, txt,TFT_WHITE);
     if (newLine)
         currentLine++;
 }
@@ -247,23 +252,18 @@ void tft_printKeyValue(const char *key, const char *value, char valAsAlarm)
 {
     // DBGf("          ::::tft_printKeyValue: %d,  text: %s", currentLine, key);
 
-    tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key);
+    tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key,TFT_WHITE);
     if (valAsAlarm == ALARM_)
         tft.setTextColor(TFT_RED);
     else if (valAsAlarm == DONE_)
         tft.setTextColor(TFT_GREEN);
     else
         tft.setTextColor(TFT_WIDTH);
-    tft_printTxt(tft.getCursorX() + 10, FONTSIZE_2_ONE_LINE * (currentLine++), FONTSIZE_2, value);
+    tft_printTextToPos(tft.getCursorX() + 10, FONTSIZE_2_ONE_LINE * (currentLine++), FONTSIZE_2, value,TFT_SKYBLUE);
     tft.setTextColor(TFT_WIDTH);
 }
 
-void tft_printTxt(int x, int y, int fontsize, const char *txt)
-{
 
-    tft.setCursor(x, y, fontsize);
-    tft.print(txt);
-}
 
 uint16_t screendisplayBufferfer[TFT_WIDTH * TFT_HEIGHT]; // Speicher für Bildschirminhalt
 
@@ -292,21 +292,30 @@ void displayErrorMessage(const char *message)
 {
     if (!newLine)
         tft.fillRect(0, FONTSIZE_2_ONE_LINE * currentLine, width, FONTSIZE_2_ONE_LINE, TFT_BLACK);
-    tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, txt);
+    tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, txt);
     if (newLine)
         currentLine++;
 } */
 
-void tft_prinBlock(int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value)
+
+static inline void tft_printTextToPos(int x, int y, int fontsize, const char *txt, u_int16_t colourText)
+{
+    tft.setTextColor(colourText);
+    tft.setCursor(x, y, fontsize);
+    tft.print(txt);
+}
+
+static inline void tft_prinBlock(int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value)
 {
 
-    tft_printTxt(offsetX1, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key);
+    //DBGf("tft_printBlock, textC: %x", txtColor);
+    tft_printTextToPos(offsetX1, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key,TFT_WHITE);
     tft.fillRect(offsetX2, tft.getCursorY(), width - tft.getCursorX(), FONTSIZE_2_ONE_LINE, TFT_BLACK);
-    if (txtColor != TFT_WHITE)
-        tft.setTextColor(txtColor);
-    tft_printTxt(offsetX2, FONTSIZE_2_ONE_LINE * (currentLine), FONTSIZE_2, value);
-    if (txtColor != TFT_WHITE)
-        tft.setTextColor(TFT_WHITE);
+
+    //tft.setTextColor(txtColor);
+    tft_printTextToPos(offsetX2, FONTSIZE_2_ONE_LINE * (currentLine), FONTSIZE_2, value,txtColor);
+
+    //tft.setTextColor(TFT_WHITE);
 }
 
 static char displayBuffer[50];
@@ -320,17 +329,18 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
 
     char formatBuffer[25]; // format W | kW
     u_int16_t txtColor = TFT_WHITE;
-    tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur");
-    tft_printTxt(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie");
+    tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur", TFT_SKYBLUE);
+    ;
+    tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie", TFT_SKYBLUE);
     ++currentLine;
     sprintf(displayBuffer, "%.2f", temp.sensor1);
     tft_prinBlock(14, 75, txtColor, "Sensor 1", displayBuffer);
     // production LINE 1
     if (modb.inverterSumValues.data.acCurrentPower >= 0.0)
-        txtColor = TFT_RED;
+        txtColor = TFT_WHITE;
     else
-        txtColor = TFT_GREEN,
-        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.inverterSumValues.data.acCurrentPower, formatBuffer));
+        txtColor = TFT_GREEN;
+    sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.inverterSumValues.data.acCurrentPower, formatBuffer));
     tft_prinBlock(148, 230, txtColor, "Produktion", displayBuffer);
     ++currentLine;
 
@@ -339,25 +349,26 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     tft_prinBlock(14, 75, txtColor, "Sensor 2", displayBuffer);
 
     // smart meter delivers sometimes not valid values like -32456 W einspeisung (!!)
-          if (modb.meterValues.data.acCurrentPower<0.0 &&  (modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower > 0))
+    if (modb.meterValues.data.acCurrentPower > 0.0 || (modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower > 0))
     {
-        DBGf("tftInfo - in");
+        DBGf("=======================>>>============tftInfo - in");
         if (modb.meterValues.data.acCurrentPower > 0.0)
             txtColor = TFT_RED;
         else
-            txtColor = TFT_GREEN,
+            txtColor = TFT_GREEN;
 
-            sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.meterValues.data.acCurrentPower, formatBuffer));
+        sprintf(displayBuffer, "%s, txtColor: %x", util_format_Watt_kWatt(modb.meterValues.data.acCurrentPower, formatBuffer), txtColor);
+        DBGf("=======================>>>============einspeiseTarif: %.2f  --- %s", modb.meterValues.data.acCurrentPower, displayBuffer);
         tft_prinBlock(148, 230, txtColor, "Einspeisung", displayBuffer);
         ++currentLine;
 
         // LINE 3
-        if (modb.inverterSumValues.data.acCurrentPower > 0.0)
+        if (modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower > 0.0)
             txtColor = TFT_RED;
         else
-            txtColor = TFT_GREEN,
+            txtColor = TFT_GREEN;
 
-            sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower, formatBuffer));
+        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower, formatBuffer));
         tft_prinBlock(148, 230, txtColor, "Verbrauch", displayBuffer);
         // LINE 3
         sprintf(displayBuffer, "%.2f", modb.meterValues.data.acTotalEnergyImp);
@@ -365,9 +376,9 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
 
     currentLine += 2;
 
-    
-
-    tft_printInfo("Speicher");
+    tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Speicher", TFT_SKYBLUE);
+    ;
+    tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Pufferspeicher", TFT_SKYBLUE);
 
     currentLine = saveCurLine;
 }

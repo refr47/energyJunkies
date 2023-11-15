@@ -4,7 +4,7 @@
 
 #include "utils.h"
 #include "eprom.h"
-#include "tft.h"
+//#include "tft.h"
 
 // https://randomnerdtutorials.com/esp32-save-data-permanently-preferences/#example2
 
