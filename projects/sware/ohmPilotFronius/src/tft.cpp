@@ -3,7 +3,7 @@
 #include "debugConsole.h"
 #include "tft.h"
 #include "img/wlanPic24.h"
-
+#include "utils.h"
 /*
 
     fontsize: 4
@@ -19,7 +19,7 @@
 #define FONTSIZE_2_ONE_LINE FONTSIZE_2 * 6
 #define HEADER "Energie-Junkies"
 #define FONT_WIDTH 7
-
+// #include <User_Setups/Setup206_LilyGo_T_Display_S3.h>
 static TFT_eSPI tft = TFT_eSPI();
 static int height = 0, width = 0;
 unsigned int currentLine = 0;
@@ -137,10 +137,6 @@ void tft_printSetup()
 #endif
 }
 
-TFT_eSPI &tft_getRoot()
-{
-    return tft;
-}
 int tft_getHeight()
 {
     return height;
@@ -148,6 +144,10 @@ int tft_getHeight()
 int tft_getWidth()
 {
     return width;
+}
+TFT_eSPI &tft_getRoot()
+{
+    return tft;
 }
 
 void tft_clearScreen()
@@ -243,13 +243,19 @@ void tft_setCursor(int x, int y, int fontsize)
     tft.setCursor(x, y, fontsize);
 }
 
-void tft_printKeyValue(const char *key, const char *value)
+void tft_printKeyValue(const char *key, const char *value, char valAsAlarm)
 {
     // DBGf("          ::::tft_printKeyValue: %d,  text: %s", currentLine, key);
 
     tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key);
-
+    if (valAsAlarm == ALARM_)
+        tft.setTextColor(TFT_RED);
+    else if (valAsAlarm == DONE_)
+        tft.setTextColor(TFT_GREEN);
+    else
+        tft.setTextColor(TFT_WIDTH);
     tft_printTxt(tft.getCursorX() + 10, FONTSIZE_2_ONE_LINE * (currentLine++), FONTSIZE_2, value);
+    tft.setTextColor(TFT_WIDTH);
 }
 
 void tft_printTxt(int x, int y, int fontsize, const char *txt)
@@ -259,16 +265,16 @@ void tft_printTxt(int x, int y, int fontsize, const char *txt)
     tft.print(txt);
 }
 
-uint16_t screenBuffer[TFT_WIDTH * TFT_HEIGHT]; // Speicher für Bildschirminhalt
+uint16_t screendisplayBufferfer[TFT_WIDTH * TFT_HEIGHT]; // Speicher für Bildschirminhalt
 
 void backupScreen()
 {
-    tft.readRect(0, 0, width, height, screenBuffer); // Bildschirminhalt in den Speicher kopieren
+    tft.readRect(0, 0, width, height, screendisplayBufferfer); // Bildschirminhalt in den Speicher kopieren
 }
 
 void restoreScreen()
 {
-    tft.pushRect(0, 0, width, height, screenBuffer); // Bildschirminhalt vom Speicher auf den Bildschirm kopieren
+    tft.pushRect(0, 0, width, height, screendisplayBufferfer); // Bildschirminhalt vom Speicher auf den Bildschirm kopieren
 }
 
 void displayErrorMessage(const char *message)
@@ -291,60 +297,76 @@ void displayErrorMessage(const char *message)
         currentLine++;
 } */
 
-void tft_prinBlock(int offsetX1, int offsetX2, bool &alert, const char *key, const char *value)
+void tft_prinBlock(int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value)
 {
 
     tft_printTxt(offsetX1, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key);
     tft.fillRect(offsetX2, tft.getCursorY(), width - tft.getCursorX(), FONTSIZE_2_ONE_LINE, TFT_BLACK);
-    if (alert)
-        tft.setTextColor(TFT_RED);
+    if (txtColor != TFT_WHITE)
+        tft.setTextColor(txtColor);
     tft_printTxt(offsetX2, FONTSIZE_2_ONE_LINE * (currentLine), FONTSIZE_2, value);
-    if (alert)
+    if (txtColor != TFT_WHITE)
         tft.setTextColor(TFT_WHITE);
 }
 
-static char buf[50];
+static char displayBuffer[50];
+
 static int saveCurLine;
 
 void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
 {
 
     saveCurLine = currentLine;
-    bool setAlert = false;
+
+    char formatBuffer[25]; // format W | kW
+    u_int16_t txtColor = TFT_WHITE;
     tft_printTxt(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur");
     tft_printTxt(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie");
     ++currentLine;
-    sprintf(buf, "%.2f", temp.sensor1);
-    tft_prinBlock(14, 75, setAlert, "Sensor 1", buf);
-    if (modb.meterValues.data.acCurrentPower >= 0.0)
-    {
+    sprintf(displayBuffer, "%.2f", temp.sensor1);
+    tft_prinBlock(14, 75, txtColor, "Sensor 1", displayBuffer);
+    // production LINE 1
+    if (modb.inverterSumValues.data.acCurrentPower >= 0.0)
+        txtColor = TFT_RED;
+    else
+        txtColor = TFT_GREEN,
+        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.inverterSumValues.data.acCurrentPower, formatBuffer));
+    tft_prinBlock(148, 230, txtColor, "Produktion", displayBuffer);
+    ++currentLine;
 
-        setAlert = true;
+    // sensor 2 + Einspeisung/verbrauch LINE 2
+    sprintf(displayBuffer, "%.2f", temp.sensor2);
+    tft_prinBlock(14, 75, txtColor, "Sensor 2", displayBuffer);
+
+    // smart meter delivers sometimes not valid values like -32456 W einspeisung (!!)
+          if (modb.meterValues.data.acCurrentPower<0.0 &&  (modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower > 0))
+    {
+        DBGf("tftInfo - in");
+        if (modb.meterValues.data.acCurrentPower > 0.0)
+            txtColor = TFT_RED;
+        else
+            txtColor = TFT_GREEN,
+
+            sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.meterValues.data.acCurrentPower, formatBuffer));
+        tft_prinBlock(148, 230, txtColor, "Einspeisung", displayBuffer);
+        ++currentLine;
+
+        // LINE 3
+        if (modb.inverterSumValues.data.acCurrentPower > 0.0)
+            txtColor = TFT_RED;
+        else
+            txtColor = TFT_GREEN,
+
+            sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower, formatBuffer));
+        tft_prinBlock(148, 230, txtColor, "Verbrauch", displayBuffer);
+        // LINE 3
+        sprintf(displayBuffer, "%.2f", modb.meterValues.data.acTotalEnergyImp);
     }
 
-    DBGf("ALERT: %x", setAlert);
-    sprintf(buf, "%.2f", modb.meterValues.data.acCurrentPower);
-
-    tft_prinBlock(148, 230, setAlert, "Produktion", buf);
-    ++currentLine;
-    sprintf(buf, "%.2f", temp.sensor2);
-    tft_prinBlock(14, 75, setAlert, "Sensor 2", buf);
-    sprintf(buf, "%.2f", modb.meterValues.data.acTotalEnergyExp);
-    tft_prinBlock(148, 230, setAlert, "Einspeisung", buf);
-    ++currentLine;
-    sprintf(buf, "%.2f", modb.meterValues.data.acTotalEnergyImp);
-    tft_prinBlock(148, 230, setAlert, "Bezug", buf);
     currentLine += 2;
-    /*   tft_printInfo("Energie");
-      DBGf("currentBlock y %d", tft.getCursorY());
-      sprintf(buf, "%.2f", modb.meterValues.data.acCurrentPower);
-      tft_prinBlock("Aktuelle Produktion", buf);
-      sprintf(buf, "%.2f", modb.meterValues.data.acTotalEnergyExp);
-      tft_prinBlock("Aktuelle EInspeisung", buf);
-      sprintf(buf, "%.2f", modb.meterValues.data.acTotalEnergyImp);
-      tft_prinBlock("Aktueller Bezug", buf); */
-    tft_printInfo("Bufferspeicher");
-    sprintf(buf, "%.2f", modb.meterValues.data.acTotalEnergyImp);
+
+    
+
     tft_printInfo("Speicher");
 
     currentLine = saveCurLine;

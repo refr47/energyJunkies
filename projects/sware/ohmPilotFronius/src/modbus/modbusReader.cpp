@@ -114,7 +114,7 @@ bool isConnectedAndReconnect()
     {
         success = mb.connect(remote);
         delay(1000);
-        DBGf("modbus do connect .... %x",success);
+        DBGf("modbus do connect .... %x", success);
 
         if (!success)
         {
@@ -187,7 +187,7 @@ bool mb_readInverterStatic()
         makeString(offset, offset + MODBUS_INVERTER_SW_VERS, inverterRegs, &pText);
 
         DBGf("W-Version:: %s", pText);
-        }
+    }
     else
     {
         DBGf("transid is 0");
@@ -223,8 +223,8 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         if (transId == 0)
         {
             DBGf("Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", regsToRead[readIndex].deviceId,
-                    regsToRead[readIndex].baseAddr, regsToRead[readIndex].count);
-            
+                 regsToRead[readIndex].baseAddr, regsToRead[readIndex].count);
+
             delay(5000);
             //    } else {
             //      Serial.println("Modbus/TCP register read succeeded");
@@ -233,11 +233,11 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
     else
     {
         bool success = mb.connect(remote); // Try to connect if no connection
-        //Serial.println(success ? F("Successfully connected to Modbus server") : F("Failed to connect to Modbus server"));
+        // Serial.println(success ? F("Successfully connected to Modbus server") : F("Failed to connect to Modbus server"));
 
         if (success)
         {
-           DBGf("Modbus read susccessfully ...");
+            DBGf("Modbus read susccessfully ...");
         }
         else
             return false;
@@ -249,19 +249,21 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         text[0] = '\0';                    // reset text to empty
         switch (regsToRead[readIndex].blockId)
         {
+
+        case INVERTER_SUM_BLOCK_ID:
+            // inverterSumValues.data.acCurrentPower : produktion
+            scaleValues(inverterSumValues.value, resArr[readIndex], scaleInverterSum, INVERTER_SUM_VALUE_LEN);
+            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", inverterSumValues.data.acCurrentPower,
+                    inverterSumValues.data.acTotalEnergy, inverterSumValues.data.dcCurrentPower);
+            memcpy(&container.inverterSumValues.data, &inverterSumValues.data, sizeof(inverterSumValues.data));
+            
         case METER_BLOCK_ID:
+            // meterValues.data.acCurrentPower : aktuelle einspeisung (-), Bezug: +
             scaleValues(meterValues.value, resArr[readIndex], scaleMeter, METER_VALUE_LEN);
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", meterValues.data.acCurrentPower,
                     meterValues.data.acTotalEnergyExp, meterValues.data.acTotalEnergyImp);
             memcpy(&container.meterValues.data, &meterValues.data, sizeof(meterValues.data));
             break;
-        case INVERTER_SUM_BLOCK_ID:
-
-            scaleValues(inverterSumValues.value, resArr[readIndex], scaleInverterSum, INVERTER_SUM_VALUE_LEN);
-            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", inverterSumValues.data.acCurrentPower,
-                    inverterSumValues.data.acTotalEnergy, inverterSumValues.data.dcCurrentPower);
-            memcpy(&container.inverterSumValues.data, &inverterSumValues.data, sizeof(inverterSumValues.data));
-
         case AKKU_STATE_BLOCK_ID:
             scaleValues(inverterStateValues.value, resArr[readIndex], scaleInverterState, INVERTER_STATE_VALUE_LEN);
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;", inverterStateValues.data.capacity,
@@ -281,9 +283,14 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         }
         if (text[0] != '\0')
         {
-            DBGf("Index: %d , text: %s", readIndex, text);
+            DBGf("===== Index: [%d] , data: %s", readIndex, text);
             text[0] = '\0';
         }
+        else
+        {
+            DBGf(" !!!!!!!! Modbus index: %d:", readIndex);
+        }
+
         // make a line feed at the last block
         if (readIndex == REG_BLOCK_COUNT - 1)
         {

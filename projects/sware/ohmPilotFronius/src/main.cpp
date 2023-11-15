@@ -115,8 +115,8 @@ void setup()
 
     tft_printSetup();
 
-    int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
-    DBGf("Interal button: %d", currentState);
+    /*  int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
+     DBGf("Interal button: %d", currentState); */
 
     /* uint32_t cpu_freq = esp_clk_cpu_freq();
     DBG(" CPU freq: ");
@@ -180,7 +180,7 @@ void setup()
             if (counter == 5)
             {
                 tft_printInfo("", true);
-                tft_printInfo("Scanning WiFi ..", true);
+                tft_printInfo("Scanning WiFi ..");
                 break;
             }
         }
@@ -210,46 +210,50 @@ void setup()
             return;
         }
         tft_printInfo("       ");
-        tft_printInfo("Init Time:ok ");
+        tft_printKeyValue("Init Time", "OK", DONE_);
         time_init(); // init time
 
         if (cardRW_setup(false, false))
         {
             cardWriterOK = true;
-            tft_printInfo("Init CardReader: ok ");
+            tft_printKeyValue("Init CardReader", "OK", DONE_);
+
             logging_init();
-            test_cardReader();
+            // test_cardReader();
         }
         else
         {
             DBGf("Logging to file cannot be initiated ...");
-            tft_printInfo("Init CardReader: false ");
+            tft_printKeyValue("Init CardReader", "Error", ALARM_);
         }
 
         if (temp_init())
         { // temperature
-            tft_printInfo("Init Sensors: ok ");
+
+            tft_printKeyValue("Init Sensors", "OK", DONE_);
         }
         else
         {
-            tft_printInfo("Init temparature:false ");
+
+            tft_printKeyValue("Init Sensors", "Error", ALARM_);
         }
         DBGf("Setup modbus ...");
         tft_printInfo("Init Modbus ");
         if (!mb_init(setupData))
         {
             DBGf("Cannot initialize modbus ....");
-            tft_printInfo("Init mdobus: false");
+            tft_printKeyValue("Init mdobus", "Error", ALARM_);
         }
         else
         {
-            tft_printInfo("Init mdobus: ok");
+
+            tft_printKeyValue("Init mdobus", "ok", DONE_);
         }
         memset(&modbusData, 0, sizeof(modbusData));
         /*  if (!mb_readInverterStatic())
              DBGf("Error in Reading modbus"); */
         DBGf("Setup PID-Controller");
-        tft_printInfo("Init PID-Manager: ok ");
+        tft_printKeyValue("Init PID-Manager", "ok", DONE_);
         pidPinManager.config(setupData);
     }
     if (networkOK)
@@ -261,6 +265,7 @@ void setup()
 }
 
 static unsigned long currentMillis = millis();
+static char formatBuffer[25];
 
 void loop()
 {
@@ -285,23 +290,36 @@ void loop()
     if (currentMillis - previousMillModbus > MODBUS_INTERVALL)
     {
         mb_readInverterDynamic(setupData, modbusData);
-        DBGf("EXport in W: %d", modbusData.meterValues.data.acTotalEnergyExp);
-        ESP_LOGI(TAG, "Available power in W: %f8.0", modbusData.meterValues.data.acCurrentPower);
-        previousMillModbus = currentMillis;
-        pidContainer.mCurrentPower = (int)(modbusData.meterValues.data.acCurrentPower + 0.5);
-        DBGf(", int: %d", pidContainer.mCurrentPower);
+       memset(formatBuffer,0,25);
+        util_format_Watt_kWatt(modbusData.inverterSumValues.data.acCurrentPower,formatBuffer);
+        DBGf("Produktion %s", formatBuffer);
 
-        if (pidContainer.mCurrentPower < 0) // energy export
+        DBGf("EXport %s", util_format_Watt_kWatt(modbusData.meterValues.data.acCurrentPower,formatBuffer) );
+
+        if (modbusData.meterValues.data.acCurrentPower<0.0 &&  (modbusData.inverterSumValues.data.acCurrentPower  + modbusData.meterValues.data.acCurrentPower > 0))
+
         {
-            pidContainer.mCurrentPower = pidContainer.mCurrentPower * -1;
-            pidPinManager.task(setupData, pidContainer);
+            DBGf("Wrong meter value !");
         }
         else
         {
-            pidContainer.mCurrentPower = 4;
-            pidPinManager.task(setupData, pidContainer);
+           DBGf("Verbrauch in W: %s",util_format_Watt_kWatt( modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower,formatBuffer));
+            pidContainer.mCurrentPower = (int)modbusData.meterValues.data.acCurrentPower + 0.5; // export!
+            DBGf(", int: %d", pidContainer.mCurrentPower);
+
+            if (pidContainer.mCurrentPower < 0) // energy export
+            {
+                pidContainer.mCurrentPower = pidContainer.mCurrentPower * -1;
+                pidPinManager.task(setupData, pidContainer);
+            }
+            else
+            {
+                pidContainer.mCurrentPower = 4;
+                pidPinManager.task(setupData, pidContainer);
+            }
+            tft_drawInfo(container, modbusData, pidContainer);
         }
-        tft_drawInfo(container, modbusData, pidContainer);
+        previousMillModbus = currentMillis;
     }
     if (currentMillis - previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {

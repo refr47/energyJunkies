@@ -220,3 +220,11 @@ void util_pHW()
 
     DBGf("Chip id: %s\n", chipId.c_str());
 }
+
+char   *util_format_Watt_kWatt(double val,char *formatBuf) {
+    if (fabs(val) / 1000.0 >= 0)
+        sprintf(formatBuf,"%.2lf kW",val/1000);
+    else
+         sprintf(formatBuf,"%.2lf W",val);
+    return formatBuf;
+}

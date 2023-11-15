@@ -141,10 +141,11 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
         ESP_LOGE(TAG, "SPIFFS Mount Failed");
-        tft_printInfo("Init Flash File: false");
+         tft_printKeyValue("Init Flash File", "Error", ALARM_);
+        
         return;
     }
-    tft_printInfo("Init Flash File: ok");
+     tft_printKeyValue("Init Flash File", "OK", DONE_);
     // listDir("/");
     if (ipAddr == NULL)
     {

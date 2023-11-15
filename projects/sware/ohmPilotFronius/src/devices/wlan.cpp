@@ -80,8 +80,7 @@ bool wifi_init(Setup &setup)
             break;
         default:
             DBG("[WiFi] WiFi Status: %x", WiFi.status());
-            tft_printInfo((char *)WiFi.status(), printNewLine);
-            sprintf(buf, "%s [%d]", (char *)WiFi.status(), WIFI_NUMBER_OF_TRIES - numberOfTries);
+            sprintf(buf, "%s [%d]", WiFi.status(), WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
             break;
         }
