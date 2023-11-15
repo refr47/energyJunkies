@@ -155,8 +155,11 @@ void tft_clearScreen()
     tft.fillRect(0, 0, width, height, TFT_BLACK); // Bild ausschalten
     currentLine = 0;
     tft.setTextColor(TFT_GREEN);
-    tft_printInfo(HEADER);
+    int offset = (width - (strlen(HEADER) * FONT_WIDTH)) / 2;
+    tft_printTxt(offset, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, HEADER);
+    // tft_printInfo(HEADER);
     tft.setTextColor(TFT_WHITE);
+    ++currentLine;
     /* DBGf("Clear screen ");
     delay(4000); */
 }
@@ -288,11 +291,11 @@ void displayErrorMessage(const char *message)
         currentLine++;
 } */
 
-void tft_prinBlock(int offsetX1, int offsetX2, bool alert, const char *key, const char *value)
+void tft_prinBlock(int offsetX1, int offsetX2, bool &alert, const char *key, const char *value)
 {
 
     tft_printTxt(offsetX1, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key);
-    tft.fillRect(tft.getCursorX(), tft.getCursorY(), width - tft.getCursorX(), FONTSIZE_2_ONE_LINE, TFT_BLACK);
+    tft.fillRect(offsetX2, tft.getCursorY(), width - tft.getCursorX(), FONTSIZE_2_ONE_LINE, TFT_BLACK);
     if (alert)
         tft.setTextColor(TFT_RED);
     tft_printTxt(offsetX2, FONTSIZE_2_ONE_LINE * (currentLine), FONTSIZE_2, value);
