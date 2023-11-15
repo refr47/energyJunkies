@@ -12,7 +12,7 @@
 #define WIFI_RECONNECT_FALSE "Not Connected"
 
 #define WIFI_TRY_DELAY 1000
-#define WIFI_NUMBER_OF_TRIES 30
+#define WIFI_NUMBER_OF_TRIES 7
 #define WIFI_RECONNECT_TRY_IN_INTERVALL 30000
 
 static unsigned long previousMillis = 0;
