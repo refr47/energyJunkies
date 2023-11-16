@@ -47,9 +47,9 @@ typedef struct mbContainer
 typedef struct pidContaienr
 {
 
-    int mCurrentPower;
+    double mCurrentPower;
     int mAnalogOut;
     int powerNotUseable; // power, die nicht verbraucht werden darf
-    bool pin1;
-    bool pin2;
+    int PID_PIN1;
+    int PID_PIN2;
 } PID_CONTAINER;

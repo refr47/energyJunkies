@@ -141,11 +141,11 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
         ESP_LOGE(TAG, "SPIFFS Mount Failed");
-         tft_printKeyValue("Init Flash File", "Error", ALARM_);
+         tft_printKeyValue("Init Flash File", "Error", TFT_RED);
         
         return;
     }
-     tft_printKeyValue("Init Flash File", "OK", DONE_);
+     tft_printKeyValue("Init Flash File", "OK", TFT_GREEN);
     // listDir("/");
     if (ipAddr == NULL)
     {
@@ -164,8 +164,9 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
         DBGf("WWW init server with ip: %s", ipAddr);
         tft_printInfo("Start WWW on:");
 
-        tft_printKeyValue("SSID", wlanAsClientSSID);
-        tft_printKeyValue("IP", ipAddr);
+        tft_printKeyValue("SSID", wlanAsClientSSID, TFT_WHITE);
+        tft_printKeyValue("IP", ipAddr,TFT_WHITE);
+         tft_printKeyValue("Init WWW", "ok", TFT_GREEN);
     }
 
     server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)

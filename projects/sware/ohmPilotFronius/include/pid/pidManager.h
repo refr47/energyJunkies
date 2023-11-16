@@ -4,6 +4,9 @@
 #include <PID_v1.h>
 #include "defines.h"
 
+
+
+
 enum OutputType
 {
     Analog,
@@ -75,7 +78,7 @@ class PinManager
 public:
     PinManager(int digOut1, int digOut2, int anOut);
     void config(Setup &setup);
-    int task(Setup &setup, PID_CONTAINER &pidContainer);
+    int task(Setup &setup, double currentPower);
 
     int getStateOfDigPin(short pin) // 0, 1
     {
@@ -84,6 +87,14 @@ public:
     int getStateOfAnaPin()
     {
         return mOuts[2].mValue;
+    }
+    double getCurrentPower()
+    {
+        return mCurrentPower;
+    }
+    double getReservedPower()
+    {
+        return mPidSetPoint;
     }
 
 private:

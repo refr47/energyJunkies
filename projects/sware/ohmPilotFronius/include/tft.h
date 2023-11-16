@@ -3,9 +3,7 @@
 #include "pin_config.h"
 #include "defines.h"
 
-#define NONE_ 0
-#define ALARM_ 1 
-#define DONE_  2
+
 
 void tft_init();
 void tft_printSetup();
@@ -15,10 +13,11 @@ int tft_getWidth();
 void tft_print_txt(int num, ...);
 void tft_showAvailableNetworks(int num, ...);
 void tft_drawNetworkInfo(char *ip, const char *essid);
-void tft_printKeyValue(const char *key, const char *value,char valAsAlarm=NONE_);
+void tft_printKeyValue(const char *key, const char *value,u_int16_t txtColor);
 void tft_setCursor(int x, int y, int fontsize = 4);
-//void tft_printTxt(int x, int y, int fontsize = 4, const char *txt, u_int16_t colourText=TFT_WHITE);
+
 void tft_printInfo(const char *txt, bool newLine = true);
-void tft_clearScreen();
+ void tft_clearScreen();
+ void tft_updateTime(char *curTime);
 void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC);
  

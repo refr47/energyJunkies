@@ -38,6 +38,9 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 #define TEMPERATURE_INTERVAL 5000UL // 5 secs
 #define MODBUS_INTERVALL 5000UL
 #define LOGGING_FLUSH_INTERVALL 60000
+#define CLOCK_INTERVALL 1000 // secs
+
+#define FORMAT_CHAR_BUFFER_LEN 35 // @see loop
 
 #ifndef TAG
 #define TAG "E-JUNKIES"
@@ -60,6 +63,9 @@ static const char *passW = "47754775";
 static unsigned long previousMillTemp = 0UL;
 static unsigned long previousMillModbus = 0UL;
 static unsigned long previousMillFlush = 0UL;
+static unsigned long currentMillis = millis();
+static unsigned long previousMillisClock = 0UL;
+
 static TEMPERATURE container;
 static MB_CONTAINER modbusData;
 static PID_CONTAINER pidContainer;
@@ -210,13 +216,13 @@ void setup()
             return;
         }
         tft_printInfo("       ");
-        tft_printKeyValue("Init Time", "OK", DONE_);
+        tft_printKeyValue("Init Time", "OK", TFT_GREEN);
         time_init(); // init time
 
         if (cardRW_setup(false, false))
         {
             cardWriterOK = true;
-            tft_printKeyValue("Init CardReader", "OK", DONE_);
+            tft_printKeyValue("Init CardReader", "OK", TFT_GREEN);
 
             logging_init();
             // test_cardReader();
@@ -224,36 +230,36 @@ void setup()
         else
         {
             DBGf("Logging to file cannot be initiated ...");
-            tft_printKeyValue("Init CardReader", "Error", ALARM_);
+            tft_printKeyValue("Init CardReader", "Error", TFT_RED);
         }
 
         if (temp_init())
         { // temperature
 
-            tft_printKeyValue("Init Sensors", "OK", DONE_);
+            tft_printKeyValue("Init Sensors", "OK", TFT_GREEN);
         }
         else
         {
 
-            tft_printKeyValue("Init Sensors", "Error", ALARM_);
+            tft_printKeyValue("Init Sensors", "Error", TFT_RED);
         }
         DBGf("Setup modbus ...");
         tft_printInfo("Init Modbus ");
         if (!mb_init(setupData))
         {
             DBGf("Cannot initialize modbus ....");
-            tft_printKeyValue("Init mdobus", "Error", ALARM_);
+            tft_printKeyValue("Init mdobus", "Error", TFT_RED);
         }
         else
         {
 
-            tft_printKeyValue("Init mdobus", "ok", DONE_);
+            tft_printKeyValue("Init mdobus", "ok", TFT_GREEN);
         }
         memset(&modbusData, 0, sizeof(modbusData));
         /*  if (!mb_readInverterStatic())
              DBGf("Error in Reading modbus"); */
         DBGf("Setup PID-Controller");
-        tft_printKeyValue("Init PID-Manager", "ok", DONE_);
+        tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
         pidPinManager.config(setupData);
     }
     if (networkOK)
@@ -264,8 +270,7 @@ void setup()
     ESP_LOGI(TAG, "Setup done - all components are working...");
 }
 
-static unsigned long currentMillis = millis();
-static char formatBuffer[25];
+static char formatBuffer[FORMAT_CHAR_BUFFER_LEN];
 
 void loop()
 {
@@ -276,6 +281,22 @@ void loop()
         return;
     }
     currentMillis = millis();
+
+    if (currentMillis - previousMillisClock > CLOCK_INTERVALL)
+    {
+        if (getCurrentTime(formatBuffer, FORMAT_CHAR_BUFFER_LEN))
+        {
+
+            tft_updateTime(formatBuffer);
+        }
+        else
+        {
+            tft_updateTime("00:00:00");
+        }
+
+        previousMillisClock = currentMillis;
+    }
+
     if (currentMillis - previousMillTemp > TEMPERATURE_INTERVAL)
     {
         time_print();
@@ -290,33 +311,54 @@ void loop()
     if (currentMillis - previousMillModbus > MODBUS_INTERVALL)
     {
         mb_readInverterDynamic(setupData, modbusData);
-       memset(formatBuffer,0,25);
-        util_format_Watt_kWatt(modbusData.inverterSumValues.data.acCurrentPower,formatBuffer);
+        memset(formatBuffer, 0, 25);
+        util_format_Watt_kWatt(modbusData.inverterSumValues.data.acCurrentPower, formatBuffer);
         DBGf("Produktion %s", formatBuffer);
 
-        DBGf("EXport %s", util_format_Watt_kWatt(modbusData.meterValues.data.acCurrentPower,formatBuffer) );
+        DBGf("EXport %s", util_format_Watt_kWatt(modbusData.meterValues.data.acCurrentPower, formatBuffer));
 
-        if (modbusData.meterValues.data.acCurrentPower<0.0 &&  (modbusData.inverterSumValues.data.acCurrentPower  + modbusData.meterValues.data.acCurrentPower < 0))
+        if (modbusData.meterValues.data.acCurrentPower < 0.0 && (modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower < 0))
 
         {
             DBGf("Wrong meter value !");
         }
         else
         {
-           DBGf("Verbrauch in W: %s",util_format_Watt_kWatt( modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower,formatBuffer));
-            pidContainer.mCurrentPower = (int)modbusData.meterValues.data.acCurrentPower + 0.5; // export!
-            //DBGf(", int: %d", pidContainer.mCurrentPower);
+            // memset(&pidContainer, 0, sizeof(pidContaienr));
 
-            if (pidContainer.mCurrentPower < 0) // energy export
+            DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower, formatBuffer));
+            pidContainer.mCurrentPower = modbusData.meterValues.data.acCurrentPower; // export energy
+            // DBGf(", int: %d", pidContainer.mCurrentPower);
+            // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
+            DBGf("after 1");
+            pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5;
+            DBGf("after 2");
+            pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
+            DBGf("after 3");
+            pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
+            DBGf("after 4");
+            pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+            DBGf("after 5");
+
+            if (pidContainer.mCurrentPower < 0.0) // energy export
             {
-                pidContainer.mCurrentPower = pidContainer.mCurrentPower * -1;
-                pidPinManager.task(setupData, pidContainer);
+                DBGf("< 0, 1 %.2lf", pidContainer.mCurrentPower);
+                pidContainer.mCurrentPower = 1.00 - pidContainer.mCurrentPower;
+                DBGf("< 0, 1 -----");
+                pidPinManager.task(setupData, pidContainer.mCurrentPower);
+                DBGf("< 0, 2");
             }
             else
             {
-                pidContainer.mCurrentPower = 4;
-                pidPinManager.task(setupData, pidContainer);
+                DBGf("< 1, 1");
+                DBGf(" %.2lf", pidContainer.mCurrentPower);
+                pidContainer.mCurrentPower = 4.0;
+                DBGf("< 1, 1 ----");
+                //pidPinManager.task(setupData, pidContainer.mCurrentPower);
+                DBGf("< 1, 2");
             }
+            // DBGf(" PID  mCurrPower (W): %.2lf, notUseable: %.2lf anaOutput(PWM) %.2lf,  Dig1: %x, Dig2: %x", pidContainer.mCurrentPower, pidContainer.mAnalogOut, pidContainer.powerNotUseable, pidContainer.PID_PIN1, pidContainer.PID_PIN2);
+            DBGf("after 6");
             tft_drawInfo(container, modbusData, pidContainer);
         }
         previousMillModbus = currentMillis;
@@ -338,7 +380,7 @@ void loop()
         /*
         mb_readInverter();
         */
-       
+
         //  cardRW_setup();
         //  test_cardReader();
         //  temp_init();

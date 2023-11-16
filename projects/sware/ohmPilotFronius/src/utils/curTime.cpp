@@ -100,6 +100,17 @@ bool time_print()
     return true;
 }
 
+bool getCurrentTime(char *buffer,const unsigned len) {
+      struct tm timeinfo;
+    if (!getLocalTime(&timeinfo))
+    {
+        
+        return false;
+    }
+    strftime (buffer,len,"%F  %T",&timeinfo);
+    return true;
+
+}
 bool time_storeCurrentTime()
 {
     if (!getLocalTime(&currentTime))

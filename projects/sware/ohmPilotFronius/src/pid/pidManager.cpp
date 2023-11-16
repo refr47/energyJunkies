@@ -39,6 +39,7 @@ PinManager::PinManager(int digOut1, int digOut2, int anOut)
     mPid.SetMode(AUTOMATIC);
     mPid.SetOutputLimits(OUTPUT_MIN, OUTPUT_MAX);
     mPid.SetSampleTime(50);
+
 }
 void PinManager::config(Setup &setup)
 {
@@ -48,7 +49,7 @@ void PinManager::config(Setup &setup)
      TARGET_POWER = setup.pid_targetPowerInWatt; */
     mPidSetPoint = setup.pid_targetPowerInWatt;
 }
-int PinManager::task(Setup &setup, PID_CONTAINER &pidContainer)
+int PinManager::task(Setup &setup, double currentP)
 {
     if (setup.pidChanged)
     {
@@ -56,21 +57,25 @@ int PinManager::task(Setup &setup, PID_CONTAINER &pidContainer)
         DBGf("PID Params changed / updated");
         setup.pidChanged = false;
     }
-    mCurrentPower = pidContainer.mCurrentPower;
-    DBGf("Power: %f", mCurrentPower);
+    Serial.println(" PinManager::task with o2 params");
+    //mCurrentPower = currentP;  // necessary ??
+    //mCurrentPower = pidContainer.mCurrentPower;
 
     mPid.Compute();
+    DBGf("--- 1");
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
-
+DBGf("--- 2");
     // turn on digital output if power suffices
     if (mCurrentPower > mPidSetPoint && mAnalogOut > OUTPUT_MAX - 1)
     {
+        DBGf("--- 3");
         if (millis() - mDelayDigOutOn > setup.pid_min_time_without_contoller_inMS)
         {
             for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
             {
                 if (!mOuts[i].isDigOn())
                 {
+                    DBGf("--- 4");
                     mOuts[i].setValue(1);
                     mDelayDigOutOn = millis(); // delay next output
                     break;                     // do not turn on the next output
@@ -80,17 +85,20 @@ int PinManager::task(Setup &setup, PID_CONTAINER &pidContainer)
     }
     else
     {
+        DBGf("--- 5");
         mDelayDigOutOn = millis();
     }
     // turn off digital output if power is low
     if (mCurrentPower < mPidSetPoint && mAnalogOut < OUTPUT_MIN + 1 && millis() - mDelayDigOutOff > setup.pid_min_time_before_switch_off_channel_inMS)
     {
+        DBGf("--- 6");
         for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
         {
             if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
             {
                 mOuts[i].setValue(0);
                 mDelayDigOutOff = millis();
+                DBGf("--- 7");
                 break; // do not turn off the next output
             }
         }
@@ -98,12 +106,12 @@ int PinManager::task(Setup &setup, PID_CONTAINER &pidContainer)
 
     // dbg("power:");
     // dbg(power);
-    DBGf("   PID  mCurrPower (W): %f, anaOutput(PWM) %f, Einspeisung: %d, Dig1: %x, Dig2: %x", mCurrentPower, mAnalogOut, mPidSetPoint, mOuts[id_DIG_PIN_1].isDigOn(), mOuts[id_DIG_PIN_2].isDigOn());
-    pidContainer.mCurrentPower=mCurrentPower;
+    DBGf("  !!!!!!!! PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, Einspeisung: %d, Dig1: %s, Dig2: %s", mCurrentPower, mAnalogOut, mPidSetPoint, mOuts[id_DIG_PIN_1].isDigOn(), mOuts[id_DIG_PIN_2].isDigOn());
+  /*   pidContainer.mCurrentPower=mCurrentPower;
     pidContainer.mAnalogOut=mAnalogOut;
     pidContainer.powerNotUseable=mPidSetPoint;
-    pidContainer.pin1 = mOuts[id_DIG_PIN_1].isDigOn();
-    pidContainer.pin2 = mOuts[id_DIG_PIN_2].isDigOn();
+    pidContainer.PID_PIN1 = mOuts[id_DIG_PIN_1].isDigOn();
+    pidContainer.PID_PIN2 = mOuts[id_DIG_PIN_2].isDigOn(); */
 
     return 0;
 }
