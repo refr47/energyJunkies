@@ -366,7 +366,7 @@ void loop()
             pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
             pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
 
-            if (!alarmTemp)
+           if (!alarmContainer.alarmTemp.alarmTemp)
             {
 
                 if (pidContainer.mCurrentPower < 0.0) // energy export
