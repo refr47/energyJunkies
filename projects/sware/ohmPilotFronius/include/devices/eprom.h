@@ -26,3 +26,10 @@ void eprom_getSetup(Setup &setup);
 void eprom_test_write_Eprom(const char *, const char *);
 void eprom_test_read_Eprom();
 void eprom_show(Setup &setup);
+
+void eprom_clearLifeData();
+void eprom_getLifeData(LIFE_DATA &data);
+
+#define _LIFE_DATA "lifeD"
+#define _TEMP_LIMIT_REACHED "t"
+#define _HEATING_SWITCHED_ON_LAST_TIME "h"

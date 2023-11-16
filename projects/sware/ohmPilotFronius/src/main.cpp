@@ -48,6 +48,26 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 #define LOG_LEVEL ESP_LOG_INFO
 #define MY_ESP_LOG_LEVEL ESP_LOG_INFO
 
+typedef struct _ALARM_TEMPERATURE
+{
+    bool alarmTemp;
+    time_t overFlowHappenedAt;
+
+} ALARM_TEMPERATURE;
+
+typedef struct _ALARM_MODBUS
+{
+    bool avaiilable;
+    time_t notAvailableAt;
+
+} _ALARM_MODBUS;
+
+typedef struct _ALARM
+{
+    ALARM_TEMPERATURE alarmTemp;
+    _ALARM_MODBUS alarmModbus;
+} ALARM_CONTAINER;
+
 /* ****************************************************************************
   GLOBAL VARS
   ****************************************************************************
@@ -70,6 +90,8 @@ static TEMPERATURE container;
 static MB_CONTAINER modbusData;
 static PID_CONTAINER pidContainer;
 static Setup setupData;
+static LIFE_DATA lifeData;
+static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager(RELAY_L1, RELAY_L2, PWM_FOR_PID);
 
 /* **************************************************************************
@@ -130,6 +152,7 @@ void setup()
     uint32_t PRESCALE = 240; // for 240MHZ */
 
     // eprom_test_write_Eprom(wlanE, passW);
+    eprom_clearLifeData();
     eprom_getSetup(setupData);
     eprom_test_read_Eprom();
 
@@ -140,15 +163,7 @@ void setup()
     /* pinMode(INTERNAL_BUTTON_1_GPIO, INPUT_PULLUP);
     pinMode(INTERNAL_BUTTON_2_GPIO, INPUT_PULLUP);
     pinMode(PIN, OUTPUT); */
-    // delay(500);
-    // pHW();
-    //  digitalWrite(PIN, 0);
-    //  wifi_scan_network();
-    // tft_clearScreen();
-    // meterSim();
-    // eprom_test_write_Eprom(wlanE, passW);
-    /* DBGln(">>>>>>>>>>>eprom test");
-     */
+
     /*  eprom_test_write_Eprom(wlanE, passW);
      eprom_test_read_Eprom();
      DBGln(">>>>>>>>>>>eprom test end");
@@ -301,9 +316,25 @@ void loop()
     {
         time_print();
         temp_getTemperature(container);
-
+        /*
+        RELAY_L1, RELAY_L2, PWM_FOR_PID
+        */
         DBGf(" TEMP in Celsius, S1: %f, S2: %f", container.sensor1, container.sensor2);
-
+        if (!alarmContainer.alarmTemp.alarmTemp)
+        {
+            if (((int)(container.sensor1 + container.sensor2) / 2.0) > setupData.ausschaltTempInGradCel)
+            {
+                ESP_LOGE(TAG, "Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
+                pinMode(RELAY_L1, OUTPUT);
+                pinMode(RELAY_L2, OUTPUT);
+                pinMode(PWM_FOR_PID, OUTPUT);
+                digitalWrite(RELAY_L1, 0);
+                digitalWrite(RELAY_L2, 0);
+                analogWrite(PWM_FOR_PID, 0);
+                alarmContainer.alarmTemp.alarmTemp = true;
+                alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+            }
+        }
         previousMillTemp = currentMillis;
     }
     /* if (networkCredentialsInEEprom == false)
@@ -330,35 +361,32 @@ void loop()
             pidContainer.mCurrentPower = modbusData.meterValues.data.acCurrentPower; // export energy
             // DBGf(", int: %d", pidContainer.mCurrentPower);
             // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
-            DBGf("after 1");
-            pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5;
-            DBGf("after 2");
-            pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
-            DBGf("after 3");
-            pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
-            DBGf("after 4");
-            pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
-            DBGf("after 5");
 
-            if (pidContainer.mCurrentPower < 0.0) // energy export
+            pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5;
+            pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
+            pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+
+            if (!alarmTemp)
             {
-                DBGf("< 0, 1 %.2lf", pidContainer.mCurrentPower);
-                pidContainer.mCurrentPower = 1.00 - pidContainer.mCurrentPower;
-                DBGf("< 0, 1 -----");
-                pidPinManager.task(setupData, pidContainer.mCurrentPower);
-                DBGf("< 0, 2");
-            }
-            else
-            {
-                DBGf("< 1, 1");
-                DBGf(" %.2lf", pidContainer.mCurrentPower);
-                pidContainer.mCurrentPower = 4.0;
-                DBGf("< 1, 1 ----");
-                //pidPinManager.task(setupData, pidContainer.mCurrentPower);
-                DBGf("< 1, 2");
+
+                if (pidContainer.mCurrentPower < 0.0) // energy export
+                {
+                    DBGf("< 0, 1 %.2lf", pidContainer.mCurrentPower);
+                    pidContainer.mCurrentPower = 1.00 - pidContainer.mCurrentPower;
+
+                    pidPinManager.task(setupData, pidContainer.mCurrentPower);
+                }
+                else
+                {
+
+                    DBGf(" %.2lf", pidContainer.mCurrentPower);
+                    pidContainer.mCurrentPower = 4.0;
+
+                    pidPinManager.task(setupData, pidContainer.mCurrentPower);
+                }
             }
             // DBGf(" PID  mCurrPower (W): %.2lf, notUseable: %.2lf anaOutput(PWM) %.2lf,  Dig1: %x, Dig2: %x", pidContainer.mCurrentPower, pidContainer.mAnalogOut, pidContainer.powerNotUseable, pidContainer.PID_PIN1, pidContainer.PID_PIN2);
-            DBGf("after 6");
+
             tft_drawInfo(container, modbusData, pidContainer);
         }
         previousMillModbus = currentMillis;

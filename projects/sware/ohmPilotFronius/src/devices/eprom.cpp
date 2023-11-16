@@ -4,7 +4,7 @@
 
 #include "utils.h"
 #include "eprom.h"
-//#include "tft.h"
+// #include "tft.h"
 
 // https://randomnerdtutorials.com/esp32-save-data-permanently-preferences/#example2
 
@@ -122,7 +122,7 @@ static void printEprom(Setup &setup)
             setup.ssid, setup.passwd, setup.regelbereichHysterese, setup.ausschaltTempInGradCel, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_targetPowerInWatt, setup.pidChanged
 
     );
-    DBGf("%s",buffer);
+    DBGf("%s", buffer);
 }
 
 void eprom_test_read_Eprom()
@@ -135,4 +135,23 @@ void eprom_test_read_Eprom()
 void eprom_show(Setup &setup)
 {
     printEprom(setup);
+}
+
+/* *********************************  life data*/
+
+void eprom_clearLifeData()
+{
+    preferences.begin(_LIFE_DATA, false);
+    preferences.clear();
+    preferences.putULong64(_TEMP_LIMIT_REACHED, 0.0);            // timestamp
+    preferences.putULong64(_HEATING_SWITCHED_ON_LAST_TIME, 0.0); // timestamp
+
+    preferences.end();
+}
+
+void eprom_getLifeData(LIFE_DATA &data) {
+     preferences.begin(_LIFE_DATA, false);
+     data.heatingLastTime = preferences.getULong64(_TEMP_LIMIT_REACHED);
+     data.tempLimitReached= preferences.getULong64(_HEATING_SWITCHED_ON_LAST_TIME);
+
 }

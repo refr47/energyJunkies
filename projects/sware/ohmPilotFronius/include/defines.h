@@ -53,3 +53,10 @@ typedef struct pidContaienr
     int PID_PIN1;
     int PID_PIN2;
 } PID_CONTAINER;
+
+typedef struct _LIFE_DATA 
+{
+    long tempLimitReached;   // timestamp
+    long heatingLastTime;
+
+ } LIFE_DATA;

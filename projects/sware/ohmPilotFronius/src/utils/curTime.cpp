@@ -100,6 +100,11 @@ bool time_print()
     return true;
 }
 
+inline time_t time_getTimeStamp() {
+    return time(NULL);
+}
+
+
 bool getCurrentTime(char *buffer,const unsigned len) {
       struct tm timeinfo;
     if (!getLocalTime(&timeinfo))
