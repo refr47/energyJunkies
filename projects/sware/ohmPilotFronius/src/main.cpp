@@ -35,7 +35,8 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 #define INTERNAL_BUTTON_1_GPIO 0
 #define INTERNAL_BUTTON_2_GPIO 14
 
-#define TEMPERATURE_INTERVAL 5000UL // 5 secs
+#define TEMPERATURE_INTERVAL 5000UL             // 5 secs
+#define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
 #define MODBUS_INTERVALL 5000UL
 #define LOGGING_FLUSH_INTERVALL 60000
 #define CLOCK_INTERVALL 1000 // secs
@@ -138,7 +139,7 @@ void setup()
         ;
 
     DBGf("Energie-Junkies -- Harvester ---");
-    // test();
+    // test(); HeuteRegnetEsIn4775!!
     tft_init();
 
     tft_printSetup();
@@ -335,6 +336,25 @@ void loop()
                 alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
             }
         }
+        else
+        {
+            time_t currT = time_getTimeStamp();
+            double diffT = difftime(currT, alarmContainer.alarmTemp.overFlowHappenedAt); // in secs
+            if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
+            {
+                DBGf("TempLimit over %d °C , wait for next check in secs: %d", setupData.ausschaltTempInGradCel, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
+                if (((int)(container.sensor1 + container.sensor2) / 2.0) > setupData.ausschaltTempInGradCel)
+                {
+                    alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+                }
+                else
+                {
+                    alarmContainer.alarmTemp.alarmTemp = true;
+                    alarmContainer.alarmTemp.overFlowHappenedAt = 0;
+                    DBGf("TempLimit reset");
+                }
+            }
+        }
         previousMillTemp = currentMillis;
     }
     /* if (networkCredentialsInEEprom == false)
@@ -366,7 +386,7 @@ void loop()
             pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
             pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
 
-           if (!alarmContainer.alarmTemp.alarmTemp)
+            if (!alarmContainer.alarmTemp.alarmTemp)
             {
 
                 if (pidContainer.mCurrentPower < 0.0) // energy export

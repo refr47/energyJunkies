@@ -100,7 +100,7 @@ bool time_print()
     return true;
 }
 
-inline time_t time_getTimeStamp() {
+time_t time_getTimeStamp() {
     return time(NULL);
 }
 
