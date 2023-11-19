@@ -38,8 +38,8 @@
 #ifdef ESP_S3
 #define ONE_WIRE_TEMP_GPIO 5
 #define PWM_FOR_PID 1
-#define SWITCH_KEY_UP 43
-#define SWITCH_KEY_DOWN 44
+#define SWITCH_KEY_UP 21
+#define SWITCH_KEY_DOWN 22
 #define SWITCH_KEY_ESC 18
 #define SWITCH_KEY_ENTER 17
 #define RELAY_L1 16

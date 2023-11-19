@@ -131,6 +131,15 @@ void test_cardReader()
     cardRW_listDir("/", 3);
 }
 
+#ifdef EJ
+
+int s1_enter = 1;
+int s2_up = 1;
+int s3_down = 1;
+int s4_esc = 1;
+
+#endif
+
 void setup()
 {
 
@@ -144,6 +153,7 @@ void setup()
 
     tft_printSetup();
 
+#ifndef EJ
     /*  int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
      DBGf("Interal button: %d", currentState); */
 
@@ -284,12 +294,119 @@ void setup()
         tft_clearScreen();
     }
     ESP_LOGI(TAG, "Setup done - all components are working...");
+#else
+    ESP_LOGI(TAG, "Start testing...");
+
+    pinMode(SWITCH_KEY_ENTER, INPUT);
+    pinMode(SWITCH_KEY_UP, INPUT);
+    pinMode(SWITCH_KEY_DOWN, INPUT);
+    pinMode(SWITCH_KEY_ESC, INPUT);
+
+    pinMode(RELAY_L1, OUTPUT);
+    pinMode(RELAY_L2, OUTPUT);
+    pinMode(PWM_FOR_PID, OUTPUT);
+
+#endif
 }
 
 static char formatBuffer[FORMAT_CHAR_BUFFER_LEN];
 
+static int pwmValue = 0;
+static uint8_t l1 = false, l2 = false;
+static bool pressedEnter = false;
+
+static int s1_esc_prev = 1, s2_enter_prev = 1;
+
 void loop()
 {
+
+#ifdef EJ
+    s1_enter = digitalRead(SWITCH_KEY_ENTER);
+    /*    s2_up = digitalRead(SWITCH_KEY_UP);
+      s3_down = digitalRead(SWITCH_KEY_DOWN);  */
+    s4_esc = digitalRead(SWITCH_KEY_ESC);
+
+// https://webdav.htl-wels.at:4343/Lehrer/Lehrer/
+    // DBGf("S1 pressed: %x, S2(UP)pressed: %x, S3(DOWN) pressed: %x, S4(ESC)pressed :%x", s1_enter, s2_up, s3_down, s4_esc);
+    /*     if (s2_up == HIGH)
+        {
+            if (pwmValue < 250)
+                pwmValue += 5;
+            else
+                pwmValue = 255;
+        }
+        if (s3_down == HIGH)
+        {
+            if (pwmValue < 5)
+                pwmValue -= 5;
+            else
+                pwmValue = 0;
+        } */
+    if ((s4_esc == LOW) && (s1_esc_prev == 1))
+    {
+        delay(40);
+        s4_esc = digitalRead(SWITCH_KEY_ESC);
+        // DBGf("ENER s4, pwm: %d, l1: %x", pwmValue, l1);
+        if (s4_esc == LOW)
+        {
+            if (pwmValue < 250)
+                pwmValue += 5;
+            else
+                pwmValue = 255;
+            l1 = !l1;
+        }
+        s1_esc_prev = s4_esc;
+        // DBGf("exit s4, pwm: %d, l1: %x", pwmValue, l1);
+    }
+    if ((s1_enter == LOW) && (s2_enter_prev == 1))
+    {
+        delay(40);
+        s1_enter = digitalRead(SWITCH_KEY_ENTER);
+        //DBGf("ENtER s1-ENTER, pwm: %d, l2: %x", pwmValue, l2);
+        if (s1_enter == LOW)
+        {
+            if (pwmValue > 5)
+            {
+                pwmValue -= 5;
+                //DBGf("Reduced pwm to %d", pwmValue);
+            }
+
+            else
+            {
+                pwmValue = 0;
+                //DBGf("Set pwm to %d", pwmValue);
+            }
+
+            l2 = !l2;
+        }
+        s2_enter_prev = s1_enter;
+    }
+
+    currentMillis = millis();
+    if (currentMillis - previousMillisClock > CLOCK_INTERVALL)
+    {
+
+        analogWrite(PWM_FOR_PID, pwmValue);
+        s1_esc_prev = 1;
+        s2_enter_prev = 1;
+        sprintf(formatBuffer, "%d", CLOCK_INTERVALL);
+        tft_print_test(3, 15, 150, TFT_BLUE, "iNTERVALL IN MS", formatBuffer);
+        tft_print_test(4, 15, 150, TFT_BLUE, "Enter -", "ESC +");
+
+        sprintf(formatBuffer, "%d", pwmValue);
+        tft_print_test(5, 15, 100, TFT_GREEN, "PWM", formatBuffer);
+
+        digitalWrite(RELAY_L1, l1);
+        tft_print_test(6, 15, 100, TFT_GREEN, "L1", l1 == LOW ? "LOW" : "HIGH");
+        digitalWrite(RELAY_L2, l2);
+        tft_print_test(7, 15, 100, TFT_GREEN, "L2", l2 == LOW ? "LOW" : "HIGH");
+        DBGf("L1: %d  L2: %d    PWM: %d", l1, l2, pwmValue);
+        previousMillisClock = currentMillis;
+    }
+
+#endif
+
+#ifndef EJ
     if (!networkOK)
     {
         DBGf("Network does not work - no further task are available...");
@@ -443,4 +560,5 @@ void loop()
         DBG("internal bu: ");
         DBGln(currentState); */
     }
+#endif
 }

@@ -21,3 +21,7 @@ void tft_printInfo(const char *txt, bool newLine = true);
  void tft_updateTime(char *curTime);
 void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC);
  
+ #ifdef EJ
+void tft_print_test(int yLine, int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value);
+
+ #endif

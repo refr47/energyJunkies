@@ -326,6 +326,17 @@ static inline void tft_prinBlock(int offsetX1, int offsetX2, u_int16_t txtColor,
     // tft.setTextColor(TFT_WHITE);
 }
 
+
+#ifdef EJ
+
+void tft_print_test(int yLine, int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value) {
+    tft_printTextToPos(offsetX1, FONTSIZE_2_ONE_LINE * yLine, FONTSIZE_2, key, TFT_WHITE);
+    tft.fillRect(offsetX2, tft.getCursorY(), width - tft.getCursorX(), FONTSIZE_2_ONE_LINE, TFT_BLACK);
+
+    // tft.setTextColor(txtColor);
+    tft_printTextToPos(offsetX2, FONTSIZE_2_ONE_LINE * (yLine), FONTSIZE_2, value, txtColor);
+}
+#endif
 /*
  double capacity;            // storage capacity in Wh
     double chargeRateLimit;     // max. charge rate
