@@ -5,7 +5,6 @@
 #include "wlan.h"
 #include "defines.h"
 
-
 /*   DEFInES
  */
 #define WIFI_RECONNECT_START "Reconnect"
@@ -20,8 +19,11 @@ static unsigned long previousMillis = 0;
 
 bool wifi_init(Setup &setup)
 {
+#ifdef WEB
+    int numberOfTries = 0;
+#else
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
-
+#endif
     tft_print_txt(2, "Connect to", setup.ssid);
     DBGf("[Wifi] Connecting to %s ", setup.ssid);
 
@@ -44,20 +46,20 @@ bool wifi_init(Setup &setup)
             DBGf("[WiFi] SSID not found: %s", setup.ssid);
             sprintf(buf, " not found [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
-            
+
             break;
         case WL_CONNECT_FAILED:
             DBGf("[WiFi] Failed - WiFi not connected! Reason: ");
             sprintf(buf, "No Connection [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
-            
+
             return false;
             break;
         case WL_CONNECTION_LOST:
             DBGf("[WiFi] Connection was lost");
             sprintf(buf, "Lost Connection [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
-            
+
             break;
         case WL_SCAN_COMPLETED:
             DBGf("[WiFi] Scan is ready");
@@ -149,9 +151,9 @@ void wifi_scan_network()
     // WiFi.mode(WIFI_OFF);
     tft_printInfo(" ");
     tft_printInfo("Switch to AP-Mode!!");
-    tft_printInfo(" ");
-    tft_printInfo(" ");
+    
     delay(3000);
+    tft_clearScreen();
 }
 
 void wifi_getLocalIP(char **pBuffer16)

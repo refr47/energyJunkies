@@ -142,7 +142,7 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     {
         ESP_LOGE(TAG, "SPIFFS Mount Failed");
          tft_printKeyValue("Init Flash File", "Error", TFT_RED);
-        
+         tft_printKeyValue("Cannot Start WebServer !!", "Error", TFT_RED);
         return;
     }
      tft_printKeyValue("Init Flash File", "OK", TFT_GREEN);

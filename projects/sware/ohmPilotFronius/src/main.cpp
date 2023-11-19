@@ -199,6 +199,7 @@ void setup()
         int counter = 0;
         char buff[30];
         memset(buff, 0, strlen(buff));
+#ifndef WEB
         while (WiFi.status() != WL_CONNECTED)
         {
             DBG("%c", '.');
@@ -216,6 +217,7 @@ void setup()
                 break;
             }
         }
+        #endif
         if (!wifi_init(setupData))
         {
             DBGf("Cannot connect - show available networks: ");
@@ -311,12 +313,13 @@ void setup()
 
 static char formatBuffer[FORMAT_CHAR_BUFFER_LEN];
 
+#ifdef EJ
 static int pwmValue = 0;
 static uint8_t l1 = false, l2 = false;
 static bool pressedEnter = false;
 
 static int s1_esc_prev = 1, s2_enter_prev = 1;
-
+#endif
 void loop()
 {
 
@@ -326,7 +329,7 @@ void loop()
       s3_down = digitalRead(SWITCH_KEY_DOWN);  */
     s4_esc = digitalRead(SWITCH_KEY_ESC);
 
-// https://webdav.htl-wels.at:4343/Lehrer/Lehrer/
+
     // DBGf("S1 pressed: %x, S2(UP)pressed: %x, S3(DOWN) pressed: %x, S4(ESC)pressed :%x", s1_enter, s2_up, s3_down, s4_esc);
     /*     if (s2_up == HIGH)
         {
