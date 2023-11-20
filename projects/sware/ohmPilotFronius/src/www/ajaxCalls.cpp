@@ -16,6 +16,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     eprom_getSetup(setup);
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
     char buff[50];
+    DBGf("ajaxCalls_handleGetSetup - begin");
 
     data[WLAN_ESSID] = setup.ssid;
     data[WLAN_PASSWD] = setup.passwd;
@@ -42,7 +43,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[PID_I] = buff;
     sprintf(buff, "%f.2", setup.pid_d);
     data[PID_D] = buff;
-
+    DBGf("ajaxCalls_handleGetSetup - return ");
     return returnFromStoreSetup(true, data, request);
 }
 
@@ -206,6 +207,6 @@ static void returnFromStoreSetup(bool inputCorrect, StaticJsonDocument<JSON_OBJE
     }
 
     serializeJson(data, response);
-
+    DBGf("returnFromStoreSetup - return ");
     request->send(200, "application/json", response);
 }
