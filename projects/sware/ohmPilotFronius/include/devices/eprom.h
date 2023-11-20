@@ -11,7 +11,7 @@
 #define _EXTERNER_SPEICHER "eS"
 #define _EXTERNER_SPEICHER_PRIORI "esP"
 #define _PID_P "pid_p"
-#define _PID_I "pid_i"
+#define _PID_I "pid_i" 
 #define _PID_D "pid_d"
 #define _PID_DIG_OUT_ON_DELAY_MS "doD"   // power has to be above set point before controller is invoked
 #define _PID_DIG_OUT_OFF_DELAY_MS "ddms" // minimal time before pid controller turns off channel/pin

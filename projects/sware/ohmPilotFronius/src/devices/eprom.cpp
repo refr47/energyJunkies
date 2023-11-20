@@ -102,7 +102,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     DBGf("SETUP WRITE IP in uint: %d", setup.ipInverter);
 
     setup.externerSpeicher = false;
-    setup.externerSpeicherPriori = 1;
+    setup.externerSpeicherPriori = '1';
     setup.pid_p = 1.0;
     setup.pid_i = 0.5;
     setup.pid_d = 0.0;
@@ -149,9 +149,9 @@ void eprom_clearLifeData()
     preferences.end();
 }
 
-void eprom_getLifeData(LIFE_DATA &data) {
-     preferences.begin(_LIFE_DATA, false);
-     data.heatingLastTime = preferences.getULong64(_TEMP_LIMIT_REACHED);
-     data.tempLimitReached= preferences.getULong64(_HEATING_SWITCHED_ON_LAST_TIME);
-
+void eprom_getLifeData(LIFE_DATA &data)
+{
+    preferences.begin(_LIFE_DATA, false);
+    data.heatingLastTime = preferences.getULong64(_TEMP_LIMIT_REACHED);
+    data.tempLimitReached = preferences.getULong64(_HEATING_SWITCHED_ON_LAST_TIME);
 }

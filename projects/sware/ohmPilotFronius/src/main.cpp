@@ -148,7 +148,7 @@ void setup()
         ;
 
     DBGf("Energie-Junkies -- Harvester ---");
-    // test(); HeuteRegnetEsIn4775!!
+    // test();
     tft_init();
 
     tft_printSetup();
