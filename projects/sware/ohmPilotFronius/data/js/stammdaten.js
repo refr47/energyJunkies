@@ -202,8 +202,13 @@ function storeDataAjax() {
   });
 }
 
+function replace(index,val) {
+  let cell = $('#stamm tr:eq('+index+') td:eq(1)');
+  cell.html(val);
+}
 
 function renewTable() {
+
   $.ajax({
     type: "GET",
     url: "http://10.0.0.59/getSetup",
@@ -212,41 +217,26 @@ function renewTable() {
     dataType: "json",
     success: function (data) {
       if (data !== null) {
-      
-        //let tableData = JSON.parse(data);
-        
+           
         console.log("DONE")
-        console.log(data)
-        
-    /*     var ids = document.querySelectorAll('[id]');
-
-        Array.prototype.forEach.call(ids, function (el, i) {
-          // "el" is your element
-          console.log(el.id); // log the ID
-        }); */
-       /*  var i = 1;
-
-        $('span[id^="id_"]', "#stamm").each(function (index) {
-
-          var id = this.id;
-          $('#' + id).html(i + '. ');
-
-          i++;
-
-        });
-        $("#replaceme").html("New word");
-        console.log($("#WLAN_ESSID").val());
-        console.log($("#WLAN_ESSID1").val());
-        $("#stamm td:contains('xxxx')").html("hello"); */
-        $("#replaceme").html("New word");
-        var cell = $('#stamm tr:eq(2) td:eq(1)');
-        cell.html("dddd");
-        //$("#stamm").DataTable().destroy();
-
-
-
+        console.log(data["error"])
+        replace(1,data["WLAN_ESSID"])
+        replace(2,data["WLAN_Password"])
+        replace(3,data["IP_Inverter"])
+        replace(4,data["Hysterese"])
+        replace(5,data["Ausschalt_Temperatur"])
+        replace(6,data["Mindest_Einspeisung"])
+        replace(7,data["Speicher"])
+        replace(8,data["Speicher_Prioritaet"])
+        replace(9,data["Mindeslaufzeit_Digital"])
+        replace(10,data["Mindeslaufzeit_Phase"])
+        replace(11,data["Mindeslaufzeit_Regler"])
+        replace(12,data["Ausgangsregler (P-Anteil)"])
+        replace(13,data["Ausgangsregler (I-Anteil)"])
+        replace(14,data["Ausgangsregler (D-Anteil)"])
+    
       } else {
-        console.log("Some error " + data.length)
+        console.log("Some error ")
       }
     },
     error: function Error(result, error) {
@@ -255,13 +245,14 @@ function renewTable() {
   });
 }
 
+
 function buildStaticTable() {
   dataTable = $('#stamm').DataTable
     ({
       "dom": 'Bfrtip',
       "lengthChange": false,
           "info": false,
-          "bPaginate": false,
+          "bPaginate": true,
           "ordering": false,
           "responsive": true,
       columns: [
