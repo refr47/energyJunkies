@@ -202,15 +202,68 @@ function storeDataAjax() {
   });
 }
 
+
+function renewTable() {
+  $.ajax({
+    type: "GET",
+    url: "http://10.0.0.59/getSetup",
+    async: true,
+    contentType: "application/json; charset=utf-8",
+    dataType: "json",
+    success: function (data) {
+      if (data !== null) {
+      
+        //let tableData = JSON.parse(data);
+        
+        console.log("DONE")
+        console.log(data)
+        
+    /*     var ids = document.querySelectorAll('[id]');
+
+        Array.prototype.forEach.call(ids, function (el, i) {
+          // "el" is your element
+          console.log(el.id); // log the ID
+        }); */
+       /*  var i = 1;
+
+        $('span[id^="id_"]', "#stamm").each(function (index) {
+
+          var id = this.id;
+          $('#' + id).html(i + '. ');
+
+          i++;
+
+        });
+        $("#replaceme").html("New word");
+        console.log($("#WLAN_ESSID").val());
+        console.log($("#WLAN_ESSID1").val());
+        $("#stamm td:contains('xxxx')").html("hello"); */
+        $("#replaceme").html("New word");
+        var cell = $('#stamm tr:eq(2) td:eq(1)');
+        cell.html("dddd");
+        //$("#stamm").DataTable().destroy();
+
+
+
+      } else {
+        console.log("Some error " + data.length)
+      }
+    },
+    error: function Error(result, error) {
+      alert("error " + result.status + " " + result.statusText);
+    }
+  });
+}
+
 function buildStaticTable() {
   dataTable = $('#stamm').DataTable
     ({
       "dom": 'Bfrtip',
-      "lengthChange": true,
-      "info": true,
-      "bPaginate": true,
-      "ordering": true,
-      "responsive": true,
+      "lengthChange": false,
+          "info": false,
+          "bPaginate": false,
+          "ordering": false,
+          "responsive": true,
       columns: [
         {
           title: 'Titel',
@@ -236,6 +289,8 @@ function buildStaticTable() {
 
       ]
     });
+
+
 }
 
 
@@ -282,8 +337,8 @@ function buildDynTable() {
 
           ],
           columns: [
-            {data: 'theKey'},
-            { data: 'theVal'}
+            { data: 'theKey' },
+            { data: 'theVal' }
           ],
           columnDefs: [
             {
@@ -299,9 +354,9 @@ function buildDynTable() {
             selector: 'td:first-child'
           }
           , buttons: [
-           /*  { extend: "create", editor: editor },
-            { extend: "edit", editor: editor },
-            { extend: "remove", editor: editor } */
+            /*  { extend: "create", editor: editor },
+             { extend: "edit", editor: editor },
+             { extend: "remove", editor: editor } */
           ]
 
         });

@@ -24,11 +24,12 @@
     $('#backGr').load('headerF.html #backG')
     $('#myFooter').load('headerF.html #myFooter')
     storeDataAjax();
-    //buildStaticTable();
-    buildDynTable();
+    buildStaticTable();
+    //buildDynTable();
     $(".dataTables_filter").hide();
     $('#editBlock').hide();
     initHandler();
+    renewTable();
   })
 
 
@@ -63,15 +64,14 @@
 
         </tr>
       </thead>
-      <tbody>
-        <!-- 
+      <tbody> 
         <tr>
           <td>WLAN_ESSID</td>
-          <td>xxxx</td>
+          <td id="WLAN_ESSID">xxxx</td>
         </tr>
         <tr>
           <td>WLAN_Password</td>
-          <td>100</td>
+          <td> <span id="replaceme">100</span></td>
           <td>Password</td>
         </tr>
         <tr>
@@ -145,8 +145,6 @@
           <td>2000</td>
           <td>Momentaner Export </td>
         </tr>
-
--->
       </tbody>
     </table>
   </form>
