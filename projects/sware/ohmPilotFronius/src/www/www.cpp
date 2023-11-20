@@ -141,11 +141,11 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
         ESP_LOGE(TAG, "SPIFFS Mount Failed");
-         tft_printKeyValue("Init Flash File", "Error", TFT_RED);
-         tft_printKeyValue("Cannot Start WebServer !!", "Error", TFT_RED);
+        tft_printKeyValue("Init Flash File", "Error", TFT_RED);
+        tft_printKeyValue("Cannot Start WebServer !!", "Error", TFT_RED);
         return;
     }
-     tft_printKeyValue("Init Flash File", "OK", TFT_GREEN);
+    tft_printKeyValue("Init Flash File", "OK", TFT_GREEN);
     // listDir("/");
     if (ipAddr == NULL)
     {
@@ -156,18 +156,20 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
         IPAddress IP = WiFi.softAPIP();
         ipAddr = (char *)IP.toString().c_str();
         DBGf("AP IP address: %s", ipAddr);
-
-        tft_print_txt(5, "ACCESS-Point Modus", "SSID:", SSID_FOR_ACCESS_POINT, "IP: ", IP.toString().c_str());
+        tft_printKeyValue("ACCESS Point", "OK", TFT_GREEN);
+        tft_printKeyValue("SSID", SSID_FOR_ACCESS_POINT, TFT_GREEN);
+        tft_printKeyValue("IP", IP.toString().c_str(), TFT_GREEN);
     }
     else
     {
         DBGf("WWW init server with ip: %s", ipAddr);
         tft_printInfo("Start WWW on:");
 
-        tft_printKeyValue("SSID", wlanAsClientSSID, TFT_WHITE);
-        tft_printKeyValue("IP", ipAddr,TFT_WHITE);
-         tft_printKeyValue("Init WWW", "ok", TFT_GREEN);
+        tft_printKeyValue("SSID", wlanAsClientSSID, TFT_GREEN);
+        tft_printKeyValue("IP", ipAddr, TFT_GREEN);
+        tft_printKeyValue("Init WWW", "ok", TFT_GREEN);
     }
+    tft_printKeyValue("Routen ...", "Done", TFT_GREEN);
 
     server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/about.html", "text/html", false, NULL); });
@@ -225,22 +227,23 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     server.onNotFound([](AsyncWebServerRequest *request)
                       {
 
-    String path = request->url();
-    DBGf("Path (!found): %s ",path.c_str());
-   
-    if (!isAuthenticated) {
-      // Redirect to the login page if not authenticated
-      request->redirect("/login");
-      return;
-    }
+            String path = request->url();
+            DBGf("Path  %s !found ",path.c_str());
+        
+            if (!isAuthenticated) {
+            // Redirect to the login page if not authenticated
+            request->redirect("/login");
+            return;
+            }
 
-    if (SPIFFS.exists(path)) {
-      AsyncWebServerResponse* response = request->beginResponse(SPIFFS, path, String(), true);
-      response->addHeader("Cache-Control", "max-age=600");
-      request->send(response);
-    } else {
-      request->send(404, "text/plain", "File not found");
-    } });
+            if (SPIFFS.exists(path)) {
+            AsyncWebServerResponse* response = request->beginResponse(SPIFFS, path, String(), true);
+            response->addHeader("Cache-Control", "max-age=600");
+            request->send(response);
+            } else {
+            request->send(404, "text/plain", "File not found");
+            } });
+    tft_printKeyValue("Start WWW", "Done", TFT_GREEN);
     server.begin();
 }
 

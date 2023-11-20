@@ -151,7 +151,7 @@ void wifi_scan_network()
     // WiFi.mode(WIFI_OFF);
     tft_printInfo(" ");
     tft_printInfo("Switch to AP-Mode!!");
-    
+
     delay(3000);
     tft_clearScreen();
 }

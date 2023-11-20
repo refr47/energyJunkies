@@ -37,7 +37,7 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 
 #define TEMPERATURE_INTERVAL 5000UL             // 5 secs
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
-#define MODBUS_INTERVALL 5000UL
+#define MODBUS_INTERVALL 10000UL
 #define LOGGING_FLUSH_INTERVALL 60000
 #define CLOCK_INTERVALL 1000 // secs
 
@@ -217,7 +217,8 @@ void setup()
                 break;
             }
         }
-        #endif
+
+#endif
         if (!wifi_init(setupData))
         {
             DBGf("Cannot connect - show available networks: ");
@@ -240,7 +241,7 @@ void setup()
         if (!networkOK)
         {
             DBGf("Network does not work!");
-            tft_printInfo("No valid network!");
+            // tft_printInfo("No valid network!");
             return;
         }
         tft_printInfo("       ");
@@ -329,7 +330,6 @@ void loop()
       s3_down = digitalRead(SWITCH_KEY_DOWN);  */
     s4_esc = digitalRead(SWITCH_KEY_ESC);
 
-
     // DBGf("S1 pressed: %x, S2(UP)pressed: %x, S3(DOWN) pressed: %x, S4(ESC)pressed :%x", s1_enter, s2_up, s3_down, s4_esc);
     /*     if (s2_up == HIGH)
         {
@@ -365,19 +365,19 @@ void loop()
     {
         delay(40);
         s1_enter = digitalRead(SWITCH_KEY_ENTER);
-        //DBGf("ENtER s1-ENTER, pwm: %d, l2: %x", pwmValue, l2);
+        // DBGf("ENtER s1-ENTER, pwm: %d, l2: %x", pwmValue, l2);
         if (s1_enter == LOW)
         {
             if (pwmValue > 5)
             {
                 pwmValue -= 5;
-                //DBGf("Reduced pwm to %d", pwmValue);
+                // DBGf("Reduced pwm to %d", pwmValue);
             }
 
             else
             {
                 pwmValue = 0;
-                //DBGf("Set pwm to %d", pwmValue);
+                // DBGf("Set pwm to %d", pwmValue);
             }
 
             l2 = !l2;
