@@ -211,7 +211,7 @@ function renewTable() {
 
   $.ajax({
     type: "GET",
-    url: "http://10.0.0.59/getSetup",
+    url: "/getSetup", //http://10.0.0.59
     async: true,
     contentType: "application/json; charset=utf-8",
     dataType: "json",
