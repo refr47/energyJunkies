@@ -241,13 +241,14 @@ function buildStaticTable() {
 function buildDynTable() {
   $.ajax({
     type: "GET",
-    url: "getSetup",
+    url: "http://10.0.0.59/getSetup",
     async: true,
     contentType: "application/json; charset=utf-8",
     dataType: "json",
     success: function (data) {
       if (data !== null && data.length > 0) {
         let tableData = JSON.parse(data);
+        alert("GOT json")
 
         $("#stamm").DataTable().destroy();
 
