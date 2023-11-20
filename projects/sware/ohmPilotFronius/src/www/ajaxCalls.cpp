@@ -18,7 +18,6 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     char buff[50];
     DBGf("ajaxCalls_handleGetSetup - begin");
 
-
     data[WLAN_ESSID] = setup.ssid;
     data[WLAN_PASSWD] = setup.passwd;
     data[IP_INVERTER] = setup.ipInverterAsString;
@@ -38,11 +37,11 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[EXTERNER_SPEICHER_PRIORI] = buff;
     sprintf(buff, "%d", setup.ausschaltTempInGradCel);
     data[AUSSCHALT_TEMP] = buff;
-    sprintf(buff, "%f.2", setup.pid_p);
+    sprintf(buff, "%.2f", setup.pid_p);
     data[PID_P] = buff;
-    sprintf(buff, "%f.2", setup.pid_i);
+    sprintf(buff, "%.2f", setup.pid_i);
     data[PID_I] = buff;
-    sprintf(buff, "%f.2", setup.pid_d);
+    sprintf(buff, "%.2f", setup.pid_d);
     data[PID_D] = buff;
     DBGf("ajaxCalls_handleGetSetup - return ");
     return returnFromStoreSetup(true, data, request);
