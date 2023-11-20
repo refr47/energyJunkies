@@ -238,6 +238,8 @@ function buildStaticTable() {
     });
 }
 
+
+
 function buildDynTable() {
   $.ajax({
     type: "GET",
@@ -246,16 +248,17 @@ function buildDynTable() {
     contentType: "application/json; charset=utf-8",
     dataType: "json",
     success: function (data) {
-      if (data !== null && data.length > 0) {
-        let tableData = JSON.parse(data);
-        alert("GOT json")
+      if (data !== null) {
+        //let tableData = JSON.parse(data);
+        console.log("DONE")
+        console.log(data.WLAN_ESSID)
 
-        $("#stamm").DataTable().destroy();
+        //$("#stamm").DataTable().destroy();
 
 
         dataTable = $("#stamm").DataTable({
           dom: "Bfrtip",
-          data: tableData,
+          data: data,
 
           "lengthChange": false,
           "info": false,
@@ -264,8 +267,8 @@ function buildDynTable() {
           "responsive": true,
           columns: [
             {
-              title: 'Titel',
-              width: "30%"
+              data: 'WLAN_ESSID',
+              data: "WLAN_Password"
             },
             {
               title: 'Wert',
@@ -277,6 +280,10 @@ function buildDynTable() {
             }
 
 
+          ],
+          columns: [
+            {data: 'theKey'},
+            { data: 'theVal'}
           ],
           columnDefs: [
             {
@@ -292,14 +299,16 @@ function buildDynTable() {
             selector: 'td:first-child'
           }
           , buttons: [
-            { extend: "create", editor: editor },
+           /*  { extend: "create", editor: editor },
             { extend: "edit", editor: editor },
-            { extend: "remove", editor: editor }
+            { extend: "remove", editor: editor } */
           ]
 
         });
 
 
+      } else {
+        console.log("Some error " + data.length)
       }
     },
     error: function Error(result, error) {
