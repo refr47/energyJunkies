@@ -18,6 +18,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     char buff[50];
     DBGf("ajaxCalls_handleGetSetup - begin");
 
+
     data[WLAN_ESSID] = setup.ssid;
     data[WLAN_PASSWD] = setup.passwd;
     data[IP_INVERTER] = setup.ipInverterAsString;

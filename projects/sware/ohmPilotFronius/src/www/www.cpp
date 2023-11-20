@@ -226,7 +226,10 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     // Route for serving static files from SPIFFS
     server.onNotFound([](AsyncWebServerRequest *request)
                       {
-
+        if (request->method() == HTTP_OPTIONS)
+        {
+            request->send(200);
+        } else {
             String path = request->url();
             DBGf("Path  %s !found ",path.c_str());
         
@@ -242,8 +245,13 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
             request->send(response);
             } else {
             request->send(404, "text/plain", "File not found");
-            } });
+            }
+        } });
     tft_printKeyValue("Start WWW", "Done", TFT_GREEN);
+#ifdef CORS_DEBUG
+    DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Origin"), F("*"));
+    DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Headers"), F("content-type"));
+#endif
     server.begin();
 }
 
