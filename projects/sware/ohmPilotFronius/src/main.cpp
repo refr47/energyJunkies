@@ -69,6 +69,14 @@ typedef struct _ALARM
     _ALARM_MODBUS alarmModbus;
 } ALARM_CONTAINER;
 
+typedef struct _STATES
+{
+    bool cardWriterOK;
+    bool networkOK;
+    bool modbusOK;
+    bool flashOK;
+} STATES;
+
 /* ****************************************************************************
   GLOBAL VARS
   ****************************************************************************
@@ -76,8 +84,9 @@ typedef struct _ALARM
 
 char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
 static bool networkCredentialsInEEprom = true;
-static bool cardWriterOK = false;
-static bool networkOK = false;
+/* static bool cardWriterOK = false;
+static bool networkOK = false; */
+static STATES states;
 
 static const char *wlanE = "Milchbehaelter";
 static const char *passW = "47754775";
@@ -148,7 +157,11 @@ void setup()
         ;
 
     DBGf("Energie-Junkies -- Harvester ---");
-    // test();
+    states.flashOK = true;
+    states.cardWriterOK = true;
+    states.modbusOK = true;
+    states.networkOK = true;
+
     tft_init();
 
     tft_printSetup();
@@ -225,7 +238,7 @@ void setup()
             // tft_drawNetworkInfo(NULL, setupData.ssid);
             wifi_scan_network();
             www_init(NULL, NULL); // act as access point
-            networkOK = false;
+            states.networkOK = false;
         }
         else
         {
@@ -235,10 +248,10 @@ void setup()
             DBGf("Connected with ip: %s", globalStringBuffer);
 
             tft_drawNetworkInfo(globalStringBuffer, setupData.ssid);
-            www_init(pBuf, setupData.ssid); // do not act as apoint
-            networkOK = true;
+            states.flashOK = www_init(pBuf, setupData.ssid); // do not act as apoint
+            states.networkOK = true;
         }
-        if (!networkOK)
+        if (!states.networkOK)
         {
             DBGf("Network does not work!");
             // tft_printInfo("No valid network!");
@@ -250,7 +263,7 @@ void setup()
 
         if (cardRW_setup(false, false))
         {
-            cardWriterOK = true;
+            states.cardWriterOK = true;
             tft_printKeyValue("Init CardReader", "OK", TFT_GREEN);
 
             logging_init();
@@ -260,6 +273,7 @@ void setup()
         {
             DBGf("Logging to file cannot be initiated ...");
             tft_printKeyValue("Init CardReader", "Error", TFT_RED);
+            states.cardWriterOK = false;
         }
 
         if (temp_init())
@@ -278,10 +292,11 @@ void setup()
         {
             DBGf("Cannot initialize modbus ....");
             tft_printKeyValue("Init mdobus", "Error", TFT_RED);
+            states.modbusOK = false;
         }
         else
         {
-
+            states.modbusOK = true;
             tft_printKeyValue("Init mdobus", "ok", TFT_GREEN);
         }
         memset(&modbusData, 0, sizeof(modbusData));
@@ -291,7 +306,7 @@ void setup()
         tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
         pidPinManager.config(setupData);
     }
-    if (networkOK)
+    if (states.networkOK)
     {
         delay(3000);
         tft_clearScreen();
@@ -410,7 +425,7 @@ void loop()
 #endif
 
 #ifndef EJ
-    if (!networkOK)
+    if (!states.networkOK)
     {
         DBGf("Network does not work - no further task are available...");
         delay(10000);

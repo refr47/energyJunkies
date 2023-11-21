@@ -135,7 +135,7 @@ static void handleSetup(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/login.html", "text/html", false);
 }
 
-void www_init(char *ipAddr, char *wlanAsClientSSID)
+bool www_init(char *ipAddr, char *wlanAsClientSSID)
 {
     // Initialize SPIFFS
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
@@ -143,7 +143,7 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
         ESP_LOGE(TAG, "SPIFFS Mount Failed");
         tft_printKeyValue("Init Flash File", "Error", TFT_RED);
         tft_printKeyValue("Cannot Start WebServer !!", "Error", TFT_RED);
-        return;
+        return false;
     }
     tft_printKeyValue("Init Flash File", "OK", TFT_GREEN);
     // listDir("/");
@@ -253,6 +253,7 @@ void www_init(char *ipAddr, char *wlanAsClientSSID)
     DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Headers"), F("content-type"));
 #endif
     server.begin();
+    return true;
 }
 
 void www_run()

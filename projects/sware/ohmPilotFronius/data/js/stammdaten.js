@@ -202,9 +202,9 @@ function storeDataAjax() {
   });
 }
 
-function replace(index,val) {
-  let cell = $('#stamm tr:eq('+index+') td:eq(1)');
-  cell.html(val);
+function replace(index, val) {
+  let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
+  cell.html(val + '<td><button action="edit">Edit</button></td>');
 }
 
 function renewTable() {
@@ -217,24 +217,24 @@ function renewTable() {
     dataType: "json",
     success: function (data) {
       if (data !== null) {
-           
+
         console.log("DONE")
         console.log(data["error"])
-        replace(1,data["WLAN_ESSID"])
-        replace(2,data["WLAN_Password"])
-        replace(3,data["IP_Inverter"])
-        replace(4,data["Hysterese"])
-        replace(5,data["Ausschalt_Temperatur"])
-        replace(6,data["Mindest_Einspeisung"])
-        replace(7,data["Speicher"])
-        replace(8,data["Speicher_Prioritaet"])
-        replace(9,data["Mindeslaufzeit_Digital"])
-        replace(10,data["Mindeslaufzeit_Phase"])
-        replace(11,data["Mindeslaufzeit_Regler"])
-        replace(12,data["Ausgangsregler (P-Anteil)"])
-        replace(13,data["Ausgangsregler (I-Anteil)"])
-        replace(14,data["Ausgangsregler (D-Anteil)"])
-    
+        replace(1, data["WLAN_ESSID"])
+        replace(2, data["WLAN_Password"])
+        replace(3, data["IP_Inverter"])
+        replace(4, data["Hysterese"])
+        replace(5, data["Ausschalt_Temperatur"])
+        replace(6, data["Mindest_Einspeisung"])
+        replace(7, data["Speicher"])
+        replace(8, data["Speicher_Prioritaet"])
+        replace(9, data["Mindeslaufzeit_Digital"])
+        replace(10, data["Mindeslaufzeit_Phase"])
+        replace(11, data["Mindeslaufzeit_Regler"])
+        replace(12, data["Ausgangsregler (P-Anteil)"])
+        replace(13, data["Ausgangsregler (I-Anteil)"])
+        replace(14, data["Ausgangsregler (D-Anteil)"])
+
       } else {
         console.log("Some error ")
       }
@@ -251,10 +251,10 @@ function buildStaticTable() {
     ({
       "dom": 'Bfrtip',
       "lengthChange": false,
-          "info": false,
-          "bPaginate": true,
-          "ordering": false,
-          "responsive": true,
+      "info": false,
+      "bPaginate": true,
+      "ordering": false,
+      "responsive": true,
       columns: [
         {
           title: 'Titel',
