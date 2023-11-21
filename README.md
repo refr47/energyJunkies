@@ -24,6 +24,10 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 #### Verbesserungsvorschläge
 - Rote LED, welche eine Warnung/Fehler anzeigt; dieser wird zusätzlich am Display angezeigt
 - die dzt. 4 Taster sollten mit einer Brücke einstellbar sein ; somit stehen 4 GPIOs zur Verfügung, die anderweitig eingesetzt werden können (potentialfreie Ausgänge, über Buchse ausführen
+- PWM Verbindung herstellen (bei neuer Platine)
+- 4 Schalter abänderung und verwenden für
+- Zustands-/Fehler LED, 3. Relais ausführen, eventuell die anderen 2 auch als potentialfreien Ausgang
+- Shelly Einbindung (reine SW)
 
 ### SW
 
