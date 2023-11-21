@@ -204,14 +204,17 @@ function storeDataAjax() {
 
 function replace(index, val) {
   let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
-  cell.html(val + '<td><button action="edit">Edit</button></td>');
+  const row = dataTable.row(index)
+  row.data()[1] = val;
+  console.log(row)
+  cell.html(val + '<button action="edit">Edit</button>');
 }
 
 function renewTable() {
 
   $.ajax({
     type: "GET",
-    url: "/getSetup", //http://10.0.0.59
+    url: "http://10.0.0.59/getSetup", //http://10.0.0.59
     async: true,
     contentType: "application/json; charset=utf-8",
     dataType: "json",
