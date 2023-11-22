@@ -29,7 +29,7 @@
     $(".dataTables_filter").hide();
     $('#editBlock').hide();
     initHandler();
-    renewTable();
+    //renewTable();
   })
 
 
@@ -56,96 +56,7 @@
       <input type="text" id="error" hidden>
     </div>
     <table id="stamm" class="display stripe cell-border hover" cellspacing="0" style="width:80%">
-      <thead>
-        <tr>
-          <th>Titel</th>
-          <th>Wert</th>
-          <th>Kommentar</th>
-
-        </tr>
-      </thead>
-      <tbody> 
-        <tr>
-          <td>WLAN_ESSID</td>
-          <td id="WLAN_ESSID">xxxx</td>
-        </tr>
-        <tr>
-          <td>WLAN_Password</td>
-          <td> <span id="replaceme">100</span></td>
-          <td>Password</td>
-        </tr>
-        <tr>
-          <td>IP_Inverter</td>
-          <td></td>
-          <td>IP-Adresse des Inverters</td>
-        </tr>
-        <tr>
-          <td>Hysterese</td>
-          <td>100</td>
-          <td>Regelbereich Hysterese</td>
-        </tr>
-        <tr>
-          <td>Ausschalt_Temperatur</td>
-          <td>70</td>
-          <td>Maximal erlaubte Temperatur </td>
-        </tr>
-        <tr>
-          <td>
-            Mindest_Einspeisung</td>
-          <td>100</td>
-          <td>Strom, der vom Heizregler nicht verwendet werden darf (in W)</td>
-        </tr>
-        <tr>
-          <td>Speicher</td>
-          <td>n</td>
-          <td>Externer Speicher steht zur Verfügung (j,n)</td>
-        </tr>
-        <tr>
-          <td>Speicher_Prioritaet</td>
-          <td>1</td>
-          <td>1: Externer Speicher vorrangig, 2: nachrangig</td>
-        </tr>
-        <tr>
-          <td>Mindeslaufzeit_Digital</td>
-          <td>2</td>
-          <td>Mindeslaufzeit vor einer Änderung der digitalen Ports (in ms)</td>
-        </tr>
-        <tr>
-          <td>Mindeslaufzeit_Phase</td>
-          <td>2</td>
-          <td>Mindeslaufzeit, in der eine Phase eingeschaltet ist (in ms)</td>
-        </tr>
-        <tr>
-          <td>Mindeslaufzeit_Regler</td>
-          <td>2</td>
-          <td>Zeitperiode, in der Änderungen vom Regler nicht berücksichtigt werden (in ms)</td>
-        </tr>
-        <tr>
-          <td>Ausgangsregler (P-Anteil)</td>
-          <td>0.9</td>
-          <td>PI-Regler für den 0-100 % Ausgang (0.0 -1.0)</td>
-        </tr>
-        <tr>
-          <td>Ausgangsregler (I-Anteil)</td>
-          <td>0.1</td>
-          <td>PI-Regler für den 0-100 % Ausgang (0.0 -1.0)</td>
-        </tr>
-        <tr>
-          <td>Ausgangsregler (D-Anteil)</td>
-          <td>0.0</td>
-          <td>PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)</td>
-        </tr>
-        <tr>
-          <td>Z_TEST</td>
-          <td>j</td>
-          <td>j|n</td>
-        </tr>
-        <tr>
-          <td>Z_Available_energy</td>
-          <td>2000</td>
-          <td>Momentaner Export </td>
-        </tr>
-      </tbody>
+    
     </table>
   </form>
 

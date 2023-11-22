@@ -1,3 +1,28 @@
+var dataSet;
+
+function createDataSet() {
+  dataSet = [
+    ['WLAN_ESSID', 'xxxx', 'SSID'],
+    ['WLAN_Password', '100', 'Password'],
+    ['IP_Inverter','','IP-Adresse des Inverters'],
+    ['Hysterese','100','Regelbereich Hysterese'],
+    ['Ausschalt_Temperatur','70','Maximal erlaubte Temperatur'],
+    ['Mindest_Einspeisung','100','Strom, der vom Heizregler nicht verwendet werden darf (in W)'],
+    ['Speicher','n','Externer Speicher steht zur Verfügung (j,n)'],
+    ['Speicher_Prioritaet','1','1: Externer Speicher vorrangig, 2: nachrangig'],
+    ['Mindeslaufzeit_Digital','2','Mindeslaufzeit vor einer Änderung der digitalen Ports (in ms)'],
+    ['Mindeslaufzeit_Phase','2','Mindeslaufzeit, in der eine Phase eingeschaltet ist (in ms)'],
+    ['Mindeslaufzeit_Regler','2','Zeitperiode, in der Änderungen vom Regler nicht berücksichtigt werden (in ms)'],
+    ['Ausgangsregler (P-Anteil)','0.9','PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
+    ['Ausgangsregler (I-Anteil)','0.1','PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
+    ['Ausgangsregler (D-Anteil)','0.0','PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'],
+    ['Z_TEST','j','j|n'],
+    ['Z_Available_energy','2000','Momentaner Export '],
+  ];
+
+
+}
+
 
 
 function showError(text) {
@@ -132,7 +157,10 @@ function initHandler() {
         return
 
       $('#editBlock').hide();
-      dataTable.row($(this).attr('rowindex')).data([$("#theTitle").val(), $("#theValue").val()]).draw();
+
+      //dataTable.row($(this).attr('rowindex')).data([$("#theTitle").val(), $("#theValue").val()]).draw();
+      dataSet[currentIndex][1]=val;
+      dataTable.row(currentIndex).invalidate().draw()
     }
     //clean up form, switch it to default state
     $('#theTitle').val("");
@@ -170,6 +198,7 @@ function storeDataAjax() {
     let dataAjax = {}
     for (jj = 0; jj < numberRows; jj++) {
       let row = dataTable.row(jj);
+      // key::value
       dataAjax[row.data()[0]] = row.data()[1]
     }
 
@@ -203,11 +232,11 @@ function storeDataAjax() {
 }
 
 function replace(index, val) {
-  let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
-  const row = dataTable.row(index)
-  row.data()[1] = val;
-  console.log(row)
-  cell.html(val + '<button action="edit">Edit</button>');
+  //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
+  const row = dataTable.row(index - 1)
+  // update model
+  dataSet[index][1]=val
+  row.invalidate().draw()
 }
 
 function renewTable() {
@@ -250,6 +279,7 @@ function renewTable() {
 
 
 function buildStaticTable() {
+  createDataSet()
   dataTable = $('#stamm').DataTable
     ({
       "dom": 'Bfrtip',
@@ -261,16 +291,18 @@ function buildStaticTable() {
       columns: [
         {
           title: 'Titel',
-          width: "30%"
+          width: "30%",
+
         },
         {
           title: 'Wert',
           render: dataTable => `${dataTable}<td><button action="edit">Edit</button></td>`
         },
-        /* {
+        {
           title: 'Bemerkung',
-          width: "40%"
-        } */
+          width: "40%",
+        
+        }
 
 
       ],
@@ -281,7 +313,8 @@ function buildStaticTable() {
           searchable: false
         },
 
-      ]
+      ],
+      data: dataSet
     });
 
 
@@ -321,7 +354,7 @@ function buildDynTable() {
             },
             {
               title: 'Wert',
-              render: dataTable => `${dataTable}<td><button action="edit">Edit</button></td>`
+              render: dataTable => `${dataTable}'<button action="edit">Edit</button>'`
             },
             {
               title: 'Bemerkung',
