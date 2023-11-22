@@ -100,7 +100,7 @@ function evalIt(value, index) {
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
       if (nu < 1 || nu > 3)
-        return showError("We  $('#errorAjax').hide();rtebereich ungültig (>0 und <= 3)")
+        return showError("Wertebereich ungültig (>0 und <= 3)")
       break;
     case 8: if (isNaN(value)) // Mindestlaufzeit digitaler kanal
       return showError("Numerische Eingabe erforderlich")
@@ -320,84 +320,4 @@ function buildStaticTable() {
 
 }
 
-
-
-function buildDynTable() {
-  $.ajax({
-    type: "GET",
-    url: "http://10.0.0.59/getSetup",
-    async: true,
-    contentType: "application/json; charset=utf-8",
-    dataType: "json",
-    success: function (data) {
-      if (data !== null) {
-        //let tableData = JSON.parse(data);
-        console.log("DONE")
-        console.log(data.WLAN_ESSID)
-
-        //$("#stamm").DataTable().destroy();
-
-
-        dataTable = $("#stamm").DataTable({
-          dom: "Bfrtip",
-          data: data,
-
-          "lengthChange": false,
-          "info": false,
-          "bPaginate": false,
-          "ordering": false,
-          "responsive": true,
-          columns: [
-            {
-              data: 'WLAN_ESSID',
-              data: "WLAN_Password"
-            },
-            {
-              title: 'Wert',
-              render: dataTable => `${dataTable}'<button action="edit">Edit</button>'`
-            },
-            {
-              title: 'Bemerkung',
-              width: "40%"
-            }
-
-
-          ],
-          columns: [
-            { data: 'theKey' },
-            { data: 'theVal' }
-          ],
-          columnDefs: [
-            {
-              target: 1,
-              visible: true,
-              searchable: false
-            },
-
-          ],
-
-          select: {
-            style: 'os',
-            selector: 'td:first-child'
-          }
-          , buttons: [
-            /*  { extend: "create", editor: editor },
-             { extend: "edit", editor: editor },
-             { extend: "remove", editor: editor } */
-          ]
-
-        });
-
-
-      } else {
-        console.log("Some error " + data.length)
-      }
-    },
-    error: function Error(result, error) {
-      alert("error " + result.status + " " + result.statusText);
-    }
-  });
-
-
-}
 
