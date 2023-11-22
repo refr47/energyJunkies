@@ -431,6 +431,9 @@ void loop()
         delay(10000);
         return;
     }
+    if (!states.modbusOK) {
+        
+    }
     currentMillis = millis();
 
     if (currentMillis - previousMillisClock > CLOCK_INTERVALL)
