@@ -233,7 +233,7 @@ function storeDataAjax() {
 
 function replace(index, val) {
   //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
-  const row = dataTable.row(index - 1)
+  const row = dataTable.row(index )
   // update model
   dataSet[index][1]=val
   row.invalidate().draw()
@@ -243,7 +243,7 @@ function renewTable() {
 
   $.ajax({
     type: "GET",
-    url: "http://10.0.0.59/getSetup", //http://10.0.0.59
+    url: "/getSetup", //http://10.0.0.59
     async: true,
     contentType: "application/json; charset=utf-8",
     dataType: "json",
@@ -252,20 +252,20 @@ function renewTable() {
 
         console.log("DONE")
         console.log(data["error"])
-        replace(1, data["WLAN_ESSID"])
-        replace(2, data["WLAN_Password"])
-        replace(3, data["IP_Inverter"])
-        replace(4, data["Hysterese"])
-        replace(5, data["Ausschalt_Temperatur"])
-        replace(6, data["Mindest_Einspeisung"])
-        replace(7, data["Speicher"])
-        replace(8, data["Speicher_Prioritaet"])
-        replace(9, data["Mindeslaufzeit_Digital"])
-        replace(10, data["Mindeslaufzeit_Phase"])
-        replace(11, data["Mindeslaufzeit_Regler"])
-        replace(12, data["Ausgangsregler (P-Anteil)"])
-        replace(13, data["Ausgangsregler (I-Anteil)"])
-        replace(14, data["Ausgangsregler (D-Anteil)"])
+        replace(0, data["WLAN_ESSID"])
+        replace(1, data["WLAN_Password"])
+        replace(2, data["IP_Inverter"])
+        replace(3, data["Hysterese"])
+        replace(4, data["Ausschalt_Temperatur"])
+        replace(5, data["Mindest_Einspeisung"])
+        replace(6, data["Speicher"])
+        replace(7, data["Speicher_Prioritaet"])
+        replace(8, data["Mindeslaufzeit_Digital"])
+        replace(9, data["Mindeslaufzeit_Phase"])
+        replace(10, data["Mindeslaufzeit_Regler"])
+        replace(11, data["Ausgangsregler (P-Anteil)"])
+        replace(12, data["Ausgangsregler (I-Anteil)"])
+        replace(13, data["Ausgangsregler (D-Anteil)"])
 
       } else {
         console.log("Some error ")
