@@ -16,6 +16,7 @@
 #include "www.h"
 #include "temp.h"
 #include "curTime.h"
+#include "webSockets.h"
 
 /*
 Input only pins
@@ -39,7 +40,8 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
 #define MODBUS_INTERVALL 10000UL
 #define LOGGING_FLUSH_INTERVALL 60000
-#define CLOCK_INTERVALL 1000 // secs
+#define CLOCK_INTERVALL 1000          // secs
+#define WEBSOCK_NOTIFY_INTERVALL 5000 // 5 secs
 
 #define FORMAT_CHAR_BUFFER_LEN 35 // @see loop
 
@@ -69,14 +71,6 @@ typedef struct _ALARM
     _ALARM_MODBUS alarmModbus;
 } ALARM_CONTAINER;
 
-typedef struct _STATES
-{
-    bool cardWriterOK;
-    bool networkOK;
-    bool modbusOK;
-    bool flashOK;
-} STATES;
-
 /* ****************************************************************************
   GLOBAL VARS
   ****************************************************************************
@@ -95,6 +89,7 @@ static unsigned long previousMillModbus = 0UL;
 static unsigned long previousMillFlush = 0UL;
 static unsigned long currentMillis = millis();
 static unsigned long previousMillisClock = 0UL;
+static unsigned long previousMillisWebSocks = 0UL;
 
 static TEMPERATURE container;
 static MB_CONTAINER modbusData;
@@ -103,10 +98,14 @@ static Setup setupData;
 static LIFE_DATA lifeData;
 static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager(RELAY_L1, RELAY_L2, PWM_FOR_PID);
+static WEBSOCK_DATA webSockData;
 
 /* **************************************************************************
         ProtoTypes
 */
+
+WEBSOCK_DATA &getDataForWebSocket();
+
 // int sdCardLogOutput(const char *format, va_list args); // LOG-System
 
 // https://community.platformio.org/t/redirect-esp32-log-messages-to-sd-card/33734/5
@@ -161,6 +160,7 @@ void setup()
     states.cardWriterOK = true;
     states.modbusOK = true;
     states.networkOK = true;
+    memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
 
     tft_init();
 
@@ -176,9 +176,11 @@ void setup()
     uint32_t PRESCALE = 240; // for 240MHZ */
 
     // eprom_test_write_Eprom(wlanE, passW);
-    eprom_clearLifeData();
+    // eprom_clearLifeData();
     eprom_getSetup(setupData);
-    eprom_test_read_Eprom();
+    eprom_getLifeData(lifeData);
+
+    // eprom_test_read_Eprom();
 
     /*
      printHWInfo();
@@ -198,7 +200,7 @@ void setup()
     if (strcmp(setupData.ssid, "---") == 0)
     {
         networkCredentialsInEEprom = false;
-        www_init(NULL, NULL); // act as access point
+        www_init(NULL, NULL, getDataForWebSocket); // act as access point
     }
     if (networkCredentialsInEEprom)
     {
@@ -237,7 +239,7 @@ void setup()
             DBGf("Cannot connect - show available networks: ");
             // tft_drawNetworkInfo(NULL, setupData.ssid);
             wifi_scan_network();
-            www_init(NULL, NULL); // act as access point
+            www_init(NULL, NULL, getDataForWebSocket); // act as access point
             states.networkOK = false;
         }
         else
@@ -248,7 +250,7 @@ void setup()
             DBGf("Connected with ip: %s", globalStringBuffer);
 
             tft_drawNetworkInfo(globalStringBuffer, setupData.ssid);
-            states.flashOK = www_init(pBuf, setupData.ssid); // do not act as apoint
+            states.flashOK = www_init(pBuf, setupData.ssid, getDataForWebSocket); // do not act as apoint
             states.networkOK = true;
         }
         if (!states.networkOK)
@@ -315,10 +317,10 @@ void setup()
 #else
     ESP_LOGI(TAG, "Start testing...");
 
-    pinMode(SWITCH_KEY_ENTER, INPUT);
-    pinMode(SWITCH_KEY_UP, INPUT);
-    pinMode(SWITCH_KEY_DOWN, INPUT);
-    pinMode(SWITCH_KEY_ESC, INPUT);
+    pinMode(SWITCH_KEY_ENTER, INPUT_PULLUP);
+    pinMode(SWITCH_KEY_UP, INPUT_PULLUP);
+    pinMode(SWITCH_KEY_DOWN, INPUT_PULLUP);
+    pinMode(SWITCH_KEY_ESC, INPUT_PULLUP);
 
     pinMode(RELAY_L1, OUTPUT);
     pinMode(RELAY_L2, OUTPUT);
@@ -431,8 +433,8 @@ void loop()
         delay(10000);
         return;
     }
-    if (!states.modbusOK) {
-        
+    if (!states.modbusOK)
+    {
     }
     currentMillis = millis();
 
@@ -455,6 +457,9 @@ void loop()
     {
         time_print();
         temp_getTemperature(container);
+        webSockData.temperature.sensor1 = container.sensor1;
+        webSockData.temperature.sensor2 = container.sensor2;
+        webSockData.temperature.alarm = false;
         /*
         RELAY_L1, RELAY_L2, PWM_FOR_PID
         */
@@ -472,6 +477,7 @@ void loop()
                 analogWrite(PWM_FOR_PID, 0);
                 alarmContainer.alarmTemp.alarmTemp = true;
                 alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+                webSockData.temperature.alarm = true;
             }
         }
         else
@@ -557,6 +563,11 @@ void loop()
     }
     delay(4000);
 
+    if (currentMillis - previousMillisWebSocks > WEBSOCK_NOTIFY_INTERVALL)
+    {
+        previousMillisWebSocks = currentMillis;
+        notifyClients(getJsonObj());
+    }
     if (networkCredentialsInEEprom == false)
     { // act as AP
         www_run();
@@ -582,4 +593,9 @@ void loop()
         DBGln(currentState); */
     }
 #endif
+}
+WEBSOCK_DATA &getDataForWebSocket()
+{
+    DBGf("getDataForWebSocket, Temp: %.2lf", webSockData.temperature.sensor1);
+    return webSockData;
 }
