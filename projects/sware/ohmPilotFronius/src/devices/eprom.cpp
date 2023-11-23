@@ -154,4 +154,5 @@ void eprom_getLifeData(LIFE_DATA &data)
     preferences.begin(_LIFE_DATA, false);
     data.heatingLastTime = preferences.getULong64(_TEMP_LIMIT_REACHED);
     data.tempLimitReached = preferences.getULong64(_HEATING_SWITCHED_ON_LAST_TIME);
+    preferences.end();
 }

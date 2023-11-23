@@ -31,7 +31,7 @@ typedef struct
 
 typedef struct
 {
-    unsigned int numberOfDevices;
+    bool alarm;
     float sensor1;
     float sensor2;
 } TEMPERATURE;
@@ -60,3 +60,20 @@ typedef struct _LIFE_DATA
     long heatingLastTime;
 
 } LIFE_DATA;
+
+typedef struct _WEBSOCK
+{
+    MB_CONTAINER mbContainer;
+    Setup setup;
+    TEMPERATURE temperature;
+
+} WEBSOCK_DATA;
+
+typedef WEBSOCK_DATA &(*CALLBACK_GET_DATA)();
+typedef struct _STATES
+{
+    bool cardWriterOK;
+    bool networkOK;
+    bool modbusOK;
+    bool flashOK;
+} STATES;

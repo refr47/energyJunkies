@@ -9,6 +9,7 @@
 #include "utils.h"
 #include "ajaxCalls.h"
 #include "www.h"
+#include "webSockets.h"
 
 // WiFiServer server(80);
 const char *PARAM_INPUT_1 = "passwd";
@@ -135,7 +136,7 @@ static void handleSetup(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/login.html", "text/html", false);
 }
 
-bool www_init(char *ipAddr, char *wlanAsClientSSID)
+bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData)
 {
     // Initialize SPIFFS
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
@@ -252,6 +253,8 @@ bool www_init(char *ipAddr, char *wlanAsClientSSID)
     DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Origin"), F("*"));
     DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Headers"), F("content-type"));
 #endif
+
+    server.addHandler(webSockets_init(webSockData));
     server.begin();
     return true;
 }
