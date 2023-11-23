@@ -175,8 +175,8 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    // eprom_test_write_Eprom(wlanE, passW);
-    // eprom_clearLifeData();
+    eprom_test_write_Eprom(wlanE, passW);
+    eprom_clearLifeData();
     eprom_getSetup(setupData);
     eprom_getLifeData(lifeData);
 
@@ -238,6 +238,7 @@ void setup()
         {
             DBGf("Cannot connect - show available networks: ");
             // tft_drawNetworkInfo(NULL, setupData.ssid);
+            tft_clearScreen();
             wifi_scan_network();
             www_init(NULL, NULL, getDataForWebSocket); // act as access point
             states.networkOK = false;

@@ -184,9 +184,9 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return returnFromStoreSetup(errorH, data, request);
 
     eprom_storeSetup(setup);
-    eprom_test_read_Eprom();
-    return returnFromStoreSetup(errorH, data, request);
-    // esp_restart();
+    // eprom_test_read_Eprom();
+    returnFromStoreSetup(errorH, data, request);
+    esp_restart();
 }
 /* private functions */
 
