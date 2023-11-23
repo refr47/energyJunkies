@@ -34,11 +34,11 @@ Es gibt da Stammdaten und Mobilitätsdaten und die Logfiles
 
 ### Client Modus
 - Wenn die hinterlegten Daten stimmen, kann sich der ESP32 in das WLAN einwählen und läuft einen Initialisierungsprozess durch, indem sämtliche Komponenten geprüft werden, ob diese vorhanden sind und funktionieren. Dies sind
-* Netzwerk
-* SPIFF-Filesystem 
-* WebServer
-* NTP (Zeitserver)
-* CARD-Reader
-* Logging-Ressourcen (bedingt gültigen CARD-Reader)
-* Temperatur-Sensorik
-* Modbus
+        Netzwerk
+        SPIFF-Filesystem 
+        WebServer
+        NTP (Zeitserver)
+        CARD-Reader
+        Logging-Ressourcen (bedingt gültigen CARD-Reader)
+        Temperatur-Sensorik
+        Modbus
