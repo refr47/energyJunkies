@@ -33,7 +33,7 @@ Es gibt da Stammdaten und Mobilitätsdaten und die Logfiles
 - Nach dem Speichern wird der ESP32 kommentarlos neu gestartet. 
 
 ### Client Modus
-- Wenn die hinterlegten Daten stimmen, kann sich der ESP32 in das WLAN einwählen und läuft einen Initialisierungsprozess durch, indem sämtliche Komponenten geprüft werden, ob diese vorhanden sind und funktionieren. Dies sind
+* Wenn die hinterlegten Daten stimmen, kann sich der ESP32 in das WLAN einwählen und läuft einen Initialisierungsprozess durch, indem sämtliche Komponenten geprüft werden, ob diese vorhanden sind und funktionieren. Dies sind
         Netzwerk
         SPIFF-Filesystem 
         WebServer
