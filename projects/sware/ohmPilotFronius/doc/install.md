@@ -15,7 +15,7 @@ Nach dem Übersetzen kann nun mit dem Flash begonnen werden. Dazu ist folgendes 
 - Für die Ablage dieser Ressourcen wird das vom ESP-IF zur Verfügung gestellte Filesystem (SPIFFs) verwendet. Daher auch die Aufspaltung in 2 Flash-Vorgänge.
 - Sodann kann das compilierte Image geflasht werden und der esp32 startet.
 
-## Inbetrieb-Nahme
+## Inbetriebname
 
 Der E-Harvester speichert sich die Konfigurationsdaten im Flash-Speicher und die REST-Schnittstelle bedient sich dieser Daten und speichert dort diese auch wieder ab.
 
