@@ -3,7 +3,8 @@
 #include <Arduino_JSON.h>
 
 using namespace std;
-// using macro to convert float to string
+// https://randomnerdtutorials.com/esp32-websocket-server-arduino/
+//  using macro to convert float to string
 #define STRING(Value) #Value
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
@@ -55,9 +56,13 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         //  Check if the message is "getReadings"
         // if (strcmp((char*)data, "getReadings") == 0) {
         // if it is, send current sensor readings
-        String sensorReadings = getJsonObj();
-        Serial.print(sensorReadings);
-        notifyClients(sensorReadings);
+        DBGf("handleWebSocketMessage for message: %s",(char*)data);
+        if (strcmp((char *)data, "getLifeData") == 0)
+        {
+            String sensorReadings = getJsonObj();
+            Serial.print(sensorReadings);
+            notifyClients(sensorReadings);
+        }
         //}
     }
 }
