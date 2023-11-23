@@ -26,7 +26,9 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 - die dzt. 4 Taster sollten mit einer Brücke einstellbar sein ; somit stehen 4 GPIOs zur Verfügung, die anderweitig eingesetzt werden können (potentialfreie Ausgänge, über Buchse ausführen
 - PWM Verbindung herstellen (bei neuer Platine)
 - 4 Schalter abänderung und verwenden für
-- Zustands-/Fehler LED, 3. Relais ausführen, eventuell die anderen 2 auch als potentialfreien Ausgang
+  * S1: Zustands-/Fehler LED
+  * S2: Relais ausführen
+  * S3/S4: eventuell die anderen 2 auch als potentialfreien Ausgang ausführen (Relais)
 - Shelly Einbindung (reine SW)
 
 ### SW
@@ -54,6 +56,10 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 - Da Fronius bei der kostenlosen Variante die Verbrauchsdaten nur für 3 Tage loggt, kann der ESP32 diese mitloggen. Dafür ist jedoch ein CardReader notwendig.
 - kleines REST-API, wo die wichtigsten Daten per Web verfügbar sind, die IP-Adresse steht ja auf dem DIsplay.
 - Benachrichtigung per Email, dass irgend etwas passiert ist ( ? )
+
+## Offene Fragen
+* Initialisierung/sETUP: Wenn Netzwerk nicht funktioniert, kommt man automatisch in den AccessPoint-Modus; Was ist, wenn es ausfällt?
+* Was macht man bei auftretenden Fehlern?
 
 ## Was einem sonst noch so einfällt
 
