@@ -27,8 +27,8 @@ Es gibt da Stammdaten und Mobilitätsdaten und die Logfiles
 
 ### Access-Point Modus
 - Falls sich der ESP nicht in das im Setup hinterlegte WLAN einloggen kann, geht er in den AP-Modus und stellt ein eigenes WLAN zur Verfügung; dieses wird auch am Display angezeigt und ist frei (d.h. kein Benuter/Password). 
-- Default-Adresse: 192.168.4.1
-- Default ESSID: Energy Junkies
+    * Default-Adresse: 192.168.4.1
+    * Default ESSID: Energy Junkies
 - Nun kann man sich in dieses WLAN einwählen und obige IP-Adresse per Browser aufrufen. Man gelangt dann zu einem Login-Dialog, wobei hier der Fallback-Zugang mit **admin** und Password **password** hinterlegt ist.
 - Nach dem Speichern wird der ESP32 kommentarlos neu gestartet. 
 
@@ -36,9 +36,11 @@ Es gibt da Stammdaten und Mobilitätsdaten und die Logfiles
 * Wenn die hinterlegten Daten stimmen, kann sich der ESP32 in das WLAN einwählen und läuft einen Initialisierungsprozess durch, indem sämtliche Komponenten geprüft werden, ob diese vorhanden sind und funktionieren. Dies sind
     * Netzwerk
     * SPIFF-Filesystem 
-        WebServer
-        NTP (Zeitserver)
-        CARD-Reader
-        Logging-Ressourcen (bedingt gültigen CARD-Reader)
-        Temperatur-Sensorik
-        Modbus
+    * WebServer
+    * NTP (Zeitserver)
+    * CARD-Reader
+    * Logging-Ressourcen (bedingt gültigen CARD-Reader)
+    * Temperatur-Sensorik
+    * Modbus
+
+- Sämtliche Schritte werden am Display angezeigt und bei einem Fehler wird dies rot gekenntzeichnet.
