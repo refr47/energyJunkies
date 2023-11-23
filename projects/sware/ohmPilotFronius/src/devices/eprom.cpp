@@ -35,6 +35,21 @@ void eprom_storeSetup(Setup &setup)
     preferences.end();
 }
 
+void eprom_isInit()
+{
+    preferences.begin(CREDENTIALS, false);
+    if (preferences.getString(_SSID, "") == NULL)
+    {
+        DBGf("eprom_isInit - flash hasn't been used never before ! - reinit ");
+        eprom_test_write_Eprom("", "");
+    }
+    else
+    {
+        DBGf("eprom_isInit:: Nothing to do");
+    }
+    preferences.end();
+}
+
 void eprom_getSetup(Setup &setup)
 {
     preferences.begin(CREDENTIALS, false);
@@ -64,8 +79,6 @@ void eprom_getSetup(Setup &setup)
     setup.ipInverterAsString = ipv4_int_to_string(setup.ipInverter, &result);
     if (!result)
         DBGf("ERPROM - Error in converting IPAdress!!");
-    else
-        DBGf("IP as String: %s", setup.ipInverterAsString);
 
     setup.externerSpeicher = preferences.getBool(_EXTERNER_SPEICHER);
     setup.externerSpeicherPriori = preferences.getChar(_EXTERNER_SPEICHER_PRIORI);
@@ -89,7 +102,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 
     strncpy(setup.ssid, wlanE, LEN_WLAN - 1);
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
-    DBGf("in test writing wlan ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
+    DBGf("eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
 
     setup.regelbereichHysterese = 100;
     setup.ausschaltTempInGradCel = 80;
@@ -99,18 +112,18 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.ipInverter = ipv4_string_to_int(ipInv, &result);
     if (!result)
         DBGf("IP translate did not succeed.");
-    DBGf("SETUP WRITE IP in uint: %d", setup.ipInverter);
 
     setup.externerSpeicher = false;
     setup.externerSpeicherPriori = '1';
     setup.pid_p = 1.0;
     setup.pid_i = 0.5;
-    setup.pid_d = 0.0;
+    setup.pid_d = 0.01;
 
     setup.pid_min_time_without_contoller_inMS = 5000;
     setup.pid_min_time_before_switch_off_channel_inMS = 2000;
     setup.pid_min_time_for_dig_output_inMS = 10000;
     setup.pid_targetPowerInWatt = 10;
+    DBGf("eprom_test_write_Eprom END");
 
     eprom_storeSetup(setup);
 }
@@ -118,7 +131,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 static void printEprom(Setup &setup)
 {
     char buffer[500];
-    sprintf(buffer, "EPROM out \n WLAN: %s, Passwd: %s Hysterese: %d, AusschaltTempInC: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f.2 PID_I: %f.2 PID_D %f.2  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d  ----- END OF EPROM",
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s Hysterese: %d, AusschaltTempInC: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f.2 PID_I: %f.2 PID_D %f.2  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d  ----- \n\nEND OF EPROM",
             setup.ssid, setup.passwd, setup.regelbereichHysterese, setup.ausschaltTempInGradCel, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_targetPowerInWatt, setup.pidChanged
 
     );

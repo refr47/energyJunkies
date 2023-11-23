@@ -39,7 +39,6 @@ PinManager::PinManager(int digOut1, int digOut2, int anOut)
     mPid.SetMode(AUTOMATIC);
     mPid.SetOutputLimits(OUTPUT_MIN, OUTPUT_MAX);
     mPid.SetSampleTime(50);
-
 }
 void PinManager::config(Setup &setup)
 {
@@ -57,11 +56,11 @@ int PinManager::task(Setup &setup, double currentP)
         DBGf("PID Params changed / updated");
         setup.pidChanged = false;
     }
-    mCurrentPower = currentP;  // necessary ??
-    //mCurrentPower = pidContainer.mCurrentPower;
+    mCurrentPower = currentP; // necessary ??
+    // mCurrentPower = pidContainer.mCurrentPower;
 
     mPid.Compute();
-    
+
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
 
     // turn on digital output if power suffices
@@ -100,12 +99,12 @@ int PinManager::task(Setup &setup, double currentP)
 
     // dbg("power:");
     // dbg(power);
-    DBGf("  !!!!!!!! PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, Einspeisung: %d, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
-  /*   pidContainer.mCurrentPower=mCurrentPower;
-    pidContainer.mAnalogOut=mAnalogOut;
-    pidContainer.powerNotUseable=mPidSetPoint;
-    pidContainer.PID_PIN1 = mOuts[id_DIG_PIN_1].isDigOn();
-    pidContainer.PID_PIN2 = mOuts[id_DIG_PIN_2].isDigOn(); */
+    DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, Einspeisung: %d, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
+    /*   pidContainer.mCurrentPower=mCurrentPower;
+      pidContainer.mAnalogOut=mAnalogOut;
+      pidContainer.powerNotUseable=mPidSetPoint;
+      pidContainer.PID_PIN1 = mOuts[id_DIG_PIN_1].isDigOn();
+      pidContainer.PID_PIN2 = mOuts[id_DIG_PIN_2].isDigOn(); */
 
     return 0;
 }

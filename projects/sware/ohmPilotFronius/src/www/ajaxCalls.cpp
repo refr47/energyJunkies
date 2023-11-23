@@ -62,7 +62,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     int result = 0;
     float resultF = 0.0;
     bool errorH = false;
-    DBGf("STart parsing json object - %s, %s", WLAN_ESSID, argument);
+    DBGf("ajaxCalls_handleStoreSetup BEGIN - %s, %s", WLAN_ESSID, argument);
 
     errorH = util_isFieldFilled(WLAN_ESSID, argument, data);
     if (errorH)
@@ -186,6 +186,8 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     eprom_storeSetup(setup);
     // eprom_test_read_Eprom();
     returnFromStoreSetup(errorH, data, request);
+    DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");
+
     delay(10000); // wait 10 secs
     esp_restart();
 }

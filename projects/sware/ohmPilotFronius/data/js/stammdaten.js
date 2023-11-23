@@ -32,7 +32,8 @@ function showError(text) {
   }, 1000, function () {
     $(this).css({
       "background-color": 'red',
-      "color": "white"
+      "color": "white",
+      "margin-left": "10px"
     });
   });
   $('#error').val(text)
@@ -45,10 +46,11 @@ function showAjaxError(text) {
 
   $('#errorAjax').animate({
     backgroundColor: '#ddd',
-  }, 1000, function () {
+  }, 3000, function () {
     $(this).css({
       "background-color": 'red',
-      "color": "white"
+      "color": "white",
+      "margin-left": "10px"
     });
   });
   $('#errorAjax').val(text)
@@ -63,7 +65,10 @@ function showAjaxSuccess(text) {
   }, 1000, function () {
     $(this).css({
       "background-color": 'green',
-      "color": "white"
+      "color": "white",
+      "margin-left": "10px"
+
+
     });
   });
   $('#errorAjax').val(text)
@@ -235,10 +240,10 @@ function storeDataAjax() {
         if (dataC.done == 0)
           showAjaxError(dataC.error);
         else {
-          showAjaxSuccess("Abspeichern war erfolgreich!")
+          showAjaxSuccess("Setup Daten wurden gespeichert / µController wird neu gestartet (10 sec)/ Browserfenster schließen / Display beachten für Web-Zugang")
         }
-          //alert("Daten wurden erfolgreich gespeichert!\nBei Änderung der IP-Adresse wird neu gebootet!")
-        console.log({ dataC });
+        //alert("Daten wurden erfolgreich gespeichert!\nBei Änderung der IP-Adresse wird neu gebootet!")
+        //console.log({ dataC });
       })
       .fail((err) => {
         console.error(err);
@@ -263,7 +268,7 @@ function renewTable() {
 
   $.ajax({
     type: "GET",
-    url: "http://10.0.0.59/getSetup", //http://10.0.0.59
+    url: "/getSetup", //http://10.0.0.59
     async: true,
     contentType: "application/json; charset=utf-8",
     dataType: "json",

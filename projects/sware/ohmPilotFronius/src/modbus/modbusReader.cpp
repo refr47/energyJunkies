@@ -256,7 +256,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", inverterSumValues.data.acCurrentPower,
                     inverterSumValues.data.acTotalEnergy, inverterSumValues.data.dcCurrentPower);
             memcpy(&container.inverterSumValues.data, &inverterSumValues.data, sizeof(inverterSumValues.data));
-            
+
         case METER_BLOCK_ID:
             // meterValues.data.acCurrentPower : aktuelle einspeisung (-), Bezug: +
             scaleValues(meterValues.value, resArr[readIndex], scaleMeter, METER_VALUE_LEN);
@@ -283,12 +283,12 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         }
         if (text[0] != '\0')
         {
-            DBGf("===== Index: [%d] , data: %s", readIndex, text);
+            DBGf("ModbusReader::Index: [%d] , data: %s", readIndex, text);
             text[0] = '\0';
         }
         else
         {
-            DBGf(" !!!!!!!! Modbus index: %d:", readIndex);
+            DBGf("ModbusReader:: index: %d:", readIndex);
         }
 
         // make a line feed at the last block

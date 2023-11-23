@@ -40,8 +40,8 @@ https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
 #define MODBUS_INTERVALL 10000UL
 #define LOGGING_FLUSH_INTERVALL 60000
-#define CLOCK_INTERVALL 1000          // secs
-#define WEBSOCK_NOTIFY_INTERVALL 5000 // 5 secs
+#define CLOCK_INTERVALL 1000           // secs
+#define WEBSOCK_NOTIFY_INTERVALL 10000 // 5 secs
 
 #define FORMAT_CHAR_BUFFER_LEN 35 // @see loop
 
@@ -71,8 +71,19 @@ typedef struct _ALARM
     _ALARM_MODBUS alarmModbus;
 } ALARM_CONTAINER;
 
+typedef struct _TIME_SLICE
+{
+    unsigned long previousMillTemp;
+    unsigned long previousMillModbus;
+    unsigned long previousMillFlush;
+    unsigned long previousMillisClock;
+    unsigned long previousMillisWebSocks;
+    unsigned long currentMillis;
+
+} TIME_SLICE;
+
 /* ****************************************************************************
-  GLOBAL VARS
+  GLOBAL VARS https://randomnerdtutorials.com/esp32-websocket-server-sensor/
   ****************************************************************************
 */
 
@@ -82,15 +93,7 @@ static bool networkCredentialsInEEprom = true;
 static bool networkOK = false; */
 static STATES states;
 
-static const char *wlanE = "Milchbehaelter";
-static const char *passW = "47754775";
-static unsigned long previousMillTemp = 0UL;
-static unsigned long previousMillModbus = 0UL;
-static unsigned long previousMillFlush = 0UL;
-static unsigned long currentMillis = millis();
-static unsigned long previousMillisClock = 0UL;
-static unsigned long previousMillisWebSocks = 0UL;
-
+static TIME_SLICE timeSlice;
 static TEMPERATURE container;
 static MB_CONTAINER modbusData;
 static PID_CONTAINER pidContainer;
@@ -177,10 +180,11 @@ void setup()
 
     // eprom_test_write_Eprom(wlanE, passW);
     // eprom_clearLifeData();
+    eprom_isInit();
     eprom_getSetup(setupData);
     eprom_getLifeData(lifeData);
 
-    // eprom_test_read_Eprom();
+    eprom_test_read_Eprom();
 
     /*
      printHWInfo();
@@ -200,6 +204,7 @@ void setup()
     if (strcmp(setupData.ssid, "---") == 0)
     {
         networkCredentialsInEEprom = false;
+        states.networkOK = false;
         www_init(NULL, NULL, getDataForWebSocket); // act as access point
     }
     if (networkCredentialsInEEprom)
@@ -290,7 +295,6 @@ void setup()
             tft_printKeyValue("Init Sensors", "Error", TFT_RED);
         }
         DBGf("Setup modbus ...");
-        tft_printInfo("Init Modbus ");
         if (!mb_init(setupData))
         {
             DBGf("Cannot initialize modbus ....");
@@ -437,9 +441,9 @@ void loop()
     if (!states.modbusOK)
     {
     }
-    currentMillis = millis();
+    timeSlice.currentMillis = millis();
 
-    if (currentMillis - previousMillisClock > CLOCK_INTERVALL)
+    if (timeSlice.currentMillis - timeSlice.previousMillisClock > CLOCK_INTERVALL)
     {
         if (getCurrentTime(formatBuffer, FORMAT_CHAR_BUFFER_LEN))
         {
@@ -451,10 +455,10 @@ void loop()
             tft_updateTime("00:00:00");
         }
 
-        previousMillisClock = currentMillis;
+        timeSlice.previousMillisClock = timeSlice.currentMillis;
     }
 
-    if (currentMillis - previousMillTemp > TEMPERATURE_INTERVAL)
+    if (timeSlice.currentMillis - timeSlice.previousMillTemp > TEMPERATURE_INTERVAL)
     {
         time_print();
         temp_getTemperature(container);
@@ -500,11 +504,11 @@ void loop()
                 }
             }
         }
-        previousMillTemp = currentMillis;
+        timeSlice.previousMillTemp = timeSlice.currentMillis;
     }
     /* if (networkCredentialsInEEprom == false)
       return; */
-    if (currentMillis - previousMillModbus > MODBUS_INTERVALL)
+    if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
         mb_readInverterDynamic(setupData, modbusData);
         memset(formatBuffer, 0, 25);
@@ -554,19 +558,19 @@ void loop()
 
             tft_drawInfo(container, modbusData, pidContainer);
         }
-        previousMillModbus = currentMillis;
+        timeSlice.previousMillModbus = timeSlice.currentMillis;
     }
-    if (currentMillis - previousMillModbus > LOGGING_FLUSH_INTERVALL)
+    if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {
         cardRW_flushLoggingFile();
-        previousMillModbus = currentMillis;
+        timeSlice.previousMillModbus = timeSlice.currentMillis;
         cardRW_closeLoggingFile();
     }
     delay(4000);
 
-    if (currentMillis - previousMillisWebSocks > WEBSOCK_NOTIFY_INTERVALL)
+    if (timeSlice.currentMillis - timeSlice.previousMillisWebSocks > WEBSOCK_NOTIFY_INTERVALL)
     {
-        previousMillisWebSocks = currentMillis;
+        timeSlice.previousMillisWebSocks = timeSlice.currentMillis;
         notifyClients(getJsonObj());
     }
     if (networkCredentialsInEEprom == false)
@@ -593,10 +597,11 @@ void loop()
         DBG("internal bu: ");
         DBGln(currentState); */
     }
+
 #endif
 }
 WEBSOCK_DATA &getDataForWebSocket()
 {
-    DBGf("getDataForWebSocket, Temp: %.2lf", webSockData.temperature.sensor1);
+    // DBGf("getDataForWebSocket, Temp: %.2lf", webSockData.temperature.sensor1);
     return webSockData;
 }
