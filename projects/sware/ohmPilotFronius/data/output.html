@@ -4,7 +4,8 @@
 
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
-    <title>About</title>
+    <title>Life Datenübersicht</title>
+   
  
     <link rel="stylesheet" type="text/css" href="css/menu.css" />
     <link rel="stylesheet" type="text/css" href="css/main.css" />
@@ -13,21 +14,16 @@
     <script type="text/javascript" src="js/navigation.js"></script>
     <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
     <script src="js/datatables.min.js"></script>
+    <script src="js/output.js"></script>
     <script>
+        document.title = 'Aktuelle Daten';
         $(document).ready(function () {
             $('#navBar').load('headerF.html #navB');
             $('#backGr').load('headerF.html #backG')
-
             $('#myFooter').load('headerF.html #myFooter')
-            var dataOut = $('#details').DataTable({
-                "dom": 'rtip',
-                "lengthChange": false,
-                "info": false,
-                "bPaginate": false,
-                "responsive": true
-            });
-            $(".dataTables_filter").hide();
-            document.title = 'Aktuelle Daten';
+            buildStaticTableM();
+          
+            
         })
     </script>
 </head>
@@ -41,34 +37,6 @@
     </header>
     <h1>Übersicht</h1>
     <table id="details" class="stripe" style="width:60%">
-        <thead>
-            <tr>
-                <th>Subject</th>
-                <th>Ausprägung</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>Aktuelle Produktion (W)</td>
-                <td>782</td>
-            </tr>
-            <tr>
-                <td>Heizpatrone aktiv</td>
-                <td>y</td>
-            </tr>
-            <tr>
-                <td>Speicher aktiv</td>
-                <td>y</td>
-            </tr>
-            <tr>
-                <td>Speicher laden (W)</td>
-                <td>100</td>
-            </tr>
-            <tr>
-                <td>Speicherkapazität (%)</td>
-                <td>46</td>
-            </tr>
-        </tbody>
     </table>
 </body>
 <div id="myFooter"></div>
