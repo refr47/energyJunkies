@@ -40,6 +40,7 @@ function showError(text) {
   return false
 
 }
+
 function showAjaxError(text) {
 
   $('#errorAjax').animate({
@@ -53,8 +54,24 @@ function showAjaxError(text) {
   $('#errorAjax').val(text)
   $('#errorAjax').show()
   return false
-
 }
+
+function showAjaxSuccess(text) {
+
+  $('#errorAjax').animate({
+    backgroundColor: '#ddd',
+  }, 1000, function () {
+    $(this).css({
+      "background-color": 'green',
+      "color": "white"
+    });
+  });
+  $('#errorAjax').val(text)
+  $('#errorAjax').show()
+  return false
+}
+
+
 function evalIt(value, index) {
   console.log("val: " + value + " , ind: " + index)
   if (value == "")
@@ -217,8 +234,10 @@ function storeDataAjax() {
         //const answ = JSON.parse(dataC);
         if (dataC.done == 0)
           showAjaxError(dataC.error);
-        else
-          alert("Daten wurden erfolgreich gespeichert!\nBei Änderung der IP-Adresse wird neu gebootet!")
+        else {
+          showAjaxSuccess("Abspeichern war erfolgreich!")
+        }
+          //alert("Daten wurden erfolgreich gespeichert!\nBei Änderung der IP-Adresse wird neu gebootet!")
         console.log({ dataC });
       })
       .fail((err) => {
@@ -244,7 +263,7 @@ function renewTable() {
 
   $.ajax({
     type: "GET",
-    url: "/getSetup", //http://10.0.0.59
+    url: "http://10.0.0.59/getSetup", //http://10.0.0.59
     async: true,
     contentType: "application/json; charset=utf-8",
     dataType: "json",
