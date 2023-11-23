@@ -175,8 +175,8 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    eprom_test_write_Eprom(wlanE, passW);
-    eprom_clearLifeData();
+    // eprom_test_write_Eprom(wlanE, passW);
+    // eprom_clearLifeData();
     eprom_getSetup(setupData);
     eprom_getLifeData(lifeData);
 
