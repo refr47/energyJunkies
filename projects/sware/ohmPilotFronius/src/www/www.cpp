@@ -164,13 +164,11 @@ bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockDat
     else
     {
         DBGf("WWW init server with ip: %s", ipAddr);
-        tft_printInfo("Start WWW on:");
+        // tft_printInfo("Start WWW on:");
 
         tft_printKeyValue("SSID", wlanAsClientSSID, TFT_GREEN);
         tft_printKeyValue("IP", ipAddr, TFT_GREEN);
-        tft_printKeyValue("Init WWW", "ok", TFT_GREEN);
     }
-    tft_printKeyValue("Routen ...", "Done", TFT_GREEN);
 
     server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/about.html", "text/html", false, NULL); });

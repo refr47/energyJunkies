@@ -212,7 +212,7 @@ void setup()
         DBGf("Connecting to WiFi ..");
         tft_printInfo("Connecting to WiFi");
         int counter = 0;
-        char buff[30];
+        char buff[100];
         memset(buff, 0, strlen(buff));
 #ifndef WEB
         while (WiFi.status() != WL_CONNECTED)
@@ -260,7 +260,7 @@ void setup()
             // tft_printInfo("No valid network!");
             return;
         }
-        tft_printInfo("       ");
+        // tft_printInfo("       ");
         tft_printKeyValue("Init Time", "OK", TFT_GREEN);
         time_init(); // init time
 
@@ -311,7 +311,7 @@ void setup()
     }
     if (states.networkOK)
     {
-        delay(3000);
+        delay(10000);
         tft_clearScreen();
     }
     ESP_LOGI(TAG, "Setup done - all components are working...");

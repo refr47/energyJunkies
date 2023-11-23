@@ -35,7 +35,7 @@ bool wifi_init(Setup &setup)
     wl_status_t stat = WL_IDLE_STATUS;
     wl_status_t statWifi = WiFi.status();
     bool printNewLine = true;
-    char buf[50];
+    char buf[100];
 
     while (true)
     {

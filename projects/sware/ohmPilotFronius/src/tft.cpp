@@ -196,7 +196,7 @@ void tft_print_txt(int num, ...)
          {
              tft_clearScreenFrom(FONTSIZE_2_ONE_LINE * 2);
          } */
-        DBGf("          ::::tft_print_txt: %d,  text: %s", currentLine, msg);
+        // DBGf("          ::::tft_print_txt: %d,  text: %s", currentLine, msg);
         tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, (const char *)msg, TFT_WHITE);
     }
     va_end(valist);
@@ -276,15 +276,14 @@ void displayErrorMessage(const char *message)
     tft.println(message);        // Fehlermeldung anzeigen
 }
 
-
 void tft_printKeyValue(const char *key, const char *value, u_int16_t txtColor)
 {
-    
+
     tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, key, TFT_WHITE);
 
     if (txtColor == TFT_WHITE)
         tft.setTextColor(txtColor);
-  
+
     tft_printTextToPos(tft.getCursorX() + 10, FONTSIZE_2_ONE_LINE * (currentLine++), FONTSIZE_2, value, txtColor);
     tft.setTextColor(TFT_WHITE);
 }
@@ -326,10 +325,10 @@ static inline void tft_prinBlock(int offsetX1, int offsetX2, u_int16_t txtColor,
     // tft.setTextColor(TFT_WHITE);
 }
 
-
 #ifdef EJ
 
-void tft_print_test(int yLine, int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value) {
+void tft_print_test(int yLine, int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value)
+{
     tft_printTextToPos(offsetX1, FONTSIZE_2_ONE_LINE * yLine, FONTSIZE_2, key, TFT_WHITE);
     tft.fillRect(offsetX2, tft.getCursorY(), width - tft.getCursorX(), FONTSIZE_2_ONE_LINE, TFT_BLACK);
 

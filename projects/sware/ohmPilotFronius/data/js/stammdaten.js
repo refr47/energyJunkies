@@ -4,20 +4,20 @@ function createDataSet() {
   dataSet = [
     ['WLAN_ESSID', 'xxxx', 'SSID'],
     ['WLAN_Password', '100', 'Password'],
-    ['IP_Inverter','','IP-Adresse des Inverters'],
-    ['Hysterese','100','Regelbereich Hysterese'],
-    ['Ausschalt_Temperatur','70','Maximal erlaubte Temperatur'],
-    ['Mindest_Einspeisung','100','Strom, der vom Heizregler nicht verwendet werden darf (in W)'],
-    ['Speicher','n','Externer Speicher steht zur Verfügung (j,n)'],
-    ['Speicher_Prioritaet','1','1: Externer Speicher vorrangig, 2: nachrangig'],
-    ['Mindeslaufzeit_Digital','2','Mindeslaufzeit vor einer Änderung der digitalen Ports (in ms)'],
-    ['Mindeslaufzeit_Phase','2','Mindeslaufzeit, in der eine Phase eingeschaltet ist (in ms)'],
-    ['Mindeslaufzeit_Regler','2','Zeitperiode, in der Änderungen vom Regler nicht berücksichtigt werden (in ms)'],
-    ['Ausgangsregler (P-Anteil)','0.9','PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
-    ['Ausgangsregler (I-Anteil)','0.1','PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
-    ['Ausgangsregler (D-Anteil)','0.0','PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'],
-    ['Z_TEST','j','j|n'],
-    ['Z_Available_energy','2000','Momentaner Export '],
+    ['IP_Inverter', '', 'IP-Adresse des Inverters'],
+    ['Hysterese', '100', 'Regelbereich Hysterese'],
+    ['Ausschalt_Temperatur', '70', 'Maximal erlaubte Temperatur'],
+    ['Mindest_Einspeisung', '100', 'Strom, der vom Heizregler nicht verwendet werden darf (in W)'],
+    ['Speicher', 'n', 'Externer Speicher steht zur Verfügung (j,n)'],
+    ['Speicher_Prioritaet', '1', '1: Externer Speicher vorrangig, 2: nachrangig'],
+    ['Mindeslaufzeit_Digital', '2', 'Mindeslaufzeit vor einer Änderung der digitalen Ports (in ms)'],
+    ['Mindeslaufzeit_Phase', '2', 'Mindeslaufzeit, in der eine Phase eingeschaltet ist (in ms)'],
+    ['Mindeslaufzeit_Regler', '2', 'Zeitperiode, in der Änderungen vom Regler nicht berücksichtigt werden (in ms)'],
+    ['Ausgangsregler (P-Anteil)', '0.9', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
+    ['Ausgangsregler (I-Anteil)', '0.1', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
+    ['Ausgangsregler (D-Anteil)', '0.0', 'PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'],
+    ['Z_TEST', 'j', 'j|n'],
+    ['Z_Available_energy', '2000', 'Momentaner Export '],
   ];
 
 
@@ -132,14 +132,15 @@ function evalIt(value, index) {
       if (fnum < 0.0 || fnum > 1.0)
         return showError("Wertebereich ungültig (>=0.0 und <= 1.0)")
       break;
-      break;
+
     case 13: if (isNaN(value)) // pid d anteil
       return showError("Numerische Eingabe erforderlich")
       fnum = parseFloat(value)
+      console.log("D-Anteil: " + fnum)
       if (fnum < 0.0 || fnum > 1.0)
         return showError("Wertebereich ungültig (>=0.0 und <= 1.0)")
       break;
-      break;
+
 
   }
   return true
@@ -159,7 +160,7 @@ function initHandler() {
       $('#editBlock').hide();
 
       //dataTable.row($(this).attr('rowindex')).data([$("#theTitle").val(), $("#theValue").val()]).draw();
-      dataSet[currentIndex][1]=val;
+      dataSet[currentIndex][1] = val;
       dataTable.row(currentIndex).invalidate().draw()
     }
     //clean up form, switch it to default state
@@ -233,9 +234,9 @@ function storeDataAjax() {
 
 function replace(index, val) {
   //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
-  const row = dataTable.row(index )
+  const row = dataTable.row(index)
   // update model
-  dataSet[index][1]=val
+  dataSet[index][1] = val
   row.invalidate().draw()
 }
 
@@ -301,7 +302,7 @@ function buildStaticTable() {
         {
           title: 'Bemerkung',
           width: "40%",
-        
+
         }
 
 
