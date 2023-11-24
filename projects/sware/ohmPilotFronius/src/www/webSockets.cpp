@@ -1,19 +1,52 @@
-
 #include "webSockets.h"
+#include "utils.h"
 #include <Arduino_JSON.h>
+// do not reodrder *.h-files !!
+// project: https : // randomnerdtutorials.com/esp32-websocket-server-arduino/
 
-using namespace std;
-// https://randomnerdtutorials.com/esp32-websocket-server-arduino/
+/*
+        *****************************************************
+        DEFINES
+
+*/
+#define PRODUKTION "PR"
+#define EIGENVERBRAUCH "EV"
+#define EINSPEISUNG "EINS"
+#define TEMP_PUFFERSPEICHER "TPS"
+#define HEIZPATRONE_L1 "HL1"
+#define HEIZPATRONE_L2 "HL2"
+#define HEIZPATRONE_L3 "HL3"
+#define MUSS_EINSPEISUNG "ME"
+#define ALARM "AL"
+#define FEHLER "FE"
+#define AKKU_AVAILABLE "AkkuAvail"
+#define AKKU_CAPACITA "AkkuKap"
+#define AKKUE_ZUSTAND "AkkuStat"
+#define AKKU_LADEN "AkkuLoad"
+#define NETZ_EXPORT_INS "NEI"
+#define NETZ_IMPORT_INS "NII"
+
+//
 //  using macro to convert float to string
 #define STRING(Value) #Value
+/*
+        *****************************************************
+        PROTOTYPES
 
+*/
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 
-// Create a WebSocket object
+/*
+        *****************************************************
+        local variables
+
+*/
 static AsyncWebSocket ws("/ws");
 static JSONVar readings; // Json Variable to Hold Sensor Readings
 static CALLBACK_GET_DATA webSockData;
+static char formatBuffer[35];
+// Create a WebSocket object static AsyncWebSocket ws("/ws");
 
 AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
 {
@@ -36,8 +69,20 @@ String getJsonObj()
 {
     WEBSOCK_DATA data = webSockData();
     DBGf("webSocks - getJsonOj:  %.2lf", data.temperature.sensor1);
-    readings["TEMPERATUR"] = std::to_string(data.temperature.sensor1).c_str();
-    DBGf("TEM in getJson: %s", std::to_string(data.temperature.sensor1).c_str());
+    readings[PRODUKTION] = util_format_Watt_kWatt(data.mbContainer.inverterSumValues.data.acCurrentPower, formatBuffer);
+    readings[EINSPEISUNG] = util_format_Watt_kWatt(data.mbContainer.meterValues.data.acCurrentPower, formatBuffer);
+    readings[EIGENVERBRAUCH] = util_format_Watt_kWatt(data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower, formatBuffer);
+    sprintf(formatBuffer, "%.2f", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+    readings[TEMP_PUFFERSPEICHER] = formatBuffer;
+    sprintf(formatBuffer, "%d", data.pidContainer.PID_PIN1);
+    readings[HEIZPATRONE_L1] = formatBuffer;
+    sprintf(formatBuffer, "%d", data.pidContainer.PID_PIN2);
+    readings[HEIZPATRONE_L2] = formatBuffer;
+    sprintf(formatBuffer, "%d", data.pidContainer.mAnalogOut);
+    readings[HEIZPATRONE_L3] = formatBuffer;
+    sprintf(formatBuffer, "%d", data.pidContainer.powerNotUseable);
+    readings[MUSS_EINSPEISUNG] = formatBuffer;
+
     String jsonString = JSON.stringify(readings);
     DBGf("JSON-String: %s", jsonString.c_str());
     return jsonString;

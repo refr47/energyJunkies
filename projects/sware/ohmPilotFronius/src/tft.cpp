@@ -345,6 +345,34 @@ void tft_print_test(int yLine, int offsetX1, int offsetX2, u_int16_t txtColor, c
 static char displayBuffer[50];
 static int saveCurLine;
 
+void tft_drawInfoNoModbus(TEMPERATURE &temp)
+{
+    saveCurLine = currentLine;
+
+    char formatBuffer[25]; // format W | kW
+    u_int16_t txtColor = TFT_WHITE;
+    ++currentLine;
+    tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur", TFT_SKYBLUE);
+    tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie", TFT_RED);
+    ++currentLine;
+    sprintf(displayBuffer, "%.2f", temp.sensor1);
+    tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 1", displayBuffer);
+    txtColor = TFT_RED;
+    sprintf(displayBuffer, "%s", "Keine ");
+    tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Modbus", displayBuffer);
+    ++currentLine;
+    // sensor 2 + Einspeisung/verbrauch LINE 2
+    txtColor = TFT_WHITE;
+    sprintf(displayBuffer, "%.2f", temp.sensor2);
+    tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 2", displayBuffer);
+    txtColor = TFT_RED;
+    sprintf(displayBuffer, "%s", "Verbindung");
+    ++currentLine;
+    tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Fehler", displayBuffer);
+
+    currentLine = saveCurLine;
+}
+
 void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
 {
 
@@ -366,7 +394,7 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.inverterSumValues.data.acCurrentPower, formatBuffer));
     tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Produktion", displayBuffer);
     ++currentLine;
-
+    txtColor = TFT_WHITE;
     // sensor 2 + Einspeisung/verbrauch LINE 2
     sprintf(displayBuffer, "%.2f", temp.sensor2);
     tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 2", displayBuffer);

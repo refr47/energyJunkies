@@ -66,6 +66,7 @@ typedef struct _WEBSOCK
     MB_CONTAINER mbContainer;
     Setup setup;
     TEMPERATURE temperature;
+    PID_CONTAINER pidContainer;
 
 } WEBSOCK_DATA;
 
@@ -76,4 +77,5 @@ typedef struct _STATES
     bool networkOK;
     bool modbusOK;
     bool flashOK;
+    bool tempSensorOK;
 } STATES;

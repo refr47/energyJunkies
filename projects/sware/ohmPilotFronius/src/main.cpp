@@ -125,18 +125,6 @@ void logging_init()
     }
 }
 
-void test()
-{
-    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
-    const char *argument = "234";
-    bool errorH = util_isFieldFilled("123", argument, data);
-    int result = 1;
-    errorH = util_checkParamInt(IP_INVERTER, argument, data, &result);
-    int r = 0;
-    r = atoi(argument);
-    DBGf("RetVal: %d", r);
-}
-
 void test_cardReader()
 {
     cardRW_listDir("/", 3);
@@ -159,14 +147,10 @@ void setup()
         ;
 
     DBGf("Energie-Junkies -- Harvester ---");
-    states.flashOK = true;
-    states.cardWriterOK = true;
-    states.modbusOK = true;
-    states.networkOK = true;
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
+    memset(&states, 0, sizeof(STATES));
 
     tft_init();
-
     tft_printSetup();
 
 #ifndef EJ
@@ -184,22 +168,7 @@ void setup()
     eprom_getSetup(setupData);
     eprom_getLifeData(lifeData);
 
-    eprom_test_read_Eprom();
-
-    /*
-     printHWInfo();
-     */
-    /*enable internal buttons*/
-    /* pinMode(INTERNAL_BUTTON_1_GPIO, INPUT_PULLUP);
-    pinMode(INTERNAL_BUTTON_2_GPIO, INPUT_PULLUP);
-    pinMode(PIN, OUTPUT); */
-
-    /*  eprom_test_write_Eprom(wlanE, passW);
-     eprom_test_read_Eprom();
-     DBGln(">>>>>>>>>>>eprom test end");
-     delay(1000); */
-    // wifi_scan_network();
-    //  eprom_test_read_Eprom();
+    // eprom_test_read_Eprom();
 
     if (strcmp(setupData.ssid, "---") == 0)
     {
@@ -210,35 +179,9 @@ void setup()
     if (networkCredentialsInEEprom)
     {
 
-        WiFi.mode(WIFI_STA);
-
-        WiFi.begin(setupData.ssid, setupData.passwd);
-        DBGf("WIFI: %s, Passwd: %s", setupData.ssid, setupData.passwd);
-        DBGf("Connecting to WiFi ..");
-        tft_printInfo("Connecting to WiFi");
-        int counter = 0;
         char buff[100];
         memset(buff, 0, strlen(buff));
-#ifndef WEB
-        while (WiFi.status() != WL_CONNECTED)
-        {
-            DBG("%c", '.');
-            delay(2000);
-            ++counter;
-            for (int kk = 0; kk < counter; kk++)
-            {
-                buff[kk] = '.';
-            }
-            tft_printInfo(buff, false);
-            if (counter == 5)
-            {
-                tft_printInfo("", true);
-                tft_printInfo("Scanning WiFi ..");
-                break;
-            }
-        }
 
-#endif
         if (!wifi_init(setupData))
         {
             DBGf("Cannot connect - show available networks: ");
@@ -288,13 +231,14 @@ void setup()
         { // temperature
 
             tft_printKeyValue("Init Sensors", "OK", TFT_GREEN);
+            states.tempSensorOK = true;
         }
         else
         {
-
+            states.tempSensorOK = false;
             tft_printKeyValue("Init Sensors", "Error", TFT_RED);
         }
-        DBGf("Setup modbus ...");
+        DBGf("Setup Modbus ...");
         if (!mb_init(setupData))
         {
             DBGf("Cannot initialize modbus ....");
@@ -304,7 +248,7 @@ void setup()
         else
         {
             states.modbusOK = true;
-            tft_printKeyValue("Init mdobus", "ok", TFT_GREEN);
+            tft_printKeyValue("Init Modbus", "ok", TFT_GREEN);
         }
         memset(&modbusData, 0, sizeof(modbusData));
         /*  if (!mb_readInverterStatic())
@@ -438,9 +382,7 @@ void loop()
         delay(10000);
         return;
     }
-    if (!states.modbusOK)
-    {
-    }
+
     timeSlice.currentMillis = millis();
 
     if (timeSlice.currentMillis - timeSlice.previousMillisClock > CLOCK_INTERVALL)
@@ -462,9 +404,10 @@ void loop()
     {
         time_print();
         temp_getTemperature(container);
-        webSockData.temperature.sensor1 = container.sensor1;
-        webSockData.temperature.sensor2 = container.sensor2;
+        /*     webSockData.temperature.sensor1 = container.sensor1;
+            webSockData.temperature.sensor2 = container.sensor2; */
         webSockData.temperature.alarm = false;
+        memcpy(&webSockData.temperature, &container, sizeof(TEMPERATURE));
         /*
         RELAY_L1, RELAY_L2, PWM_FOR_PID
         */
@@ -506,58 +449,72 @@ void loop()
         }
         timeSlice.previousMillTemp = timeSlice.currentMillis;
     }
-    /* if (networkCredentialsInEEprom == false)
-      return; */
+
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
-        mb_readInverterDynamic(setupData, modbusData);
-        memset(formatBuffer, 0, 25);
-        util_format_Watt_kWatt(modbusData.inverterSumValues.data.acCurrentPower, formatBuffer);
-        DBGf("Produktion %s", formatBuffer);
-
-        DBGf("EXport %s", util_format_Watt_kWatt(modbusData.meterValues.data.acCurrentPower, formatBuffer));
-
-        if (modbusData.meterValues.data.acCurrentPower < 0.0 && (modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower < 0))
-
+        if (!states.modbusOK)
         {
-            DBGf("Wrong meter value !");
+            tft_drawInfoNoModbus(container);
+            if (mb_init(setupData))
+            {
+                DBGf("Reconnected modbus successfully.");
+                states.modbusOK = true;
+            }
         }
         else
         {
-            // memset(&pidContainer, 0, sizeof(pidContaienr));
 
-            DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower, formatBuffer));
-            pidContainer.mCurrentPower = modbusData.meterValues.data.acCurrentPower; // export energy
-            // DBGf(", int: %d", pidContainer.mCurrentPower);
-            // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
+            mb_readInverterDynamic(setupData, modbusData);
+            memset(formatBuffer, 0, 25);
+            memcpy(&webSockData.mbContainer, &modbusData, sizeof(MB_CONTAINER));
+            util_format_Watt_kWatt(modbusData.inverterSumValues.data.acCurrentPower, formatBuffer);
+            DBGf("Produktion %s", formatBuffer);
 
-            pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5;
-            pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
-            pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+            DBGf("EXport %s", util_format_Watt_kWatt(modbusData.meterValues.data.acCurrentPower, formatBuffer));
 
-            if (!alarmContainer.alarmTemp.alarmTemp)
+            if (modbusData.meterValues.data.acCurrentPower < 0.0 && (modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower < 0))
+
             {
-
-                if (pidContainer.mCurrentPower < 0.0) // energy export
-                {
-                    DBGf("< 0, 1 %.2lf", pidContainer.mCurrentPower);
-                    pidContainer.mCurrentPower = 1.00 - pidContainer.mCurrentPower;
-
-                    pidPinManager.task(setupData, pidContainer.mCurrentPower);
-                }
-                else
-                {
-
-                    DBGf(" %.2lf", pidContainer.mCurrentPower);
-                    pidContainer.mCurrentPower = 4.0;
-
-                    pidPinManager.task(setupData, pidContainer.mCurrentPower);
-                }
+                DBGf("Wrong meter value !");
             }
-            // DBGf(" PID  mCurrPower (W): %.2lf, notUseable: %.2lf anaOutput(PWM) %.2lf,  Dig1: %x, Dig2: %x", pidContainer.mCurrentPower, pidContainer.mAnalogOut, pidContainer.powerNotUseable, pidContainer.PID_PIN1, pidContainer.PID_PIN2);
+            else
+            {
+                // memset(&pidContainer, 0, sizeof(pidContaienr));
 
-            tft_drawInfo(container, modbusData, pidContainer);
-        }
+                DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower, formatBuffer));
+                pidContainer.mCurrentPower = modbusData.meterValues.data.acCurrentPower; // export energy
+                // DBGf(", int: %d", pidContainer.mCurrentPower);
+                // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
+
+                pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5;
+                pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
+                pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+                memcpy(&webSockData.pidContainer, &pidContainer, sizeof(PID_CONTAINER));
+
+                if (!alarmContainer.alarmTemp.alarmTemp)
+                {
+
+                    if (pidContainer.mCurrentPower < 0.0) // energy export
+                    {
+                        DBGf("< 0, 1 %.2lf", pidContainer.mCurrentPower);
+                        pidContainer.mCurrentPower = 1.00 - pidContainer.mCurrentPower;
+
+                        pidPinManager.task(setupData, pidContainer.mCurrentPower);
+                    }
+                    else
+                    {
+
+                        DBGf(" %.2lf", pidContainer.mCurrentPower);
+                        pidContainer.mCurrentPower = 4.0;
+
+                        pidPinManager.task(setupData, pidContainer.mCurrentPower);
+                    }
+                }
+                // DBGf(" PID  mCurrPower (W): %.2lf, notUseable: %.2lf anaOutput(PWM) %.2lf,  Dig1: %x, Dig2: %x", pidContainer.mCurrentPower, pidContainer.mAnalogOut, pidContainer.powerNotUseable, pidContainer.PID_PIN1, pidContainer.PID_PIN2);
+
+                tft_drawInfo(container, modbusData, pidContainer);
+            }
+        } // if modbusstate
         timeSlice.previousMillModbus = timeSlice.currentMillis;
     }
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)

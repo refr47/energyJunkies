@@ -19,14 +19,42 @@ static unsigned long previousMillis = 0;
 
 bool wifi_init(Setup &setup)
 {
+    WiFi.mode(WIFI_STA);
+
+    WiFi.begin(setup.ssid, setup.passwd);
+    DBGf("WIFI: %s, Passwd: %s", setup.ssid, setup.passwd);
+    DBGf("Connecting to WiFi ..");
+    tft_printInfo("Connecting to WiFi");
+#ifndef WEB
+    int numberOfTries = WIFI_NUMBER_OF_TRIES;
+    int counter = 0;
+    char buff[50];
+    memset(buff, 0, strlen(buff));
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        DBG("%c", '.');
+        delay(2000);
+        ++counter;
+        for (int kk = 0; kk < counter; kk++)
+        {
+            buff[kk] = '.';
+        }
+        tft_printInfo(buff, false);
+        if (counter == 5)
+        {
+            tft_printInfo("", true);
+            tft_printInfo("Scanning WiFi ..");
+            break;
+        }
+    }
+
+#endif
 #ifdef WEB
     int numberOfTries = 0;
-#else
-    int numberOfTries = WIFI_NUMBER_OF_TRIES;
 #endif
-    tft_print_txt(2, "Connect to", setup.ssid);
+    WiFi.disconnect();
+    tft_print_txt(2, "Reconnect", setup.ssid);
     DBGf("[Wifi] Connecting to %s ", setup.ssid);
-
     WiFi.mode(WIFI_STA);
     WiFi.begin(setup.ssid, setup.passwd, true);
 
@@ -113,14 +141,6 @@ bool wifi_init(Setup &setup)
 
 void wifi_scan_network()
 {
-
-    /*
-    tft_getRoot().setTextColor(TFT_GREEN, TFT_BLACK);
-    tft_getRoot().fillScreen(TFT_BLACK);
-    tft_getRoot().setTextDatum(MC_DATUM);
-    tft_getRoot().setTextSize(3);
-
-    tft_getRoot().drawString("Scan Network", tft_getWidth() / 2, tft_getHeight() / 2); */
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();

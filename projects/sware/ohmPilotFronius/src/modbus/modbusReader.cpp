@@ -283,7 +283,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         }
         if (text[0] != '\0')
         {
-            DBGf("ModbusReader::Index: [%d] , data: %s", readIndex, text);
+            DBGf("ModbusReader::Index: [%s] , data: %s", readIndex == 0 ? "Inverter" : "SmartMeter", text);
             text[0] = '\0';
         }
         else
