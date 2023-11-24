@@ -4,6 +4,9 @@ Anleitung für das Flashen des Projekts (esp32) mit Hilfe von PlatformIO
 ## Voraussetzungen
 Das Projekt via Github clonen; PlattformIO wird die gesamte Toolchain des esp32 installieren; zusätzlich werden die Abhängigkeiten (Libs) aufgelöst und heruntergeladen. Dies kann - je nach Internetverbindung - schon eine Zeit dauern.
 
+## Display Configuration
+Das verwendete Display (lilygo-s3) wird über den SPI-Bus angesteuert und die entsprechende Bibliothek muss dafür konfiguriert werden. Ansonst bleibt es dunkel. 
+Der Config-File ***User_Setup_Select.h*** befindet sich im TFT_eSPI-Verzeichnis und hat hat innerhalb der Direktive *USER_SETUP_LOADED* nur einen Eintrag in der Nähe von Zeile 134: *#include <User_Setups/Setup206_LilyGo_T_Display_S3.h>     // For the LilyGo T-Display S3 based ESP32S3 with ST7789 170 x 320 TFT;* ansonst ist alles auskommentiert.
 ## Compile/Flash
 Zuerst muss das Projekt fehlerfrei übersetzt werden können und ein Image für den esp32 erzeugt werden. Es kommen noch einige Warnings, aber die sind eher bedeutungslos und kommen größtenteils von den verwendeten Libs.
 
