@@ -5,11 +5,11 @@ var dataTableMobil;
 
 
 function replace(index, val) {
-  //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
+  let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
   const row = dataTableMobil.row(index)
   // update model
   dataSetOut[index][1] = val
-  cell.css("background-color","red")
+  cell.css("background-color", "red")
   row.invalidate().draw()
 }
 
@@ -101,37 +101,37 @@ function createDataSetM() {
 }
 
 function buildStaticTableM() {
-    createDataSetM()
-    $("#wsHost").html(gateway)
-    let xx=['Modbus: keine Verbindung','Temperatur: Soll erreicht']
-    addErrors(xx);
-    dataTableMobil = $('#details').DataTable
-      ({
-        "dom": 'Bfrtip',
-        "lengthChange": false,
-        "info": false,
-        "bPaginate": true,
-        "ordering": false,
-        "responsive": true,
-        columns: [
-          {
-            title: 'Titel',
-            width: "40%",
-          },
-          {
-            title: 'Ausprägung'
-          }
-        ],
-        columnDefs: [
-          {
-            target: 1,
-            visible: true,
-            searchable: false
-          },  
-        ],
-        data: dataSetOut
-      });
-  
-  
-  }
+  createDataSetM()
+  $("#wsHost").html(gateway)
+  let xx = ['Modbus: keine Verbindung', 'Temperatur: Soll erreicht']
+  addErrors(xx);
+  dataTableMobil = $('#details').DataTable
+    ({
+      "dom": 'Bfrtip',
+      "lengthChange": false,
+      "info": false,
+      "bPaginate": true,
+      "ordering": false,
+      "responsive": true,
+      columns: [
+        {
+          title: 'Titel',
+          width: "40%",
+        },
+        {
+          title: 'Ausprägung'
+        }
+      ],
+      columnDefs: [
+        {
+          target: 1,
+          visible: true,
+          searchable: false
+        },
+      ],
+      data: dataSetOut
+    });
+
+
+}
 
