@@ -13,18 +13,21 @@
 #define EIGENVERBRAUCH "EV"
 #define EINSPEISUNG "EINS"
 #define TEMP_PUFFERSPEICHER "TPS"
-#define HEIZPATRONE_L1 "HL1"
-#define HEIZPATRONE_L2 "HL2"
+#define HEIZPATRONE_L1 1
+#define HEIZPATRONE_L2 2
 #define HEIZPATRONE_L3 "HL3"
 #define MUSS_EINSPEISUNG "ME"
-#define ALARM "AL"
 #define FEHLER "FE"
-#define AKKU_AVAILABLE "AkkuAvail"
+#define AKKU_AVAILABLE 3
 #define AKKU_CAPACITA "AkkuKap"
 #define AKKUE_ZUSTAND "AkkuStat"
 #define AKKU_LADEN "AkkuLoad"
 #define NETZ_EXPORT_INS "NEI"
 #define NETZ_IMPORT_INS "NII"
+#define STATE_CARDWRITE 4
+#define STATE_MODBUS 5
+#define STATE_FLASH 6
+#define STATE_TEMPSENSOR 7
 
 //
 //  using macro to convert float to string
@@ -65,19 +68,61 @@ AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
     return jsonString;
 } */
 
+static double prevValueFromSmartMeter = 0.0;
+static unsigned int bitMaster = 0;
 String getJsonObj()
 {
     WEBSOCK_DATA data = webSockData();
     DBGf("webSocks - getJsonOj:  %.2lf", data.temperature.sensor1);
+
     readings[PRODUKTION] = util_format_Watt_kWatt(data.mbContainer.inverterSumValues.data.acCurrentPower, formatBuffer);
-    readings[EINSPEISUNG] = util_format_Watt_kWatt(data.mbContainer.meterValues.data.acCurrentPower, formatBuffer);
-    readings[EIGENVERBRAUCH] = util_format_Watt_kWatt(data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower, formatBuffer);
-    sprintf(formatBuffer, "%.2f", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+
+    if (data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
+    {
+        readings[EINSPEISUNG] = util_format_Watt_kWatt(data.mbContainer.meterValues.data.acCurrentPower, formatBuffer);
+
+        readings[EIGENVERBRAUCH] = util_format_Watt_kWatt(data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower, formatBuffer);
+        prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
+    }
+    else
+    {
+        readings[EINSPEISUNG] = util_format_Watt_kWatt(prevValueFromSmartMeter, formatBuffer);
+        readings[EIGENVERBRAUCH] = util_format_Watt_kWatt(data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter, formatBuffer);
+    }
+    if (data.temperature.alarm)
+    {
+        if (data.temperature.sensor1 > 0.0 && data.temperature.sensor2 > 0.0)
+        {
+            sprintf(formatBuffer, "!!%.2f!!", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+        }
+        else
+        {
+            sprintf(formatBuffer, "!!%.2f %.2f", data.temperature.sensor1, data.temperature.sensor2);
+        }
+    }
+    else
+    {
+        sprintf(formatBuffer, "%.2f", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+    }
+
     readings[TEMP_PUFFERSPEICHER] = formatBuffer;
-    sprintf(formatBuffer, "%d", data.pidContainer.PID_PIN1);
-    readings[HEIZPATRONE_L1] = formatBuffer;
-    sprintf(formatBuffer, "%d", data.pidContainer.PID_PIN2);
-    readings[HEIZPATRONE_L2] = formatBuffer;
+    bitMaster = 0;
+
+    if (data.pidContainer.PID_PIN1 == 1)
+        bitMaster |= (1 << HEIZPATRONE_L1);
+    if (data.pidContainer.PID_PIN2 == 1)
+        bitMaster |= (1 << HEIZPATRONE_L2);
+    if (data.setup.externerSpeicher==true) 
+         bitMaster |= (1 << AKKU_AVAILABLE);
+    if (!data.states.cardWriterOK)
+        bitMaster |= (1 << STATE_CARDWRITE);
+    if (!data.states.flashOK)
+        bitMaster |= (1 << STATE_FLASH);
+    if (!data.states.modbusOK)
+        bitMaster |= (1 << STATE_MODBUS);
+    if (!data.states.tempSensorOK)
+        bitMaster |= (1 << STATE_TEMPSENSOR);
+    readings[FEHLER] = bitMaster;
     sprintf(formatBuffer, "%d", data.pidContainer.mAnalogOut);
     readings[HEIZPATRONE_L3] = formatBuffer;
     sprintf(formatBuffer, "%d", data.pidContainer.powerNotUseable);

@@ -60,17 +60,7 @@ typedef struct _LIFE_DATA
     long heatingLastTime;
 
 } LIFE_DATA;
-
-typedef struct _WEBSOCK
-{
-    MB_CONTAINER mbContainer;
-    Setup setup;
-    TEMPERATURE temperature;
-    PID_CONTAINER pidContainer;
-
-} WEBSOCK_DATA;
-
-typedef WEBSOCK_DATA &(*CALLBACK_GET_DATA)();
+ 
 typedef struct _STATES
 {
     bool cardWriterOK;
@@ -79,3 +69,14 @@ typedef struct _STATES
     bool flashOK;
     bool tempSensorOK;
 } STATES;
+typedef struct _WEBSOCK
+{
+    MB_CONTAINER mbContainer;
+    Setup setup;
+    TEMPERATURE temperature;
+    PID_CONTAINER pidContainer;
+    STATES states;
+
+} WEBSOCK_DATA;
+
+typedef WEBSOCK_DATA &(*CALLBACK_GET_DATA)();

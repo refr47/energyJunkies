@@ -1,12 +1,12 @@
 var dataSetOut;
 var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
-
+var dataTableMobil;
 
 
 function replace(index, val) {
   //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
-  const row = dataTable.row(index)
+  const row = dataTableMobil.row(index)
   // update model
   dataSetOut[index][1] = val
   row.invalidate().draw()
@@ -19,63 +19,68 @@ function replace(index, val) {
   */
 
 
-  function initWebSocket() {
-    console.log('Trying to open a WebSocket connection...');
-    websocket = new WebSocket(gateway);
-    websocket.onopen    = onOpen;
-    websocket.onclose   = onClose;
-    websocket.onmessage = onMessage; // <-- add this line
-  }
-  function onOpen(event) {
-    console.log('Connection opened');
-    $("#isConn").html("\u10004")
-  }
+function initWebSocket() {
+  console.log('Trying to open a WebSocket connection...');
+  websocket = new WebSocket(gateway);
+  websocket.onopen = onOpen;
+  websocket.onclose = onClose;
+  websocket.onmessage = onMessage; // <-- add this line
+}
+function onOpen(event) {
+  console.log('Connection opened');
+  $("#isConn").html("\u2714")
+}
 
-  function onClose(event) {
-    console.log('Connection closed');
-    setTimeout(initWebSocket, 2000);
-    $("#isConn").html("\u2714")
-  }
-  function onMessage(event) {
-    console.log("Got event ")
-    $("#isUpdate").html("\u21C5")
-    
-    let data = JSON.parse(event.data);
-    console.log(data)
-    setTimeout(replaceDataReceivedSym, 1000);
-    replace(0, data["PR"]); // ProdukTION
-    replace(0, data["EV"]); // ProdukTION
+function onClose(event) {
+  console.log('Connection closed');
+  setTimeout(initWebSocket, 2000);
+  $("#isConn").html("\u2716")
+}
+function onMessage(event) {
+  console.log("Got event ")
+  $("#isUpdate").html("\u21C5")
 
-/*     var state;
-    if (event.data == "1"){
-      state = "ON";
-    }
-    else{
-      state = "OFF";
-    }
-    document.getElementById('state').i
-    nnerHTML = state; */
-  }
+  let data = JSON.parse(event.data);
+  console.log(data)
+  setTimeout(replaceDataReceivedSym, 1000);
+  replace(0, data["PR"]); // ProdukTION
+  replace(1, data["EV"]); // Verbrauch
+  replace(2, data["EINS"]); // Einspeisung
+  replace(3, data["TPS"]); // Sensorik Temp
+  replace(4, data["HL1"]); // Sensorik Temp
+  replace(5, data["HL2"]); // Sensorik Temp
+  replace(6, data["HL3"]); // Sensorik Temp
 
-  function replaceDataReceivedSym() {
-    $("#isUpdate").html("\u2718")
-  }
+  /*     var state;
+      if (event.data == "1"){
+        state = "ON";
+      }
+      else{
+        state = "OFF";
+      }
+      document.getElementById('state').i
+      nnerHTML = state; */
+}
 
-  function addErrors(errorList) {
-    $("#errorL").remove();
-   // $("#a").css('background-color', 'red');
-    const $ul = $('<ul>', { id: "errorL" }).appendTo('.flex-container');
-    $.each(errorList, function(index,errorName) {
-      console.log("Appüend: " + errorName)
-     // $('#errorL ul').append('<li><class="errListElem">'+errorName+'</li>')
-     $('<li>').text(errorName).appendTo($ul);
-    });
-    $(".flex-container").css('background-color', 'red');
-  }
-  
+function replaceDataReceivedSym() {
+  $("#isUpdate").html("\u2718")
+}
+
+function addErrors(errorList) {
+  $("#errorL").remove();
+  // $("#a").css('background-color', 'red');
+  const $ul = $('<ul>', { id: "errorL" }).appendTo('.flex-container');
+  $.each(errorList, function (index, errorName) {
+    console.log("Appüend: " + errorName)
+    // $('#errorL ul').append('<li><class="errListElem">'+errorName+'</li>')
+    $('<li>').text(errorName).appendTo($ul);
+  });
+  $(".flex-container").css('background-color', 'red');
+}
+
 
 function createDataSetM() {
-    dataSetOut = [
+  dataSetOut = [
     ['Produktion', '3589 W'],
     ['Verbrauch', '1000'],
     ['Einspeisung', '2589 '],
@@ -94,41 +99,38 @@ function createDataSetM() {
 
 }
 
-
-var dataTableMobil;
-
 function buildStaticTableM() {
-    createDataSetM()
-    $("#wsHost").html(gateway)
-    let xx=['Modbus: keine Verbindung','Temperatur: Soll erreicht']
-    addErrors(xx);
-    dataTableMobil = $('#details').DataTable
-      ({
-        "dom": 'Bfrtip',
-        "lengthChange": false,
-        "info": false,
-        "bPaginate": true,
-        "ordering": false,
-        "responsive": true,
-        columns: [
-          {
-            title: 'Titel',
-            width: "40%",
-          },
-          {
-            title: 'Ausprägung'
-          }
-        ],
-        columnDefs: [
-          {
-            target: 1,
-            visible: true,
-            searchable: false
-          },  
-        ],
-        data: dataSetOut
-      });
-  
-  
-  }
+  createDataSetM()
+  $("#wsHost").html(gateway)
+  let xx = ['Modbus: keine Verbindung', 'Temperatur: Soll erreicht']
+  addErrors(xx);
+  dataTableMobil = $('#details').DataTable
+    ({
+      "dom": 'Bfrtip',
+      "lengthChange": false,
+      "info": false,
+      "bPaginate": true,
+      "ordering": false,
+      "responsive": true,
+      columns: [
+        {
+          title: 'Titel',
+          width: "40%",
+        },
+        {
+          title: 'Ausprägung'
+        }
+      ],
+      columnDefs: [
+        {
+          target: 1,
+          visible: true,
+          searchable: false
+        },
+      ],
+      data: dataSetOut
+    });
+
+
+}
 

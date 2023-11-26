@@ -81,6 +81,7 @@ bool temp_getTemperature(TEMPERATURE &container)
     if (container.sensor1 < 0 || container.sensor2 < 0)
     {
         ESP_LOGE(TAG, "temp_getTemperature - Temperatur kann nicht negativ sein.");
+        return false;
     }
     /* float tempC = sensors.getTempCByIndex(0);
     float tempC1 = sensors.getTempCByIndex(1);

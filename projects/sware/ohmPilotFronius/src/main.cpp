@@ -91,10 +91,10 @@ char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
 static bool networkCredentialsInEEprom = true;
 /* static bool cardWriterOK = false;
 static bool networkOK = false; */
-static STATES states;
+// static STATES states;
 
 static TIME_SLICE timeSlice;
-static TEMPERATURE container;
+// static TEMPERATURE container;
 static MB_CONTAINER modbusData;
 static PID_CONTAINER pidContainer;
 static Setup setupData;
@@ -148,7 +148,7 @@ void setup()
 
     DBGf("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
-    memset(&states, 0, sizeof(STATES));
+    // memset(&states, 0, sizeof(STATES));
 
     tft_init();
     tft_printSetup();
@@ -173,7 +173,7 @@ void setup()
     if (strcmp(setupData.ssid, "---") == 0)
     {
         networkCredentialsInEEprom = false;
-        states.networkOK = false;
+        webSockData.states.networkOK = false;
         www_init(NULL, NULL, getDataForWebSocket); // act as access point
     }
     if (networkCredentialsInEEprom)
@@ -189,7 +189,7 @@ void setup()
             tft_clearScreen();
             wifi_scan_network();
             www_init(NULL, NULL, getDataForWebSocket); // act as access point
-            states.networkOK = false;
+            webSockData.states.networkOK = false;
         }
         else
         {
@@ -199,10 +199,10 @@ void setup()
             DBGf("Connected with ip: %s", globalStringBuffer);
 
             tft_drawNetworkInfo(globalStringBuffer, setupData.ssid);
-            states.flashOK = www_init(pBuf, setupData.ssid, getDataForWebSocket); // do not act as apoint
-            states.networkOK = true;
+            webSockData.states.flashOK = www_init(pBuf, setupData.ssid, getDataForWebSocket); // do not act as apoint
+            webSockData.states.networkOK = true;
         }
-        if (!states.networkOK)
+        if (!webSockData.states.networkOK)
         {
             DBGf("Network does not work!");
             // tft_printInfo("No valid network!");
@@ -214,7 +214,7 @@ void setup()
 
         if (cardRW_setup(false, false))
         {
-            states.cardWriterOK = true;
+            webSockData.states.cardWriterOK = true;
             tft_printKeyValue("Init CardReader", "OK", TFT_GREEN);
 
             logging_init();
@@ -224,18 +224,18 @@ void setup()
         {
             DBGf("Logging to file cannot be initiated ...");
             tft_printKeyValue("Init CardReader", "Error", TFT_RED);
-            states.cardWriterOK = false;
+            webSockData.states.cardWriterOK = false;
         }
 
         if (temp_init())
         { // temperature
 
             tft_printKeyValue("Init Sensors", "OK", TFT_GREEN);
-            states.tempSensorOK = true;
+            webSockData.states.tempSensorOK = true;
         }
         else
         {
-            states.tempSensorOK = false;
+            webSockData.states.tempSensorOK = false;
             tft_printKeyValue("Init Sensors", "Error", TFT_RED);
         }
         DBGf("Setup Modbus ...");
@@ -243,11 +243,11 @@ void setup()
         {
             DBGf("Cannot initialize modbus ....");
             tft_printKeyValue("Init mdobus", "Error", TFT_RED);
-            states.modbusOK = false;
+            webSockData.states.modbusOK = false;
         }
         else
         {
-            states.modbusOK = true;
+            webSockData.states.modbusOK = true;
             tft_printKeyValue("Init Modbus", "ok", TFT_GREEN);
         }
         memset(&modbusData, 0, sizeof(modbusData));
@@ -257,7 +257,7 @@ void setup()
         tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
         pidPinManager.config(setupData);
     }
-    if (states.networkOK)
+    if (webSockData.states.networkOK)
     {
         delay(10000);
         tft_clearScreen();
@@ -376,7 +376,7 @@ void loop()
 #endif
 
 #ifndef EJ
-    if (!states.networkOK)
+    if (!webSockData.states.networkOK)
     {
         DBGf("Network does not work - no further task are available...");
         delay(10000);
@@ -402,63 +402,86 @@ void loop()
 
     if (timeSlice.currentMillis - timeSlice.previousMillTemp > TEMPERATURE_INTERVAL)
     {
-        time_print();
-        temp_getTemperature(container);
-        /*     webSockData.temperature.sensor1 = container.sensor1;
-            webSockData.temperature.sensor2 = container.sensor2; */
-        webSockData.temperature.alarm = false;
-        memcpy(&webSockData.temperature, &container, sizeof(TEMPERATURE));
-        /*
-        RELAY_L1, RELAY_L2, PWM_FOR_PID
-        */
-        DBGf(" TEMP in Celsius, S1: %f, S2: %f", container.sensor1, container.sensor2);
-        if (!alarmContainer.alarmTemp.alarmTemp)
+        // time_print();
+        if (!temp_getTemperature(webSockData.temperature))
         {
-            if (((int)(container.sensor1 + container.sensor2) / 2.0) > setupData.ausschaltTempInGradCel)
+
+            if (webSockData.temperature.sensor1 < 0.0 && webSockData.temperature.sensor2 < 0.0)
             {
-                ESP_LOGE(TAG, "Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
-                pinMode(RELAY_L1, OUTPUT);
-                pinMode(RELAY_L2, OUTPUT);
-                pinMode(PWM_FOR_PID, OUTPUT);
-                digitalWrite(RELAY_L1, 0);
-                digitalWrite(RELAY_L2, 0);
-                analogWrite(PWM_FOR_PID, 0);
-                alarmContainer.alarmTemp.alarmTemp = true;
-                alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+
                 webSockData.temperature.alarm = true;
+                if (!webSockData.temperature.alarm)
+                {
+                    ESP_LOGE(TAG, "Temperatur Sensorik ausgefallen - Heizpatrone wird abgeschaltet");
+                    pinMode(RELAY_L1, OUTPUT);
+                    pinMode(RELAY_L2, OUTPUT);
+                    pinMode(PWM_FOR_PID, OUTPUT);
+                    digitalWrite(RELAY_L1, 0);
+                    digitalWrite(RELAY_L2, 0);
+                    analogWrite(PWM_FOR_PID, 0);
+                    alarmContainer.alarmTemp.alarmTemp = true;
+                    alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+                    webSockData.temperature.alarm = true;
+                }
             }
         }
         else
         {
-            time_t currT = time_getTimeStamp();
-            double diffT = difftime(currT, alarmContainer.alarmTemp.overFlowHappenedAt); // in secs
-            if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
+           
+            webSockData.temperature.alarm = false;
+            // memcpy(&webSockData.temperature, &container, sizeof(TEMPERATURE));
+            /*
+            RELAY_L1, RELAY_L2, PWM_FOR_PID
+            */
+            DBGf(" TEMP in Celsius, S1: %f, S2: %f", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+            if (!alarmContainer.alarmTemp.alarmTemp)
             {
-                DBGf("TempLimit over %d °C , wait for next check in secs: %d", setupData.ausschaltTempInGradCel, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
-                if (((int)(container.sensor1 + container.sensor2) / 2.0) > setupData.ausschaltTempInGradCel)
+                if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > setupData.ausschaltTempInGradCel)
                 {
-                    alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
-                }
-                else
-                {
+                    ESP_LOGE(TAG, "Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
+                    pinMode(RELAY_L1, OUTPUT);
+                    pinMode(RELAY_L2, OUTPUT);
+                    pinMode(PWM_FOR_PID, OUTPUT);
+                    digitalWrite(RELAY_L1, 0);
+                    digitalWrite(RELAY_L2, 0);
+                    analogWrite(PWM_FOR_PID, 0);
                     alarmContainer.alarmTemp.alarmTemp = true;
-                    alarmContainer.alarmTemp.overFlowHappenedAt = 0;
-                    DBGf("TempLimit reset");
+                    alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+                    webSockData.temperature.alarm = true;
                 }
             }
-        }
+            else
+            {
+                time_t currT = time_getTimeStamp();
+                double diffT = difftime(currT, alarmContainer.alarmTemp.overFlowHappenedAt); // in secs
+                if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
+                {
+                    DBGf("TempLimit over %d °C , wait for next check in secs: %d", setupData.ausschaltTempInGradCel, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
+                    if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > setupData.ausschaltTempInGradCel)
+                    {
+                        alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+                    }
+                    else
+                    {
+                        alarmContainer.alarmTemp.alarmTemp = true;
+                        alarmContainer.alarmTemp.overFlowHappenedAt = 0;
+                        DBGf("TempLimit reset");
+                    }
+                }
+            }
+        } // !getTemperature()
         timeSlice.previousMillTemp = timeSlice.currentMillis;
     }
 
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
-        if (!states.modbusOK)
+        if (!webSockData.states.modbusOK)
         {
-            tft_drawInfoNoModbus(container);
+            tft_drawInfoNoModbus(webSockData.temperature);
             if (mb_init(setupData))
             {
                 DBGf("Reconnected modbus successfully.");
-                states.modbusOK = true;
+                webSockData.states.modbusOK = true;
             }
         }
         else
@@ -512,7 +535,7 @@ void loop()
                 }
                 // DBGf(" PID  mCurrPower (W): %.2lf, notUseable: %.2lf anaOutput(PWM) %.2lf,  Dig1: %x, Dig2: %x", pidContainer.mCurrentPower, pidContainer.mAnalogOut, pidContainer.powerNotUseable, pidContainer.PID_PIN1, pidContainer.PID_PIN2);
 
-                tft_drawInfo(container, modbusData, pidContainer);
+                tft_drawInfo(webSockData.temperature, modbusData, pidContainer);
             }
         } // if modbusstate
         timeSlice.previousMillModbus = timeSlice.currentMillis;

@@ -384,8 +384,11 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur", TFT_SKYBLUE);
     tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie", TFT_SKYBLUE);
     ++currentLine;
+    if (temp.alarm)
+        txtColor = TFT_RED;
     sprintf(displayBuffer, "%.2f", temp.sensor1);
     tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 1", displayBuffer);
+    txtColor = TFT_WHITE;
     // production LINE 1
     if (modb.inverterSumValues.data.acCurrentPower >= 0.0)
         txtColor = TFT_WHITE;
@@ -396,9 +399,11 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     ++currentLine;
     txtColor = TFT_WHITE;
     // sensor 2 + Einspeisung/verbrauch LINE 2
+    if (temp.alarm)
+        txtColor = TFT_RED;
     sprintf(displayBuffer, "%.2f", temp.sensor2);
     tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 2", displayBuffer);
-
+    txtColor = TFT_WHITE;
     // smart meter delivers sometimes not valid values like -32456 W einspeisung (!!)
     if (modb.meterValues.data.acCurrentPower > 0.0 || (modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower > 0))
     {
