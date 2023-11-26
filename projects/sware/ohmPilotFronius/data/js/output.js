@@ -5,10 +5,11 @@ var websocket;
 
 
 function replace(index, val) {
-  //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
+  let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
   const row = dataTable.row(index)
   // update model
   dataSetOut[index][1] = val
+  cell.css("background-color","red")
   row.invalidate().draw()
 }
 
@@ -36,6 +37,8 @@ function replace(index, val) {
     setTimeout(initWebSocket, 2000);
     $("#isConn").html("\u2714")
   }
+
+
   function onMessage(event) {
     console.log("Got event ")
     $("#isUpdate").html("\u21C5")
@@ -44,7 +47,8 @@ function replace(index, val) {
     console.log(data)
     setTimeout(replaceDataReceivedSym, 1000);
     replace(0, data["PR"]); // ProdukTION
-    replace(0, data["EV"]); // ProdukTION
+    replace(1, data["EV"]); // ProdukTION
+    replace(2, data["EINS"]); // ProdukTION
 
 /*     var state;
     if (event.data == "1"){
@@ -100,8 +104,8 @@ var dataTableMobil;
 function buildStaticTableM() {
     createDataSetM()
     $("#wsHost").html(gateway)
-    let xx=['Modbus: keine Verbindung','Temperatur: Soll erreicht']
-    addErrors(xx);
+   /*  let xx=['Modbus: keine Verbindung','Temperatur: Soll erreicht']
+    addErrors(xx); */
     dataTableMobil = $('#details').DataTable
       ({
         "dom": 'Bfrtip',
