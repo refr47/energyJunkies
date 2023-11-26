@@ -3,6 +3,16 @@ var gateway = `ws://${window.location.hostname}/ws`;
 var websocket;
 
 
+
+function replace(index, val) {
+  //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
+  const row = dataTable.row(index)
+  // update model
+  dataSetOut[index][1] = val
+  row.invalidate().draw()
+}
+
+
 /*   *******************************
                 WEBsocks  
   *******************************
@@ -18,16 +28,24 @@ var websocket;
   }
   function onOpen(event) {
     console.log('Connection opened');
+    $("#isConn").html("\u10004")
   }
 
   function onClose(event) {
     console.log('Connection closed');
     setTimeout(initWebSocket, 2000);
+    $("#isConn").html("\u2714")
   }
   function onMessage(event) {
     console.log("Got event ")
+    $("#isUpdate").html("\u21C5")
+    
     let data = JSON.parse(event.data);
     console.log(data)
+    setTimeout(replaceDataReceivedSym, 1000);
+    replace(0, data["PR"]); // ProdukTION
+    replace(0, data["EV"]); // ProdukTION
+
 /*     var state;
     if (event.data == "1"){
       state = "ON";
@@ -35,9 +53,25 @@ var websocket;
     else{
       state = "OFF";
     }
-    document.getElementById('state').innerHTML = state; */
+    document.getElementById('state').i
+    nnerHTML = state; */
   }
 
+  function replaceDataReceivedSym() {
+    $("#isUpdate").html("\u2718")
+  }
+
+  function addErrors(errorList) {
+    $("#errorL").remove();
+   // $("#a").css('background-color', 'red');
+    const $ul = $('<ul>', { id: "errorL" }).appendTo('.flex-container');
+    $.each(errorList, function(index,errorName) {
+      console.log("Appüend: " + errorName)
+     // $('#errorL ul').append('<li><class="errListElem">'+errorName+'</li>')
+     $('<li>').text(errorName).appendTo($ul);
+    });
+    $(".flex-container").css('background-color', 'red');
+  }
   
 
 function createDataSetM() {
@@ -50,8 +84,6 @@ function createDataSetM() {
     ['Pufferspeicher L2', '1'],
     ['Pufferspeicher L3', '10'],
     ['Pufferspeicher reservier', '0'],
-    ['Alarm',""],
-    ['Fehler', ' CardReader funktioniert nicht, Zeitserver nicht erreichbar'],
     ['Speicher', 'j'],
     ['Speicher', 'n', 'Externer Speicher steht zur Verfügung (j,n)'],
     ['Speicher Kapazität', '13 kW'],
@@ -67,6 +99,9 @@ var dataTableMobil;
 
 function buildStaticTableM() {
     createDataSetM()
+    $("#wsHost").html(gateway)
+    let xx=['Modbus: keine Verbindung','Temperatur: Soll erreicht']
+    addErrors(xx);
     dataTableMobil = $('#details').DataTable
       ({
         "dom": 'Bfrtip',

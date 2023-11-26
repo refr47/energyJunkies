@@ -5,11 +5,13 @@
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
     <title>Life Datenübersicht</title>
-   
- 
+
+
     <link rel="stylesheet" type="text/css" href="css/menu.css" />
     <link rel="stylesheet" type="text/css" href="css/main.css" />
     <link rel="stylesheet" type="text/css" href="css/datatables.min.css" />
+    <link rel="stylesheet" type="text/css" href="css/output.css" />
+
     <div id="backGr"></div>
     <script type="text/javascript" src="js/navigation.js"></script>
     <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
@@ -23,8 +25,8 @@
             $('#myFooter').load('headerF.html #myFooter')
             buildStaticTableM();
             initWebSocket();
-          
-            
+
+
         })
     </script>
 </head>
@@ -36,9 +38,41 @@
     <header>
         <div id="navBar"></div>
     </header>
-    <h1>Übersicht</h1>
+
+    <div id="wsInfo">
+        <div id="a">
+            <div class="flex-container">
+                <ul id="errorL">
+                  <li>Keine Fehler</li>
+                  
+                  <!--   -->
+                </ul>
+              </div>
+        </div>
+        <h1>Übersicht</h1>
+      
+        <div id="b">
+            <div class="wsBase">
+                <div class="row">
+                    <div class="cell textC">
+                        WebSocket:
+                    </div>
+                    <div class="cell" id="wsHost"></div>
+                </div>
+                <div class="row">
+                    <div class="cell textC">Verbindung:</div>
+                    <div class="cell" id="isConn"></div>
+                </div>
+                <div class="row">
+                    <div class="cell textC">Update:</div>
+                    <div class="cell" id="isUpdate"></div>
+                </div>
+            </div>
+        </div>
+    </div>
     <table id="details" class="stripe" style="width:60%">
     </table>
+        
 </body>
 <div id="myFooter"></div>
 
