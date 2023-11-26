@@ -48,8 +48,6 @@ function onMessage(event) {
   replace(1, data["EV"]); // Verbrauch
   replace(2, data["EINS"]); // Einspeisung
   replace(3, data["TPS"]); // Sensorik Temp
-  replace(4, data["HL1"]); // Sensorik Temp
-  replace(5, data["HL2"]); // Sensorik Temp
   replace(6, data["HL3"]); // Sensorik Temp
 
   /*     var state;
