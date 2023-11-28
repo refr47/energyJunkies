@@ -36,6 +36,8 @@ function interpretError(errorBitVektor) {
     errVek.push("Flashspeicher funktioniert nicht.")
   if ((errorBitVektor & (1 << STATE_TEMPSENSOR)) != 0)
     errVek.push("Probleme mit der Temperatursensorik.")
+  if (errVek.length > 0)
+    addErrors(errVek);
 }
 
 function replace(index, val) {
@@ -44,6 +46,7 @@ function replace(index, val) {
   // update model
   dataSetOut[index][1] = val
   //cell.css("background-color", "red")
+
   row.invalidate().draw()
 }
 
@@ -89,10 +92,14 @@ function onMessage(event) {
     dataSetOut[4][1] = "1"
   else
     dataSetOut[4][1] = "0"
+  let row = dataTableMobil.row(4)
+  row.invalidate().draw();
   if ((errorBitVektor & (1 << HEIZPATRONE_L2)) != 0)
     dataSetOut[5][1] = "1"
   else
     dataSetOut[5][1] = "0"
+  row = dataTableMobil.row(5)
+  row.invalidate().draw();
   replace(0, data["PR"]); // ProdukTION
   replace(1, data["EV"]); // Verbrauch
   if (data["EINS"] > 0.0)
@@ -100,10 +107,8 @@ function onMessage(event) {
   else
     dataSetOut[1][0] = "Einspeisung"
   replace(2, data["EINS"]); // Einspeisung
-
   replace(3, data["TPS"]); // Sensorik Temp
-  replace(6, data["HL3"]); // Sensorik Temp
-
+  replace(6, data["HL3"]); // pwm 
 }
 
 function replaceDataReceivedSym() {

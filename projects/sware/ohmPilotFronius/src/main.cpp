@@ -170,7 +170,8 @@ void setup()
 
     // eprom_test_read_Eprom();
 
-    if (strcmp(setupData.ssid, "---") == 0)
+    // if (strcmp(setupData.ssid, "---") == 0)
+    if (strcmp(setupData.ssid, "--") == 0)
     {
         networkCredentialsInEEprom = false;
         webSockData.states.networkOK = false;
@@ -427,7 +428,7 @@ void loop()
         }
         else
         {
-           
+
             webSockData.temperature.alarm = false;
             // memcpy(&webSockData.temperature, &container, sizeof(TEMPERATURE));
             /*

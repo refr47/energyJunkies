@@ -20,8 +20,11 @@ static unsigned long previousMillis = 0;
 bool wifi_init(Setup &setup)
 {
     WiFi.mode(WIFI_STA);
+    strcpy(setup.ssid, "Milchbehaelter");
+    strcpy(setup.passwd, "47754775");
 
-    WiFi.begin(setup.ssid, setup.passwd);
+    // WiFi.begin("setup.ssid," setup.passwd);
+
     DBGf("WIFI: %s, Passwd: %s", setup.ssid, setup.passwd);
     DBGf("Connecting to WiFi ..");
     tft_printInfo("Connecting to WiFi");
