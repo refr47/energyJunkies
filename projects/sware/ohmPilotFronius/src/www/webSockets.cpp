@@ -13,17 +13,21 @@
 #define EIGENVERBRAUCH "EV"
 #define EINSPEISUNG "EINS"
 #define TEMP_PUFFERSPEICHER "TPS"
-#define HEIZPATRONE_L1 1
-#define HEIZPATRONE_L2 2
+
 #define HEIZPATRONE_L3 "HL3"
 #define MUSS_EINSPEISUNG "ME"
 #define FEHLER "FE"
-#define AKKU_AVAILABLE 3
-#define AKKU_CAPACITA "AkkuKap"
-#define AKKUE_ZUSTAND "AkkuStat"
-#define AKKU_LADEN "AkkuLoad"
+
+#define AKKU_CAPACITA "AkCap"
+#define AKKU_ZUSTAND "AkStat"
+#define AKKU_LADEN "AkLoad"
+#define AKKU_ENTLADEN "AkDis"
 #define NETZ_EXPORT_INS "NEI"
 #define NETZ_IMPORT_INS "NII"
+
+#define HEIZPATRONE_L1 1
+#define HEIZPATRONE_L2 2
+#define AKKU_AVAILABLE 3
 #define STATE_CARDWRITE 4
 #define STATE_MODBUS 5
 #define STATE_FLASH 6
@@ -75,25 +79,27 @@ String getJsonObj()
     WEBSOCK_DATA data = webSockData();
     DBGf("webSocks - getJsonOj:  %.2lf", data.temperature.sensor1);
 
-    readings[PRODUKTION] = util_format_Watt_kWatt(data.mbContainer.inverterSumValues.data.acCurrentPower, formatBuffer);
+    readings[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
 
     if (data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
     {
-        readings[EINSPEISUNG] = util_format_Watt_kWatt(data.mbContainer.meterValues.data.acCurrentPower, formatBuffer);
+        readings[EINSPEISUNG] = data.mbContainer.meterValues.data.acCurrentPower;
 
-        readings[EIGENVERBRAUCH] = util_format_Watt_kWatt(data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower, formatBuffer);
+        readings[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower;
         prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
     }
     else
     {
-        readings[EINSPEISUNG] = util_format_Watt_kWatt(prevValueFromSmartMeter, formatBuffer);
-        readings[EIGENVERBRAUCH] = util_format_Watt_kWatt(data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter, formatBuffer);
+        readings[EINSPEISUNG] = prevValueFromSmartMeter;
+        readings[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter;
     }
+
     if (data.temperature.alarm)
     {
         if (data.temperature.sensor1 > 0.0 && data.temperature.sensor2 > 0.0)
         {
             sprintf(formatBuffer, "!!%.2f!!", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+            readings[TEMP_PUFFERSPEICHER] = (data.temperature.sensor1 + data.temperature.sensor2) / 2.0)
         }
         else
         {
@@ -112,8 +118,8 @@ String getJsonObj()
         bitMaster |= (1 << HEIZPATRONE_L1);
     if (data.pidContainer.PID_PIN2 == 1)
         bitMaster |= (1 << HEIZPATRONE_L2);
-    if (data.setup.externerSpeicher==true) 
-         bitMaster |= (1 << AKKU_AVAILABLE);
+    if (data.setup.externerSpeicher == true)
+        bitMaster |= (1 << AKKU_AVAILABLE);
     if (!data.states.cardWriterOK)
         bitMaster |= (1 << STATE_CARDWRITE);
     if (!data.states.flashOK)
@@ -123,10 +129,13 @@ String getJsonObj()
     if (!data.states.tempSensorOK)
         bitMaster |= (1 << STATE_TEMPSENSOR);
     readings[FEHLER] = bitMaster;
-    sprintf(formatBuffer, "%d", data.pidContainer.mAnalogOut);
-    readings[HEIZPATRONE_L3] = formatBuffer;
-    sprintf(formatBuffer, "%d", data.pidContainer.powerNotUseable);
-    readings[MUSS_EINSPEISUNG] = formatBuffer;
+
+    readings[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;
+    readings[MUSS_EINSPEISUNG] = data.pidContainer.powerNotUseable;
+    readings[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
+    readings[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
+    readings[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
+    readings[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate;
 
     String jsonString = JSON.stringify(readings);
     DBGf("JSON-String: %s", jsonString.c_str());
