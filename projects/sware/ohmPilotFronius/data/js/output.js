@@ -1,5 +1,6 @@
 var dataSetOut;
-var gateway = `ws://${window.location.hostname}/ws`;
+//var gateway = `ws://${window.location.hostname}/ws`;
+var gateway = `ws://${"10.0.0.4"}/ws`;
 var websocket;
 var dataTableMobil;
 
@@ -40,13 +41,36 @@ function interpretError(errorBitVektor) {
     addErrors(errVek);
 }
 
+function Trenner(number) {
+  // Info: Die '' sind zwei Hochkommas
+  number = '' + number;
+  if (number.length > 3) {
+    var mod = number.length % 3;
+    var output = (mod > 0 ? (number.substring(0,mod)) : '');
+    for (i=0 ; i < Math.floor(number.length / 3); i++) {
+      if ((mod == 0) && (i == 0))
+        output += number.substring(mod+ 3 * i, mod + 3 * i + 3);
+      else
+        // hier wird das Trennzeichen festgelegt mit '.'
+        output+= '.' + number.substring(mod + 3 * i, mod + 3 * i + 3);
+    }
+   return (output);
+  }
+  else return number;
+}
+
 function replace(index, val, fixIt) {
+
   //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
   const row = dataTableMobil.row(index)
   // update model
-  if (fixIt)
-    dataSetOut[index][1] = val.toFixed(2)
-  dataSetOut[index][1] = val
+  if (fixIt == true) {
+    dataSetOut[index][1] = Trenner(Math.trunc(val < 0 ? val - 0.5 : val + 0.5));
+
+    
+
+  } else
+    dataSetOut[index][1] = val
   //cell.css("background-color", "red")
 
   row.invalidate().draw()
@@ -122,19 +146,18 @@ function replaceDataReceivedSym() {
 
 function createDataSetM() {
   dataSetOut = [
-    ['Produktion (Watt)', '0'],
-    ['Verbrauch (Watt)', '1000'],
-    ['Einspeisung (Watt)', '2589 '],
-    ['Temperatur (Grad)', '49'],
-    ['Pufferspeicher L1', '1'],
-    ['Pufferspeicher L2', '1'],
-    ['Pufferspeicher L3', '10'],
-    ['Pufferspeicher reservier', '0'],
-    ['Speicher', 'j'],
-    ['Speicher', 'n', 'Externer Speicher steht zur Verfügung (j,n)'],
-    ['Speicher Kapazität (kW)', '13 kW'],
-    ['Speicher Zustand (kW)', '3 kW'],
-    ['Speicher Laden (Watt)', '200 W'],
+    ['Produktion', '0',"Watt"],
+    ['Verbrauch', '1000',"Watt"],
+    ['Einspeisung/Bezug', '2589',"Watt"],
+    ['Temperatur', '49',"Grad"],
+    ['Pufferspeicher L1', '1',"Aus:0, Ein: 1"],
+    ['Pufferspeicher L2', '1',"Aus:0, Ein: 1"],
+    ['Pufferspeicher L3', '10',"PWM"],
+    ['Pufferspeicher reservier', '0',"W"],
+    ['Speicher', 'j',"Aus:0, Ein: 1"],
+    ['Speicher Kapazität (kW)', '13 kW',"kW"],
+    ['Speicher Zustand (kW)', '3 kW',"kW"],
+    ['Speicher Laden (Watt)', '200 W',"W"],
   ];
 
 
@@ -147,7 +170,31 @@ function buildStaticTableM() {
    addErrors(xx); */
   dataTableMobil = $('#details').DataTable
     ({
-      "dom": 'Bfrtip',
+
+      "rowCallback": function (row, data, displayNum, displayIndex, dataIndex) {
+        //console.log(data[0],displayNum,displayIndex,dataIndex)
+
+        // console.log(data[1])
+        if (data[0] == "Produktion" && data[1] > 0.0) {
+          $('td:eq(1)', row).css('background-color', 'green')
+          /* data[1] = data[1] + "W"
+          console.log($(td).html()) */
+        }
+        if (data[0] == "Bezug" && data[1] > 0.0)
+          $('td:eq(1)', row).css('background-color', 'red')
+      },
+      /*  "fnRowCallback": function(nRow, aData, iDisplayIndex, iDisplayIndexFull) {
+         console.log("displayIndex: " + iDisplayIndexFull)
+         $(nRow).children().each(function(index, td) {
+           if (index == 1  && iDisplayIndexFull==0){
+          
+             //console.log($(td).html())
+             $(td).css('background-color', 'green')
+           }
+         })
+         return nRow;
+       }, */
+      "bProcessing": true,
       "lengthChange": false,
       "info": false,
       "bPaginate": true,
@@ -160,6 +207,9 @@ function buildStaticTableM() {
         },
         {
           title: 'Ausprägung'
+        },
+        {
+          title: 'Einheit'
         }
       ],
       columnDefs: [
