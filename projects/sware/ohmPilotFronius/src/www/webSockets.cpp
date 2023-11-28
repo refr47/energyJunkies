@@ -99,7 +99,7 @@ String getJsonObj()
         if (data.temperature.sensor1 > 0.0 && data.temperature.sensor2 > 0.0)
         {
             sprintf(formatBuffer, "!!%.2f!!", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
-            readings[TEMP_PUFFERSPEICHER] = (data.temperature.sensor1 + data.temperature.sensor2) / 2.0)
+            // readings[TEMP_PUFFERSPEICHER] = (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
         }
         else
         {
