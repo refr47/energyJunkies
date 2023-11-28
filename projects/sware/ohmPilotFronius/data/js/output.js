@@ -26,7 +26,7 @@ function addErrors(errorList) {
 }
 
 
-interpretError(errorBitVektor) {
+function interpretError(errorBitVektor) {
   let errVek = [];
   if ((errorBitVektor & (1 << STATE_CARDWRITE)) != 0)
     errVek.push("SD-Kartenleser funktioniert nicht.")
@@ -61,6 +61,7 @@ function initWebSocket() {
   websocket.onclose = onClose;
   websocket.onmessage = onMessage; // <-- add this line
 }
+
 function onOpen(event) {
   console.log('Connection opened');
   $("#isConn").html("\u2714")
@@ -103,15 +104,6 @@ function onMessage(event) {
   replace(3, data["TPS"]); // Sensorik Temp
   replace(6, data["HL3"]); // Sensorik Temp
 
-  /*     var state;
-      if (event.data == "1"){
-        state = "ON";
-      }
-      else{
-        state = "OFF";
-      }
-      document.getElementById('state').i
-      nnerHTML = state; */
 }
 
 function replaceDataReceivedSym() {
