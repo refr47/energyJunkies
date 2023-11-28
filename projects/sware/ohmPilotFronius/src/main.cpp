@@ -42,6 +42,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define LOGGING_FLUSH_INTERVALL 60000
 #define CLOCK_INTERVALL 1000           // secs
 #define WEBSOCK_NOTIFY_INTERVALL 10000 // 5 secs
+#define SHOW_IP_ADDR_INTERVALL 5000
 
 #define FORMAT_CHAR_BUFFER_LEN 35 // @see loop
 
@@ -78,6 +79,7 @@ typedef struct _TIME_SLICE
     unsigned long previousMillFlush;
     unsigned long previousMillisClock;
     unsigned long previousMillisWebSocks;
+    unsigned long previousMillisShowIp;
     unsigned long currentMillis;
 
 } TIME_SLICE;
@@ -399,6 +401,11 @@ void loop()
         }
 
         timeSlice.previousMillisClock = timeSlice.currentMillis;
+    }
+    if (timeSlice.currentMillis - timeSlice.previousMillisShowIp > SHOW_IP_ADDR_INTERVALL)
+    {
+        tft_showIP(WiFi.localIP().toString().c_str());
+        timeSlice.previousMillisShowIp = timeSlice.currentMillis;
     }
 
     if (timeSlice.currentMillis - timeSlice.previousMillTemp > TEMPERATURE_INTERVAL)

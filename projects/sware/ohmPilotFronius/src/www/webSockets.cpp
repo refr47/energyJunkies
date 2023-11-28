@@ -137,6 +137,8 @@ String getJsonObj()
     readings[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
     readings[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate;
 
+    
+
     String jsonString = JSON.stringify(readings);
     DBGf("JSON-String: %s", jsonString.c_str());
     return jsonString;

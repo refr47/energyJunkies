@@ -110,7 +110,7 @@ function onMessage(event) {
     dataSetOut[2][0] = "Einspeisung"
   replace(2, data["EINS"], true); // Einspeisung
   replace(3, data["TPS"], false); // Sensorik Temp
-  replace(6, data["HL3"]false); // pwm 
+  replace(6, data["HL3"], false); // pwm 
 }
 
 function replaceDataReceivedSym() {
@@ -122,19 +122,19 @@ function replaceDataReceivedSym() {
 
 function createDataSetM() {
   dataSetOut = [
-    ['Produktion', '3589 W'],
-    ['Verbrauch', '1000'],
-    ['Einspeisung', '2589 '],
-    ['Temperatur', '49'],
+    ['Produktion (Watt)', '0'],
+    ['Verbrauch (Watt)', '1000'],
+    ['Einspeisung (Watt)', '2589 '],
+    ['Temperatur (Grad)', '49'],
     ['Pufferspeicher L1', '1'],
     ['Pufferspeicher L2', '1'],
     ['Pufferspeicher L3', '10'],
     ['Pufferspeicher reservier', '0'],
     ['Speicher', 'j'],
     ['Speicher', 'n', 'Externer Speicher steht zur Verfügung (j,n)'],
-    ['Speicher Kapazität', '13 kW'],
-    ['Speicher Zustand', '3 kW'],
-    ['Speicher Laden', '200 W'],
+    ['Speicher Kapazität (kW)', '13 kW'],
+    ['Speicher Zustand (kW)', '3 kW'],
+    ['Speicher Laden (Watt)', '200 W'],
   ];
 
 

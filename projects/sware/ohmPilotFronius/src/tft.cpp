@@ -155,8 +155,12 @@ void tft_clearScreen()
     // tft_printInfo(HEADER);
 
     ++currentLine;
-    /* DBGf("Clear screen ");
-    delay(4000); */
+    
+}
+void tft_showIP(const char *ip)
+{
+    tft.fillRect(0, 0, 149, FONTSIZE_2_ONE_LINE * 2, TFT_BLACK);
+    tft_printTextToPos(14, FONTSIZE_2_ONE_LINE, FONTSIZE_2, ip, TFT_GREEN);
 }
 
 void tft_updateTime(char *curTime)
