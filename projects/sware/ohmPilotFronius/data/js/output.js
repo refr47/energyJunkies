@@ -43,7 +43,7 @@ function replace(index, val) {
   const row = dataTableMobil.row(index)
   // update model
   dataSetOut[index][1] = val
-  cell.css("background-color", "red")
+  //cell.css("background-color", "red")
   row.invalidate().draw()
 }
 
