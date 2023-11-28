@@ -40,10 +40,12 @@ function interpretError(errorBitVektor) {
     addErrors(errVek);
 }
 
-function replace(index, val) {
+function replace(index, val, fixIt) {
   //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
   const row = dataTableMobil.row(index)
   // update model
+  if (fixIt)
+    dataSetOut[index][1] = val.toFixed(2)
   dataSetOut[index][1] = val
   //cell.css("background-color", "red")
 
@@ -100,15 +102,15 @@ function onMessage(event) {
     dataSetOut[5][1] = "0"
   row = dataTableMobil.row(5)
   row.invalidate().draw();
-  replace(0, data["PR"]); // ProdukTION
-  replace(1, data["EV"]); // Verbrauch
+  replace(0, data["PR"], true); // ProdukTION
+  replace(1, data["EV"], true); // Verbrauch
   if (data["EINS"] > 0.0)
-    dataSetOut[1][0] = "Bezug"
+    dataSetOut[2][0] = "Bezug"
   else
-    dataSetOut[1][0] = "Einspeisung"
-  replace(2, data["EINS"]); // Einspeisung
-  replace(3, data["TPS"]); // Sensorik Temp
-  replace(6, data["HL3"]); // pwm 
+    dataSetOut[2][0] = "Einspeisung"
+  replace(2, data["EINS"], true); // Einspeisung
+  replace(3, data["TPS"], false); // Sensorik Temp
+  replace(6, data["HL3"]false); // pwm 
 }
 
 function replaceDataReceivedSym() {
