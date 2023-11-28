@@ -5,11 +5,11 @@ var dataTableMobil;
 
 
 function replace(index, val) {
-  let cell = $('#details tr:eq(' + index + ') td:eq(1)');
+  // let cell = $('#details tr:eq(' + index + ') td:eq(1)');
   const row = dataTableMobil.row(index)
   // update model
   dataSetOut[index][1] = val
-  cell.css("background-color", "red")
+  //cell.css("background-color", "red")
   row.invalidate().draw()
 }
 
@@ -101,8 +101,8 @@ function createDataSetM() {
 function buildStaticTableM() {
   createDataSetM()
   $("#wsHost").html(gateway)
-  let xx = ['Modbus: keine Verbindung', 'Temperatur: Soll erreicht']
-  addErrors(xx);
+  /*   let xx = ['Modbus: keine Verbindung', 'Temperatur: Soll erreicht']
+    addErrors(xx); */
   dataTableMobil = $('#details').DataTable
     ({
       "dom": 'Bfrtip',
