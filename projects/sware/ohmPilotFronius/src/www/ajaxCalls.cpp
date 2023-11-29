@@ -37,6 +37,8 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[EXTERNER_SPEICHER_PRIORI] = buff;
     sprintf(buff, "%d", setup.tempMaxAllowedInGrad);
     data[TEMP_AUSSCHALTEN] = buff;
+    sprintf(buff, "%d", setup.tempMinInGrad);
+    data[TEMP_EINSCHALT] = buff;
     sprintf(buff, "%.2f", setup.pid_p);
     data[PID_P] = buff;
     sprintf(buff, "%.2f", setup.pid_i);
