@@ -46,15 +46,15 @@ function Trenner(number) {
   number = '' + number;
   if (number.length > 3) {
     var mod = number.length % 3;
-    var output = (mod > 0 ? (number.substring(0,mod)) : '');
-    for (i=0 ; i < Math.floor(number.length / 3); i++) {
+    var output = (mod > 0 ? (number.substring(0, mod)) : '');
+    for (i = 0; i < Math.floor(number.length / 3); i++) {
       if ((mod == 0) && (i == 0))
-        output += number.substring(mod+ 3 * i, mod + 3 * i + 3);
+        output += number.substring(mod + 3 * i, mod + 3 * i + 3);
       else
         // hier wird das Trennzeichen festgelegt mit '.'
-        output+= '.' + number.substring(mod + 3 * i, mod + 3 * i + 3);
+        output += '.' + number.substring(mod + 3 * i, mod + 3 * i + 3);
     }
-   return (output);
+    return (output);
   }
   else return number;
 }
@@ -67,7 +67,7 @@ function replace(index, val, fixIt) {
   if (fixIt == true) {
     dataSetOut[index][1] = Trenner(Math.trunc(val < 0 ? val - 0.5 : val + 0.5));
 
-    
+
 
   } else
     dataSetOut[index][1] = val
@@ -146,18 +146,18 @@ function replaceDataReceivedSym() {
 
 function createDataSetM() {
   dataSetOut = [
-    ['Produktion', '0',"Watt"],
-    ['Verbrauch', '1000',"Watt"],
-    ['Einspeisung/Bezug', '2589',"Watt"],
-    ['Temperatur', '49',"Grad"],
-    ['Pufferspeicher L1', '1',"Aus:0, Ein: 1"],
-    ['Pufferspeicher L2', '1',"Aus:0, Ein: 1"],
-    ['Pufferspeicher L3', '10',"PWM"],
-    ['Pufferspeicher reservier', '0',"W"],
-    ['Speicher', 'j',"Aus:0, Ein: 1"],
-    ['Speicher Kapazität (kW)', '13 kW',"kW"],
-    ['Speicher Zustand (kW)', '3 kW',"kW"],
-    ['Speicher Laden (Watt)', '200 W',"W"],
+    ['Produktion', '0', "Watt"],
+    ['Verbrauch', '1000', "Watt"],
+    ['Einspeisung/Bezug', '2589', "Watt"],
+    ['Temperatur', '49', "Grad"],
+    ['Pufferspeicher L1', '1', "Aus:0, Ein: 1"],
+    ['Pufferspeicher L2', '1', "Aus:0, Ein: 1"],
+    ['Pufferspeicher L3', '10', "PWM"],
+    ['Pufferspeicher reservier', '0', "W"],
+    ['Speicher', 'j', "Aus:0, Ein: 1"],
+    ['Speicher Kapazität (kW)', '13 kW', "kW"],
+    ['Speicher Zustand (kW)', '3 kW', "kW"],
+    ['Speicher Laden (Watt)', '200 W', "W"],
   ];
 
 
@@ -182,6 +182,8 @@ function buildStaticTableM() {
         }
         if (data[0] == "Bezug" && data[1] > 0.0)
           $('td:eq(1)', row).css('background-color', 'red')
+        if (data[0] == "Einspeisung" && data[1] < 0.0)
+          $('td:eq(1)', row).css('background-color', 'green')
       },
       "bProcessing": true,
       "lengthChange": false,
