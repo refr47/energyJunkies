@@ -95,7 +95,7 @@ function evalIt(value, index) {
         return showError("Keine gültige IP-Adresse!")
 
       break;
-    case 3: if (isNaN(value))  // hyterese
+    case 3: if (isNaN(value))  // heizstabLeistunmg
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
       if (nu < 1 || nu >= 10000)
@@ -107,56 +107,62 @@ function evalIt(value, index) {
       if (nu < 1 || nu >= 90)
         return showError("Wertebereich ungültig (>0 und <= 90)")
       break;
-    case 5: if (isNaN(value)) // einspesung muss
+    case 5: if (isNaN(value)) // einspeisT
+      return showError("Numerische Eingabe erforderlich")
+      nu = parseInt(value)
+      if (nu < 1 || nu >= 90)
+        return showError("Wertebereich ungültig (>0 und <= 90)")
+      break;
+    case 6: if (isNaN(value)) // einspesung muss
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
       if (nu < 1 || nu >= 20000)
         return showError("Wertebereich ungültig (>0 und <= 20000)")
       break;
-    case 6: if (!value) // externer speicher
+    case 7: if (!value) // externer speicher
       return showError("Feld kann nicht leer sein.")
       if (value == 'j') return true;
       if (value == 'n') return true;
       return showError("Antwort kann nur 'j' oder 'n' sein.")
       break;
-    case 7: if (isNaN(value)) // priorität einspeisung
+    case 8: if (isNaN(value)) // priorität einspeisung
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
       if (nu < 1 || nu > 3)
         return showError("Wertebereich ungültig (>0 und <= 3)")
       break;
-    case 8: if (isNaN(value)) // Mindestlaufzeit digitaler kanal
+    case 9: if (isNaN(value)) // Mindestlaufzeit digitaler kanal
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
       if (nu < 1)
         return showError("Wertebereich ungültig (>0 )")
       break;
-    case 9: if (isNaN(value)) // Mindestlaufzeit phase
+    case 10: if (isNaN(value)) // Mindestlaufzeit phase
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
       if (nu < 1)
         return showError("Wertebereich ungültig (>0 )")
       break;
-    case 10: if (isNaN(value)) // Mindestlaufzeit regler
+    case 11: if (isNaN(value)) // Mindestlaufzeit regler
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
       if (nu < 1)
         return showError("Wertebereich ungültig (>0 )")
       break;
-    case 11: if (isNaN(value)) // pid regler, p anteil
+    case 12: if (isNaN(value)) // pid regler, p anteil
       return showError("Numerische Eingabe erforderlich")
       fnum = parseFloat(value)
       if (fnum < 0.0 || fnum > 1.0)
         return showError("Wertebereich ungültig (>=0.0 und <= 1.0)")
       break;
-    case 12: if (isNaN(value)) // pid i anteil
+    case 13: if (isNaN(value)) // pid i anteil
       return showError("Numerische Eingabe erforderlich")
       fnum = parseFloat(value)
       if (fnum < 0.0 || fnum > 1.0)
         return showError("Wertebereich ungültig (>=0.0 und <= 1.0)")
       break;
 
-    case 13: if (isNaN(value)) // pid d anteil
+    case 14: if (isNaN(value)) // pid d anteil
       return showError("Numerische Eingabe erforderlich")
       fnum = parseFloat(value)
       console.log("D-Anteil: " + fnum)
@@ -269,7 +275,7 @@ function renewTable() {
 
   $.ajax({
     type: "GET",
-    url: "/getSetup", //http://10.0.0.59
+    url: "http://10.0.0.4/getSetup", //http://10.0.0.59
     async: true,
     contentType: "application/json; charset=utf-8",
     dataType: "json",
