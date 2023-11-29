@@ -97,7 +97,7 @@ static bool networkOK = false; */
 
 static TIME_SLICE timeSlice;
 // static TEMPERATURE container;
-static MB_CONTAINER modbusData;
+// static MB_CONTAINER modbusData;
 static PID_CONTAINER pidContainer;
 static Setup setupData;
 static LIFE_DATA lifeData;
@@ -253,7 +253,7 @@ void setup()
             webSockData.states.modbusOK = true;
             tft_printKeyValue("Init Modbus", "ok", TFT_GREEN);
         }
-        memset(&modbusData, 0, sizeof(modbusData));
+        memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
         /*  if (!mb_readInverterStatic())
              DBGf("Error in Reading modbus"); */
         DBGf("Setup PID-Controller");
@@ -495,15 +495,15 @@ void loop()
         else
         {
 
-            mb_readInverterDynamic(setupData, modbusData);
+            mb_readInverterDynamic(setupData, webSockData.mbContainer);
             memset(formatBuffer, 0, 25);
-            memcpy(&webSockData.mbContainer, &modbusData, sizeof(MB_CONTAINER));
-            util_format_Watt_kWatt(modbusData.inverterSumValues.data.acCurrentPower, formatBuffer);
+            // memcpy(&webSockData.mbContainer, &modbusData, sizeof(MB_CONTAINER));
+            util_format_Watt_kWatt(webSockData.mbContainer.inverterSumValues.data.acCurrentPower, formatBuffer);
             DBGf("Produktion %s", formatBuffer);
 
-            DBGf("EXport %s", util_format_Watt_kWatt(modbusData.meterValues.data.acCurrentPower, formatBuffer));
+            DBGf("EXport %s", util_format_Watt_kWatt(webSockData.mbContainer.meterValues.data.acCurrentPower, formatBuffer));
 
-            if (modbusData.meterValues.data.acCurrentPower < 0.0 && (modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower < 0))
+            if (webSockData.mbContainer.meterValues.data.acCurrentPower < 0.0 && (webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower < 0))
 
             {
                 DBGf("Wrong meter value !");
@@ -512,8 +512,8 @@ void loop()
             {
                 // memset(&pidContainer, 0, sizeof(pidContaienr));
 
-                DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(modbusData.inverterSumValues.data.acCurrentPower + modbusData.meterValues.data.acCurrentPower, formatBuffer));
-                pidContainer.mCurrentPower = modbusData.meterValues.data.acCurrentPower; // export energy
+                DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower, formatBuffer));
+                pidContainer.mCurrentPower = webSockData.mbContainer.meterValues.data.acCurrentPower; // export energy
                 // DBGf(", int: %d", pidContainer.mCurrentPower);
                 // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
 
@@ -543,7 +543,7 @@ void loop()
                 }
                 // DBGf(" PID  mCurrPower (W): %.2lf, notUseable: %.2lf anaOutput(PWM) %.2lf,  Dig1: %x, Dig2: %x", pidContainer.mCurrentPower, pidContainer.mAnalogOut, pidContainer.powerNotUseable, pidContainer.PID_PIN1, pidContainer.PID_PIN2);
 
-                tft_drawInfo(webSockData.temperature, modbusData, pidContainer);
+                tft_drawInfo(webSockData.temperature, webSockData.mbContainer, pidContainer);
             }
         } // if modbusstate
         timeSlice.previousMillModbus = timeSlice.currentMillis;
