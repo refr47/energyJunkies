@@ -22,8 +22,8 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[WLAN_PASSWD] = setup.passwd;
     data[IP_INVERTER] = setup.ipInverterAsString;
 
-    sprintf(buff, "%d", setup.regelbereichHysterese);
-    data[HYSTERESE] = buff;
+    sprintf(buff, "%d", setup.heizstab_leistung_in_watt);
+    data[HEIZSTABLEISTUNG] = buff;
     sprintf(buff, "%d", setup.pid_targetPowerInWatt);
     data[EINSPEISUNG_MUSS] = buff;
     sprintf(buff, "%d", setup.pid_min_time_before_switch_off_channel_inMS);
@@ -35,14 +35,16 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[EXTERNER_SPEICHER] = setup.externerSpeicher ? "j'" : "n";
     sprintf(buff, "%c", setup.externerSpeicherPriori);
     data[EXTERNER_SPEICHER_PRIORI] = buff;
-    sprintf(buff, "%d", setup.ausschaltTempInGradCel);
-    data[AUSSCHALT_TEMP] = buff;
+    sprintf(buff, "%d", setup.tempMaxAllowedInGrad);
+    data[TEMP_AUSSCHALTEN] = buff;
     sprintf(buff, "%.2f", setup.pid_p);
     data[PID_P] = buff;
     sprintf(buff, "%.2f", setup.pid_i);
     data[PID_I] = buff;
     sprintf(buff, "%.2f", setup.pid_d);
     data[PID_D] = buff;
+    sprintf(buff, "%d", setup.exportWatt);
+    data[AVAILABLE_POW] = buff;
     DBGf("ajaxCalls_handleGetSetup - return ");
     return returnFromStoreSetup(true, data, request);
 }
@@ -98,12 +100,12 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     else
         return returnFromStoreSetup(errorH, data, request);
 
-    argument = jsonObj[HYSTERESE];
+    argument = jsonObj[HEIZSTABLEISTUNG];
 
-    DBGf("ARG: %s, VAl: %s", HYSTERESE, argument);
-    errorH = util_checkParamInt(HYSTERESE, argument, data, &result);
+    DBGf("ARG: %s, VAl: %s", HEIZSTABLEISTUNG, argument);
+    errorH = util_checkParamInt(HEIZSTABLEISTUNG, argument, data, &result);
     if (errorH)
-        setup.regelbereichHysterese = result;
+        setup.heizstab_leistung_in_watt = result;
     else
         return returnFromStoreSetup(errorH, data, request);
     argument = jsonObj[EINSPEISUNG_MUSS];
@@ -155,12 +157,20 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     }
     else
         return returnFromStoreSetup(errorH, data, request);
-    argument = jsonObj[AUSSCHALT_TEMP];
 
-    DBGf("ARG: %s, VAl: %s", AUSSCHALT_TEMP, argument);
-    errorH = util_checkParamInt(AUSSCHALT_TEMP, argument, data, &result);
+    argument = jsonObj[TEMP_AUSSCHALTEN];
+    DBGf("ARG: %s, VAl: %s", TEMP_AUSSCHALTEN, argument);
+    errorH = util_checkParamInt(TEMP_AUSSCHALTEN, argument, data, &result);
     if (errorH)
-        setup.ausschaltTempInGradCel = result;
+        setup.tempMaxAllowedInGrad = result;
+    else
+        return returnFromStoreSetup(errorH, data, request);
+
+    argument = jsonObj[TEMP_EINSCHALT];
+    DBGf("ARG: %s, VAl: %s", TEMP_EINSCHALT, argument);
+    errorH = util_checkParamInt(TEMP_EINSCHALT, argument, data, &result);
+    if (errorH)
+        setup.tempMinInGrad = result;
     else
         return returnFromStoreSetup(errorH, data, request);
     argument = jsonObj[PID_P];
@@ -183,13 +193,18 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     else
         return returnFromStoreSetup(errorH, data, request);
 
+    argument = jsonObj[AVAILABLE_POW];
+    DBGf("ARG: %s, VAl: %s", AVAILABLE_POW, argument);
+    errorH = util_checkParamInt(AVAILABLE_POW, argument, data, &result);
+    if (errorH)
+        setup.exportWatt = result;
+    DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");
+
     eprom_storeSetup(setup);
     // eprom_test_read_Eprom();
     returnFromStoreSetup(errorH, data, request);
-    DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");
-
-    delay(10000); // wait 10 secs
-    esp_restart();
+    // delay(10000); // wait 10 secs
+    // esp_restart();
 }
 /* private functions */
 

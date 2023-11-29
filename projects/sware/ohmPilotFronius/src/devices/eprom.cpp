@@ -13,11 +13,13 @@ static Preferences preferences;
 void eprom_storeSetup(Setup &setup)
 {
     preferences.begin(CREDENTIALS, false);
+#ifndef TEST_PID
     preferences.clear();
     preferences.putString(_SSID, setup.ssid);
     preferences.putString(_PASSWORD, setup.passwd);
-    preferences.putUInt(_HYSTERESE, setup.regelbereichHysterese);
-    preferences.putUInt(_AUSSCHALT_TEMP, setup.ausschaltTempInGradCel);
+    preferences.putUInt(_HEIZSTAB_LEISTUNG_IN_WATT, setup.heizstab_leistung_in_watt);
+    preferences.putUInt(_TEMP_MAX_IN_GRAD, setup.tempMaxAllowedInGrad);
+    preferences.putUInt(_TEMP_MIN_IN_GRAD, setup.tempMinInGrad);
     preferences.putUInt(_INVERTER_IP, setup.ipInverter);
     preferences.putBool(_EXTERNER_SPEICHER, setup.externerSpeicher);
     preferences.putChar(_EXTERNER_SPEICHER_PRIORI, setup.externerSpeicherPriori);
@@ -28,7 +30,7 @@ void eprom_storeSetup(Setup &setup)
     preferences.putUInt(_PID_DIG_OUT_OFF_DELAY_MS, setup.pid_min_time_before_switch_off_channel_inMS);
     preferences.putUInt(_PID_MIN_ON_TIME_MS, setup.pid_min_time_for_dig_output_inMS);
     preferences.putUInt(_PID_TARGET_POWER, setup.pid_targetPowerInWatt);
-
+#endif
     // only for testing pid controller
     preferences.putChar(_PID_TEST, setup.testPid);
     preferences.putUInt(_EN_EXPORT, setup.exportWatt);
@@ -69,8 +71,10 @@ void eprom_getSetup(Setup &setup)
         strncpy(setup.ssid, (const char *)ssid.c_str(), LEN_WLAN - 1);
         strncpy(setup.passwd, passwd.c_str(), LEN_WLAN - 1);
     }
-    setup.regelbereichHysterese = preferences.getUInt(_HYSTERESE);
-    setup.ausschaltTempInGradCel = preferences.getUInt(_AUSSCHALT_TEMP);
+    setup.heizstab_leistung_in_watt = preferences.getUInt(_HEIZSTAB_LEISTUNG_IN_WATT);
+    setup.tempMaxAllowedInGrad = preferences.getUInt(_TEMP_MAX_IN_GRAD);
+    setup.tempMinInGrad = preferences.getUInt(_TEMP_MIN_IN_GRAD);
+
     setup.ipInverter = preferences.getUInt(_INVERTER_IP);
     bool result = true;
     /*   DBG("===>IP-Inverter eprom_getSetup: ");
@@ -104,8 +108,9 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
     DBGf("eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
 
-    setup.regelbereichHysterese = 100;
-    setup.ausschaltTempInGradCel = 80;
+    setup.heizstab_leistung_in_watt = 5000;
+    setup.tempMaxAllowedInGrad = 80;
+    setup.tempMinInGrad = 40;
     String ipInv = "10.0.0.7";
     bool result = true;
 
@@ -131,8 +136,8 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 static void printEprom(Setup &setup)
 {
     char buffer[500];
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s Hysterese: %d, AusschaltTempInC: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f.2 PID_I: %f.2 PID_D %f.2  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d  ----- \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.regelbereichHysterese, setup.ausschaltTempInGradCel, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_targetPowerInWatt, setup.pidChanged
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f.2 PID_I: %f.2 PID_D %f.2  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d, ExportWatt: %d ----- \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_targetPowerInWatt, setup.pidChanged, setup.exportWatt
 
     );
     DBGf("%s", buffer);

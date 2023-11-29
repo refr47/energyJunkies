@@ -11,8 +11,9 @@ typedef struct
     char ssid[LEN_WLAN];
     char passwd[LEN_WLAN];
 
-    unsigned int regelbereichHysterese;
-    unsigned int ausschaltTempInGradCel;
+    unsigned int heizstab_leistung_in_watt;
+    unsigned int tempMaxAllowedInGrad;
+    unsigned int tempMinInGrad;
     unsigned int ipInverter;
     String ipInverterAsString;
     bool externerSpeicher;
@@ -60,7 +61,7 @@ typedef struct _LIFE_DATA
     long heatingLastTime;
 
 } LIFE_DATA;
- 
+
 typedef struct _STATES
 {
     bool cardWriterOK;

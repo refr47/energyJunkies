@@ -5,8 +5,9 @@ function createDataSet() {
     ['WLAN_ESSID', 'xxxx', 'SSID'],
     ['WLAN_Password', '100', 'Password'],
     ['IP_Inverter', '', 'IP-Adresse des Inverters'],
-    ['Hysterese', '100', 'Regelbereich Hysterese'],
-    ['Ausschalt_Temperatur', '70', 'Maximal erlaubte Temperatur'],
+    ['Heizstableistung', '1000', 'Heizstableistung in Watt'],
+    ['Ausschalt_Temperatur', '80', 'Maximal erlaubte Temperatur'],
+    ['Einschalt_Temperatur', '40', 'Temperatur, bei der eingeschaltet werden muss'],
     ['Mindest_Einspeisung', '100', 'Strom, der vom Heizregler nicht verwendet werden darf (in W)'],
     ['Speicher', 'n', 'Externer Speicher steht zur Verfügung (j,n)'],
     ['Speicher_Prioritaet', '1', '1: Externer Speicher vorrangig, 2: nachrangig'],
@@ -280,7 +281,7 @@ function renewTable() {
         replace(0, data["WLAN_ESSID"])
         replace(1, data["WLAN_Password"])
         replace(2, data["IP_Inverter"])
-        replace(3, data["Hysterese"])
+        replace(3, data["Heizstableistung"])
         replace(4, data["Ausschalt_Temperatur"])
         replace(5, data["Mindest_Einspeisung"])
         replace(6, data["Speicher"])

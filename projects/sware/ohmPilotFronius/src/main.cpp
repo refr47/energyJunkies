@@ -98,11 +98,11 @@ static bool networkOK = false; */
 static TIME_SLICE timeSlice;
 // static TEMPERATURE container;
 // static MB_CONTAINER modbusData;
-static PID_CONTAINER pidContainer;
+// static PID_CONTAINER pidContainer;
 static Setup setupData;
 static LIFE_DATA lifeData;
 static ALARM_CONTAINER alarmContainer;
-static PinManager pidPinManager(RELAY_L1, RELAY_L2, PWM_FOR_PID);
+static PinManager pidPinManager;
 static WEBSOCK_DATA webSockData;
 
 /* **************************************************************************
@@ -169,7 +169,7 @@ void setup()
     eprom_isInit();
     eprom_getSetup(setupData);
     eprom_getLifeData(lifeData);
-
+    eprom_show(setupData);
     // eprom_test_read_Eprom();
 
     // if (strcmp(setupData.ssid, "---") == 0)
@@ -258,7 +258,7 @@ void setup()
              DBGf("Error in Reading modbus"); */
         DBGf("Setup PID-Controller");
         tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
-        pidPinManager.config(setupData);
+        pidPinManager.config(setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
     }
     if (webSockData.states.networkOK)
     {
@@ -444,7 +444,7 @@ void loop()
             DBGf(" TEMP in Celsius, S1: %f, S2: %f", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
             if (!alarmContainer.alarmTemp.alarmTemp)
             {
-                if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > setupData.ausschaltTempInGradCel)
+                if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > setupData.tempMaxAllowedInGrad)
                 {
                     ESP_LOGE(TAG, "Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
                     pinMode(RELAY_L1, OUTPUT);
@@ -464,8 +464,8 @@ void loop()
                 double diffT = difftime(currT, alarmContainer.alarmTemp.overFlowHappenedAt); // in secs
                 if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
                 {
-                    DBGf("TempLimit over %d °C , wait for next check in secs: %d", setupData.ausschaltTempInGradCel, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
-                    if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > setupData.ausschaltTempInGradCel)
+                    DBGf("TempLimit over %d °C , wait for next check in secs: %d", setupData.tempMaxAllowedInGrad, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
+                    if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > setupData.tempMaxAllowedInGrad)
                     {
                         alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
                     }
@@ -513,37 +513,44 @@ void loop()
                 // memset(&pidContainer, 0, sizeof(pidContaienr));
 
                 DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower, formatBuffer));
-                pidContainer.mCurrentPower = webSockData.mbContainer.meterValues.data.acCurrentPower; // export energy
+                webSockData.pidContainer.mCurrentPower = webSockData.mbContainer.meterValues.data.acCurrentPower; // export energy
                 // DBGf(", int: %d", pidContainer.mCurrentPower);
                 // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
 
-                pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5;
-                pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
-                pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
-                memcpy(&webSockData.pidContainer, &pidContainer, sizeof(PID_CONTAINER));
+                webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5;
+                webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
+                webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+                // memcpy(&webSockData.pidContainer, &pidContainer, sizeof(PID_CONTAINER));
 
                 if (!alarmContainer.alarmTemp.alarmTemp)
                 {
+#ifdef TEST_PID
+                    Setup d;
+                    eprom_getSetup(d);
+                    DBGf("PID-TEST (1): available watt: %d", d.exportWatt);
+                    webSockData.pidContainer.mCurrentPower = d.exportWatt * -1.00;
+                    DBGf("PID-TEST (2): available watt: %lf", webSockData.pidContainer.mCurrentPower);
+#endif
 
-                    if (pidContainer.mCurrentPower < 0.0) // energy export
+                    if (webSockData.pidContainer.mCurrentPower < 0.0) // energy export
                     {
-                        DBGf("< 0, 1 %.2lf", pidContainer.mCurrentPower);
-                        pidContainer.mCurrentPower = 1.00 - pidContainer.mCurrentPower;
+                        DBGf("< 0, 1 %lf", webSockData.pidContainer.mCurrentPower);
+                        webSockData.pidContainer.mCurrentPower = webSockData.pidContainer.mCurrentPower * -1.0;
 
-                        pidPinManager.task(setupData, pidContainer.mCurrentPower);
+                        pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower, webSockData.temperature);
                     }
                     else
                     {
 
-                        DBGf(" %.2lf", pidContainer.mCurrentPower);
-                        pidContainer.mCurrentPower = 4.0;
+                        DBGf(" %.2lf", webSockData.pidContainer.mCurrentPower);
+                        webSockData.pidContainer.mCurrentPower = 1.0;
 
-                        pidPinManager.task(setupData, pidContainer.mCurrentPower);
+                        pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower, webSockData.temperature);
                     }
                 }
                 // DBGf(" PID  mCurrPower (W): %.2lf, notUseable: %.2lf anaOutput(PWM) %.2lf,  Dig1: %x, Dig2: %x", pidContainer.mCurrentPower, pidContainer.mAnalogOut, pidContainer.powerNotUseable, pidContainer.PID_PIN1, pidContainer.PID_PIN2);
 
-                tft_drawInfo(webSockData.temperature, webSockData.mbContainer, pidContainer);
+                tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
             }
         } // if modbusstate
         timeSlice.previousMillModbus = timeSlice.currentMillis;

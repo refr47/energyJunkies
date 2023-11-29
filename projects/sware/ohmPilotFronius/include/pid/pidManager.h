@@ -4,9 +4,6 @@
 #include <PID_v1.h>
 #include "defines.h"
 
-
-
-
 enum OutputType
 {
     Analog,
@@ -30,10 +27,10 @@ private:
     {
         if (mType == Digital)
         {
+            mActivationTime = millis();
             if (v > 0.5)
             {
                 mValue = 1;
-                mActivationTime = millis();
             }
             else
             {
@@ -76,10 +73,13 @@ private:
 class PinManager
 {
 public:
-    PinManager(int digOut1, int digOut2, int anOut);
-    void config(Setup &setup);
-    int task(Setup &setup, double currentPower);
+    PinManager();
+    void config(Setup &setup, int digOut1, int digOut2, int anOut);
 
+    bool task(Setup &setup, double currentAvailablePower, TEMPERATURE &container); // > 0: bezug vom Netz, <0 eigene Produktion
+#ifdef PID_LIB
+    int task(Setup &setup, double currentAvailablePower);
+#endif
     int getStateOfDigPin(short pin) // 0, 1
     {
         return mOuts[pin].isDigOn();
@@ -102,7 +102,9 @@ private:
     double mAnalogOut;
     double mPidSetPoint;
     double mCurrentPower;
+#ifdef PID_LIB
     PID mPid;
+#endif
     unsigned long mDelayDigOutOn;
     unsigned long mDelayDigOutOff;
 };
