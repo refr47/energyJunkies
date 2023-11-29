@@ -183,17 +183,6 @@ function buildStaticTableM() {
         if (data[0] == "Bezug" && data[1] > 0.0)
           $('td:eq(1)', row).css('background-color', 'red')
       },
-      /*  "fnRowCallback": function(nRow, aData, iDisplayIndex, iDisplayIndexFull) {
-         console.log("displayIndex: " + iDisplayIndexFull)
-         $(nRow).children().each(function(index, td) {
-           if (index == 1  && iDisplayIndexFull==0){
-          
-             //console.log($(td).html())
-             $(td).css('background-color', 'green')
-           }
-         })
-         return nRow;
-       }, */
       "bProcessing": true,
       "lengthChange": false,
       "info": false,
