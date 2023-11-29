@@ -4,7 +4,7 @@ var gateway = `ws://${"10.0.0.4"}/ws`;
 var websocket;
 var dataTableMobil;
 
-
+ 
 const HEIZPATRONE_L1 = 1;
 const HEIZPATRONE_L2 = 2
 const AKKU_AVAILABLE = 3
