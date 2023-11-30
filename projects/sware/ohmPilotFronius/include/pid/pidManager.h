@@ -56,16 +56,19 @@ private:
 
     bool hasActivationTimeElapsed(void)
     {
+        DBGf("Pin %d, activTime: %d", mPin, mActivationTime);
         if (millis() - mActivationTime > mMinOnTime)
         {
+            DBGf("Pin free");
             return true;
         }
+        DBGf("Pin occupied");
         return false;
     }
 
     int mPin;
     OutputType mType;
-    int mActivationTime;
+    unsigned long mActivationTime;
     int mMinOnTime;
     int mValue;
 };
@@ -77,9 +80,7 @@ public:
     void config(Setup &setup, int digOut1, int digOut2, int anOut);
 
     bool task(Setup &setup, double currentAvailablePower, TEMPERATURE &container); // > 0: bezug vom Netz, <0 eigene Produktion
-#ifdef PID_LIB
-    int task(Setup &setup, double currentAvailablePower);
-#endif
+
     int getStateOfDigPin(short pin) // 0, 1
     {
         return mOuts[pin].isDigOn();

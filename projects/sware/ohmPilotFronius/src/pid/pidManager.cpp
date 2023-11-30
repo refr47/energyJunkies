@@ -60,100 +60,31 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
 }
 
 // currentP: < 0 : einspeisung, >0 Bezug
-bool PinManager::task(Setup &setup, double currentP, TEMPERATURE &tempContainer)
-{
-    mCurrentPower = currentP + setup.pid_targetPowerInWatt;
-    double onePhase = setup.heizstab_leistung_in_watt / 3.00;
-
-    if (mCurrentPower < 0.00)
-    {
-        mCurrentPower *= -1.00;
-
-        if (mCurrentPower <= onePhase)
-        {
-            mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * mCurrentPower / onePhase); // [0..255]
-        }
-        else
-        {
-
-            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2 && mCurrentPower > onePhase; i++)
-            {
-                if (!mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-                {
-                    mOuts[i].setValue(1);
-                    mCurrentPower -= onePhase;
-                }
-            }
-            if (mCurrentPower <= onePhase)
-            {
-                mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * mCurrentPower / onePhase); // [0..255]
-            }
-            else
-            {
-                mOuts[id_ANA_PWM].setValue(OUTPUT_MAX); // [0..255]
-            }
-        }
-    }
-    else // mCurrentPower>0, bezug
-    {
-        int curSensorTmp = (int)trunc((tempContainer.sensor1 + tempContainer.sensor2) / 2.00 + 0.5);
-        DBGf("PidManager:: > 0, currSensorTemp: %d", curSensorTmp);
-        if (curSensorTmp < setup.tempMinInGrad)
-        {
-            DBGf("MindesTemp unterschritten %d", setup.tempMinInGrad);
-            mOuts[id_ANA_PWM].setValue(OUTPUT_MAX); // [0..255]
-            return true;
-        }
-        if (mCurrentPower <= onePhase) // Bezug < onePhase benötigt
-        {
-            mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * mCurrentPower / onePhase); // [0..255]
-        }
-        else // mCurrentPower > onePhase
-        {
-            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2 && mCurrentPower > onePhase; i++)
-            {
-                if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-                {
-                    mOuts[i].setValue(0);
-                    mCurrentPower -= onePhase;
-                }
-            }
-            if (mCurrentPower <= onePhase)
-            {
-                mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * mCurrentPower / onePhase); // [0..255]
-            }
-            else
-            {
-                mOuts[id_ANA_PWM].setValue(0); // [0..255]
-            }
-        }
-        return true;
-    }
-}
 
 #ifdef PID_LIB
-int PinManager::task(Setup &setup, double currentP)
+bool PinManager::task(Setup &setup, double currentAvailablePower, TEMPERATURE &container)
 {
     bool result = false;
 
     if (setup.pidChanged)
     {
-        this->config(setup);
+        // this->config(setup);
         DBGf("PID Params changed / updated");
         setup.pidChanged = false;
     }
-    mCurrentPower = currentP; // necessary ??
+    mCurrentPower = currentAvailablePower; // necessary ??
+    DBGf("PID Manager:: current available power: %f", mCurrentPower);
     // mCurrentPower = pidContainer.mCurrentPower;
-    double gap = abs(mPidSetPoint - mCurrentPower); // distance away from setpoint
-    if (gap < 10)
-    { // we're close to setpoint, use conservative tuning parameters
-        mPid.SetTunings(consKp, consKi, consKd);
-    }
-    else
-    {
-        // we're far from setpoint, use aggressive tuning parameters
-        mPid.SetTunings(aggKp, aggKi, aggKd);
-    }
+    /*     double gap = abs(mPidSetPoint - mCurrentPower); // distance away from setpoint
+        if (gap < 10)
+        { // we're close to setpoint, use conservative tuning parameters
+            mPid.SetTunings(consKp, consKi, consKd);
+        }
+        else
+        {
+            // we're far from setpoint, use aggressive tuning parameters
+            mPid.SetTunings(aggKp, aggKi, aggKd);
+        } */
     result = mPid.Compute();
     if (result)
     {
@@ -212,5 +143,97 @@ int PinManager::task(Setup &setup, double currentP)
       pidContainer.PID_PIN2 = mOuts[id_DIG_PIN_2].isDigOn(); */
 
     return 0;
+}
+#endif
+
+#ifdef IIIII
+
+bool PinManager::task(Setup &setup, double currentP, TEMPERATURE &tempContainer)
+{
+    mCurrentPower = currentP + setup.pid_targetPowerInWatt;
+    double onePhase = setup.heizstab_leistung_in_watt / 3.00;
+
+    if (mCurrentPower < 0.00)
+    {
+        mCurrentPower *= -1.00;
+        DBGf("PidManager:: <  0,onePhase: %f", onePhase);
+        if (mCurrentPower <= onePhase)
+        {
+            mAnalogOut = OUTPUT_MAX * mCurrentPower / onePhase;
+            mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
+            DBGf("PidManager:: <  0,mCurrentPower <= onePhase: %f", mAnalogOut);
+        }
+        else
+        {
+
+            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2 && mCurrentPower > onePhase; i++)
+            {
+                if (!mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
+                {
+                    mOuts[i].setValue(1);
+                    mCurrentPower -= onePhase;
+                    DBGf("PidManager:: <  0,mCurrentPower >= onePhase: L %d active", i);
+                }
+            }
+            if (mCurrentPower <= onePhase)
+            {
+                DBGf("PidManager:: <  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * mCurrentPower / onePhase);
+                mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * mCurrentPower / onePhase); // [0..255]
+            }
+            else
+            {
+                mOuts[id_ANA_PWM].setValue(OUTPUT_MAX); // [0..255]
+                DBGf("PidManager:: <  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX);
+            }
+        }
+    }
+    else // mCurrentPower>0, bezug
+    {
+        int curSensorTmp = (int)trunc((tempContainer.sensor1 + tempContainer.sensor2) / 2.00 + 0.5);
+        DBGf("PidManager:: > 0, currSensorTemp: %d", curSensorTmp);
+        if (curSensorTmp < setup.tempMinInGrad)
+        {
+            DBGf("MindesTemp unterschritten %d", setup.tempMinInGrad);
+            mAnalogOut = OUTPUT_MAX;
+            mOuts[id_ANA_PWM].setValue(OUTPUT_MAX); // [0..255]
+            return true;
+        }
+        DBGf("PidManager:: > 0,onePhase: %f", onePhase);
+        if (mCurrentPower <= onePhase) // Bezug < onePhase benötigt
+        {
+            mAnalogOut = OUTPUT_MAX * mCurrentPower / onePhase;
+            mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
+            DBGf("PidManager:: > 0,PWM: %f", mAnalogOut);
+        }
+        else // mCurrentPower > onePhase
+        {
+            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2 && mCurrentPower > onePhase; i++)
+            {
+                if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
+                {
+                    mOuts[i].setValue(0.00);
+                    mCurrentPower -= onePhase;
+                    DBGf("PidManager:: > 0, Power On DigiOut:%d", i);
+                }
+            }
+            if (mCurrentPower <= onePhase)
+            {
+                mAnalogOut = OUTPUT_MAX * mCurrentPower / onePhase;
+                mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
+                DBGf("PidManager:: > 0,mCurrentPower <= onePhase PWM: %f", mAnalogOut);
+            }
+            else
+            {
+                mOuts[id_ANA_PWM].setValue(0.00); // [0..255]
+                mAnalogOut = 0.00;
+                DBGf("PidManager:: > 0,mCurrentPower <= onePhase PWM: %d", 0);
+            }
+        }
+    }
+
+    DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
+    DBGf("PidManager --exit");
+    delay(2000);
+    return true;
 }
 #endif

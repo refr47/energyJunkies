@@ -164,8 +164,8 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    // eprom_test_write_Eprom(wlanE, passW);
-    // eprom_clearLifeData();
+    eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    //   eprom_clearLifeData();
     eprom_isInit();
     eprom_getSetup(setupData);
     eprom_getLifeData(lifeData);
@@ -528,16 +528,16 @@ void loop()
                     Setup d;
                     eprom_getSetup(d);
                     DBGf("PID-TEST (1): available watt: %d", d.exportWatt);
-                    webSockData.pidContainer.mCurrentPower = d.exportWatt * -1.00;
+                    webSockData.pidContainer.mCurrentPower = d.exportWatt * 1.00;
                     DBGf("PID-TEST (2): available watt: %lf", webSockData.pidContainer.mCurrentPower);
 #endif
 
                     if (webSockData.pidContainer.mCurrentPower < 0.0) // energy export
                     {
                         DBGf("< 0, 1 %lf", webSockData.pidContainer.mCurrentPower);
-                        webSockData.pidContainer.mCurrentPower = webSockData.pidContainer.mCurrentPower * -1.0;
+                        // webSockData.pidContainer.mCurrentPower = webSockData.pidContainer.mCurrentPower;
 
-                        pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower, webSockData.temperature);
+                        pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower * -1.00, webSockData.temperature);
                     }
                     else
                     {

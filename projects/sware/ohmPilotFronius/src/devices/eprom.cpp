@@ -33,7 +33,7 @@ void eprom_storeSetup(Setup &setup)
 #endif
     // only for testing pid controller
     preferences.putChar(_PID_TEST, setup.testPid);
-    preferences.putUInt(_EN_EXPORT, setup.exportWatt);
+    preferences.putInt(_EN_EXPORT, setup.exportWatt);
     preferences.end();
 }
 
@@ -96,7 +96,7 @@ void eprom_getSetup(Setup &setup)
     setup.pid_targetPowerInWatt = preferences.getUInt(_PID_TARGET_POWER);
     setup.pidChanged = false;
     setup.testPid = preferences.getChar(_PID_TEST);
-    setup.exportWatt = preferences.getUInt(_EN_EXPORT);
+    setup.exportWatt = preferences.getInt(_EN_EXPORT);
     preferences.end();
 }
 
@@ -110,7 +110,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 
     setup.heizstab_leistung_in_watt = 5000;
     setup.tempMaxAllowedInGrad = 80;
-    setup.tempMinInGrad = 40;
+    setup.tempMinInGrad = 10;
     String ipInv = "10.0.0.7";
     bool result = true;
 
@@ -128,6 +128,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.pid_min_time_before_switch_off_channel_inMS = 2000;
     setup.pid_min_time_for_dig_output_inMS = 10000;
     setup.pid_targetPowerInWatt = 10;
+    setup.exportWatt = 10;
     DBGf("eprom_test_write_Eprom END");
 
     eprom_storeSetup(setup);

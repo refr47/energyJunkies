@@ -27,7 +27,7 @@ typedef struct
     unsigned int pid_targetPowerInWatt; // Wieviel müss übrig bleiben
     bool pidChanged;
     char testPid;
-    unsigned int exportWatt;
+    int exportWatt;
 } Setup;
 
 typedef struct
