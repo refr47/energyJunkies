@@ -23,19 +23,12 @@ private:
         pinMode(mPin, OUTPUT);
     }
 
-    void setValue(double v)
+    void setValue(int v)
     {
         if (mType == Digital)
         {
             mActivationTime = millis();
-            if (v > 0.5)
-            {
-                mValue = 1;
-            }
-            else
-            {
-                mValue = 0;
-            }
+            mValue=v;
             digitalWrite(mPin, mValue);
         }
         else

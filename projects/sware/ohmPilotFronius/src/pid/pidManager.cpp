@@ -50,7 +50,7 @@ PinManager::PinManager()
 void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
 {
 
-    mPidSetPoint = setup.pid_targetPowerInWatt;
+    mPidSetPoint = setup.phasen_leistung_in_watt; // 1/3 for pid controller for pwm
     mOuts[id_DIG_PIN_1].init(digOut1, setup.pid_min_time_for_dig_output_inMS, Digital);
     mOuts[id_DIG_PIN_2].init(digOut2, setup.pid_min_time_for_dig_output_inMS, Digital);
     mOuts[id_ANA_PWM].init(anOut, setup.pid_min_time_for_dig_output_inMS, Analog);
@@ -66,11 +66,83 @@ bool PinManager::task(Setup &setup, double currentAvailablePower, TEMPERATURE &c
 {
     bool result = false;
 
-    if (setup.pidChanged)
+    /*   if (setup.pidChanged)
+      {
+
+          DBGf("PID Params changed / updated");
+          setup.pidChanged = false;
+      } */
+
+    if (currentAvailablePower < 0.0)
     {
-        // this->config(setup);
-        DBGf("PID Params changed / updated");
-        setup.pidChanged = false;
+        // Einspeisung
+        mCurrentPower = currentAvailablePower * -1.00;
+        if (mCurrentPower <= (double)setup.phasen_leistung_in_watt)
+        {
+            // leistung für 1 phase
+
+            result = mPid.Compute();
+            DBGf("PID Manager - leistung für 1 phase per pwm: %f", mAnalogOut);
+            if (result)
+                DBGf("PID Manager: Recalculated value, Analog Out: %f, MidSetPoint: %f", mAnalogOut, mPidSetPoint);
+            else
+                DBGf("PID Manager: Nothing happened");
+            mOuts[id_ANA_PWM].setValue(mAnalogOut);
+        }
+        else
+        {
+            // leistung für eine volle phase (relay) + pwm
+
+            // turn on digital output if power suffices
+            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
+            {
+                if (!(mOuts[i].isDigOn() || mOuts[i].hasActivationTimeElapsed()))
+                {
+                    mOuts[i].setValue(1);
+                    mCurrentPower -= (double)setup.phasen_leistung_in_watt;
+                    mPid.Compute();
+                    mOuts[id_ANA_PWM].setValue(mAnalogOut);
+                    DBGf("PID MAnager: Switched on Relais: %d, PWM: %f", i, mAnalogOut);
+                    break; // do not turn on the next output
+                }
+            }
+        }
+    }
+    else
+    {
+        mCurrentPower = currentAvailablePower;
+        if (mCurrentPower <= (double)setup.phasen_leistung_in_watt)
+        {
+            // sache für pid, da schon strom bezogen werden muss (im unteren bereich)
+            double prev_mAnalogOut = mAnalogOut;
+            mPid.Compute();
+            mAnalogOut = (prev_mAnalogOut + mAnalogOut) / 2.0;
+            DBGf("PID Manager im Einspeisemodus (%f), previPWM %f calculatedPWM %f gemittelt %f", mCurrentPower, prev_mAnalogOut, mAnalogOut, (prev_mAnalogOut + mAnalogOut) / 2.0);
+            mOuts[id_ANA_PWM].setValue(mAnalogOut);
+        }
+        else
+        {
+            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
+            {
+                if ((mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed()))
+                {
+                    mOuts[i].setValue(1);
+                    mCurrentPower -= (double)setup.phasen_leistung_in_watt;
+                    if (mCurrentPower > (double)setup.phasen_leistung_in_watt)
+                    {
+                        DBGf("PID Manager Switched Of relais: %d - still remains to much bezugspower: %f , set pwm to 0", i, mCurrentPower);
+                        mAnalogOut = 0.0;
+                    }
+                    else
+                    {
+                        mPid.Compute();
+                        DBGf("PID Manager Switched Of relais: %d - remains power: %f , set pwm to %f", i, mCurrentPower, mAnalogOut);
+                    }
+                    mOuts[id_ANA_PWM].setValue(mAnalogOut);
+                    break; // do not turn on the next output
+                }
+            } 
+        }
     }
     mCurrentPower = currentAvailablePower; // necessary ??
     DBGf("PID Manager:: current available power: %f", mCurrentPower);
@@ -150,7 +222,7 @@ bool PinManager::task(Setup &setup, double currentAvailablePower, TEMPERATURE &c
 
 bool PinManager::task(Setup &setup, double currentP, TEMPERATURE &tempContainer)
 {
-    mCurrentPower = currentP + setup.pid_targetPowerInWatt;
+    mCurrentPower = currentP + setup.pid_powerWhichNeedNotConsumed;
     double onePhase = setup.heizstab_leistung_in_watt / 3.00;
 
     if (mCurrentPower < 0.00)

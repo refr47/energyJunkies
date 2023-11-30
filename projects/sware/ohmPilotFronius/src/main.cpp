@@ -532,21 +532,24 @@ void loop()
                     DBGf("PID-TEST (2): available watt: %lf", webSockData.pidContainer.mCurrentPower);
 #endif
 
-                    if (webSockData.pidContainer.mCurrentPower < 0.0) // energy export
-                    {
-                        DBGf("< 0, 1 %lf", webSockData.pidContainer.mCurrentPower);
-                        // webSockData.pidContainer.mCurrentPower = webSockData.pidContainer.mCurrentPower;
+                    //  webSockData.pidContainer.mCurrentPower < 0: einspeisung,
+                   // pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower, webSockData.temperature);
 
-                        pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower * -1.00, webSockData.temperature);
-                    }
-                    else
-                    {
+                     if (webSockData.pidContainer.mCurrentPower < 0.0) // energy export
+                     {
+                         DBGf(" Einspeisung %lf, muss übrig bleiben %d", webSockData.pidContainer.mCurrentPower,setupData.pid_powerWhichNeedNotConsumed);
 
-                        DBGf(" %.2lf", webSockData.pidContainer.mCurrentPower);
-                        webSockData.pidContainer.mCurrentPower = 1.0;
+                            //  Einspeisung - Wieviel müss übrig bleiben
+                         pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower + setupData.pid_powerWhichNeedNotConsumed , webSockData.temperature);
+                     }
+                     else
+                     {
 
-                        pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower, webSockData.temperature);
-                    }
+                         DBGf(" %.2lf", webSockData.pidContainer.mCurrentPower);
+                         webSockData.pidContainer.mCurrentPower = 1.0;
+
+                         pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower, webSockData.temperature);
+                     } 
                 }
                 // DBGf(" PID  mCurrPower (W): %.2lf, notUseable: %.2lf anaOutput(PWM) %.2lf,  Dig1: %x, Dig2: %x", pidContainer.mCurrentPower, pidContainer.mAnalogOut, pidContainer.powerNotUseable, pidContainer.PID_PIN1, pidContainer.PID_PIN2);
 

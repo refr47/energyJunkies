@@ -24,7 +24,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 
     sprintf(buff, "%d", setup.heizstab_leistung_in_watt);
     data[HEIZSTABLEISTUNG] = buff;
-    sprintf(buff, "%d", setup.pid_targetPowerInWatt);
+    sprintf(buff, "%d", setup.pid_powerWhichNeedNotConsumed);
     data[EINSPEISUNG_MUSS] = buff;
     sprintf(buff, "%d", setup.pid_min_time_before_switch_off_channel_inMS);
     data[MINDEST_LAUFZEIT_DIGITALER_OUT] = buff;
@@ -115,7 +115,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     DBGf("ARG: %s, VAl: %s", EINSPEISUNG_MUSS, argument);
     errorH = util_checkParamInt(EINSPEISUNG_MUSS, argument, data, &result);
     if (errorH)
-        setup.pid_targetPowerInWatt = result;
+        setup.pid_powerWhichNeedNotConsumed = result;
     else
         return returnFromStoreSetup(errorH, data, request);
     argument = jsonObj[MINDEST_LAUFZEIT_DIGITALER_OUT];

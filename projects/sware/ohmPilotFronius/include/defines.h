@@ -12,6 +12,7 @@ typedef struct
     char passwd[LEN_WLAN];
 
     unsigned int heizstab_leistung_in_watt;
+    unsigned int phasen_leistung_in_watt; // heizstab_leistung_in_watt  pre calculation @see: eprom_getSetup
     unsigned int tempMaxAllowedInGrad;
     unsigned int tempMinInGrad;
     unsigned int ipInverter;
@@ -24,7 +25,7 @@ typedef struct
     unsigned int pid_min_time_without_contoller_inMS;
     unsigned int pid_min_time_before_switch_off_channel_inMS;
     unsigned int pid_min_time_for_dig_output_inMS;
-    unsigned int pid_targetPowerInWatt; // Wieviel müss übrig bleiben
+    unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
     bool pidChanged;
     char testPid;
     int exportWatt;
