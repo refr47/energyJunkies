@@ -13,9 +13,28 @@ Der Config-File **_User_Setup_Select.h_** befindet sich im TFT*eSPI-Verzeichnis 
 
 [User_Setup_Select.h](./tft/User_Setup_Select.h)
 
+## Verschiedene Flash-Bereiche
+
+Der ESP32 stellt intern ein FlashFilesystem (SPIFF) zur Verfügung, welche vom FlashSpeicher für das Programmimage getrennt ist und von diesem quasi "gemounted" werden kann. Das SPIFF-System wird in diesem Projekt für die Speicherung des WebClients (also der html-files und allen dazugehörigen Ressourcen) verwendet. Diese liegen im Projekt im Ordner "data".
+
+Dementsprechend gibt es 2 verschiedene Flashvorgänge.
+
+- a) Flashen des SPIFF-Bereichs
+- b) Flashen des Programm Images
+
+Beides sind separate Vorgänge. Wenn am Client keine Änderungen sind, braucht dieser Bereich auch nicht reflasht werden, sondern es genügt ein einmaliger Flashvorgang.
+
+ad a) Vorgehensweise
+
+- In der linken Menüzeile Symbol für PlatformIO suchen
+- Anklicken und im oberen Bereichh (Project Task) den lilygo suchen und anklicken
+- Es wird eine Liste angezeigt und hier den Build Filesystem Image und Upload Filesystem Image" anklicken
+  **Hinweis** Sowohl bei "Erase Flash" als auch beim Flashen des SPIFF-Bereichs darf keine Monitor/serielle Verbindung zum ESP offen sein, da sich beide sperren. Die offenen Tasks werden rechts unten in einem kleinen Kasten angezeigt und die serielle Verbindung wird als "Monitor" bezeichnet. Hier einfach mit der Maus darüber fahren und den dann angezeigten Mülleimer anklicken.
+  ad b) Das Programm muss fehlerfrei übersetzen (kleines Häckchen) und kann dann ohne weitere Maßnahmen mit dem Transfersymbol (kleiner Pfeil nach rechts) geflasht werden. Dies kann beliebig oft wiederholt werden, das SPIFF-System ist davon nicht betroffen.
+
 ## Compile/Flash
 
-Zuerst muss das Projekt fehlerfrei übersetzt werden können und ein Image für den esp32 erzeugt werden. Es kommen noch einige Warnings, aber die sind eher bedeutungslos und kommen größtenteils von den verwendeten Libs.
+Zuerst muss das Projekt fehlerfrei übersetzt (kleines Häckchen in der unteren Menüleiste, neben dem kleinen Häuschen) werden können und ein Image für den esp32 erzeugt werden. Es kommen noch einige Warnings, aber die sind eher bedeutungslos und kommen größtenteils von den verwendeten Libs.
 
 Nach dem Übersetzen kann nun mit dem Flash begonnen werden. Dazu ist folgendes zu beachten
 
