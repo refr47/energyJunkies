@@ -35,17 +35,11 @@ static const int id_DIG_PIN_2 = 1;
 static const int id_ANA_PWM = 2;
 
 PinManager::PinManager()
+
 #ifdef PID_LIB
-    : mPid(&mCurrentPower, &mAnalogOut, &mPidSetPoint, KP, KI, KD, REVERSE)
+    : mPid(&mCurrentPower, &mAnalogOut, &mPidSetPoint, KP, KI, KD, 0) // RESERVE
 #endif
 {
-
-// mPidSetPoint = TARGET_POWER;
-#ifdef PID_LIB
-    mPid.SetMode(AUTOMATIC);
-    mPid.SetOutputLimits(OUTPUT_MIN, OUTPUT_MAX);
-    mPid.SetSampleTime(50);
-#endif
 }
 void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
 {
@@ -57,6 +51,13 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
 
     mDelayDigOutOn = millis();
     mDelayDigOutOff = millis();
+    // mPidSetPoint = TARGET_POWER;
+#ifdef PID_LIB
+    mPid.SetMode(AUTOMATIC);
+    // mPid.SetOutputLimits(OUTPUT_MIN, setup.phasen_leistung_in_watt);
+    mPid.SetOutputLimits(OUTPUT_MIN, OUTPUT_MAX);
+    mPid.SetSampleTime(50);
+#endif
 }
 
 // currentP: < 0 : einspeisung, >0 Bezug
@@ -80,7 +81,7 @@ bool PinManager::task(Setup &setup, double currentAvailablePower, TEMPERATURE &c
         if (mCurrentPower <= (double)setup.phasen_leistung_in_watt)
         {
             // leistung für 1 phase
-
+            DBGf("PID Manager:: %f steht zur Verfügung", mCurrentPower);
             result = mPid.Compute();
             DBGf("PID Manager - leistung für 1 phase per pwm: %f", mAnalogOut);
             if (result)
@@ -117,7 +118,7 @@ bool PinManager::task(Setup &setup, double currentAvailablePower, TEMPERATURE &c
             double prev_mAnalogOut = mAnalogOut;
             mPid.Compute();
             mAnalogOut = (prev_mAnalogOut + mAnalogOut) / 2.0;
-            DBGf("PID Manager im Einspeisemodus (%f), previPWM %f calculatedPWM %f gemittelt %f", mCurrentPower, prev_mAnalogOut, mAnalogOut, (prev_mAnalogOut + mAnalogOut) / 2.0);
+            DBGf("PID Manager im Bezugsmodus (%f), previPWM %f calculatedPWM %f gemittelt %f", mCurrentPower, prev_mAnalogOut, mAnalogOut, (prev_mAnalogOut + mAnalogOut) / 2.0);
             mOuts[id_ANA_PWM].setValue(mAnalogOut);
         }
         else
@@ -141,83 +142,84 @@ bool PinManager::task(Setup &setup, double currentAvailablePower, TEMPERATURE &c
                     mOuts[id_ANA_PWM].setValue(mAnalogOut);
                     break; // do not turn on the next output
                 }
-            } 
-        }
-    }
-    mCurrentPower = currentAvailablePower; // necessary ??
-    DBGf("PID Manager:: current available power: %f", mCurrentPower);
-    // mCurrentPower = pidContainer.mCurrentPower;
-    /*     double gap = abs(mPidSetPoint - mCurrentPower); // distance away from setpoint
-        if (gap < 10)
-        { // we're close to setpoint, use conservative tuning parameters
-            mPid.SetTunings(consKp, consKi, consKd);
-        }
-        else
-        {
-            // we're far from setpoint, use aggressive tuning parameters
-            mPid.SetTunings(aggKp, aggKi, aggKd);
-        } */
-    result = mPid.Compute();
-    if (result)
-    {
-        DBGf("PID Manager: Recalculated value, Analog Out: %f, MidSetPoint: %f", mAnalogOut, mPidSetPoint);
-    }
-    else
-    {
-        DBGf("PID Manager: Nothing happened");
-    }
-
-    mOuts[id_ANA_PWM].setValue(mAnalogOut);
-
-    // turn on digital output if power suffices
-    if (mCurrentPower > mPidSetPoint && mAnalogOut > OUTPUT_MAX - 1)
-    {
-        if (millis() - mDelayDigOutOn > setup.pid_min_time_without_contoller_inMS)
-        {
-            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
-            {
-                if (!mOuts[i].isDigOn())
-                {
-                    mOuts[i].setValue(1);
-                    mDelayDigOutOn = millis(); // delay next output
-                    break;                     // do not turn on the next output
-                }
             }
         }
     }
-    else
-    {
-        mDelayDigOutOn = millis();
-    }
-    // turn off digital output if power is low
-    DBGf("PID Manager: Condition 1: %d, Cond 2: %d Cond3: %d", mCurrentPower < mPidSetPoint, mAnalogOut<OUTPUT_MIN + 1, mDelayDigOutOff> setup.pid_min_time_before_switch_off_channel_inMS);
-
-    if (mCurrentPower < mPidSetPoint && mAnalogOut < OUTPUT_MIN + 1 && millis() - mDelayDigOutOff > setup.pid_min_time_before_switch_off_channel_inMS)
-    {
-        for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
-        {
-            if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-            {
-                mOuts[i].setValue(0);
-                mDelayDigOutOff = millis();
-                break; // do not turn off the next output
-            }
-        }
-    }
-
-    // dbg("power:");
-    // dbg(power);
-    DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, mPidSetPoint: %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
-    /*   pidContainer.mCurrentPower=mCurrentPower;
-      pidContainer.mAnalogOut=mAnalogOut;
-      pidContainer.powerNotUseable=mPidSetPoint;
-      pidContainer.PID_PIN1 = mOuts[id_DIG_PIN_1].isDigOn();
-      pidContainer.PID_PIN2 = mOuts[id_DIG_PIN_2].isDigOn(); */
 
     return 0;
 }
 #endif
+#ifdef II
+mCurrentPower = currentAvailablePower; // necessary ??
+DBGf("PID Manager:: current available power: %f", mCurrentPower);
+// mCurrentPower = pidContainer.mCurrentPower;
+/*     double gap = abs(mPidSetPoint - mCurrentPower); // distance away from setpoint
+    if (gap < 10)
+    { // we're close to setpoint, use conservative tuning parameters
+        mPid.SetTunings(consKp, consKi, consKd);
+    }
+    else
+    {
+        // we're far from setpoint, use aggressive tuning parameters
+        mPid.SetTunings(aggKp, aggKi, aggKd);
+    } */
+result = mPid.Compute();
+if (result)
+{
+    DBGf("PID Manager: Recalculated value, Analog Out: %f, MidSetPoint: %f", mAnalogOut, mPidSetPoint);
+}
+else
+{
+    DBGf("PID Manager: Nothing happened");
+}
 
+mOuts[id_ANA_PWM].setValue(mAnalogOut);
+
+// turn on digital output if power suffices
+if (mCurrentPower > mPidSetPoint && mAnalogOut > OUTPUT_MAX - 1)
+{
+    if (millis() - mDelayDigOutOn > setup.pid_min_time_without_contoller_inMS)
+    {
+        for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
+        {
+            if (!mOuts[i].isDigOn())
+            {
+                mOuts[i].setValue(1);
+                mDelayDigOutOn = millis(); // delay next output
+                break;                     // do not turn on the next output
+            }
+        }
+    }
+}
+else
+{
+    mDelayDigOutOn = millis();
+}
+// turn off digital output if power is low
+DBGf("PID Manager: Condition 1: %d, Cond 2: %d Cond3: %d", mCurrentPower < mPidSetPoint, mAnalogOut<OUTPUT_MIN + 1, mDelayDigOutOff> setup.pid_min_time_before_switch_off_channel_inMS);
+
+if (mCurrentPower < mPidSetPoint && mAnalogOut < OUTPUT_MIN + 1 && millis() - mDelayDigOutOff > setup.pid_min_time_before_switch_off_channel_inMS)
+{
+    for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
+    {
+        if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
+        {
+            mOuts[i].setValue(0);
+            mDelayDigOutOff = millis();
+            break; // do not turn off the next output
+        }
+    }
+}
+
+// dbg("power:");
+// dbg(power);
+DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, mPidSetPoint: %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
+/*   pidContainer.mCurrentPower=mCurrentPower;
+  pidContainer.mAnalogOut=mAnalogOut;
+  pidContainer.powerNotUseable=mPidSetPoint;
+  pidContainer.PID_PIN1 = mOuts[id_DIG_PIN_1].isDigOn();
+  pidContainer.PID_PIN2 = mOuts[id_DIG_PIN_2].isDigOn(); */
+#endif
 #ifdef IIIII
 
 bool PinManager::task(Setup &setup, double currentP, TEMPERATURE &tempContainer)
