@@ -85,7 +85,9 @@ Die Kommunikation des Clients mit dem Server wird per
 - Ajax (Stammdaten) und
 - WebSockets (Aktuelle Daten)
 durchgeführt.
-***Hinweis***
+
+***Hinweise***
+
   - Bei der Erst-Inbetriebnahme wird das Flash mit Standard-Werten beschrieben. Das Programm überprüft zu diesem Zweck, ob es gültige Einträge findet. Falls keine vorhanden sind, werden die Default-Werte herangezogen. Diese können natürlich überschrieben werden.
   - Bei einer Änderung der Stammdaten wird des ESP - wenn dieser im AP-Modus betrieben wird - automatisch neu gestartet. Es wird dann in das konfigurierte WLAN eingewählt und der AP-Modus verlassen.
 
