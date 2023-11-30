@@ -30,7 +30,9 @@ ad a) Vorgehensweise
 - Anklicken und im oberen Bereichh (Project Task) den lilygo suchen und anklicken
 - Es wird eine Liste angezeigt und hier den Build Filesystem Image und Upload Filesystem Image" anklicken
   **Hinweis** Sowohl bei "Erase Flash" als auch beim Flashen des SPIFF-Bereichs darf keine Monitor/serielle Verbindung zum ESP offen sein, da sich beide sperren. Die offenen Tasks werden rechts unten in einem kleinen Kasten angezeigt und die serielle Verbindung wird als "Monitor" bezeichnet. Hier einfach mit der Maus darüber fahren und den dann angezeigten Mülleimer anklicken.
-  ad b) Das Programm muss fehlerfrei übersetzen (kleines Häckchen) und kann dann ohne weitere Maßnahmen mit dem Transfersymbol (kleiner Pfeil nach rechts) geflasht werden. Dies kann beliebig oft wiederholt werden, das SPIFF-System ist davon nicht betroffen.
+
+ad b) Flashen des Programm-Images
+Das Programm muss fehlerfrei übersetzen (kleines Häckchen) und kann dann ohne weitere Maßnahmen mit dem Transfersymbol (kleiner Pfeil nach rechts) geflasht werden. Dies kann beliebig oft wiederholt werden, das SPIFF-System ist davon nicht betroffen.
 
 ## Compile/Flash
 
