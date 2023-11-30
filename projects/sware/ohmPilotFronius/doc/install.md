@@ -77,3 +77,16 @@ Es gibt da Stammdaten und Mobilitätsdaten und die Logfiles
   - Modbus
 
 * Sämtliche Schritte werden am Display angezeigt und bei einem Fehler wird dies rot gekenntzeichnet.
+
+## WebInterface
+Wie schon erwähnt, wird die gesamte Konfiguration per WebInterface durchgeführt, wobei die Konfigurationsdaten wiederum in einem separaten Flashbereich abgespeichert werden. Es werden keine gesonderten Einstellung an die Firewall gestellt, sämtlicher Traffic läuft - zumindest dzt - noch über Port 80. 
+
+Die Kommunikation des Clients mit dem Server wird per
+- Ajax (Stammdaten) und
+- WebSockets (Aktuelle Daten)
+durchgeführt.
+***Hinweis***
+  - Bei der Erst-Inbetriebnahme wird das Flash mit Standard-Werten beschrieben. Das Programm überprüft zu diesem Zweck, ob es gültige Einträge findet. Falls keine vorhanden sind, werden die Default-Werte herangezogen. Diese können natürlich überschrieben werden.
+  - Bei einer Änderung der Stammdaten wird des ESP - wenn dieser im AP-Modus betrieben wird - automatisch neu gestartet. Es wird dann in das konfigurierte WLAN eingewählt und der AP-Modus verlassen.
+
+
