@@ -23,14 +23,14 @@ void eprom_storeSetup(Setup &setup)
     preferences.putUInt(_INVERTER_IP, setup.ipInverter);
     preferences.putBool(_EXTERNER_SPEICHER, setup.externerSpeicher);
     preferences.putChar(_EXTERNER_SPEICHER_PRIORI, setup.externerSpeicherPriori);
-    preferences.putFloat(_PID_P, setup.pid_p);
-    preferences.putFloat(_PID_I, setup.pid_i);
-    preferences.putFloat(_PID_D, setup.pid_d);
     preferences.putUInt(_PID_DIG_OUT_ON_DELAY_MS, setup.pid_min_time_without_contoller_inMS);
     preferences.putUInt(_PID_DIG_OUT_OFF_DELAY_MS, setup.pid_min_time_before_switch_off_channel_inMS);
     preferences.putUInt(_PID_MIN_ON_TIME_MS, setup.pid_min_time_for_dig_output_inMS);
     preferences.putUInt(_PID_TARGET_POWER, setup.pid_powerWhichNeedNotConsumed);
 #endif
+    preferences.putFloat(_PID_P, setup.pid_p);
+    preferences.putFloat(_PID_I, setup.pid_i);
+    preferences.putFloat(_PID_D, setup.pid_d);
     // only for testing pid controller
     preferences.putChar(_PID_TEST, setup.testPid);
     preferences.putInt(_EN_EXPORT, setup.exportWatt);
@@ -72,7 +72,7 @@ void eprom_getSetup(Setup &setup)
         strncpy(setup.passwd, passwd.c_str(), LEN_WLAN - 1);
     }
     setup.heizstab_leistung_in_watt = preferences.getUInt(_HEIZSTAB_LEISTUNG_IN_WATT);
-    setup.phasen_leistung_in_watt = (unsigned int) setup.heizstab_leistung_in_watt / 3; // pre calculation
+    setup.phasen_leistung_in_watt = (unsigned int)setup.heizstab_leistung_in_watt / 3; // pre calculation
     setup.tempMaxAllowedInGrad = preferences.getUInt(_TEMP_MAX_IN_GRAD);
     setup.tempMinInGrad = preferences.getUInt(_TEMP_MIN_IN_GRAD);
 
@@ -138,8 +138,8 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 static void printEprom(Setup &setup)
 {
     char buffer[500];
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f.2 PID_I: %f.2 PID_D %f.2  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d, ExportWatt: %d ----- \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_i, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_powerWhichNeedNotConsumed, setup.pidChanged, setup.exportWatt
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f  PID_I: %f PID_D %f  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d, ExportWatt: %d ----- \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_d, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_powerWhichNeedNotConsumed, setup.pidChanged, setup.exportWatt
 
     );
     DBGf("%s", buffer);

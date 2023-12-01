@@ -152,22 +152,22 @@ function evalIt(value, index) {
     case 12: if (isNaN(value)) // pid regler, p anteil
       return showError("Numerische Eingabe erforderlich")
       fnum = parseFloat(value)
-      if (fnum < 0.0 || fnum > 1.0)
-        return showError("Wertebereich ungültig (>=0.0 und <= 1.0)")
+      if (fnum < 0.0)
+        return showError("Wertebereich ungültig (>=0.0 )")
       break;
     case 13: if (isNaN(value)) // pid i anteil
       return showError("Numerische Eingabe erforderlich")
       fnum = parseFloat(value)
-      if (fnum < 0.0 || fnum > 1.0)
-        return showError("Wertebereich ungültig (>=0.0 und <= 1.0)")
+      if (fnum < 0.0)
+        return showError("Wertebereich ungültig (>=0.0)")
       break;
 
     case 14: if (isNaN(value)) // pid d anteil
       return showError("Numerische Eingabe erforderlich")
       fnum = parseFloat(value)
-      console.log("D-Anteil: " + fnum)
-      if (fnum < 0.0 || fnum > 1.0)
-        return showError("Wertebereich ungültig (>=0.0 und <= 1.0)")
+
+      if (fnum < 0.0)
+        return showError("Wertebereich ungültig (>=0.0)")
       break;
 
 

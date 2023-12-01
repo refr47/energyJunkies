@@ -203,7 +203,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");
 
     eprom_storeSetup(setup);
-    // eprom_test_read_Eprom();
+    eprom_test_read_Eprom();
     returnFromStoreSetup(errorH, data, request);
     // delay(10000); // wait 10 secs
     // esp_restart();

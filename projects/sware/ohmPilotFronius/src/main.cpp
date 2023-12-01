@@ -39,10 +39,12 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define TEMPERATURE_INTERVAL 5000UL             // 5 secs
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
 #define MODBUS_INTERVALL 10000UL
+#define PID_CONTROLLER_INTERVALL 100 // 0.1 secs default sample time
 #define LOGGING_FLUSH_INTERVALL 60000
 #define CLOCK_INTERVALL 1000           // secs
 #define WEBSOCK_NOTIFY_INTERVALL 10000 // 5 secs
 #define SHOW_IP_ADDR_INTERVALL 5000
+#define CONFIG_PARAM_TEST_INTERVALL 2000
 
 #define FORMAT_CHAR_BUFFER_LEN 35 // @see loop
 
@@ -80,6 +82,8 @@ typedef struct _TIME_SLICE
     unsigned long previousMillisClock;
     unsigned long previousMillisWebSocks;
     unsigned long previousMillisShowIp;
+    unsigned long previousMillisController;
+    unsigned long previousMillisTestConfig;
     unsigned long currentMillis;
 
 } TIME_SLICE;
@@ -96,14 +100,12 @@ static bool networkOK = false; */
 // static STATES states;
 
 static TIME_SLICE timeSlice;
-// static TEMPERATURE container;
-// static MB_CONTAINER modbusData;
-// static PID_CONTAINER pidContainer;
 static Setup setupData;
 static LIFE_DATA lifeData;
 static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager;
 static WEBSOCK_DATA webSockData;
+static double availablePowerFromWRInWatt = 0.0;
 
 /* **************************************************************************
         ProtoTypes
@@ -164,12 +166,13 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    //   eprom_clearLifeData();
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    //    eprom_clearLifeData();
     eprom_isInit();
     eprom_getSetup(setupData);
     eprom_getLifeData(lifeData);
-    eprom_show(setupData);
+    // eprom_show(setupData);
+
     // eprom_test_read_Eprom();
 
     // if (strcmp(setupData.ssid, "---") == 0)
@@ -421,12 +424,13 @@ void loop()
                 if (!webSockData.temperature.alarm)
                 {
                     ESP_LOGE(TAG, "Temperatur Sensorik ausgefallen - Heizpatrone wird abgeschaltet");
-                    pinMode(RELAY_L1, OUTPUT);
-                    pinMode(RELAY_L2, OUTPUT);
-                    pinMode(PWM_FOR_PID, OUTPUT);
-                    digitalWrite(RELAY_L1, 0);
-                    digitalWrite(RELAY_L2, 0);
-                    analogWrite(PWM_FOR_PID, 0);
+                    /*   pinMode(RELAY_L1, OUTPUT);
+                      pinMode(RELAY_L2, OUTPUT);
+                      pinMode(PWM_FOR_PID, OUTPUT);
+                      digitalWrite(RELAY_L1, 0);
+                      digitalWrite(RELAY_L2, 0);
+                      analogWrite(PWM_FOR_PID, 0); */
+                    pidPinManager.reset(); // alles aus
                     alarmContainer.alarmTemp.alarmTemp = true;
                     alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
                     webSockData.temperature.alarm = true;
@@ -447,12 +451,13 @@ void loop()
                 if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > setupData.tempMaxAllowedInGrad)
                 {
                     ESP_LOGE(TAG, "Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
-                    pinMode(RELAY_L1, OUTPUT);
-                    pinMode(RELAY_L2, OUTPUT);
-                    pinMode(PWM_FOR_PID, OUTPUT);
-                    digitalWrite(RELAY_L1, 0);
-                    digitalWrite(RELAY_L2, 0);
-                    analogWrite(PWM_FOR_PID, 0);
+                    /*   pinMode(RELAY_L1, OUTPUT);
+                     pinMode(RELAY_L2, OUTPUT);
+                     pinMode(PWM_FOR_PID, OUTPUT);
+                     digitalWrite(RELAY_L1, 0);
+                     digitalWrite(RELAY_L2, 0);
+                     analogWrite(PWM_FOR_PID, 0); */
+                    pidPinManager.reset(); // alles aus
                     alarmContainer.alarmTemp.alarmTemp = true;
                     alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
                     webSockData.temperature.alarm = true;
@@ -517,41 +522,13 @@ void loop()
                 // DBGf(", int: %d", pidContainer.mCurrentPower);
                 // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
 
-                webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5;
+                webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5; // ????
                 webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
+                webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
                 webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
-                // memcpy(&webSockData.pidContainer, &pidContainer, sizeof(PID_CONTAINER));
-
-                if (!alarmContainer.alarmTemp.alarmTemp)
-                {
-#ifdef TEST_PID
-                    Setup d;
-                    eprom_getSetup(d);
-                    DBGf("PID-TEST (1): available watt: %d", d.exportWatt);
-                    webSockData.pidContainer.mCurrentPower = d.exportWatt * 1.00;
-                    DBGf("PID-TEST (2): available watt: %lf", webSockData.pidContainer.mCurrentPower);
+#ifndef TEST_PID
+                availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
 #endif
-
-                    //  webSockData.pidContainer.mCurrentPower < 0: einspeisung,
-                   // pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower, webSockData.temperature);
-
-                     if (webSockData.pidContainer.mCurrentPower < 0.0) // energy export
-                     {
-                         DBGf(" main::Einspeisung %lf, muss übrig bleiben %d", webSockData.pidContainer.mCurrentPower,setupData.pid_powerWhichNeedNotConsumed);
-
-                            //  Einspeisung - Wieviel müss übrig bleiben
-                         pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower + setupData.pid_powerWhichNeedNotConsumed , webSockData.temperature);
-                     }
-                     else
-                     {
-
-                         DBGf(" %.2lf", webSockData.pidContainer.mCurrentPower);
-                         webSockData.pidContainer.mCurrentPower = 1.0;
-
-                         pidPinManager.task(setupData, webSockData.pidContainer.mCurrentPower, webSockData.temperature);
-                     } 
-                }
-                // DBGf(" PID  mCurrPower (W): %.2lf, notUseable: %.2lf anaOutput(PWM) %.2lf,  Dig1: %x, Dig2: %x", pidContainer.mCurrentPower, pidContainer.mAnalogOut, pidContainer.powerNotUseable, pidContainer.PID_PIN1, pidContainer.PID_PIN2);
 
                 tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
             }
@@ -564,7 +541,47 @@ void loop()
         timeSlice.previousMillModbus = timeSlice.currentMillis;
         cardRW_closeLoggingFile();
     }
-    delay(4000);
+
+    if (timeSlice.currentMillis - timeSlice.previousMillisController > PID_CONTROLLER_INTERVALL)
+    {
+
+        if (!alarmContainer.alarmTemp.alarmTemp)
+        {
+            if (availablePowerFromWRInWatt < 0.0) // energy export
+            {
+                DBGf(" main::Einspeisung %lf, muss übrig bleiben %d", availablePowerFromWRInWatt, setupData.pid_powerWhichNeedNotConsumed);
+
+                //  Einspeisung - Wieviel müss übrig bleiben
+                pidPinManager.task(setupData, availablePowerFromWRInWatt * -1.0, webSockData.temperature);
+            }
+            else
+            {
+
+                DBGf(" %.2lf", availablePowerFromWRInWatt);
+                // webSockData.pidContainer.mCurrentPower = 1.0;
+
+                pidPinManager.task(setupData, setupData.pid_powerWhichNeedNotConsumed - 10, webSockData.temperature);
+            }
+        }
+        timeSlice.previousMillisController = timeSlice.currentMillis;
+    }
+
+    if (timeSlice.currentMillis - timeSlice.previousMillisTestConfig > CONFIG_PARAM_TEST_INTERVALL)
+    {
+        timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
+#ifdef TEST_PID
+        Setup d;
+        eprom_getSetup(d);
+        // eprom_show(d);
+        availablePowerFromWRInWatt = webSockData.setup.exportWatt = d.exportWatt;
+        DBGf("PID-TEST (1): available watt: %d", d.exportWatt);
+        webSockData.pidContainer.mCurrentPower = d.exportWatt * 1.00;
+        setupData.pid_p = d.pid_p;
+        setupData.pid_d = d.pid_d;
+        setupData.pid_i = d.pid_i;
+        DBGf("PID-TEST (2): available watt: %lf", webSockData.pidContainer.mCurrentPower);
+#endif
+    }
 
     if (timeSlice.currentMillis - timeSlice.previousMillisWebSocks > WEBSOCK_NOTIFY_INTERVALL)
     {
