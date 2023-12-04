@@ -17,6 +17,7 @@
 #include "temp.h"
 #include "curTime.h"
 #include "webSockets.h"
+#include "mqtt.h"
 
 /*
 Input only pins
@@ -95,6 +96,7 @@ typedef struct _TIME_SLICE
 
 char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
 static bool networkCredentialsInEEprom = true;
+
 /* static bool cardWriterOK = false;
 static bool networkOK = false; */
 // static STATES states;
@@ -217,7 +219,12 @@ void setup()
         // tft_printInfo("       ");
         tft_printKeyValue("Init Time", "OK", TFT_GREEN);
         time_init(); // init time
-
+        if (!mqtt_init())
+        {
+            DBGf("Mqtt-Server -- cannot connect (!)");
+        }
+        else
+            DBGf("Mqtt-Server:: connected successfully ...");
         if (cardRW_setup(false, false))
         {
             webSockData.states.cardWriterOK = true;
@@ -260,6 +267,8 @@ void setup()
         /*  if (!mb_readInverterStatic())
              DBGf("Error in Reading modbus"); */
         DBGf("Setup PID-Controller");
+        mqtt_publish_pidParams(setupData.pid_p, setupData.pid_i, setupData.pid_d);
+        DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", setupData.pid_p, setupData.pid_i, setupData.pid_d);
         tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
         pidPinManager.config(setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
     }
@@ -390,7 +399,7 @@ void loop()
     }
 
     timeSlice.currentMillis = millis();
-
+    /* ***********************                   CLOCK           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisClock > CLOCK_INTERVALL)
     {
         if (getCurrentTime(formatBuffer, FORMAT_CHAR_BUFFER_LEN))
@@ -402,15 +411,18 @@ void loop()
         {
             tft_updateTime("00:00:00");
         }
-
+        mqtt_loop();
         timeSlice.previousMillisClock = timeSlice.currentMillis;
     }
+
+    /* ***********************                   SHOW IP ADDR           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisShowIp > SHOW_IP_ADDR_INTERVALL)
     {
         tft_showIP(WiFi.localIP().toString().c_str());
         timeSlice.previousMillisShowIp = timeSlice.currentMillis;
     }
 
+    /* ***********************                   FETCH TEMperature           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillTemp > TEMPERATURE_INTERVAL)
     {
         // time_print();
@@ -430,10 +442,12 @@ void loop()
                       digitalWrite(RELAY_L1, 0);
                       digitalWrite(RELAY_L2, 0);
                       analogWrite(PWM_FOR_PID, 0); */
+
                     pidPinManager.reset(); // alles aus
                     alarmContainer.alarmTemp.alarmTemp = true;
                     alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
                     webSockData.temperature.alarm = true;
+                    mqtt_publish_pidParams(webSockData.setup.pid_p, webSockData.setup.pid_i, webSockData.setup.pid_d);
                 }
             }
         }
@@ -486,6 +500,7 @@ void loop()
         timeSlice.previousMillTemp = timeSlice.currentMillis;
     }
 
+    /* ***********************                   MODBUS           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
         if (!webSockData.states.modbusOK)
@@ -535,37 +550,42 @@ void loop()
         } // if modbusstate
         timeSlice.previousMillModbus = timeSlice.currentMillis;
     }
+
+    /* ***********************                   FLUSH LOGGING FILE           ************************/
+
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {
         cardRW_flushLoggingFile();
         timeSlice.previousMillModbus = timeSlice.currentMillis;
         cardRW_closeLoggingFile();
     }
-
+    /* ***********************                   PID CONTROLLER           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisController > PID_CONTROLLER_INTERVALL)
     {
 
         if (!alarmContainer.alarmTemp.alarmTemp)
         {
+
             if (availablePowerFromWRInWatt < 0.0) // energy export
             {
                 DBGf(" main::Einspeisung %lf, muss übrig bleiben %d", availablePowerFromWRInWatt, setupData.pid_powerWhichNeedNotConsumed);
 
                 //  Einspeisung - Wieviel müss übrig bleiben
-                pidPinManager.task(setupData, availablePowerFromWRInWatt * -1.0, webSockData.temperature);
+                pidPinManager.task(setupData, &availablePowerFromWRInWatt);
             }
             else
             {
 
-                DBGf(" %.2lf", availablePowerFromWRInWatt);
-                // webSockData.pidContainer.mCurrentPower = 1.0;
+                DBGf(" main::Bezug  %f", availablePowerFromWRInWatt);
 
-                pidPinManager.task(setupData, setupData.pid_powerWhichNeedNotConsumed - 10, webSockData.temperature);
+                pidPinManager.task(setupData, &availablePowerFromWRInWatt);
             }
         }
+        // delay(2000);
+        // DBGf(" main:: available watt: %f", availablePowerFromWRInWatt);
         timeSlice.previousMillisController = timeSlice.currentMillis;
     }
-
+    /* ***********************                   CONFIG LIVE UPDATE sTAMMdaTEN via WEB           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisTestConfig > CONFIG_PARAM_TEST_INTERVALL)
     {
         timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
@@ -573,13 +593,21 @@ void loop()
         Setup d;
         eprom_getSetup(d);
         // eprom_show(d);
-        availablePowerFromWRInWatt = webSockData.setup.exportWatt = d.exportWatt;
-        DBGf("PID-TEST (1): available watt: %d", d.exportWatt);
-        webSockData.pidContainer.mCurrentPower = d.exportWatt * 1.00;
+        if (eprom_stammDataUpdate())
+        {
+            DBGf("main PID-TEST update");
+            availablePowerFromWRInWatt = webSockData.setup.exportWatt = d.exportWatt;
+
+            webSockData.pidContainer.mCurrentPower = d.exportWatt * 1.00;
+            DBGf("PID-TEST (1): available watt: %d", d.exportWatt);
+            eprom_stammDataUpdateReset();
+        }
+
         setupData.pid_p = d.pid_p;
         setupData.pid_d = d.pid_d;
         setupData.pid_i = d.pid_i;
-        DBGf("PID-TEST (2): available watt: %lf", webSockData.pidContainer.mCurrentPower);
+        mqtt_publish_pidParams(setupData.pid_p, setupData.pid_i, setupData.pid_d);
+
 #endif
     }
 
@@ -591,26 +619,6 @@ void loop()
     if (networkCredentialsInEEprom == false)
     { // act as AP
         www_run();
-    }
-    else
-    {
-        /*
-        mb_readInverter();
-        */
-
-        //  cardRW_setup();
-        //  test_cardReader();
-        //  temp_init();
-
-        // delay(1000);
-        /* if (!mb_readInverter())
-        {
-          DBGln("Cannot read Inverter ...");
-        } */
-        /* DBGln(" .... LOOP .....");
-        int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
-        DBG("internal bu: ");
-        DBGln(currentState); */
     }
 
 #endif

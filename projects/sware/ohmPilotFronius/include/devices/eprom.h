@@ -33,6 +33,9 @@ void eprom_show(Setup &setup);
 void eprom_clearLifeData();
 void eprom_getLifeData(LIFE_DATA &data);
 
+bool eprom_stammDataUpdate();
+void eprom_stammDataUpdateReset();
+
 #define _LIFE_DATA "lifeD"
 #define _TEMP_LIMIT_REACHED "t"
 #define _HEATING_SWITCHED_ON_LAST_TIME "h"

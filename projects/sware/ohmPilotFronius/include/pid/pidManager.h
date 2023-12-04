@@ -73,7 +73,7 @@ public:
     void config(Setup &setup, int digOut1, int digOut2, int anOut);
     void reset(); //
 
-    bool task(Setup &setup, double currentAvailablePower, TEMPERATURE &container); // > 0: bezug vom Netz, <0 eigene Produktion
+    bool task(Setup &setup, double *currentAvailablePower); // > 0: bezug vom Netz, <0 eigene Produktion
 
     int getStateOfDigPin(short pin) // 0, 1
     {

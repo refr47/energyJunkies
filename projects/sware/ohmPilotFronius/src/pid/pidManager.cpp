@@ -2,6 +2,7 @@
 #include "esp32-hal.h"
 #include "debugConsole.h"
 #include "pidManager.h"
+#include "mqtt.h"
 
 // pid settings and gains
 #define OUTPUT_MIN 0
@@ -75,23 +76,42 @@ void PinManager::reset()
 // currentP: < 0 : einspeisung, >0 Bezug
 
 #ifdef PID_LIB
-bool PinManager::task(Setup &setup, double currentAvailablePower, TEMPERATURE &container)
+bool PinManager::task(Setup &setup, double *currentAvailablePower)
 {
     bool result = false;
+    double analogOutPrev = mAnalogOut; // store
+    double consumedPower = 0.0;
 
     // DBGf("PID Params p: %f , i: %f,  d: %f", setup.pid_p, setup.pid_i, setup.pid_d);
     mPid.SetTunings(setup.pid_p, setup.pid_i, setup.pid_d);
 
-    setup.pidChanged = false;
+    // setup.pidChanged = false;
 
-    mCurrentPower = currentAvailablePower;
+    mCurrentPower = *currentAvailablePower < 0.0 ? *currentAvailablePower * -1.0 : setup.pid_powerWhichNeedNotConsumed - 5;
     mPid.Compute();
     // DBGf("PID Manager:: %f steht zur Verfügung mit midsetPoint: %f", mCurrentPower, mPidSetPoint);
-    if (result)
-        DBGf("PID Manager: Recalculated value, Analog Out: %f.", mAnalogOut);
-    else
-        DBGf("PID Manager: Nothing happened");
+    /*     if (result)
+            DBGf("PID Manager: Recalculated value, Analog Out: %f.", mAnalogOut);
+        else
+            DBGf("PID Manager: Nothing happened"); */
+
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
+    if (*currentAvailablePower < 0.0)
+    {
+        consumedPower = ((mAnalogOut - analogOutPrev) / 255.0) * setup.phasen_leistung_in_watt;
+        *currentAvailablePower += consumedPower;
+        // consumedPower = ((mAnalogOut - analogOutPrev) / 255.0) * setup.phasen_leistung_in_watt;
+        /* DBGf("PID Manager: EINSPEIS anaOutPref: %f, anaOut: %f consumedPower: %f after pwm remains: %f", analogOutPrev, mAnalogOut, consumedPower, *currentAvailablePower); */
+        mqtt_publish_en(mAnalogOut, mCurrentPower);
+    }
+    else
+    {
+        consumedPower = ((analogOutPrev - mAnalogOut) / 255.0) * setup.phasen_leistung_in_watt;
+        *currentAvailablePower -= consumedPower;
+       /*  DBGf("PID Manager: BEZUG anaOutPref: %f, anaOut: %f consumedPower: %f after pwm remains: %f", analogOutPrev, mAnalogOut, consumedPower, *currentAvailablePower); */
+        mqtt_publish_en(mAnalogOut, mCurrentPower);
+    }
+    // delay(4000);
 
     // turn on digital output if power suffices
     if (mCurrentPower > mPidSetPoint && mAnalogOut > OUTPUT_MAX - 1)
@@ -106,7 +126,8 @@ bool PinManager::task(Setup &setup, double currentAvailablePower, TEMPERATURE &c
                     DBGf("PID Manager: found : %d", i);
                     mOuts[i].setValue(1);
                     mDelayDigOutOn = millis(); // delay next output
-                    break;                     // do not turn on the next output
+                    *currentAvailablePower += (double)setup.phasen_leistung_in_watt;
+                    break; // do not turn on the next output
                 }
             }
         }
@@ -114,7 +135,7 @@ bool PinManager::task(Setup &setup, double currentAvailablePower, TEMPERATURE &c
     else
     {
         mDelayDigOutOn = millis();
-        DBGf("PID Manager: time delay ");
+       // DBGf("PID Manager: time delay ");
     }
 
     /*   double gap = abs(mPidSetPoint - mCurrentPower); // distance away from setpoint
@@ -136,13 +157,15 @@ bool PinManager::task(Setup &setup, double currentAvailablePower, TEMPERATURE &c
         {
             if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
             {
+                DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, mPidSetPoint: %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
                 mOuts[i].setValue(0);
                 mDelayDigOutOff = millis();
+                *currentAvailablePower -= (double)setup.phasen_leistung_in_watt;
                 break; // do not turn off the next output
             }
         }
     }
-    DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, mPidSetPoint: %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
+    /*     DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, mPidSetPoint: %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1)); */
     return 0;
 }
 #endif

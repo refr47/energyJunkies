@@ -9,9 +9,18 @@
 // https://randomnerdtutorials.com/esp32-save-data-permanently-preferences/#example2
 
 static Preferences preferences;
+static bool stammDataUpdateWatch=true;
+
+bool eprom_stammDataUpdate() {
+    return stammDataUpdateWatch;
+}
+void eprom_stammDataUpdateReset() {
+    stammDataUpdateWatch = false;
+}
 
 void eprom_storeSetup(Setup &setup)
 {
+    stammDataUpdateWatch=true;
     preferences.begin(CREDENTIALS, false);
 #ifndef TEST_PID
     preferences.clear();

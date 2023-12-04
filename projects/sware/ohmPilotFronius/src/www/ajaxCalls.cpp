@@ -201,7 +201,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     if (errorH)
         setup.exportWatt = result;
     DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");
-
+    
     eprom_storeSetup(setup);
     eprom_test_read_Eprom();
     returnFromStoreSetup(errorH, data, request);
