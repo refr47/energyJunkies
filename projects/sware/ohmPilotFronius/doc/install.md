@@ -47,6 +47,8 @@ Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von 
 	- DMQTT='"10.0.0.2"'   # falls man einen mqtt-Server nutzt
 	- DPID_LIB=1                # Verwendung der PID-Lib für den REgler
 
+
+***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode
 ## Compile/Flash
 
 Zuerst muss das Projekt fehlerfrei übersetzt (kleines Häckchen in der unteren Menüleiste, neben dem kleinen Häuschen) werden können und ein Image für den esp32 erzeugt werden. Es kommen noch einige Warnings, aber die sind eher bedeutungslos und kommen größtenteils von den verwendeten Libs.
