@@ -87,9 +87,9 @@ bool PinManager::task(Setup &setup, double *currentAvailablePower)
 
     // setup.pidChanged = false;
 
-    mCurrentPower = *currentAvailablePower < 0.0 ? *currentAvailablePower * -1.0 : setup.pid_powerWhichNeedNotConsumed - 5;
+    mCurrentPower = *currentAvailablePower < 0.0 ? *currentAvailablePower * -1.0 : *currentAvailablePower;
     mPid.Compute();
-    // DBGf("PID Manager:: %f steht zur Verfügung mit midsetPoint: %f", mCurrentPower, mPidSetPoint);
+    //DBGf("PID Manager:: %f steht zur Verfügung mit midsetPoint: %f", mCurrentPower, mPidSetPoint);
     /*     if (result)
             DBGf("PID Manager: Recalculated value, Analog Out: %f.", mAnalogOut);
         else
@@ -101,15 +101,19 @@ bool PinManager::task(Setup &setup, double *currentAvailablePower)
         consumedPower = ((mAnalogOut - analogOutPrev) / 255.0) * setup.phasen_leistung_in_watt;
         *currentAvailablePower += consumedPower;
         // consumedPower = ((mAnalogOut - analogOutPrev) / 255.0) * setup.phasen_leistung_in_watt;
-        /* DBGf("PID Manager: EINSPEIS anaOutPref: %f, anaOut: %f consumedPower: %f after pwm remains: %f", analogOutPrev, mAnalogOut, consumedPower, *currentAvailablePower); */
+       /*  DBGf("PID Manager: EINSPEIS anaOutPref: %f, anaOut: %f consumedPower: %f after pwm remains: %f", analogOutPrev, mAnalogOut, consumedPower, *currentAvailablePower); */
+#ifdef MQTT
         mqtt_publish_en(mAnalogOut, mCurrentPower);
+#endif
     }
     else
     {
         consumedPower = ((analogOutPrev - mAnalogOut) / 255.0) * setup.phasen_leistung_in_watt;
         *currentAvailablePower -= consumedPower;
-       /*  DBGf("PID Manager: BEZUG anaOutPref: %f, anaOut: %f consumedPower: %f after pwm remains: %f", analogOutPrev, mAnalogOut, consumedPower, *currentAvailablePower); */
+     /*    DBGf("PID Manager: BEZUG anaOutPref: %f, anaOut: %f consumedPower: %f after pwm remains: %f", analogOutPrev, mAnalogOut, consumedPower, *currentAvailablePower); */
+#ifdef MQTT
         mqtt_publish_en(mAnalogOut, mCurrentPower);
+#endif
     }
     // delay(4000);
 
@@ -135,7 +139,7 @@ bool PinManager::task(Setup &setup, double *currentAvailablePower)
     else
     {
         mDelayDigOutOn = millis();
-       // DBGf("PID Manager: time delay ");
+        // DBGf("PID Manager: time delay ");
     }
 
     /*   double gap = abs(mPidSetPoint - mCurrentPower); // distance away from setpoint

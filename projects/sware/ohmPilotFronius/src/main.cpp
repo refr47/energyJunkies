@@ -17,8 +17,9 @@
 #include "temp.h"
 #include "curTime.h"
 #include "webSockets.h"
-#include "mqtt.h"
-
+#ifdef MQTT
+#include "mqtt.h
+#endif
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -219,12 +220,14 @@ void setup()
         // tft_printInfo("       ");
         tft_printKeyValue("Init Time", "OK", TFT_GREEN);
         time_init(); // init time
+#ifdef MQTT
         if (!mqtt_init())
         {
             DBGf("Mqtt-Server -- cannot connect (!)");
         }
         else
             DBGf("Mqtt-Server:: connected successfully ...");
+#endif
         if (cardRW_setup(false, false))
         {
             webSockData.states.cardWriterOK = true;
@@ -267,7 +270,9 @@ void setup()
         /*  if (!mb_readInverterStatic())
              DBGf("Error in Reading modbus"); */
         DBGf("Setup PID-Controller");
+#ifdef MQTT
         mqtt_publish_pidParams(setupData.pid_p, setupData.pid_i, setupData.pid_d);
+#endif
         DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", setupData.pid_p, setupData.pid_i, setupData.pid_d);
         tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
         pidPinManager.config(setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
@@ -411,7 +416,9 @@ void loop()
         {
             tft_updateTime("00:00:00");
         }
+#ifdef MQTT
         mqtt_loop();
+#endif
         timeSlice.previousMillisClock = timeSlice.currentMillis;
     }
 
@@ -447,7 +454,10 @@ void loop()
                     alarmContainer.alarmTemp.alarmTemp = true;
                     alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
                     webSockData.temperature.alarm = true;
-                    mqtt_publish_pidParams(webSockData.setup.pid_p, webSockData.setup.pid_i, webSockData.setup.pid_d);
+#ifdef MQTT
+                    mqtt_publish_pidParams(webSockData.setup.pid_p, webSockData.setup.pid_i,
+                                           webSockData.setup.pid_d);
+#endif
                 }
             }
         }
@@ -541,7 +551,7 @@ void loop()
                 webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
                 webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
                 webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
-#ifndef TEST_PID
+#ifndef TEST_PID_WWWW
                 availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
 #endif
 
@@ -576,7 +586,7 @@ void loop()
             else
             {
 
-                DBGf(" main::Bezug  %f", availablePowerFromWRInWatt);
+                // DBGf(" main::Bezug  %f", availablePowerFromWRInWatt);
 
                 pidPinManager.task(setupData, &availablePowerFromWRInWatt);
             }
@@ -589,7 +599,7 @@ void loop()
     if (timeSlice.currentMillis - timeSlice.previousMillisTestConfig > CONFIG_PARAM_TEST_INTERVALL)
     {
         timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
-#ifdef TEST_PID
+#ifdef TEST_PID_WWWW
         Setup d;
         eprom_getSetup(d);
         // eprom_show(d);

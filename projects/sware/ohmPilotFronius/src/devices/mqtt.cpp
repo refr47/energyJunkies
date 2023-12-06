@@ -1,4 +1,6 @@
 
+#ifdef MQTT
+
 #include <PubSubClient.h>
 #include <WiFi.h>
 #include "mqtt.h"
@@ -113,3 +115,5 @@ void callback(char *topic, byte *payload, unsigned int length)
         // digitalWrite(BUILTIN_LED, HIGH); // Turn the LED off by making the voltage HIGH
     }
 }
+
+#endif
