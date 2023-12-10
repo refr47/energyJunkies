@@ -40,7 +40,6 @@ class RealtimePlot:
     def plot(self, dataPlot):
         self.lineplot.set_data(dataPlot.axis_x, dataPlot.axis_y)
         self.lineplot2.set_data(dataPlot.axis_x, dataPlot.axis_y2)
-
         self.axes.set_xlim(min(dataPlot.axis_x), max(dataPlot.axis_x))
         ymin = min([min(dataPlot.axis_y), min(dataPlot.axis_y2)])-10
         ymax = max([max(dataPlot.axis_y), max(dataPlot.axis_y2)])+10
@@ -65,7 +64,6 @@ def main():
     except KeyboardInterrupt:
         print('nnKeyboard exception received. Exiting.')
         plt.close()
-        ser.close()
         exit()
 
 if __name__ == "__main__": main()
