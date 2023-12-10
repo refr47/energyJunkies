@@ -6,12 +6,28 @@
 #include "mqtt.h"
 #include "debugConsole.h"
 
+
 // Add your MQTT Broker IP address, example:
 // const char* mqtt_server = "192.168.1.144";
-static const char *mqtt_server = "10.0.0.2";
+static const char *mqtt_server = MQTT;
 static WiFiClient espClient;
 static PubSubClient client(espClient);
 unsigned long lastMsg = 0;
+
+#define TOPIC_MESSAGE_GREETING "message/greetings"
+#define TOPIC_PID_P "pid/p"
+#define TOPIC_PID_I "pid/i"
+#define TOPIC_PID_D "pid/d"
+#define TOPIC_PWM "energy/pwm"
+#define TOPIC_ENERGY_AVAIL "energy/available"
+#define TOPIC_MODBUS_RECONNECT "modbus/connection/reconnect"
+#define TOPIC_MODBUS_WRONG_PRODUCTION_VAL "modbus/error/currentProduction"
+#define TOPIC_MODBUS_INVERTER_PRODUCTION "modbus/data/production"
+#define TOPIC_MODBUS_SMART_METER_IN_EXPORT "modbus/data/inExport"
+#define TOPIC_MODBUS_VERBRAUCH "modbus/data/verbrauch"
+
+#define TOPIC_ALARM_TEMP_S1 "alarm/sensor/s1"
+#define TOPIC_ALARM_TEMP_S2 "alarm/sensor/s2"
 
 #define MSG_BUFFER_SIZE (50)
 char msg[MSG_BUFFER_SIZE];
@@ -26,7 +42,7 @@ bool mqtt_init()
     client.setCallback(callback);
     if (client.connect("Energy-Harvester" /*, "theUser", "nurEinTraum"*/))
     {
-        client.publish("message/greetings", "Hi!");
+        client.publish(TOPIC_MESSAGE_GREETING, "Init Energy Harvester");
         return true;
     }
     return false;
@@ -45,13 +61,13 @@ void mqtt_publish_pidParams(double kP, double kI, double kD)
 {
     char buf[50];
     sprintf(buf, "%f", kP);
-    client.publish("pid/p", buf);
+    client.publish(TOPIC_PID_P, buf);
 
     sprintf(buf, "%f", kI);
-    client.publish("pid/i", buf);
+    client.publish(TOPIC_PID_I, buf);
 
     sprintf(buf, "%f ", kD);
-    client.publish("pid/d", buf);
+    client.publish(TOPIC_PID_D, buf);
 }
 
 void mqtt_publish_en(int pwm, double availableWatt)
@@ -59,9 +75,41 @@ void mqtt_publish_en(int pwm, double availableWatt)
     char buf[50];
 
     sprintf(buf, "%d", pwm);
-    client.publish("energy/pwm", buf);
+    client.publish(TOPIC_PWM, buf);
     sprintf(buf, "%.2lf", availableWatt);
-    client.publish("energy/available", buf);
+    client.publish(TOPIC_ENERGY_AVAIL, buf);
+}
+
+void mqtt_publish_alarm_temp(int tempS1, int tempS2)
+{
+    char buf[30];
+
+    sprintf(buf, "%d", tempS1);
+    client.publish(TOPIC_ALARM_TEMP_S1, buf);
+    sprintf(buf, "%d", tempS2);
+    client.publish(TOPIC_ALARM_TEMP_S2, buf);
+}
+void mqtt_publish_modbus_reconnect(const char *ipInverter)
+{
+    client.publish(TOPIC_MODBUS_RECONNECT, ipInverter);
+}
+
+void mqtt_publish_modbus_wrong_production_val(double readVal)
+{
+    char buf[30];
+
+    sprintf(buf, "%.2lf", readVal);
+    client.publish(TOPIC_MODBUS_WRONG_PRODUCTION_VAL, buf);
+}
+void mqtt_publish_modbus_current_state(MB_CONTAINER &modb)
+{
+    char buf[30];
+    sprintf(buf, "%.2lf", modb.inverterSumValues.data.acCurrentPower);
+    client.publish(TOPIC_MODBUS_INVERTER_PRODUCTION, buf);
+    sprintf(buf, "%.2lf", modb.meterValues.data.acCurrentPower);
+    client.publish(TOPIC_MODBUS_SMART_METER_IN_EXPORT, buf);
+    sprintf(buf, "%.2lf", modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower);
+    client.publish(TOPIC_MODBUS_VERBRAUCH, buf);
 }
 /* ****************************/
 

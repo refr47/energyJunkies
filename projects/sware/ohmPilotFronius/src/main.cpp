@@ -18,7 +18,7 @@
 #include "curTime.h"
 #include "webSockets.h"
 #ifdef MQTT
-#include "mqtt.h
+#include "mqtt.h"
 #endif
 /*
 Input only pins
@@ -40,7 +40,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 
 #define TEMPERATURE_INTERVAL 5000UL             // 5 secs
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
-#define MODBUS_INTERVALL 10000UL
+#define MODBUS_INTERVALL 2000UL
 #define PID_CONTROLLER_INTERVALL 100 // 0.1 secs default sample time
 #define LOGGING_FLUSH_INTERVALL 60000
 #define CLOCK_INTERVALL 1000           // secs
@@ -438,7 +438,9 @@ void loop()
 
             if (webSockData.temperature.sensor1 < 0.0 && webSockData.temperature.sensor2 < 0.0)
             {
-
+#ifdef MQTT
+                mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+#endif
                 webSockData.temperature.alarm = true;
                 if (!webSockData.temperature.alarm)
                 {
@@ -454,10 +456,6 @@ void loop()
                     alarmContainer.alarmTemp.alarmTemp = true;
                     alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
                     webSockData.temperature.alarm = true;
-#ifdef MQTT
-                    mqtt_publish_pidParams(webSockData.setup.pid_p, webSockData.setup.pid_i,
-                                           webSockData.setup.pid_d);
-#endif
                 }
             }
         }
@@ -485,6 +483,9 @@ void loop()
                     alarmContainer.alarmTemp.alarmTemp = true;
                     alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
                     webSockData.temperature.alarm = true;
+#ifdef MQTT
+                    mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+#endif
                 }
             }
             else
@@ -497,6 +498,9 @@ void loop()
                     if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > setupData.tempMaxAllowedInGrad)
                     {
                         alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+#ifdef MQTT
+                        mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+#endif
                     }
                     else
                     {
@@ -520,6 +524,9 @@ void loop()
             {
                 DBGf("Reconnected modbus successfully.");
                 webSockData.states.modbusOK = true;
+#ifdef MQTT
+                mqtt_publish_modbus_reconnect(setupData.ipInverterAsString.c_str());
+#endif
             }
         }
         else
@@ -536,7 +543,10 @@ void loop()
             if (webSockData.mbContainer.meterValues.data.acCurrentPower < 0.0 && (webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower < 0))
 
             {
-                DBGf("Wrong meter value !");
+                DBGf("Wrong meter value from smartmeter - current production: %f !", webSockData.mbContainer.meterValues.data.acCurrentPower);
+#ifdef MQTT
+                mqtt_publish_modbus_wrong_production_val(webSockData.mbContainer.meterValues.data.acCurrentPower);
+#endif
             }
             else
             {
@@ -556,6 +566,9 @@ void loop()
 #endif
 
                 tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
+#ifdef MQTT
+                mqtt_publish_modbus_current_state(webSockData.mbContainer);
+#endif
             }
         } // if modbusstate
         timeSlice.previousMillModbus = timeSlice.currentMillis;
@@ -578,7 +591,7 @@ void loop()
 
             if (availablePowerFromWRInWatt < 0.0) // energy export
             {
-                DBGf(" main::Einspeisung %lf, muss übrig bleiben %d", availablePowerFromWRInWatt, setupData.pid_powerWhichNeedNotConsumed);
+                // DBGf(" main::Einspeisung %lf, muss übrig bleiben %d", availablePowerFromWRInWatt, setupData.pid_powerWhichNeedNotConsumed);
 
                 //  Einspeisung - Wieviel müss übrig bleiben
                 pidPinManager.task(setupData, &availablePowerFromWRInWatt);
