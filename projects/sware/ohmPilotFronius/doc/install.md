@@ -34,6 +34,21 @@ ad a) Vorgehensweise
 ad b) Flashen des Programm-Images
 Das Programm muss fehlerfrei übersetzen (kleines Häckchen) und kann dann ohne weitere Maßnahmen mit dem Transfersymbol (kleiner Pfeil nach rechts) geflasht werden. Dies kann beliebig oft wiederholt werden, das SPIFF-System ist davon nicht betroffen.
 
+## Einstellen diversers Flags in ***platformio.ini***
+Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von Bibliotheken und dem Compile-Vorgang, der u.a. durch diverse ***Defines*** gesteuert wird (bedingtes Compile). Im Sourcecode ist dann oftmals die ***ifdef*** Anweisung zu sehen, dass bestimmte Teile vom COmpile-Vorgang ein- bzw. ausschließt. Die wichtigsten Flags wären:
+ - DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
+	- DLOGFILE_SYS='"/logSYS.txt"'                    # Name des Logfiles am CardREader
+	- DLOGFILE_INVERTER='"/logInv.txt"'               # Ausgabe für Inverter Daten (z.B. Produktion,...)
+	- DTAG='"EJunkies"'                               # Tag für ESP Logging System
+	- DEJ=1                                           # TestProg für EJ (Schalter) am Board; mit einer nachgestellten 1 wirkt dann das Define nicht
+	- DWEB=1 # Zusätzliche FUnktionalität für REST
+	- DCORS_DEBUG=1   # Debug der REST
+	- DTEST_PID_WWWW1=1  # Test des Reglers, wobei dann die in der RestSchnittstelle unter Stammdaten eingegeben Daten nach dem Speichern übernommen werden
+	- DMQTT='"10.0.0.2"'   # falls man einen mqtt-Server nutzt
+	- DPID_LIB=1                # Verwendung der PID-Lib für den REgler
+
+
+***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode
 ## Compile/Flash
 
 Zuerst muss das Projekt fehlerfrei übersetzt (kleines Häckchen in der unteren Menüleiste, neben dem kleinen Häuschen) werden können und ein Image für den esp32 erzeugt werden. Es kommen noch einige Warnings, aber die sind eher bedeutungslos und kommen größtenteils von den verwendeten Libs.
