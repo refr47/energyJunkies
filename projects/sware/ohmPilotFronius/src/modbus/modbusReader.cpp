@@ -171,7 +171,7 @@ bool mb_readInverterStatic()
     if (transId != 0)
     {
 
-        delay(3 * MODBUS_WAIT_FOR_DATA_IN_MS); // Pulling interval
+        delay(MODBUS_WAIT_FOR_DATA_IN_MS); // Pulling interval
 
         int offset = 0;
         makeString(0, MODBUS_INVERTER_MANUFACTURER_LEN, inverterRegs, &pText);
@@ -200,9 +200,9 @@ static int readIndex = 0;
 // character array to prepare mesages
 static char text[TEXT_LEN];
 
-uint16_t res = 0;
-int16_t resArr[REG_BLOCK_COUNT][regsCount];
-float realPower;
+static uint16_t res = 0;
+static int16_t resArr[REG_BLOCK_COUNT][regsCount];
+static float realPower;
 
 bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
 {
@@ -252,6 +252,8 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
 
         case INVERTER_SUM_BLOCK_ID:
             // inverterSumValues.data.acCurrentPower : produktion
+            DBGf("INVERTER_SUM_BLOCK_ID ");
+            //DBGf("Val 1 %d".resArr[readIndex].)
             scaleValues(inverterSumValues.value, resArr[readIndex], scaleInverterSum, INVERTER_SUM_VALUE_LEN);
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", inverterSumValues.data.acCurrentPower,
                     inverterSumValues.data.acTotalEnergy, inverterSumValues.data.dcCurrentPower);

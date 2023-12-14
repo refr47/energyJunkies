@@ -46,7 +46,7 @@ int main(int argc, char **argv)
     // modbus unit id of smart meter: 200 GEN24 @ home, 240 Symo @ HTL
 
     config_t config = {
-        "10.0.0.7", 502, CUT_OFF_DURATION, CUT_OFF_BEGIN, CUT_OFF_BEGIN + CUT_OFF_DURATION,
+        "10.0.0.2", 502, CUT_OFF_DURATION, CUT_OFF_BEGIN, CUT_OFF_BEGIN + CUT_OFF_DURATION,
         CUT_OFF_BEGIN + CUT_OFF_DURATION + 10, 10, 30, 7,
         60, 92,
         200, 30000000, 10, MODBUS_ERROR_RECOVERY_NONE};

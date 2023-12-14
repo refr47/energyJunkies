@@ -1,6 +1,7 @@
 #define __MODBUS_REGISTER_CPP
 
 #include "modbusRegister.h"
+#include "debugConsole.h"
 
 // swap bytes of an byte array
 void swapRegs(uint16_t regs[], int count)
@@ -17,8 +18,11 @@ void swapRegs(uint16_t regs[], int count)
 int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int count)
 {
     int64_t value;
+
+    DBGf("scaleValues :: BEGIN and count: %d", count);
     for (int i = 0; i < count; i++)
     {
+        DBGf("Index: %d", i);
         switch (relation[i].regCount)
         {
         case 4:
@@ -50,6 +54,7 @@ int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int
         case 1:
         default:
             value = source[relation[i].sourceIndex];
+            DBGf("scaleValues; index: %d value: %.2lf scaleFac: %d", i, value, relation[i].scaleIndex);
         }
         // only scale values having a scale factor (-1 denotes do not scale)
         if (relation[i].scaleIndex < 0)

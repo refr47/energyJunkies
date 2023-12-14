@@ -160,7 +160,6 @@ void setup()
     tft_init();
     tft_printSetup();
 
-#ifndef EJ
     /*  int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
      DBGf("Interal button: %d", currentState); */
 
@@ -220,40 +219,6 @@ void setup()
         // tft_printInfo("       ");
         tft_printKeyValue("Init Time", "OK", TFT_GREEN);
         time_init(); // init time
-#ifdef MQTT
-        if (!mqtt_init())
-        {
-            DBGf("Mqtt-Server -- cannot connect (!)");
-        }
-        else
-            DBGf("Mqtt-Server:: connected successfully ...");
-#endif
-        if (cardRW_setup(false, false))
-        {
-            webSockData.states.cardWriterOK = true;
-            tft_printKeyValue("Init CardReader", "OK", TFT_GREEN);
-
-            logging_init();
-            // test_cardReader();
-        }
-        else
-        {
-            DBGf("Logging to file cannot be initiated ...");
-            tft_printKeyValue("Init CardReader", "Error", TFT_RED);
-            webSockData.states.cardWriterOK = false;
-        }
-
-        if (temp_init())
-        { // temperature
-
-            tft_printKeyValue("Init Sensors", "OK", TFT_GREEN);
-            webSockData.states.tempSensorOK = true;
-        }
-        else
-        {
-            webSockData.states.tempSensorOK = false;
-            tft_printKeyValue("Init Sensors", "Error", TFT_RED);
-        }
         DBGf("Setup Modbus ...");
         if (!mb_init(setupData))
         {
@@ -267,33 +232,89 @@ void setup()
             tft_printKeyValue("Init Modbus", "ok", TFT_GREEN);
         }
         memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
-        /*  if (!mb_readInverterStatic())
-             DBGf("Error in Reading modbus"); */
-        DBGf("Setup PID-Controller");
-#ifdef MQTT
-        mqtt_publish_pidParams(setupData.pid_p, setupData.pid_i, setupData.pid_d);
-#endif
-        DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", setupData.pid_p, setupData.pid_i, setupData.pid_d);
-        tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
-        pidPinManager.config(setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
-    }
-    if (webSockData.states.networkOK)
-    {
-        delay(10000);
+#ifdef EJ
+
+        delay(3000);
         tft_clearScreen();
     }
-    ESP_LOGI(TAG, "Setup done - all components are working...");
+#endif
+#ifndef EJ
+#ifdef MQTT
+    if (!mqtt_init())
+    {
+        DBGf("Mqtt-Server -- cannot connect (!)");
+    }
+    else
+        DBGf("Mqtt-Server:: connected successfully ...");
+#endif
+    if (cardRW_setup(false, false))
+    {
+        webSockData.states.cardWriterOK = true;
+        tft_printKeyValue("Init CardReader", "OK", TFT_GREEN);
+
+        logging_init();
+        // test_cardReader();
+    }
+    else
+    {
+        DBGf("Logging to file cannot be initiated ...");
+        tft_printKeyValue("Init CardReader", "Error", TFT_RED);
+        webSockData.states.cardWriterOK = false;
+    }
+
+    if (temp_init())
+    { // temperature
+
+        tft_printKeyValue("Init Sensors", "OK", TFT_GREEN);
+        webSockData.states.tempSensorOK = true;
+    }
+    else
+    {
+        webSockData.states.tempSensorOK = false;
+        tft_printKeyValue("Init Sensors", "Error", TFT_RED);
+    }
+    /* DBGf("Setup Modbus ...");
+    if (!mb_init(setupData))
+    {
+        DBGf("Cannot initialize modbus ....");
+        tft_printKeyValue("Init mdobus", "Error", TFT_RED);
+        webSockData.states.modbusOK = false;
+    }
+    else
+    {
+        webSockData.states.modbusOK = true;
+        tft_printKeyValue("Init Modbus", "ok", TFT_GREEN);
+    }
+    memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
+    */
+    /*  if (!mb_readInverterStatic())
+         DBGf("Error in Reading modbus"); */
+    DBGf("Setup PID-Controller");
+#ifdef MQTT
+    mqtt_publish_pidParams(setupData.pid_p, setupData.pid_i, setupData.pid_d);
+#endif
+    DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", setupData.pid_p, setupData.pid_i, setupData.pid_d);
+    tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
+    pidPinManager.config(setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
+}
+if (webSockData.states.networkOK)
+{
+    delay(10000);
+    tft_clearScreen();
+}
+ESP_LOGI(TAG, "Setup done - all components are working...");
 #else
-    ESP_LOGI(TAG, "Start testing...");
+        ESP_LOGI(TAG, "Start testing...");
 
-    pinMode(SWITCH_KEY_ENTER, INPUT_PULLUP);
-    pinMode(SWITCH_KEY_UP, INPUT_PULLUP);
-    pinMode(SWITCH_KEY_DOWN, INPUT_PULLUP);
-    pinMode(SWITCH_KEY_ESC, INPUT_PULLUP);
+        pinMode(SWITCH_KEY_ENTER, INPUT_PULLUP);
+        pinMode(SWITCH_KEY_UP, INPUT_PULLUP);
+        pinMode(SWITCH_KEY_DOWN, INPUT_PULLUP);
+        pinMode(SWITCH_KEY_ESC, INPUT_PULLUP);
 
-    pinMode(RELAY_L1, OUTPUT);
-    pinMode(RELAY_L2, OUTPUT);
-    pinMode(PWM_FOR_PID, OUTPUT);
+        pinMode(RELAY_L1, OUTPUT);
+        pinMode(RELAY_L2, OUTPUT);
+        pinMode(PWM_FOR_PID, OUTPUT);
+        memset(&timeSlice, 0, sizeof(timeSlice));
 
 #endif
 }
@@ -306,31 +327,31 @@ static uint8_t l1 = false, l2 = false;
 static bool pressedEnter = false;
 
 static int s1_esc_prev = 1, s2_enter_prev = 1;
+static time_t time1, time2;
+static bool startMe = false, stopMe = false, initMe = true, doneStop = true;
+static double currentSmartMeter = 0.0;
+
+bool readModbus()
+{
+    // read inverter
+    if (!mb_readInverterDynamic(setupData, webSockData.mbContainer))
+        return false;
+    // read smart meter
+    /* if (!mb_readInverterDynamic(setupData, webSockData.mbContainer))
+        return false; */
+    return true;
+}
 #endif
 void loop()
 {
 
 #ifdef EJ
+
     s1_enter = digitalRead(SWITCH_KEY_ENTER);
     /*    s2_up = digitalRead(SWITCH_KEY_UP);
       s3_down = digitalRead(SWITCH_KEY_DOWN);  */
     s4_esc = digitalRead(SWITCH_KEY_ESC);
 
-    // DBGf("S1 pressed: %x, S2(UP)pressed: %x, S3(DOWN) pressed: %x, S4(ESC)pressed :%x", s1_enter, s2_up, s3_down, s4_esc);
-    /*     if (s2_up == HIGH)
-        {
-            if (pwmValue < 250)
-                pwmValue += 5;
-            else
-                pwmValue = 255;
-        }
-        if (s3_down == HIGH)
-        {
-            if (pwmValue < 5)
-                pwmValue -= 5;
-            else
-                pwmValue = 0;
-        } */
     if ((s4_esc == LOW) && (s1_esc_prev == 1))
     {
         delay(40);
@@ -338,10 +359,12 @@ void loop()
         // DBGf("ENER s4, pwm: %d, l1: %x", pwmValue, l1);
         if (s4_esc == LOW)
         {
-            if (pwmValue < 250)
-                pwmValue += 5;
-            else
-                pwmValue = 255;
+
+            pwmValue = 0;
+            stopMe = true;
+            startMe = false;
+            initMe = false;
+            doneStop = false;
             l1 = !l1;
         }
         s1_esc_prev = s4_esc;
@@ -354,43 +377,115 @@ void loop()
         // DBGf("ENtER s1-ENTER, pwm: %d, l2: %x", pwmValue, l2);
         if (s1_enter == LOW)
         {
-            if (pwmValue > 5)
-            {
-                pwmValue -= 5;
-                // DBGf("Reduced pwm to %d", pwmValue);
-            }
 
-            else
-            {
-                pwmValue = 0;
-                // DBGf("Set pwm to %d", pwmValue);
-            }
+            pwmValue = 255;
+            stopMe = false;
+            doneStop = false;
+            startMe = true;
+            initMe = false;
+            DBGf("enter: startMe: %s, initMe: %s", startMe == true ? "true" : "false", initMe == true ? "true" : "false");
+            // DBGf("Set pwm to %d", pwmValue);
 
             l2 = !l2;
         }
         s2_enter_prev = s1_enter;
     }
 
-    currentMillis = millis();
-    if (currentMillis - previousMillisClock > CLOCK_INTERVALL)
+    timeSlice.currentMillis = millis();
+
+    if (timeSlice.currentMillis - timeSlice.previousMillisClock > CLOCK_INTERVALL)
     {
 
         analogWrite(PWM_FOR_PID, pwmValue);
         s1_esc_prev = 1;
         s2_enter_prev = 1;
-        sprintf(formatBuffer, "%d", CLOCK_INTERVALL);
-        tft_print_test(3, 15, 150, TFT_BLUE, "iNTERVALL IN MS", formatBuffer);
+        sprintf(formatBuffer, "%d", setupData.heizstab_leistung_in_watt);
+        tft_print_test(3, 15, 150, TFT_BLUE, "Heizstab", formatBuffer);
         tft_print_test(4, 15, 150, TFT_BLUE, "Enter -", "ESC +");
 
         sprintf(formatBuffer, "%d", pwmValue);
         tft_print_test(5, 15, 100, TFT_GREEN, "PWM", formatBuffer);
+        DBGf("enter: startMe: %s, initMe: %s", startMe == true ? "true" : "false", initMe == true ? "true" : "false");
+        if (startMe)
+        {
+            if (initMe == false)
+            {
+                DBGf("Start Messung & init");
+                time(&time1);
+                sprintf(formatBuffer, "0");
+                if (!readModbus())
+                {
+                    tft_print_test(8, 15, 100, TFT_RED, "Error", "Modbus cannot read");
+                    DBGf("Error reading modbus");
+                }
+                else
+                {
+                    currentSmartMeter = webSockData.mbContainer.meterValues.data.acCurrentPower;
+                    sprintf(formatBuffer, "%.2lf", currentSmartMeter);
+                    DBGf("SMeter (start) %.2lf", currentSmartMeter);
+                    tft_print_test(6, 15, 100, TFT_GREEN, "SMeter (i) ", formatBuffer);
+                    if (currentSmartMeter == 0.0)
+                    {
+                        DBGf("Smart Meter returns value 0");
+                    }
+                    else
+                    {
+                        initMe = true;
+                        DBGf("Smart Meter returns value !=0");
+                    }
+                }
+            }
+            else
+            {
+                DBGf("Start Messung & Modbus read");
+                if (!readModbus())
+                {
+                    tft_print_test(8, 15, 100, TFT_RED, "Error", "Modbus cannot read");
+                    DBGf("Error reading modbus");
+                }
+                else
+                {
+                    sprintf(formatBuffer, "%.2lf", webSockData.mbContainer.meterValues.data.acCurrentPower);
+                    tft_print_test(6, 15, 100, TFT_GREEN, "SMeter ", formatBuffer);
+                    DBGf("Diff current and start SMeter %.2lf", webSockData.mbContainer.meterValues.data.acCurrentPower - currentSmartMeter);
+                    if (webSockData.mbContainer.meterValues.data.acCurrentPower - currentSmartMeter >= setupData.heizstab_leistung_in_watt)
+                    {
+                        stopMe = true;
+                        doneStop = false;
+                        startMe = false;
+                    }
+                }
+            }
+        }
+        else
+        {
+            if (stopMe && !doneStop)
+            {
+                DBGf("Stop Messung");
+                time(&time2);
+                double dTime = difftime(time2, time1);
+                sprintf(formatBuffer, "%f secs");
+                doneStop = true;
+                DBGf("Stop Messung within %f secs", dTime);
+                tft_print_test(7, 15, 100, TFT_GREEN, "SMeter (s) ", formatBuffer);
+            }
+            else
+            {
+                /* getCurrentTime(formatBuffer, sizeof(formatBuffer));
+                tft_print_test(9, 15, 100, TFT_GREEN, "Time ", formatBuffer); */
+            }
+        }
 
-        digitalWrite(RELAY_L1, l1);
+        // tft_print_test(6, 15, 100, TFT_GREEN, "TimeS ", formatBuffer);
+
+        /*  digitalWrite(RELAY_L1, l1);
         tft_print_test(6, 15, 100, TFT_GREEN, "L1", l1 == LOW ? "LOW" : "HIGH");
         digitalWrite(RELAY_L2, l2);
-        tft_print_test(7, 15, 100, TFT_GREEN, "L2", l2 == LOW ? "LOW" : "HIGH");
+        tft_print_test(7, 15, 100, TFT_GREEN, "L2", l2 == LOW ? "LOW" : "HIGH"); */
         DBGf("L1: %d  L2: %d    PWM: %d", l1, l2, pwmValue);
-        previousMillisClock = currentMillis;
+
+        // modbus
+        timeSlice.previousMillisClock = timeSlice.currentMillis;
     }
 
 #endif
