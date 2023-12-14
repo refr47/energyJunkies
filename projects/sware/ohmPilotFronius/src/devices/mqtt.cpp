@@ -6,7 +6,6 @@
 #include "mqtt.h"
 #include "debugConsole.h"
 
-
 // Add your MQTT Broker IP address, example:
 // const char* mqtt_server = "192.168.1.144";
 static const char *mqtt_server = MQTT;
@@ -22,7 +21,7 @@ unsigned long lastMsg = 0;
 #define TOPIC_ENERGY_AVAIL "energy/available"
 #define TOPIC_MODBUS_RECONNECT "modbus/connection/reconnect"
 #define TOPIC_MODBUS_WRONG_PRODUCTION_VAL "modbus/error/currentProduction"
-#define TOPIC_MODBUS_INVERTER_PRODUCTION "modbus/data/production"
+#define TOPIC_MODBUS_INVERTER_PRODUCTION "modbus/data/currentProduction"
 #define TOPIC_MODBUS_SMART_METER_IN_EXPORT "modbus/data/inExport"
 #define TOPIC_MODBUS_VERBRAUCH "modbus/data/verbrauch"
 
