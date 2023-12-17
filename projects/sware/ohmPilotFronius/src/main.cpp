@@ -41,20 +41,23 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define TEMPERATURE_INTERVAL 5000UL             // 5 secs
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
 #define MODBUS_INTERVALL 2000UL
-#define PID_CONTROLLER_INTERVALL 100 // 0.1 secs default sample time
+#define PID_CONTROLLER_INTERVALL 130 // 0.1 secs default sample time
 #define LOGGING_FLUSH_INTERVALL 60000
 #define CLOCK_INTERVALL 1000           // secs
 #define WEBSOCK_NOTIFY_INTERVALL 10000 // 5 secs
 #define SHOW_IP_ADDR_INTERVALL 5000
 #define CONFIG_PARAM_TEST_INTERVALL 2000
 
-#define FORMAT_CHAR_BUFFER_LEN 35 // @see loop
+#define FORMAT_CHAR_BUFFER_LEN 50 // @see loop
 
 #ifndef TAG
 #define TAG "E-JUNKIES"
 #endif
 #define LOG_LEVEL ESP_LOG_INFO
 #define MY_ESP_LOG_LEVEL ESP_LOG_INFO
+
+#define INVERTER_DATA webSockData.mbContainer.inverterSumValues.data
+#define METER_DATA webSockData.mbContainer.meterValues.data
 
 typedef struct _ALARM_TEMPERATURE
 {
@@ -187,7 +190,7 @@ void setup()
     if (networkCredentialsInEEprom)
     {
 
-        char buff[100];
+        char buff[130];
         memset(buff, 0, strlen(buff));
 
         if (!wifi_init(setupData))
@@ -327,15 +330,20 @@ static uint8_t l1 = false, l2 = false;
 static bool pressedEnter = false;
 
 static int s1_esc_prev = 1, s2_enter_prev = 1;
-static time_t time1, time2;
+static time_t time1, time2, time3, time4;
 static bool startMe = false, stopMe = false, initMe = true, doneStop = true;
-static double currentSmartMeter = 0.0;
+static double currentConsumeInWatt, accumulatedWatt = 0.0;
+
+#define MAX_VAL 1700.0
 
 bool readModbus()
 {
     // read inverter
-    if (!mb_readInverterDynamic(setupData, webSockData.mbContainer))
+    if (!mb_readSmartMeter(setupData, webSockData.mbContainer))
         return false;
+    if (!mb_readInverter(setupData, webSockData.mbContainer))
+        return false;
+
     // read smart meter
     /* if (!mb_readInverterDynamic(setupData, webSockData.mbContainer))
         return false; */
@@ -379,6 +387,7 @@ void loop()
         {
 
             pwmValue = 255;
+            accumulatedWatt = 0.0;
             stopMe = false;
             doneStop = false;
             startMe = true;
@@ -396,7 +405,6 @@ void loop()
     if (timeSlice.currentMillis - timeSlice.previousMillisClock > CLOCK_INTERVALL)
     {
 
-        analogWrite(PWM_FOR_PID, pwmValue);
         s1_esc_prev = 1;
         s2_enter_prev = 1;
         sprintf(formatBuffer, "%d", setupData.heizstab_leistung_in_watt);
@@ -404,27 +412,36 @@ void loop()
         tft_print_test(4, 15, 150, TFT_BLUE, "Enter -", "ESC +");
 
         sprintf(formatBuffer, "%d", pwmValue);
-        tft_print_test(5, 15, 100, TFT_GREEN, "PWM", formatBuffer);
-        DBGf("enter: startMe: %s, initMe: %s", startMe == true ? "true" : "false", initMe == true ? "true" : "false");
+        tft_print_test(5, 15, 130, TFT_GREEN, "PWM", formatBuffer);
+        // DBGf("enter: startMe: %s, initMe: %s", startMe == true ? "true" : "false", initMe == true ? "true" : "false");
         if (startMe)
         {
             if (initMe == false)
             {
                 DBGf("Start Messung & init");
-                time(&time1);
+
                 sprintf(formatBuffer, "0");
                 if (!readModbus())
                 {
-                    tft_print_test(8, 15, 100, TFT_RED, "Error", "Modbus cannot read");
+                    tft_print_test(11, 15, 150, TFT_RED, "Error", "Modbus cannot read");
                     DBGf("Error reading modbus");
+                    return;
+                }
+                if (!readModbus())
+                {
+                    tft_print_test(11, 15, 150, TFT_RED, "Error", "Modbus cannot read");
+                    DBGf("Error reading modbus");
+                    return;
                 }
                 else
                 {
-                    currentSmartMeter = webSockData.mbContainer.meterValues.data.acCurrentPower;
-                    sprintf(formatBuffer, "%.2lf", currentSmartMeter);
-                    DBGf("SMeter (start) %.2lf", currentSmartMeter);
-                    tft_print_test(6, 15, 100, TFT_GREEN, "SMeter (i) ", formatBuffer);
-                    if (currentSmartMeter == 0.0)
+                    tft_print_test(11, 15, 150, TFT_RED, "Error", "None");
+                    time(&time1);
+                    currentConsumeInWatt = INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower;
+                    sprintf(formatBuffer, "V %+6.1lf |W %+6.1lf |S %+6.1lf", currentConsumeInWatt, INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
+                    DBGf("SMeter (start) %s", formatBuffer);
+                    tft_print_test(6, 15, 110, TFT_GREEN, "Start (W) ", formatBuffer);
+                    if (currentConsumeInWatt == 0.0)
                     {
                         DBGf("Smart Meter returns value 0");
                     }
@@ -433,26 +450,39 @@ void loop()
                         initMe = true;
                         DBGf("Smart Meter returns value !=0");
                     }
+                    analogWrite(PWM_FOR_PID, pwmValue);
                 }
+                tft_print_test(8, 15, 130, TFT_GREEN, "Stop (secs) ", "0");
             }
             else
             {
-                DBGf("Start Messung & Modbus read");
+                // DBGf("Start Messung & Modbus read");
+                time(&time3);
                 if (!readModbus())
                 {
-                    tft_print_test(8, 15, 100, TFT_RED, "Error", "Modbus cannot read");
+                    tft_print_test(11, 15, 150, TFT_RED, "Error", "Modbus cannot read");
                     DBGf("Error reading modbus");
                 }
                 else
                 {
-                    sprintf(formatBuffer, "%.2lf", webSockData.mbContainer.meterValues.data.acCurrentPower);
-                    tft_print_test(6, 15, 100, TFT_GREEN, "SMeter ", formatBuffer);
-                    DBGf("Diff current and start SMeter %.2lf", webSockData.mbContainer.meterValues.data.acCurrentPower - currentSmartMeter);
-                    if (webSockData.mbContainer.meterValues.data.acCurrentPower - currentSmartMeter >= setupData.heizstab_leistung_in_watt)
+                    time(&time4);
+                    double dTime = difftime(time4, time3);
+                    sprintf(formatBuffer, "%.1f secs", dTime);
+                    tft_print_test(9, 15, 150, TFT_GREEN, "ModB Call (sec)", formatBuffer);
+                    dTime = difftime(time4, time1);
+                    tft_print_test(11, 15, 150, TFT_RED, "Error", "None");
+                    accumulatedWatt += INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower - currentConsumeInWatt;
+                    sprintf(formatBuffer, "%0.1lf V %+6.1f |W %+6.1f |S %+6.1f", dTime, INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower - currentConsumeInWatt, INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
+                    DBGf("Values: %s", formatBuffer);
+                    tft_print_test(7, 15, 80, TFT_GREEN, "Diff (W) ", formatBuffer);
+                    DBGf("Diff  %s", formatBuffer);
+                    if (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower - currentConsumeInWatt >= MAX_VAL)
                     {
+                        pwmValue = 0;
                         stopMe = true;
-                        doneStop = false;
                         startMe = false;
+                        initMe = false;
+                        doneStop = false;
                     }
                 }
             }
@@ -462,26 +492,36 @@ void loop()
             if (stopMe && !doneStop)
             {
                 DBGf("Stop Messung");
+                analogWrite(PWM_FOR_PID, pwmValue);
                 time(&time2);
+                delay(1000);
+                readModbus();
+
                 double dTime = difftime(time2, time1);
-                sprintf(formatBuffer, "%f secs");
+                sprintf(formatBuffer, "%.1f secs", dTime - 1.0);
                 doneStop = true;
                 DBGf("Stop Messung within %f secs", dTime);
-                tft_print_test(7, 15, 100, TFT_GREEN, "SMeter (s) ", formatBuffer);
+                sprintf(formatBuffer, "%0.1lf %+6.1f | %+6.1f | %+6.1f", dTime, INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower - currentConsumeInWatt, INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
+
+                tft_print_test(7, 15, 80, TFT_GREEN, "Diff (W) ", formatBuffer);
+                DBGf("Stop - last values: %s", formatBuffer);
+                sprintf(formatBuffer, "Time: %.1f", dTime);
+                tft_print_test(8, 15, 130, TFT_GREEN, "Stop (secs) ", formatBuffer);
+                readModbus();
             }
             else
             {
                 /* getCurrentTime(formatBuffer, sizeof(formatBuffer));
-                tft_print_test(9, 15, 100, TFT_GREEN, "Time ", formatBuffer); */
+                tft_print_test(9, 15, 130, TFT_GREEN, "Time ", formatBuffer); */
             }
         }
 
-        // tft_print_test(6, 15, 100, TFT_GREEN, "TimeS ", formatBuffer);
+        // tft_print_test(6, 15, 130, TFT_GREEN, "TimeS ", formatBuffer);
 
         /*  digitalWrite(RELAY_L1, l1);
-        tft_print_test(6, 15, 100, TFT_GREEN, "L1", l1 == LOW ? "LOW" : "HIGH");
+        tft_print_test(6, 15, 130, TFT_GREEN, "L1", l1 == LOW ? "LOW" : "HIGH");
         digitalWrite(RELAY_L2, l2);
-        tft_print_test(7, 15, 100, TFT_GREEN, "L2", l2 == LOW ? "LOW" : "HIGH"); */
+        tft_print_test(7, 15, 130, TFT_GREEN, "L2", l2 == LOW ? "LOW" : "HIGH"); */
         DBGf("L1: %d  L2: %d    PWM: %d", l1, l2, pwmValue);
 
         // modbus

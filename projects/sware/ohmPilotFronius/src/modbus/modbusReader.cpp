@@ -16,7 +16,7 @@
            */
 
 #define TEXT_LEN 256
-#define MODBUS_WAIT_FOR_DATA_IN_MS 1000
+#define MODBUS_WAIT_FOR_DATA_IN_MS 500
 
 /*
 https://esp32io.com/tutorials/esp32-modbus
@@ -95,8 +95,8 @@ static SCALE_INDEX_t scaleMeter[METER_VALUE_LEN] = {
 static MODBUS_READ_t regsToRead[REG_BLOCK_COUNT] = {
     {INVERTER_SUM_BLOCK_ID, INVERTER_ID, INVERTER_SUM_REGS_START, INVERTER_SUM_REGS_LEN, "Inverter"},
     {METER_BLOCK_ID, METER_ID, METER_REGS_START, METER_REGS_LEN, "Smart Meter"},
-    {AKKU_STATE_BLOCK_ID, INVERTER_ID, INVERTER_STATE_REGS_START, INVERTER_STATE_REGS_LEN, "Inverter"},
-    {AKKU_STRG_BLOCK_ID, INVERTER_ID, INVERTER_STRG_REGS_START, INVERTER_STRG_REGS_LEN, "Inverter"}};
+    {AKKU_STATE_BLOCK_ID, INVERTER_ID, INVERTER_STATE_REGS_START, INVERTER_STATE_REGS_LEN, "Akku"},
+    {AKKU_STRG_BLOCK_ID, INVERTER_ID, INVERTER_STRG_REGS_START, INVERTER_STRG_REGS_LEN, "AkkuS"}};
 
 // highest number of registers to be printed (derived of regsToRead highest register number)
 const int regsCount = METER_REGS_LEN; // max(max(INVERTER_SUM_REGS_LEN, INVERTER_STATE_REGS_LEN), max(INVERTER_STRG_REGS_LEN, METER_REGS_LEN));
@@ -203,14 +203,44 @@ static char text[TEXT_LEN];
 static uint16_t res = 0;
 static int16_t resArr[REG_BLOCK_COUNT][regsCount];
 static float realPower;
+/*
+typedef struct
+{
+    int blockId;                // index of modbus block
+    int deviceId;               // modbus device id: inverter: 1, smart meter: 200
+    int baseAddr;               // register number (already reduced by 1)
+    int count;                  // number of registers to read
+    char text[DEVICE_NAME_LEN]; // device name
+} MODBUS_READ_t;
+
+Structure for Device Management; blockID is currently SmartMeter
+*/
+bool mb_readSmartMeter(Setup &setUpData, MB_CONTAINER &container)
+{
+
+    int readIndexCurrent = readIndex;
+    readIndex = METER_BLOCK_ID; // @see
+    bool result = mb_readInverterDynamic(setUpData, container);
+    readIndex = readIndexCurrent;
+    return result;
+}
+bool mb_readInverter(Setup &setUpData, MB_CONTAINER &container)
+{
+    int readIndexCurrent = readIndex;
+    readIndex = INVERTER_SUM_BLOCK_ID; // @see
+    bool result = mb_readInverterDynamic(setUpData, container);
+    readIndex = readIndexCurrent;
+    return result;
+}
 
 bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
 {
 
-    // if
+    // DBGf("mb_readInverterDynamic ENTER for readIndex: %d", readIndex);
+    //  if
     if ((setUpData.externerSpeicher == false) && (readIndex >= AKKU_STATE_BLOCK_ID))
     {
-        readIndex = (readIndex + 1) % REG_BLOCK_COUNT;
+        readIndex = 0; //(readIndex + 1) % REG_BLOCK_COUNT;
         return true;
     }
 
@@ -252,15 +282,16 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
 
         case INVERTER_SUM_BLOCK_ID:
             // inverterSumValues.data.acCurrentPower : produktion
-            DBGf("INVERTER_SUM_BLOCK_ID ");
-            //DBGf("Val 1 %d".resArr[readIndex].)
+            // DBGf("INVERTER_SUM_BLOCK_ID ");
+            // DBGf("Val 1 %d".resArr[readIndex].)
             scaleValues(inverterSumValues.value, resArr[readIndex], scaleInverterSum, INVERTER_SUM_VALUE_LEN);
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", inverterSumValues.data.acCurrentPower,
                     inverterSumValues.data.acTotalEnergy, inverterSumValues.data.dcCurrentPower);
             memcpy(&container.inverterSumValues.data, &inverterSumValues.data, sizeof(inverterSumValues.data));
-
+            break;
         case METER_BLOCK_ID:
-            // meterValues.data.acCurrentPower : aktuelle einspeisung (-), Bezug: +
+            // DBGf("METER_BLOCK_ID ");
+            //  meterValues.data.acCurrentPower : aktuelle einspeisung (-), Bezug: +
             scaleValues(meterValues.value, resArr[readIndex], scaleMeter, METER_VALUE_LEN);
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", meterValues.data.acCurrentPower,
                     meterValues.data.acTotalEnergyExp, meterValues.data.acTotalEnergyImp);
@@ -308,4 +339,5 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         DBGf("Modbus:: Cannot read registers ()");
         return false;
     }
+    // DBGf("mb_readInverterDynamic EXit for readIndex: %d", readIndex);
 }
