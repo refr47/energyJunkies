@@ -40,8 +40,8 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 
 #define TEMPERATURE_INTERVAL 5000UL             // 5 secs
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
-#define MODBUS_INTERVALL 2000UL
-#define PID_CONTROLLER_INTERVALL 130 // 0.1 secs default sample time
+#define MODBUS_INTERVALL 1000UL
+#define PID_CONTROLLER_INTERVALL 100 // 0.1 secs default sample time
 #define LOGGING_FLUSH_INTERVALL 60000
 #define CLOCK_INTERVALL 1000           // secs
 #define WEBSOCK_NOTIFY_INTERVALL 10000 // 5 secs
@@ -118,6 +118,7 @@ static double availablePowerFromWRInWatt = 0.0;
 */
 
 WEBSOCK_DATA &getDataForWebSocket();
+bool readModbus();
 
 // int sdCardLogOutput(const char *format, va_list args); // LOG-System
 
@@ -138,6 +139,20 @@ void logging_init()
 void test_cardReader()
 {
     cardRW_listDir("/", 3);
+}
+bool readModbus()
+{
+    // read smart meter
+    if (!mb_readSmartMeter(setupData, webSockData.mbContainer))
+        return false;
+    // read inverter
+    if (!mb_readInverter(setupData, webSockData.mbContainer))
+        return false;
+
+    // read smart meter
+    /* if (!mb_readInverterDynamic(setupData, webSockData.mbContainer))
+        return false; */
+    return true;
 }
 
 #ifdef EJ
@@ -667,47 +682,54 @@ void loop()
         else
         {
 
-            mb_readInverterDynamic(setupData, webSockData.mbContainer);
-            memset(formatBuffer, 0, 25);
-            // memcpy(&webSockData.mbContainer, &modbusData, sizeof(MB_CONTAINER));
-            util_format_Watt_kWatt(webSockData.mbContainer.inverterSumValues.data.acCurrentPower, formatBuffer);
-            DBGf("Produktion %s", formatBuffer);
-
-            DBGf("EXport %s", util_format_Watt_kWatt(webSockData.mbContainer.meterValues.data.acCurrentPower, formatBuffer));
-
-            if (webSockData.mbContainer.meterValues.data.acCurrentPower < 0.0 && (webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower < 0))
-
+            if (readModbus())
             {
-                DBGf("Wrong meter value from smartmeter - current production: %f !", webSockData.mbContainer.meterValues.data.acCurrentPower);
+
+                memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
+                // memcpy(&webSockData.mbContainer, &modbusData, sizeof(MB_CONTAINER));
+                util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer);
+                DBGf("Produktion %s", formatBuffer);
+
+                DBGf("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer));
+
+                if (METER_DATA.acCurrentPower < 0.0 && (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower < 0))
+
+                {
+                    DBGf("Wrong meter value from smartmeter - current production: %f !", METER_DATA.acCurrentPower);
 #ifdef MQTT
-                mqtt_publish_modbus_wrong_production_val(webSockData.mbContainer.meterValues.data.acCurrentPower);
+                    mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
 #endif
-            }
-            else
-            {
-                // memset(&pidContainer, 0, sizeof(pidContaienr));
+                }
+                else
+                {
+                    // memset(&pidContainer, 0, sizeof(pidContaienr));
 
-                DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower, formatBuffer));
-                webSockData.pidContainer.mCurrentPower = webSockData.mbContainer.meterValues.data.acCurrentPower; // export energy
-                // DBGf(", int: %d", pidContainer.mCurrentPower);
-                // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
+                    DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
+                    webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
+                    // DBGf(", int: %d", pidContainer.mCurrentPower);
+                    // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
 
-                webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5; // ????
-                webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
-                webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
-                webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+                    webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5; // ????
+                    webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
+                    webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
+                    webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
 #ifndef TEST_PID_WWWW
-                availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
+                    availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
 #endif
 
-                tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
+                    tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
 #ifdef MQTT
+                }
                 mqtt_publish_modbus_current_state(webSockData.mbContainer);
 #endif
             }
+            else
+            { // if readModbus
+                DBGf("MAIN::ModbusTimeSlice::  Error in reading modubs");
+            }
         } // if modbusstate
         timeSlice.previousMillModbus = timeSlice.currentMillis;
-    }
+    } // if
 
     /* ***********************                   FLUSH LOGGING FILE           ************************/
 
@@ -738,49 +760,51 @@ void loop()
 
                 pidPinManager.task(setupData, &availablePowerFromWRInWatt);
             }
+            timeSlice.previousMillisController = timeSlice.currentMillis;
         }
         // delay(2000);
         // DBGf(" main:: available watt: %f", availablePowerFromWRInWatt);
-        timeSlice.previousMillisController = timeSlice.currentMillis;
-    }
-    /* ***********************                   CONFIG LIVE UPDATE sTAMMdaTEN via WEB           ************************/
-    if (timeSlice.currentMillis - timeSlice.previousMillisTestConfig > CONFIG_PARAM_TEST_INTERVALL)
-    {
-        timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
-#ifdef TEST_PID_WWWW
-        Setup d;
-        eprom_getSetup(d);
-        // eprom_show(d);
-        if (eprom_stammDataUpdate())
-        {
-            DBGf("main PID-TEST update");
-            availablePowerFromWRInWatt = webSockData.setup.exportWatt = d.exportWatt;
 
-            webSockData.pidContainer.mCurrentPower = d.exportWatt * 1.00;
-            DBGf("PID-TEST (1): available watt: %d", d.exportWatt);
-            eprom_stammDataUpdateReset();
+        /* ***********************                   CONFIG LIVE UPDATE sTAMMdaTEN via WEB           ************************/
+        if (timeSlice.currentMillis - timeSlice.previousMillisTestConfig > CONFIG_PARAM_TEST_INTERVALL)
+        {
+            timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
+#ifdef TEST_PID_WWWW
+            Setup d;
+            eprom_getSetup(d);
+            // eprom_show(d);
+            if (eprom_stammDataUpdate())
+            {
+                DBGf("main PID-TEST update");
+                availablePowerFromWRInWatt = webSockData.setup.exportWatt = d.exportWatt;
+
+                webSockData.pidContainer.mCurrentPower = d.exportWatt * 1.00;
+                DBGf("PID-TEST (1): available watt: %d", d.exportWatt);
+                eprom_stammDataUpdateReset();
+            }
+
+            setupData.pid_p = d.pid_p;
+            setupData.pid_d = d.pid_d;
+            setupData.pid_i = d.pid_i;
+            mqtt_publish_pidParams(setupData.pid_p, setupData.pid_i, setupData.pid_d);
+
+#endif
         }
 
-        setupData.pid_p = d.pid_p;
-        setupData.pid_d = d.pid_d;
-        setupData.pid_i = d.pid_i;
-        mqtt_publish_pidParams(setupData.pid_p, setupData.pid_i, setupData.pid_d);
+        if (timeSlice.currentMillis - timeSlice.previousMillisWebSocks > WEBSOCK_NOTIFY_INTERVALL)
+        {
+            timeSlice.previousMillisWebSocks = timeSlice.currentMillis;
+            notifyClients(getJsonObj());
+        }
+        if (networkCredentialsInEEprom == false)
+        { // act as AP
+            www_run();
+        }
 
 #endif
     }
+} // loop
 
-    if (timeSlice.currentMillis - timeSlice.previousMillisWebSocks > WEBSOCK_NOTIFY_INTERVALL)
-    {
-        timeSlice.previousMillisWebSocks = timeSlice.currentMillis;
-        notifyClients(getJsonObj());
-    }
-    if (networkCredentialsInEEprom == false)
-    { // act as AP
-        www_run();
-    }
-
-#endif
-}
 WEBSOCK_DATA &getDataForWebSocket()
 {
     // DBGf("getDataForWebSocket, Temp: %.2lf", webSockData.temperature.sensor1);
