@@ -17,6 +17,7 @@
 #include "temp.h"
 #include "curTime.h"
 #include "webSockets.h"
+#include "wheater.h"
 #ifdef MQTT
 #include "mqtt.h"
 #endif
@@ -291,6 +292,7 @@ void setup()
         webSockData.states.tempSensorOK = false;
         tft_printKeyValue("Init Sensors", "Error", TFT_RED);
     }
+    wheater_getForecast();
     /* DBGf("Setup Modbus ...");
     if (!mb_init(setupData))
     {

@@ -3,6 +3,7 @@
 #define LEN_WLAN 30
 #define MODBUS_PORT "502"
 #define JSON_OBJECT_SETUP_LEN 1024 /// www.cpp,
+
 #include "debugConsole.h"
 #include "modbusRegister.h"
 

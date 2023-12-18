@@ -197,9 +197,10 @@ bool mb_readInverterStatic()
 
 // index into modbus read block array
 static int readIndex = 0;
+#ifdef MODBUS_VERBOSE
 // character array to prepare mesages
 static char text[TEXT_LEN];
-
+#endif
 static uint16_t res = 0;
 static int16_t resArr[REG_BLOCK_COUNT][regsCount];
 static float realPower;
@@ -276,7 +277,9 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
     if (transId != 0)
     {
         delay(MODBUS_WAIT_FOR_DATA_IN_MS); // Pulling interval
-        text[0] = '\0';                    // reset text to empty
+#ifdef MODBUS_VERBOSE
+        text[0] = '\0'; // reset text to empty
+#endif
         switch (regsToRead[readIndex].blockId)
         {
 
@@ -285,35 +288,44 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
             // DBGf("INVERTER_SUM_BLOCK_ID ");
             // DBGf("Val 1 %d".resArr[readIndex].)
             scaleValues(inverterSumValues.value, resArr[readIndex], scaleInverterSum, INVERTER_SUM_VALUE_LEN);
+#ifdef MODBUS_VERBOSE
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", inverterSumValues.data.acCurrentPower,
                     inverterSumValues.data.acTotalEnergy, inverterSumValues.data.dcCurrentPower);
+#endif
             memcpy(&container.inverterSumValues.data, &inverterSumValues.data, sizeof(inverterSumValues.data));
             break;
         case METER_BLOCK_ID:
             // DBGf("METER_BLOCK_ID ");
             //  meterValues.data.acCurrentPower : aktuelle einspeisung (-), Bezug: +
             scaleValues(meterValues.value, resArr[readIndex], scaleMeter, METER_VALUE_LEN);
+#ifdef MODBUS_VERBOSE
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", meterValues.data.acCurrentPower,
                     meterValues.data.acTotalEnergyExp, meterValues.data.acTotalEnergyImp);
+#endif
             memcpy(&container.meterValues.data, &meterValues.data, sizeof(meterValues.data));
             break;
         case AKKU_STATE_BLOCK_ID:
             scaleValues(inverterStateValues.value, resArr[readIndex], scaleInverterState, INVERTER_STATE_VALUE_LEN);
+#ifdef MODBUS_VERBOSE
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;", inverterStateValues.data.capacity,
                     inverterStateValues.data.chargeRateLimit, inverterStateValues.data.dischargeRateLimit, inverterStateValues.data.lifetimeEnergy);
+#endif
             memcpy(&container.akkuState.data, &inverterSumValues.data, sizeof(inverterSumValues.data));
             break;
         case AKKU_STRG_BLOCK_ID:
             scaleValues(inverterStrgValues.value, resArr[readIndex], scaleInverterStrg, INVERTER_STRG_VALUE_LEN);
             double maxChargePower; // max. charge rate in W
+#ifdef MODBUS_VERBOSE
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;",
                     inverterStrgValues.data.maxChargePower,
                     inverterStrgValues.data.maxChargeRate, inverterStrgValues.data.maxDischargeRate,
                     inverterStrgValues.data.minReservePct, inverterStrgValues.data.stateOfCharge,
                     inverterStrgValues.data.chargeRate, inverterStrgValues.data.dischargeRate);
+#endif
             memcpy(&container.akkuStr.data, &inverterStrgValues.data, sizeof(inverterStrgValues.data));
             break;
         }
+#ifdef MODBUS_VERBOSE
         if (text[0] != '\0')
         {
             DBGf("ModbusReader::Index: [%s] , data: %s", readIndex == 0 ? "Inverter" : "SmartMeter", text);
@@ -323,7 +335,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         {
             DBGf("ModbusReader:: index: %d:", readIndex);
         }
-
+#endif
         // make a line feed at the last block
         if (readIndex == REG_BLOCK_COUNT - 1)
         {
