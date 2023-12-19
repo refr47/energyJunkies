@@ -17,7 +17,7 @@
 #include "temp.h"
 #include "curTime.h"
 #include "webSockets.h"
-#include "wheater.h"
+#include "weather.h"
 #ifdef MQTT
 #include "mqtt.h"
 #endif
@@ -292,7 +292,9 @@ void setup()
         webSockData.states.tempSensorOK = false;
         tft_printKeyValue("Init Sensors", "Error", TFT_RED);
     }
+#ifdef WEATHER_API
     wheater_getForecast();
+#endif
     /* DBGf("Setup Modbus ...");
     if (!mb_init(setupData))
     {
@@ -353,20 +355,8 @@ static double currentConsumeInWatt, accumulatedWatt = 0.0;
 
 #define MAX_VAL 1700.0
 
-bool readModbus()
-{
-    // read inverter
-    if (!mb_readSmartMeter(setupData, webSockData.mbContainer))
-        return false;
-    if (!mb_readInverter(setupData, webSockData.mbContainer))
-        return false;
-
-    // read smart meter
-    /* if (!mb_readInverterDynamic(setupData, webSockData.mbContainer))
-        return false; */
-    return true;
-}
 #endif
+
 void loop()
 {
 
@@ -802,9 +792,9 @@ void loop()
         { // act as AP
             www_run();
         }
-
+    } //  if (timeSlice.currentMillis - timeSlice.previousMillisController > PID_CONTROLLER_INTERVALL)
 #endif
-    }
+
 } // loop
 
 WEBSOCK_DATA &getDataForWebSocket()

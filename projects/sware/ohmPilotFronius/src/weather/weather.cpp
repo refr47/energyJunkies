@@ -1,6 +1,8 @@
 #include <HTTPClient.h>
-#include "wheater.h"
+#include "weather.h"
 #include <Arduino_JSON.h>
+
+#ifdef WEATHER_API
 
 #define HOST_NAME "https://api.open-meteo.com"
 #define PATH_NAME_FORECAST "/v1/forecast"
@@ -39,3 +41,5 @@ void wheater_getForecast()
     JSONVar my_obj = JSON.parse(json_array);
     Serial.println(my_obj);
 }
+
+#endif
