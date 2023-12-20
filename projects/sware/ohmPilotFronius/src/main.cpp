@@ -18,6 +18,7 @@
 #include "curTime.h"
 #include "webSockets.h"
 #include "weather.h"
+#include "ledHandler.h"
 #ifdef MQTT
 #include "mqtt.h"
 #endif
@@ -107,7 +108,7 @@ static bool networkOK = false; */
 // static STATES states;
 
 static TIME_SLICE timeSlice;
-static Setup setupData;
+
 static LIFE_DATA lifeData;
 static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager;
@@ -144,14 +145,14 @@ void test_cardReader()
 bool readModbus()
 {
     // read smart meter
-    if (!mb_readSmartMeter(setupData, webSockData.mbContainer))
+    if (!mb_readSmartMeter(webSockData.setupData, webSockData.mbContainer))
         return false;
     // read inverter
-    if (!mb_readInverter(setupData, webSockData.mbContainer))
+    if (!mb_readInverter(webSockData.setupData, webSockData.mbContainer))
         return false;
 
     // read smart meter
-    /* if (!mb_readInverterDynamic(setupData, webSockData.mbContainer))
+    /* if (!mb_readInverterDynamic(webSockData.setupData, webSockData.mbContainer))
         return false; */
     return true;
 }
@@ -175,7 +176,7 @@ void setup()
     DBGf("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
     // memset(&states, 0, sizeof(STATES));
-
+    ledHandler_init();
     tft_init();
     tft_printSetup();
 
@@ -190,14 +191,14 @@ void setup()
     // eprom_test_write_Eprom("Milchbehaelter", "47754775");
     //    eprom_clearLifeData();
     eprom_isInit();
-    eprom_getSetup(setupData);
+    eprom_getSetup(webSockData.setupData);
     eprom_getLifeData(lifeData);
-    // eprom_show(setupData);
+    // eprom_show(webSockData.setupData);
 
     // eprom_test_read_Eprom();
 
-    // if (strcmp(setupData.ssid, "---") == 0)
-    if (strcmp(setupData.ssid, "--") == 0)
+    // if (strcmp(webSockData.setupData.ssid, "---") == 0)
+    if (strcmp(webSockData.setupData.ssid, "--") == 0)
     {
         networkCredentialsInEEprom = false;
         webSockData.states.networkOK = false;
@@ -209,10 +210,10 @@ void setup()
         char buff[130];
         memset(buff, 0, strlen(buff));
 
-        if (!wifi_init(setupData))
+        if (!wifi_init(webSockData.setupData))
         {
             DBGf("Cannot connect - show available networks: ");
-            // tft_drawNetworkInfo(NULL, setupData.ssid);
+            // tft_drawNetworkInfo(NULL, webSockData.setupData.ssid);
             tft_clearScreen();
             wifi_scan_network();
             www_init(NULL, NULL, getDataForWebSocket); // act as access point
@@ -225,8 +226,8 @@ void setup()
             wifi_getLocalIP(&pBuf);
             DBGf("Connected with ip: %s", globalStringBuffer);
 
-            tft_drawNetworkInfo(globalStringBuffer, setupData.ssid);
-            webSockData.states.flashOK = www_init(pBuf, setupData.ssid, getDataForWebSocket); // do not act as apoint
+            tft_drawNetworkInfo(globalStringBuffer, webSockData.setupData.ssid);
+            webSockData.states.flashOK = www_init(pBuf, webSockData.setupData.ssid, getDataForWebSocket); // do not act as apoint
             webSockData.states.networkOK = true;
         }
         if (!webSockData.states.networkOK)
@@ -239,11 +240,12 @@ void setup()
         tft_printKeyValue("Init Time", "OK", TFT_GREEN);
         time_init(); // init time
         DBGf("Setup Modbus ...");
-        if (!mb_init(setupData))
+        if (!mb_init(webSockData.setupData))
         {
             DBGf("Cannot initialize modbus ....");
             tft_printKeyValue("Init mdobus", "Error", TFT_RED);
             webSockData.states.modbusOK = false;
+            ledHandler_showError(true);
         }
         else
         {
@@ -295,29 +297,16 @@ void setup()
 #ifdef WEATHER_API
     wheater_getForecast();
 #endif
-    /* DBGf("Setup Modbus ...");
-    if (!mb_init(setupData))
-    {
-        DBGf("Cannot initialize modbus ....");
-        tft_printKeyValue("Init mdobus", "Error", TFT_RED);
-        webSockData.states.modbusOK = false;
-    }
-    else
-    {
-        webSockData.states.modbusOK = true;
-        tft_printKeyValue("Init Modbus", "ok", TFT_GREEN);
-    }
-    memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
-    */
+
     /*  if (!mb_readInverterStatic())
          DBGf("Error in Reading modbus"); */
     DBGf("Setup PID-Controller");
 #ifdef MQTT
-    mqtt_publish_pidParams(setupData.pid_p, setupData.pid_i, setupData.pid_d);
+    mqtt_publish_pidParams(webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
 #endif
-    DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", setupData.pid_p, setupData.pid_i, setupData.pid_d);
+    DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
     tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
-    pidPinManager.config(setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
+    pidPinManager.config(webSockData.setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
 }
 if (webSockData.states.networkOK)
 {
@@ -329,8 +318,8 @@ ESP_LOGI(TAG, "Setup done - all components are working...");
         ESP_LOGI(TAG, "Start testing...");
 
         pinMode(SWITCH_KEY_ENTER, INPUT_PULLUP);
-        pinMode(SWITCH_KEY_UP, INPUT_PULLUP);
-        pinMode(SWITCH_KEY_DOWN, INPUT_PULLUP);
+        /* pinMode(SWITCH_KEY_UP, INPUT_PULLUP);
+        pinMode(SWITCH_KEY_DOWN, INPUT_PULLUP); */
         pinMode(SWITCH_KEY_ESC, INPUT_PULLUP);
 
         pinMode(RELAY_L1, OUTPUT);
@@ -414,7 +403,7 @@ void loop()
 
         s1_esc_prev = 1;
         s2_enter_prev = 1;
-        sprintf(formatBuffer, "%d", setupData.heizstab_leistung_in_watt);
+        sprintf(formatBuffer, "%d", webSockData.setupData.heizstab_leistung_in_watt);
         tft_print_test(3, 15, 150, TFT_BLUE, "Heizstab", formatBuffer);
         tft_print_test(4, 15, 150, TFT_BLUE, "Enter -", "ESC +");
 
@@ -549,6 +538,7 @@ void loop()
     /* ***********************                   CLOCK           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisClock > CLOCK_INTERVALL)
     {
+        ledHandler_blink();
         if (getCurrentTime(formatBuffer, FORMAT_CHAR_BUFFER_LEN))
         {
 
@@ -612,7 +602,7 @@ void loop()
             DBGf(" TEMP in Celsius, S1: %f, S2: %f", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
             if (!alarmContainer.alarmTemp.alarmTemp)
             {
-                if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > setupData.tempMaxAllowedInGrad)
+                if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > webSockData.setupData.tempMaxAllowedInGrad)
                 {
                     ESP_LOGE(TAG, "Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
                     /*   pinMode(RELAY_L1, OUTPUT);
@@ -636,8 +626,8 @@ void loop()
                 double diffT = difftime(currT, alarmContainer.alarmTemp.overFlowHappenedAt); // in secs
                 if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
                 {
-                    DBGf("TempLimit over %d °C , wait for next check in secs: %d", setupData.tempMaxAllowedInGrad, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
-                    if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > setupData.tempMaxAllowedInGrad)
+                    DBGf("TempLimit over %d °C , wait for next check in secs: %d", webSockData.setupData.tempMaxAllowedInGrad, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
+                    if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > webSockData.setupData.tempMaxAllowedInGrad)
                     {
                         alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
 #ifdef MQTT
@@ -662,12 +652,14 @@ void loop()
         if (!webSockData.states.modbusOK)
         {
             tft_drawInfoNoModbus(webSockData.temperature);
-            if (mb_init(setupData))
+            eprom_getSetup(webSockData.setupData); // reRead setup data from eprom - maybe changed by web
+            if (mb_init(webSockData.setupData))
             {
                 DBGf("Reconnected modbus successfully.");
+                ledHandler_showError(false);
                 webSockData.states.modbusOK = true;
 #ifdef MQTT
-                mqtt_publish_modbus_reconnect(setupData.ipInverterAsString.c_str());
+                mqtt_publish_modbus_reconnect(webSockData.setupData.ipInverterAsString.c_str());
 #endif
             }
         }
@@ -711,9 +703,10 @@ void loop()
 
                     tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
 #ifdef MQTT
-                }
-                mqtt_publish_modbus_current_state(webSockData.mbContainer);
+
+                    mqtt_publish_modbus_current_state(webSockData.mbContainer);
 #endif
+                }
             }
             else
             { // if readModbus
@@ -740,17 +733,17 @@ void loop()
 
             if (availablePowerFromWRInWatt < 0.0) // energy export
             {
-                // DBGf(" main::Einspeisung %lf, muss übrig bleiben %d", availablePowerFromWRInWatt, setupData.pid_powerWhichNeedNotConsumed);
+                // DBGf(" main::Einspeisung %lf, muss übrig bleiben %d", availablePowerFromWRInWatt, webSockData.setupData.pid_powerWhichNeedNotConsumed);
 
                 //  Einspeisung - Wieviel müss übrig bleiben
-                pidPinManager.task(setupData, &availablePowerFromWRInWatt);
+                pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
             }
             else
             {
 
                 // DBGf(" main::Bezug  %f", availablePowerFromWRInWatt);
 
-                pidPinManager.task(setupData, &availablePowerFromWRInWatt);
+                pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
             }
             timeSlice.previousMillisController = timeSlice.currentMillis;
         }
@@ -775,10 +768,12 @@ void loop()
                 eprom_stammDataUpdateReset();
             }
 
-            setupData.pid_p = d.pid_p;
-            setupData.pid_d = d.pid_d;
-            setupData.pid_i = d.pid_i;
-            mqtt_publish_pidParams(setupData.pid_p, setupData.pid_i, setupData.pid_d);
+            webSockData.setupData.pid_p = d.pid_p;
+            webSockData.setupData.pid_d = d.pid_d;
+            webSockData.setupData.pid_i = d.pid_i;
+#ifdef MQTT
+            mqtt_publish_pidParams(webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
+#endif
 
 #endif
         }

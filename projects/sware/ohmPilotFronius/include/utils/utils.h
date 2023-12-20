@@ -4,7 +4,7 @@
 #include <AsyncJson.h>
 #include "debugConsole.h"
 #include "defines.h"
-
+ 
 void Serialprintln(const char *input...);
 void printHWInfo();
 

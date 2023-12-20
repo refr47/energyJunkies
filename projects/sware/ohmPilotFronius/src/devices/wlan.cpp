@@ -28,7 +28,7 @@ bool wifi_init(Setup &setup)
     DBGf("WIFI: %s, Passwd: %s", setup.ssid, setup.passwd);
     DBGf("Connecting to WiFi ..");
     tft_printInfo("Connecting to WiFi");
-#ifndef WEB
+
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
     int counter = 0;
     char buff[50];
@@ -51,10 +51,6 @@ bool wifi_init(Setup &setup)
         }
     }
 
-#endif
-#ifdef WEB
-    int numberOfTries = 0;
-#endif
     WiFi.disconnect();
     tft_print_txt(2, "Reconnect", setup.ssid);
     DBGf("[Wifi] Connecting to %s ", setup.ssid);

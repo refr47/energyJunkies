@@ -26,4 +26,4 @@
 #define AVAILABLE_POW "Z_Available_energy"
 
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
-void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json);
+void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus);

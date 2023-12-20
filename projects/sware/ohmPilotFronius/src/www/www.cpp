@@ -11,10 +11,6 @@
 #include "www.h"
 #include "webSockets.h"
 
-// WiFiServer server(80);
-const char *PARAM_INPUT_1 = "passwd";
-const char *PARAM_INPUT_2 = "state";
-
 /* You only need to format SPIFFS the first time you run a
    test or else use the SPIFFS plugin to create a partition
    https://github.com/me−no−dev/arduino−esp32fs−plugin */
@@ -40,6 +36,7 @@ static AsyncWebServer server(80);
 
 // Flag to check if the user is authenticated
 static bool isAuthenticated = false;
+static bool isAPModus = false; // only in APModus a reboot is required
 
 static void listDir(char *dir)
 {
@@ -152,6 +149,7 @@ bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockDat
     {
         //  Connect to Wi-Fi network with SSID_FOR_ACCESS_POINT
         DBG("Setting AP (Access Point)…");
+        isAPModus = true;
         WiFi.mode(WIFI_AP);
         WiFi.softAP(SSID_FOR_ACCESS_POINT);
         IPAddress IP = WiFi.softAPIP();
@@ -164,6 +162,7 @@ bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockDat
     else
     {
         DBGf("WWW init server with ip: %s", ipAddr);
+        isAPModus = false;
         // tft_printInfo("Start WWW on:");
 
         tft_printKeyValue("SSID", wlanAsClientSSID, TFT_GREEN);
@@ -218,7 +217,7 @@ bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockDat
     // https://github.com/me-no-dev/ESPAsyncWebServer
 
     AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                           { ajaxCalls_handleStoreSetup(request, json); });
+                                                                           { ajaxCalls_handleStoreSetup(request, json, isAPModus); });
 
     // Start the server
     server.addHandler(handler);

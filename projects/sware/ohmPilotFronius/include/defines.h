@@ -79,6 +79,7 @@ typedef struct _WEBSOCK
     TEMPERATURE temperature;
     PID_CONTAINER pidContainer;
     STATES states;
+    Setup setupData;
 
 } WEBSOCK_DATA;
 

@@ -7,7 +7,7 @@
 // pid settings and gains
 #define OUTPUT_MIN 0
 #define OUTPUT_MAX 255
-#ifdef PID_LIB
+
 #define aggKp 4
 #define aggKi 0.2
 #define aggKd 1
@@ -19,7 +19,6 @@
 #define KP 1
 #define KI 0.5
 #define KD 0
-#endif
 
 // power has to be above set point for this time, before next digital output
 // is activated (in ms)
@@ -38,9 +37,8 @@ static const int id_ANA_PWM = 2;
 
 PinManager::PinManager()
 
-#ifdef PID_LIB
     : mPid(&mCurrentPower, &mAnalogOut, &mPidSetPoint, KP, KI, KD, REVERSE) // RESERVE
-#endif
+
 {
 }
 void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
@@ -54,12 +52,11 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
     mDelayDigOutOn = millis();
     mDelayDigOutOff = millis();
     mPidSetPoint = setup.pid_powerWhichNeedNotConsumed; // 10 w
-#ifdef PID_LIB
+
     mPid.SetMode(AUTOMATIC);
     // mPid.SetOutputLimits(OUTPUT_MIN, setup.phasen_leistung_in_watt);
     mPid.SetOutputLimits(OUTPUT_MIN, OUTPUT_MAX);
     // mPid.SetSampleTime(50); default sample time is 0,1 or 100
-#endif
 }
 void PinManager::reset()
 {
@@ -75,7 +72,6 @@ void PinManager::reset()
 }
 // currentP: < 0 : einspeisung, >0 Bezug
 
-#ifdef PID_LIB
 bool PinManager::task(Setup &setup, double *currentAvailablePower)
 {
     bool result = false;
@@ -172,7 +168,6 @@ bool PinManager::task(Setup &setup, double *currentAvailablePower)
     /*     DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, mPidSetPoint: %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1)); */
     return 0;
 }
-#endif
 
 #ifdef IIIIIIII
 

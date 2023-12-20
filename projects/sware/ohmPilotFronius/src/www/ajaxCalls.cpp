@@ -51,7 +51,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     return returnFromStoreSetup(true, data, request);
 }
 
-void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json)
+void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus)
 {
     const JsonObject &jsonObj = json.as<JsonObject>();
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
@@ -205,8 +205,12 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     eprom_storeSetup(setup);
     eprom_test_read_Eprom();
     returnFromStoreSetup(errorH, data, request);
-    delay(10000); // wait 10 secs
-    esp_restart();
+    if (isAPModus)
+    {
+        DBGf("ajaxCalls::store - in AP-Modus a restart is required");
+        delay(10000); // wait 10 secs
+        esp_restart();
+    }
 }
 /* private functions */
 

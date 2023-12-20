@@ -97,9 +97,9 @@ private:
     double mAnalogOut;
     double mPidSetPoint;
     double mCurrentPower;
-#ifdef PID_LIB
+
     PID mPid;
-#endif
+
     unsigned long mDelayDigOutOn;
     unsigned long mDelayDigOutOff;
 };
