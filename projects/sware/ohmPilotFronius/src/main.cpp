@@ -245,7 +245,7 @@ void setup()
             DBGf("Cannot initialize modbus ....");
             tft_printKeyValue("Init mdobus", "Error", TFT_RED);
             webSockData.states.modbusOK = false;
-            ledHandler_showError(true);
+            ledHandler_showModbusError(true);
         }
         else
         {
@@ -281,6 +281,7 @@ void setup()
         DBGf("Logging to file cannot be initiated ...");
         tft_printKeyValue("Init CardReader", "Error", TFT_RED);
         webSockData.states.cardWriterOK = false;
+        ledHandler_showCardReaderError(true);
     }
 
     if (temp_init())
@@ -605,16 +606,12 @@ void loop()
                 if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > webSockData.setupData.tempMaxAllowedInGrad)
                 {
                     ESP_LOGE(TAG, "Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
-                    /*   pinMode(RELAY_L1, OUTPUT);
-                     pinMode(RELAY_L2, OUTPUT);
-                     pinMode(PWM_FOR_PID, OUTPUT);
-                     digitalWrite(RELAY_L1, 0);
-                     digitalWrite(RELAY_L2, 0);
-                     analogWrite(PWM_FOR_PID, 0); */
+
                     pidPinManager.reset(); // alles aus
                     alarmContainer.alarmTemp.alarmTemp = true;
                     alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
                     webSockData.temperature.alarm = true;
+                    ledHandler_showTemperaturError(true);
 #ifdef MQTT
                     mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
 #endif
@@ -630,6 +627,7 @@ void loop()
                     if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > webSockData.setupData.tempMaxAllowedInGrad)
                     {
                         alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+                        ledHandler_showTemperaturError(true);
 #ifdef MQTT
                         mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
 #endif
@@ -638,6 +636,7 @@ void loop()
                     {
                         alarmContainer.alarmTemp.alarmTemp = true;
                         alarmContainer.alarmTemp.overFlowHappenedAt = 0;
+                        ledHandler_showTemperaturError(false);
                         DBGf("TempLimit reset");
                     }
                 }
@@ -656,7 +655,7 @@ void loop()
             if (mb_init(webSockData.setupData))
             {
                 DBGf("Reconnected modbus successfully.");
-                ledHandler_showError(false);
+                ledHandler_showModbusError(false);
                 webSockData.states.modbusOK = true;
 #ifdef MQTT
                 mqtt_publish_modbus_reconnect(webSockData.setupData.ipInverterAsString.c_str());
