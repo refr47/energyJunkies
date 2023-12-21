@@ -120,7 +120,6 @@ static double availablePowerFromWRInWatt = 0.0;
 */
 
 WEBSOCK_DATA &getDataForWebSocket();
-bool readModbus();
 
 // int sdCardLogOutput(const char *format, va_list args); // LOG-System
 
@@ -141,20 +140,6 @@ void logging_init()
 void test_cardReader()
 {
     cardRW_listDir("/", 3);
-}
-bool readModbus()
-{
-    // read smart meter
-    if (!mb_readSmartMeter(webSockData.setupData, webSockData.mbContainer))
-        return false;
-    // read inverter
-    if (!mb_readInverter(webSockData.setupData, webSockData.mbContainer))
-        return false;
-
-    // read smart meter
-    /* if (!mb_readInverterDynamic(webSockData.setupData, webSockData.mbContainer))
-        return false; */
-    return true;
 }
 
 #ifdef EJ
@@ -418,13 +403,8 @@ void loop()
                 DBGf("Start Messung & init");
 
                 sprintf(formatBuffer, "0");
-                if (!readModbus())
-                {
-                    tft_print_test(11, 15, 150, TFT_RED, "Error", "Modbus cannot read");
-                    DBGf("Error reading modbus");
-                    return;
-                }
-                if (!readModbus())
+
+                if (mb_readSmartMeterAndInverterOnly(webSockData.setupData, webSockData.mbContainer))
                 {
                     tft_print_test(11, 15, 150, TFT_RED, "Error", "Modbus cannot read");
                     DBGf("Error reading modbus");
@@ -455,7 +435,7 @@ void loop()
             {
                 // DBGf("Start Messung & Modbus read");
                 time(&time3);
-                if (!readModbus())
+                if (mb_readSmartMeterAndInverterOnly(webSockData.setupData, webSockData.mbContainer))
                 {
                     tft_print_test(11, 15, 150, TFT_RED, "Error", "Modbus cannot read");
                     DBGf("Error reading modbus");
@@ -492,7 +472,7 @@ void loop()
                 analogWrite(PWM_FOR_PID, pwmValue);
                 time(&time2);
                 delay(1000);
-                readModbus();
+                mb_readSmartMeterAndInverterOnly(webSockData.setupData, webSockData.mbContainer);
 
                 double dTime = difftime(time2, time1);
                 sprintf(formatBuffer, "%.1f secs", dTime - 1.0);
@@ -504,7 +484,7 @@ void loop()
                 DBGf("Stop - last values: %s", formatBuffer);
                 sprintf(formatBuffer, "Time: %.1f", dTime);
                 tft_print_test(8, 15, 130, TFT_GREEN, "Stop (secs) ", formatBuffer);
-                readModbus();
+                mb_readSmartMeterAndInverterOnly(webSockData.setupData, webSockData.mbContainer);
             }
             else
             {
@@ -578,13 +558,6 @@ void loop()
                 if (!webSockData.temperature.alarm)
                 {
                     ESP_LOGE(TAG, "Temperatur Sensorik ausgefallen - Heizpatrone wird abgeschaltet");
-                    /*   pinMode(RELAY_L1, OUTPUT);
-                      pinMode(RELAY_L2, OUTPUT);
-                      pinMode(PWM_FOR_PID, OUTPUT);
-                      digitalWrite(RELAY_L1, 0);
-                      digitalWrite(RELAY_L2, 0);
-                      analogWrite(PWM_FOR_PID, 0); */
-
                     pidPinManager.reset(); // alles aus
                     alarmContainer.alarmTemp.alarmTemp = true;
                     alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
@@ -596,7 +569,6 @@ void loop()
         {
 
             webSockData.temperature.alarm = false;
-            // memcpy(&webSockData.temperature, &container, sizeof(TEMPERATURE));
             /*
             RELAY_L1, RELAY_L2, PWM_FOR_PID
             */
@@ -664,12 +636,10 @@ void loop()
         }
         else
         {
-
-            if (readModbus())
+            if (mb_readSmartMeterAndInverterOnly(webSockData.setupData, webSockData.mbContainer))
             {
 
                 memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
-                // memcpy(&webSockData.mbContainer, &modbusData, sizeof(MB_CONTAINER));
                 util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer);
                 DBGf("Produktion %s", formatBuffer);
 
@@ -685,8 +655,6 @@ void loop()
                 }
                 else
                 {
-                    // memset(&pidContainer, 0, sizeof(pidContaienr));
-
                     DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
                     webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
                     // DBGf(", int: %d", pidContainer.mCurrentPower);

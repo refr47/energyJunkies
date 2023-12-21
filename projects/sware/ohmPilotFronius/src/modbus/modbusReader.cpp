@@ -216,6 +216,17 @@ typedef struct
 
 Structure for Device Management; blockID is currently SmartMeter
 */
+bool mb_readSmartMeterAndInverterOnly(Setup &setUpData, MB_CONTAINER &mbContainer)
+{
+    // read smart meter
+    if (!mb_readSmartMeter(setUpData, mbContainer))
+        return false;
+    // read inverter
+    if (!mb_readInverter(setUpData, mbContainer))
+        return false;
+
+    return true;
+}
 bool mb_readSmartMeter(Setup &setUpData, MB_CONTAINER &container)
 {
 
