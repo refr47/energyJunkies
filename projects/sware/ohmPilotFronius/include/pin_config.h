@@ -47,8 +47,8 @@
 #else
 #define ONE_WIRE_TEMP_GPIO 2
 #define PWM_FOR_PID 1
-#define LED_ERROR 43
-#define LED_WORKING 44
+#define LED_ERROR1 43
+#define LED_ERROR2 44
 #define SWITCH_KEY_ESC 18
 #define SWITCH_KEY_ENTER 17
 #define RELAY_L1 16
