@@ -1,7 +1,5 @@
 #pragma once
 
-#include <Arduino.h>
-
 /*
 https://github.com/lostcontrol/wattpilot
 
@@ -22,6 +20,7 @@ https://github.com/lostcontrol/wattpilot
 40352 Ladestand in % (SoC)
 
 */
+#include "defines.h"
 
 // modbus device id of inverter
 #define INVERTER_ID 1
@@ -57,23 +56,30 @@ https://github.com/lostcontrol/wattpilot
 #define INVERTER_SUM_REGS_LEN 19
 #define INVERTER_SUM_VALUE_LEN 3
 
-// inverter summary values register definitions 1
+// meter values register definitions
+#define METER_BLOCK_ID 1
+#define METER_REGS_START 40071
+#define METER_REGS_LEN 70
+#define METER_VALUE_LEN 3
+
+// akku summary values register definitions 1
 #define AKKU_STATE_BLOCK_ID 2
 #define INVERTER_STATE_REGS_START 40140
 #define INVERTER_STATE_REGS_LEN 50
 #define INVERTER_STATE_VALUE_LEN 4
 
-// inverter summary values register definitions 2
+// akku summary values register definitions 2
 #define AKKU_STRG_BLOCK_ID 3
 #define INVERTER_STRG_REGS_START 40345
 #define INVERTER_STRG_REGS_LEN 24
-#define INVERTER_STRG_VALUE_LEN 7
+#define INVERTER_STRG_VALUE_LEN 10
 
-// meter values register definitions 3
-#define METER_BLOCK_ID 1
-#define METER_REGS_START 40071
-#define METER_REGS_LEN 70
-#define METER_VALUE_LEN 3
+// akku control values
+
+/* #define AKKU_CONTROL_BLOCK_ID 4
+#define AKKU_CONTROL_REGS_START 40345
+#define AKKU_CONTROL_REGS_LEN 23
+#define AKKU_CONTROL_VALUE_LEN 7 */
 
 // max. length of modbus device names
 #define DEVICE_NAME_LEN 24 // ModbusIP object
@@ -147,13 +153,16 @@ typedef union akkuStrgValue
     double value[INVERTER_STRG_VALUE_LEN];
     struct akkuStrgData
     {
-        double maxChargePower;   // max. charge rate in W
-        double maxChargeRate;    // max. charge rate in %
-        double maxDischargeRate; // max discharge rate in %
-        double minReservePct;    // min. emergency reserve in %
-        double stateOfCharge;    // state of charge in %
-        double chargeRate;       // charge rate in %
-        double dischargeRate;    // discharge rate in %
+        double maxChargePower;      // max. charge rate in W
+        double maxChargeRate;       // max. charge rate in %
+        double maxDischargeRate;    // max discharge rate in %
+        double minReservePct;       // min. emergency reserve in %
+        double activeHoldCharge;    // active hold charge in W
+        double stateOfCharge;       // state of charge in %
+        double currentAvailableMem; // current available memory in %
+        double chargeRate;          // charge rate in %
+        double dischargeRate;       // discharge rate in %
+        double chargeGridSet;
     } data;
 } AKKU_STRG_VALUE_t;
 
@@ -177,6 +186,15 @@ typedef struct
     int count;                  // number of registers to read
     char text[DEVICE_NAME_LEN]; // device name
 } MODBUS_READ_t;
+
+typedef struct mbContainer
+{
+    INVERTER_SUM_VALUE_t inverterSumValues;
+    METER_VALUE_t meterValues;
+    AKKU_STATE_VALUE_t akkuState;
+    AKKU_STRG_VALUE_t akkuStr;
+
+} MB_CONTAINER;
 
 // scale values: set target to source * scale factor, number of elements
 int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int count);

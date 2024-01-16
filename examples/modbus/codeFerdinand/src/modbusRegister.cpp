@@ -1,6 +1,7 @@
 #define __MODBUS_REGISTER_CPP
 
 #include "modbusRegister.h"
+#include "defines.h"
 #include "debugConsole.h"
 
 // swap bytes of an byte array
@@ -14,7 +15,7 @@ void swapRegs(uint16_t regs[], int count)
         regs[count - 1 - i] = temp;
     }
 }
- 
+
 int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int count)
 {
     int64_t value;

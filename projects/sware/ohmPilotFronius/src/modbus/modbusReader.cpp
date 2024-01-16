@@ -44,8 +44,8 @@ static int16_t inverterStrgRegs[INVERTER_STRG_REGS_LEN];
 // meter modbus register array
 static int16_t meterRegs[METER_REGS_LEN];
 
-static AKKU_STATE_VALUE_t inverterStateValues;
-static AKKU_STRG_VALUE_t inverterStrgValues;
+static AKKU_STATE_VALUE_t akkuStateValues;
+static AKKU_STRG_VALUE_t akkuStrgValues;
 
 // scaling relations for meter values
 static SCALE_INDEX_t scaleInverterSum[INVERTER_SUM_VALUE_LEN] = {
@@ -55,7 +55,7 @@ static SCALE_INDEX_t scaleInverterSum[INVERTER_SUM_VALUE_LEN] = {
 };
 
 // scaling relations for meter values
-static SCALE_INDEX_t scaleInverterState[INVERTER_STATE_VALUE_LEN] = {
+static SCALE_INDEX_t akkuInverterState[INVERTER_STATE_VALUE_LEN] = {
     {0, 40140 - INVERTER_STATE_REGS_START, 40141 - INVERTER_STATE_REGS_START, 1}, // storage capacity in Wh
     {1, 40144 - INVERTER_STATE_REGS_START, 40145 - INVERTER_STATE_REGS_START, 1}, // max. charge rate
     {2, 40146 - INVERTER_STATE_REGS_START, 40147 - INVERTER_STATE_REGS_START, 1}, // max. discharge rate
@@ -63,7 +63,7 @@ static SCALE_INDEX_t scaleInverterState[INVERTER_STATE_VALUE_LEN] = {
 };
 
 // scaling relations for meter values
-static SCALE_INDEX_t scaleInverterStrg[INVERTER_STRG_VALUE_LEN] = {
+static SCALE_INDEX_t akkuInverterStrg[INVERTER_STRG_VALUE_LEN] = {
     {0, 40345 - INVERTER_STRG_REGS_START, 40361 - INVERTER_STRG_REGS_START, 1}, // max. charge power in W
     {1, 40346 - INVERTER_STRG_REGS_START, 40362 - INVERTER_STRG_REGS_START, 1}, // max. charge rate in %
     {2, 40347 - INVERTER_STRG_REGS_START, 40362 - INVERTER_STRG_REGS_START, 1}, // max. discharge rate %
@@ -244,17 +244,30 @@ bool mb_readInverter(Setup &setUpData, MB_CONTAINER &container)
     readIndex = readIndexCurrent;
     return result;
 }
+bool mb_readAkkuOnly(Setup &setUpData, MB_CONTAINER &container)
+{
+    int readIndexCurrent = readIndex;
+    readIndex = AKKU_STATE_BLOCK_ID; // @see
+    bool result = mb_readInverterDynamic(setUpData, container);
+    if (result)
+    {
+        readIndex = AKKU_STRG_BLOCK_ID; // @see
+        result = mb_readInverterDynamic(setUpData, container);
+    }
+    readIndex = readIndexCurrent;
+    return result;
+}
 
 bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
 {
 
     // DBGf("mb_readInverterDynamic ENTER for readIndex: %d", readIndex);
     //  if
-    if ((setUpData.externerSpeicher == false) && (readIndex >= AKKU_STATE_BLOCK_ID))
-    {
-        readIndex = 0; //(readIndex + 1) % REG_BLOCK_COUNT;
-        return true;
-    }
+    /*  if ((setUpData.externerSpeicher == false) && (readIndex >= AKKU_STATE_BLOCK_ID))
+     {
+         readIndex = 0; //(readIndex + 1) % REG_BLOCK_COUNT;
+         return true;
+     } */
 
     // result of modbus access functions
     uint16_t transId = 0;
@@ -316,30 +329,35 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
             memcpy(&container.meterValues.data, &meterValues.data, sizeof(meterValues.data));
             break;
         case AKKU_STATE_BLOCK_ID:
-            scaleValues(inverterStateValues.value, resArr[readIndex], scaleInverterState, INVERTER_STATE_VALUE_LEN);
+            scaleValues(akkuStateValues.value, resArr[readIndex], akkuInverterState, INVERTER_STATE_VALUE_LEN);
 #ifdef MODBUS_VERBOSE
-            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;", inverterStateValues.data.capacity,
-                    inverterStateValues.data.chargeRateLimit, inverterStateValues.data.dischargeRateLimit, inverterStateValues.data.lifetimeEnergy);
+            sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;", akkuStateValues.data.capacity,
+                    akkuStateValues.data.chargeRateLimit, akkuStateValues.data.dischargeRateLimit, akkuStateValues.data.lifetimeEnergy);
 #endif
-            memcpy(&container.akkuState.data, &inverterSumValues.data, sizeof(inverterSumValues.data));
+            memcpy(&container.akkuState.data, &akkuStateValues.data, sizeof(akkuStateValues.data));
             break;
         case AKKU_STRG_BLOCK_ID:
-            scaleValues(inverterStrgValues.value, resArr[readIndex], scaleInverterStrg, INVERTER_STRG_VALUE_LEN);
+            scaleValues(akkuStrgValues.value, resArr[readIndex], akkuInverterStrg, INVERTER_STRG_VALUE_LEN);
             double maxChargePower; // max. charge rate in W
 #ifdef MODBUS_VERBOSE
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;",
-                    inverterStrgValues.data.maxChargePower,
-                    inverterStrgValues.data.maxChargeRate, inverterStrgValues.data.maxDischargeRate,
-                    inverterStrgValues.data.minReservePct, inverterStrgValues.data.stateOfCharge,
-                    inverterStrgValues.data.chargeRate, inverterStrgValues.data.dischargeRate);
+                    akkuStrgValues.data.maxChargePower,
+                    akkuStrgValues.data.maxChargeRate, akkuStrgValues.data.maxDischargeRate,
+                    akkuStrgValues.data.minReservePct, akkuStrgValues.data.stateOfCharge,
+                    akkuStrgValues.data.chargeRate, akkuStrgValues.data.dischargeRate);
 #endif
-            memcpy(&container.akkuStr.data, &inverterStrgValues.data, sizeof(inverterStrgValues.data));
+            memcpy(&container.akkuStr.data, &akkuStrgValues.data, sizeof(akkuStrgValues.data));
             break;
         }
 #ifdef MODBUS_VERBOSE
         if (text[0] != '\0')
         {
-            DBGf("ModbusReader::Index: [%s] , data: %s", readIndex == 0 ? "Inverter" : "SmartMeter", text);
+            const char *cp = NULL;
+            if (readIndex < 2)
+                cp = readIndex == 0 ? "Inverter" : "SmartMeter";
+            else
+                cp = readIndex == 2 ? "Akku State" : "Akku Strg";
+            DBGf("ModbusReader::Index: [%s] , data: %s", cp, text);
             text[0] = '\0';
         }
         else

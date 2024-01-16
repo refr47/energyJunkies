@@ -155,7 +155,6 @@ void tft_clearScreen()
     // tft_printInfo(HEADER);
 
     ++currentLine;
-    
 }
 void tft_showIP(const char *ip)
 {
@@ -456,6 +455,8 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Speicher", TFT_SKYBLUE);
     tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, "Pufferspeicher", TFT_SKYBLUE);
     txtColor = TFT_WHITE;
+    DBGf("tft_info, akku capa: %f", modb.akkuState.data.capacity);
+
     sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.akkuState.data.capacity, formatBuffer));
     tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Kapazität", displayBuffer);
     sprintf(displayBuffer, "%s", pidC.PID_PIN1 == 1 ? "ein" : "aus");

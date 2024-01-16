@@ -45,6 +45,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define MODBUS_INTERVALL 1000UL
 #define PID_CONTROLLER_INTERVALL 100 // 0.1 secs default sample time
 #define LOGGING_FLUSH_INTERVALL 60000
+#define MODBUS_AKKU_INTERVALL 5000
 #define CLOCK_INTERVALL 1000           // secs
 #define WEBSOCK_NOTIFY_INTERVALL 10000 // 5 secs
 #define SHOW_IP_ADDR_INTERVALL 5000
@@ -91,6 +92,7 @@ typedef struct _TIME_SLICE
     unsigned long previousMillisShowIp;
     unsigned long previousMillisController;
     unsigned long previousMillisTestConfig;
+    unsigned long previousMillisAkku;
     unsigned long currentMillis;
 
 } TIME_SLICE;
@@ -618,6 +620,21 @@ void loop()
     }
 
     /* ***********************                   MODBUS           ************************/
+
+    if (timeSlice.currentMillis - timeSlice.previousMillisAkku > MODBUS_AKKU_INTERVALL)
+    {
+
+        if (webSockData.states.modbusOK)
+        {
+            if (!mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer))
+            {
+                webSockData.states.modbusOK = false;
+                ledHandler_showModbusError(true);
+            }
+        }
+        tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
+        timeSlice.previousMillisAkku = timeSlice.currentMillis;
+    }
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
         if (!webSockData.states.modbusOK)
