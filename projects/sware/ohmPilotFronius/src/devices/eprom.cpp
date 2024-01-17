@@ -9,18 +9,20 @@
 // https://randomnerdtutorials.com/esp32-save-data-permanently-preferences/#example2
 
 static Preferences preferences;
-static bool stammDataUpdateWatch=true;
+static bool stammDataUpdateWatch = true;
 
-bool eprom_stammDataUpdate() {
+bool eprom_stammDataUpdate()
+{
     return stammDataUpdateWatch;
 }
-void eprom_stammDataUpdateReset() {
+void eprom_stammDataUpdateReset()
+{
     stammDataUpdateWatch = false;
 }
 
 void eprom_storeSetup(Setup &setup)
 {
-    stammDataUpdateWatch=true;
+    stammDataUpdateWatch = true;
     preferences.begin(CREDENTIALS, false);
 #ifndef TEST_PID
     preferences.clear();
@@ -121,7 +123,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.heizstab_leistung_in_watt = 5000;
     setup.tempMaxAllowedInGrad = 80;
     setup.tempMinInGrad = 10;
-    String ipInv = "10.0.0.7";
+    String ipInv = "10.0.0.2";
     bool result = true;
 
     setup.ipInverter = ipv4_string_to_int(ipInv, &result);
