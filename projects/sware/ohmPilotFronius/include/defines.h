@@ -84,3 +84,12 @@ typedef struct _WEBSOCK
 } WEBSOCK_DATA;
 
 typedef WEBSOCK_DATA &(*CALLBACK_GET_DATA)();
+
+typedef struct _FRONIUS_SOLAR_POWERFLOW {
+        double p_akku;
+        double p_grid;
+        double p_load;
+        double p_pv;
+        unsigned int rel_Autonomy;
+        unsigned int rel_SelfConsumption;
+}FRONIUS_SOLAR_POWERFLOW;

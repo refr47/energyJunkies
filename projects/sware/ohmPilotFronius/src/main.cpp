@@ -22,6 +22,9 @@
 #ifdef MQTT
 #include "mqtt.h"
 #endif
+#ifdef FRONIUS_API
+#include "froniusSolarAPI.h"
+#endif
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -97,7 +100,6 @@ typedef struct _TIME_SLICE
 
 } TIME_SLICE;
 
-
 /* ****************************************************************************
   GLOBAL VARS https://randomnerdtutorials.com/esp32-websocket-server-sensor/
   ****************************************************************************
@@ -117,7 +119,7 @@ static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager;
 static WEBSOCK_DATA webSockData;
 static double availablePowerFromWRInWatt = 0.0;
-
+static FRONIUS_SOLAR_POWERFLOW fronius_SOLAR_POWERFLOW;
 /* **************************************************************************
         ProtoTypes
 */
@@ -285,6 +287,11 @@ void setup()
     }
 #ifdef WEATHER_API
     wheater_getForecast();
+#endif
+#ifdef FRONIUS_API
+    soloar_init(webSockData.setupData);
+    memset(&fronius_SOLAR_POWERFLOW,0,sizeof(fronius_SOLAR_POWERFLOW));
+    solar_get_powerflow(fronius_SOLAR_POWERFLOW);
 #endif
 
     /*  if (!mb_readInverterStatic())
@@ -715,21 +722,22 @@ void loop()
 
         if (!alarmContainer.alarmTemp.alarmTemp)
         {
+            pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
 
-            if (availablePowerFromWRInWatt < 0.0) // energy export
-            {
-                // DBGf(" main::Einspeisung %lf, muss übrig bleiben %d", availablePowerFromWRInWatt, webSockData.setupData.pid_powerWhichNeedNotConsumed);
+            /*  if (availablePowerFromWRInWatt < 0.0) // energy export
+             {
+                 // DBGf(" main::Einspeisung %lf, muss übrig bleiben %d", availablePowerFromWRInWatt, webSockData.setupData.pid_powerWhichNeedNotConsumed);
 
-                //  Einspeisung - Wieviel müss übrig bleiben
-                pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
-            }
-            else
-            {
+                 //  Einspeisung - Wieviel müss übrig bleiben
+                 pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
+             }
+             else
+             {
 
-                // DBGf(" main::Bezug  %f", availablePowerFromWRInWatt);
+                 // DBGf(" main::Bezug  %f", availablePowerFromWRInWatt);
 
-                pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
-            }
+                 pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
+             } */
             timeSlice.previousMillisController = timeSlice.currentMillis;
         }
         // delay(2000);

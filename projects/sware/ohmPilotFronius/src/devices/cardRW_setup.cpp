@@ -48,7 +48,7 @@ bool cardRW_setup(bool logToCard, bool logInverter)
 
         delay(1000);
         DBGf("Try to mount card (%d)", counter);
-        if (++counter > 20)
+        if (++counter > 5)
         {
             DBGf("Card Mount Failed:  %d trials", counter);
             ESP_LOGE(TAG, "SD Card Reader kann nicht initialisiert werden!");

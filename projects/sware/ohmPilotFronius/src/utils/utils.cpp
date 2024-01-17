@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <string.h>
 #include <Arduino.h>
+#include <HTTPClient.h>
+
 
 // using namespace std; // im lazy
 #define BUFFER_LEN_FOR_ARG_CHECK 100
@@ -221,10 +223,34 @@ void util_pHW()
     DBGf("Chip id: %s\n", chipId.c_str());
 }
 
-char   *util_format_Watt_kWatt(double val,char *formatBuf) {
+char *util_format_Watt_kWatt(double val, char *formatBuf)
+{
     if (fabs(val) > 1000.0)
-        sprintf(formatBuf,"%.2lf kW",val/1000);
+        sprintf(formatBuf, "%.2lf kW", val / 1000);
     else
-         sprintf(formatBuf,"%.2lf W",val);
+        sprintf(formatBuf, "%.2lf W", val);
     return formatBuf;
+}
+
+String util_GET_Request(const char *url)
+{
+    HTTPClient http;
+    http.begin(url);
+    int httpResponseCode = http.GET();
+
+    String payload = "{}";
+
+    if (httpResponseCode > 0)
+    {
+        DBGf("HTTP Response code: ", httpResponseCode);
+        payload = http.getString();
+    }
+    else
+    {
+        DBGf("Error code: ", httpResponseCode);
+        payload="";
+    }
+    http.end();
+
+    return payload;
 }

@@ -19,3 +19,4 @@ bool util_checkParamInt(const char *key, const char *argument, StaticJsonDocumen
 bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data);
 void util_pHW();
 char*  util_format_Watt_kWatt(double val,char *formatBuf);
+String util_GET_Request(const char *url);
