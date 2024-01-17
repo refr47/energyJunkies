@@ -378,7 +378,7 @@ void tft_drawInfoNoModbus(TEMPERATURE &temp)
 
 void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
 {
-
+ 
     saveCurLine = currentLine;
 
     char formatBuffer[25]; // format W | kW
@@ -455,7 +455,7 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Speicher", TFT_SKYBLUE);
     tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, "Pufferspeicher", TFT_SKYBLUE);
     txtColor = TFT_WHITE;
-    DBGf("tft_info, akku capa: %f", modb.akkuState.data.capacity);
+    
 
     sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.akkuState.data.capacity, formatBuffer));
     tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Kapazität", displayBuffer);

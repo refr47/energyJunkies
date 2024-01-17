@@ -108,10 +108,6 @@ typedef struct _TIME_SLICE
 char globalStringBuffer[GLOBAL_STRING_BUFFER_LEN];
 static bool networkCredentialsInEEprom = true;
 
-/* static bool cardWriterOK = false;
-static bool networkOK = false; */
-// static STATES states;
-
 static TIME_SLICE timeSlice;
 
 static LIFE_DATA lifeData;
@@ -119,7 +115,9 @@ static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager;
 static WEBSOCK_DATA webSockData;
 static double availablePowerFromWRInWatt = 0.0;
+#ifdef FRONIUS_API
 static FRONIUS_SOLAR_POWERFLOW fronius_SOLAR_POWERFLOW;
+#endif
 /* **************************************************************************
         ProtoTypes
 */
@@ -288,14 +286,31 @@ void setup()
 #ifdef WEATHER_API
     wheater_getForecast();
 #endif
+    webSockData.states.froniusAPI = false;
 #ifdef FRONIUS_API
-    soloar_init(webSockData.setupData);
-    memset(&fronius_SOLAR_POWERFLOW,0,sizeof(fronius_SOLAR_POWERFLOW));
-    solar_get_powerflow(fronius_SOLAR_POWERFLOW);
+
+    if (soloar_init(webSockData.setupData))
+    {
+        if (webSockData.states.modbusOK)
+        {
+            if (!mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer))
+            {
+                webSockData.states.modbusOK = false;
+                ledHandler_showModbusError(true);
+            }
+            else
+            {
+                memset(&fronius_SOLAR_POWERFLOW, 0, sizeof(fronius_SOLAR_POWERFLOW));
+                solar_get_powerflow(fronius_SOLAR_POWERFLOW);
+                webSockData.states.froniusAPI = true;
+            }
+        }
+    }
+
+    // init display with capacity of
+
 #endif
 
-    /*  if (!mb_readInverterStatic())
-         DBGf("Error in Reading modbus"); */
     DBGf("Setup PID-Controller");
 #ifdef MQTT
     mqtt_publish_pidParams(webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
@@ -643,6 +658,7 @@ void loop()
         tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
         timeSlice.previousMillisAkku = timeSlice.currentMillis;
     }
+
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
         if (!webSockData.states.modbusOK)
@@ -682,18 +698,20 @@ void loop()
                 {
                     DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
                     webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
-                    // DBGf(", int: %d", pidContainer.mCurrentPower);
+                    DBGf(", int: %d", webSockData.pidContainer.mCurrentPower);
                     // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
 
                     webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5; // ????
                     webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
                     webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
                     webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+
 #ifndef TEST_PID_WWWW
                     availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
 #endif
 
                     tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
+                    DBG("END VERbrauch");
 #ifdef MQTT
 
                     mqtt_publish_modbus_current_state(webSockData.mbContainer);
@@ -712,6 +730,7 @@ void loop()
 
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {
+        DBG("main:: flush logging");
         cardRW_flushLoggingFile();
         timeSlice.previousMillModbus = timeSlice.currentMillis;
         cardRW_closeLoggingFile();
@@ -722,7 +741,7 @@ void loop()
 
         if (!alarmContainer.alarmTemp.alarmTemp)
         {
-            pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
+            // pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
 
             /*  if (availablePowerFromWRInWatt < 0.0) // energy export
              {

@@ -109,7 +109,13 @@ bool cardRW_createLoggingFile()
 
 bool cardRW_flushLoggingFile()
 {
-    loggingFile.flush();
+      if (!loggingAvailable)
+    {
+        DBGf("Failed to update logging file");
+        return false;
+    }
+    if (loggingFile)
+        loggingFile.flush();
 
     loggingFile = SD.open(LOG_FILE_SYSTEM_NAME, FILE_APPEND);
     if (!loggingFile)

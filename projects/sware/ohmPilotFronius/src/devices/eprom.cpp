@@ -9,7 +9,7 @@
 // https://randomnerdtutorials.com/esp32-save-data-permanently-preferences/#example2
 
 static Preferences preferences;
-static bool stammDataUpdateWatch = true;
+static bool stammDataUpdateWatch = false;
 
 bool eprom_stammDataUpdate()
 {

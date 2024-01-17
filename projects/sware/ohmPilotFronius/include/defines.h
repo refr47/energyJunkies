@@ -71,6 +71,7 @@ typedef struct _STATES
     bool modbusOK;
     bool flashOK;
     bool tempSensorOK;
+    bool froniusAPI;
 } STATES;
 typedef struct _WEBSOCK
 {

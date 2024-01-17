@@ -9,11 +9,25 @@
 
 static String uRL = "";
 
-void soloar_init(Setup &setup)
+bool soloar_init(Setup &setup)
 {
     char buf[50];
     sprintf(buf, "http://%s%s", setup.ipInverterAsString.c_str(), PATH_NAME_FORECAST);
     uRL = buf;
+
+    String json_array = util_GET_Request(uRL.c_str());
+    JSONVar my_obj = JSON.parse(json_array);
+    if (JSON.typeof(my_obj) == "undefined")
+    {
+        DBG("Parsing input failed!");
+        return false;
+    }
+    if (isdigit(my_obj["site"]["P_Akku"]))
+    {
+        setup.externerSpeicher = true;
+        DBG("solar_init - akku vorhanden!");
+    }
+    return true;
 }
 
 bool solar_get_powerflow(FRONIUS_SOLAR_POWERFLOW &container)
@@ -21,10 +35,20 @@ bool solar_get_powerflow(FRONIUS_SOLAR_POWERFLOW &container)
 
     DBGf("solar_get_powerflow() - uRL: %s", uRL.c_str());
     String json_array = util_GET_Request(uRL.c_str());
-    DBGf("solar_get_powerFlow(): %s", json_array);
+    // DBGf("solar_get_powerFlow(): %s", json_array);
     JSONVar my_obj = JSON.parse(json_array);
-    double akku = my_obj["site"]["P_Akku"];
-    DBGf("akku: %f", akku);
+    if (JSON.typeof(my_obj) == "undefined")
+    {
+        DBG("Parsing input failed!");
+        return false;
+    }
+
+    container.p_akku = my_obj["site"]["P_Akku"];
+    container.p_grid = my_obj["site"]["P_Grid"];
+    container.p_load = my_obj["site"]["P_Load"];
+    container.p_pv = my_obj["site"]["P_PV"];
+    container.rel_Autonomy = my_obj["site"]["rel_Autonomy"];
+    container.rel_SelfConsumption = my_obj["site"]["rel_SelfConsumption"];
     return true;
 }
 
