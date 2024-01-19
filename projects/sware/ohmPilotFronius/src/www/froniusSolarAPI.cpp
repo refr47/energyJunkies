@@ -50,6 +50,18 @@ bool solar_get_powerflow(FRONIUS_SOLAR_POWERFLOW &container)
     container.rel_Autonomy = my_obj["site"]["rel_Autonomy"];
     container.rel_SelfConsumption = my_obj["site"]["rel_SelfConsumption"];
   
+    #ifdef MODBUS_VERBOSE 
+    DBGf("Fronius API: ");
+    DBGf("AKKU: %f", container.p_akku);
+    DBGf("Grid: %f", container.p_grid);
+    DBGf("Load: %f", container.p_load);
+    DBGf("PV: %f", container.p_pv);
+    DBGf("SelfConsumption: %f", container.rel_SelfConsumption);
+    DBGf("rel_Autonomy: %f", container.rel_Autonomy);
+
+
+
+    #endif
     return true;
 }
 
