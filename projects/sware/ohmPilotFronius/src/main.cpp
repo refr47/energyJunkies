@@ -698,7 +698,7 @@ void loop()
                 {
                     DBGf("Verbrauch in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
                     webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
-                    DBGf(", int: %d", webSockData.pidContainer.mCurrentPower);
+                    //DBGf(", int: %d", webSockData.pidContainer.mCurrentPower);
                     // pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
 
                     webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5; // ????
@@ -730,10 +730,17 @@ void loop()
 
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {
-        DBG("main:: flush logging");
-        cardRW_flushLoggingFile();
-        timeSlice.previousMillModbus = timeSlice.currentMillis;
-        cardRW_closeLoggingFile();
+        if (webSockData.states.cardWriterOK)
+        {
+
+            cardRW_flushLoggingFile();
+            timeSlice.previousMillModbus = timeSlice.currentMillis;
+            cardRW_closeLoggingFile();
+        }
+        else
+        {
+            DBG("main:: flush logging - cannot flush!");
+        }
     }
     /* ***********************                   PID CONTROLLER           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisController > PID_CONTROLLER_INTERVALL)
