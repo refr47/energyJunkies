@@ -24,6 +24,7 @@ const char *LOG_FILE_SYSTEM_NAME = "logSys.txt";
 #define MAX_LOG_SIZE 200
 #define MIN_SPACE_ON_SD_CARD_IN_BYTES 1025 * 512
 #define MAX_WRITES_BEFORE_FLASH 20
+#define COUNTER_MAX_FOR_MOUNT   5
 
 static File loggingFile;
 static bool loggingAvailable = false;
@@ -46,9 +47,9 @@ bool cardRW_setup(bool logToCard, bool logInverter)
     while (!SD.begin(SS))
     {
 
-        delay(1000);
+        delay(2000);
         DBGf("Try to mount card (%d)", counter);
-        if (++counter > 5)
+        if (++counter > COUNTER_MAX_FOR_MOUNT)
         {
             DBGf("Card Mount Failed:  %d trials", counter);
             ESP_LOGE(TAG, "SD Card Reader kann nicht initialisiert werden!");

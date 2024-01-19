@@ -378,7 +378,7 @@ void tft_drawInfoNoModbus(TEMPERATURE &temp)
 
 void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
 {
- 
+
     saveCurLine = currentLine;
 
     char formatBuffer[25]; // format W | kW
@@ -455,7 +455,6 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Speicher", TFT_SKYBLUE);
     tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, "Pufferspeicher", TFT_SKYBLUE);
     txtColor = TFT_WHITE;
-    
 
     sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.akkuState.data.capacity, formatBuffer));
     tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Kapazität", displayBuffer);
@@ -463,8 +462,18 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Phase 1", displayBuffer);
     ++currentLine;
 
-    sprintf(displayBuffer, "%.2lf %", modb.akkuStr.data.chargeRate);
-    tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Laden", displayBuffer);
+    sprintf(displayBuffer, "%.2lf %", modb.akkuStr.data.chargeRate); // Laderate
+    if (modb.akkuStr.data.chargeRate < 0.0)
+    {
+        txtColor = TFT_GREEN;
+        tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Laden", displayBuffer);
+    }
+    else
+    {
+        txtColor = TFT_RED;
+        tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Entladen", displayBuffer);
+    }
+
     sprintf(displayBuffer, "%s", pidC.PID_PIN2 == 1 ? "ein" : "aus");
     tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Phase 2", displayBuffer);
     ++currentLine;
@@ -480,10 +489,10 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     if (modb.akkuStr.data.dischargeRate > 0.0)
         txtColor = TFT_RED;
     sprintf(displayBuffer, "%.2lf \%", modb.akkuStr.data.dischargeRate);
-    tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Entladen", displayBuffer);
+    tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Autonomie", displayBuffer);
     txtColor = TFT_WHITE;
-    sprintf(displayBuffer, "%s", util_format_Watt_kWatt(pidC.powerNotUseable, formatBuffer));
-    tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Reserviert", displayBuffer);
+    sprintf(displayBuffer, "%s", util_format_Watt_kWatt(modb.akkuStr.data.maxChargeRate, formatBuffer));
+    tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "EigenKonsum", displayBuffer);
     ++currentLine;
 
     currentLine = saveCurLine;

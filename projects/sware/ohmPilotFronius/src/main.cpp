@@ -45,7 +45,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 
 #define TEMPERATURE_INTERVAL 5000UL             // 5 secs
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
-#define MODBUS_INTERVALL 1000UL
+#define MODBUS_INTERVALL 5000UL
 #define PID_CONTROLLER_INTERVALL 10000 // 0.1 secs default sample time
 #define LOGGING_FLUSH_INTERVALL 60000
 #define MODBUS_AKKU_INTERVALL 5000
@@ -297,16 +297,23 @@ void setup()
             {
                 webSockData.states.modbusOK = false;
                 ledHandler_showModbusError(true);
-                 tft_printKeyValue("Fronius Solar API", "NO", TFT_RED);
-                 DBGf("Fronius solar API Support: NO");
+                tft_printKeyValue("Fronius Solar API", "NO", TFT_RED);
+                DBGf("Fronius solar API Support: NO");
             }
             else
             {
                 memset(&fronius_SOLAR_POWERFLOW, 0, sizeof(fronius_SOLAR_POWERFLOW));
-                solar_get_powerflow(fronius_SOLAR_POWERFLOW);
-                webSockData.states.froniusAPI = true;
-                 tft_printKeyValue("Fronius Solar API", "Yes", TFT_GREEN);
-                 DBGf("Fronius solar API Support: YES");
+                if (solar_get_powerflow(fronius_SOLAR_POWERFLOW))
+                {
+                    webSockData.states.froniusAPI = true;
+                    tft_printKeyValue("Fronius Solar API", "Yes", TFT_GREEN);
+                    DBGf("Fronius solar API Support: YES");
+                }
+                else
+                {
+                    DBGf("setup::solar_init - Cannot access Fronius REST  SOLAR API form converter!");
+                    tft_printKeyValue(" Fronius Solar API", "ERROR", TFT_RED);
+                }
             }
         }
     }
@@ -651,12 +658,29 @@ void loop()
     if (timeSlice.currentMillis - timeSlice.previousMillisAkku > MODBUS_AKKU_INTERVALL)
     {
         DBGf("MODBUS_AKKU_INTERVALL");
+
         if (webSockData.states.modbusOK)
         {
             if (!mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer))
             {
                 webSockData.states.modbusOK = false;
                 ledHandler_showModbusError(true);
+            }
+        }
+        else
+        {
+            memset(&webSockData.mbContainer.akkuState, 0, sizeof(AKKU_STATE_VALUE_t));
+            memset(&webSockData.mbContainer.akkuStr, 0, sizeof(AKKU_STRG_VALUE_t));
+        }
+
+        if (webSockData.states.froniusAPI)
+        {
+            // !!!!!!!! OVERRIDE MODBUS values with REST API values
+            if (solar_get_powerflow(fronius_SOLAR_POWERFLOW))
+            {
+                webSockData.mbContainer.akkuStr.data.chargeRate = fronius_SOLAR_POWERFLOW.p_akku;
+                webSockData.mbContainer.akkuStr.data.dischargeRate = fronius_SOLAR_POWERFLOW.rel_Autonomy;
+                webSockData.mbContainer.akkuStr.data.maxChargeRate = fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
             }
         }
         tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
@@ -714,6 +738,12 @@ void loop()
 #ifndef TEST_PID_WWWW
                     availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
 #endif
+                    if (solar_get_powerflow(fronius_SOLAR_POWERFLOW))
+                    {
+                        webSockData.mbContainer.akkuStr.data.chargeRate = fronius_SOLAR_POWERFLOW.p_akku;
+                        webSockData.mbContainer.akkuStr.data.dischargeRate = fronius_SOLAR_POWERFLOW.rel_Autonomy;
+                        webSockData.mbContainer.akkuStr.data.maxChargeRate = fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+                    }
 
                     tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
                     DBG("END VERbrauch");
@@ -771,10 +801,9 @@ void loop()
 
                  pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
              } */
-           
         }
-         timeSlice.previousMillisController = timeSlice.currentMillis;
-         DBGf("PID_CONTROLLER_INTERVALL");
+        timeSlice.previousMillisController = timeSlice.currentMillis;
+        DBGf("PID_CONTROLLER_INTERVALL");
     }
 
     // delay(2000);
