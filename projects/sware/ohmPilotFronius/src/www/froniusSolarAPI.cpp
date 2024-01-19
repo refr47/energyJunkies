@@ -14,7 +14,7 @@ bool soloar_init(Setup &setup)
     char buf[50];
     sprintf(buf, "http://%s%s", setup.ipInverterAsString.c_str(), PATH_NAME_FORECAST);
     uRL = buf;
-
+    setup.externerSpeicher = false;
     String json_array = util_GET_Request(uRL.c_str());
     JSONVar my_obj = JSON.parse(json_array);
     if (JSON.typeof(my_obj) == "undefined")
@@ -49,6 +49,18 @@ bool solar_get_powerflow(FRONIUS_SOLAR_POWERFLOW &container)
     container.p_pv = my_obj["site"]["P_PV"];
     container.rel_Autonomy = my_obj["site"]["rel_Autonomy"];
     container.rel_SelfConsumption = my_obj["site"]["rel_SelfConsumption"];
+    #ifdef MODBUS_VERBOSE 
+    DBGf("Fronius API: ");
+    DBGf("AKKU: %f", container.p_akku);
+    DBGf("Grid: %f", container.p_grid);
+    DBGf("Load: %f", container.p_load);
+    DBGf("PV: %f", container.p_pv);
+    DBGf("SelfConsumption: %f", container.rel_SelfConsumption);
+    DBGf("rel_Autonomy: %f", container.rel_Autonomy);
+
+
+
+    #endif
     return true;
 }
 

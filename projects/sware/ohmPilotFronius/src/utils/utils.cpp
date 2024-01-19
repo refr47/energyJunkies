@@ -8,7 +8,6 @@
 #include <Arduino.h>
 #include <HTTPClient.h>
 
-
 // using namespace std; // im lazy
 #define BUFFER_LEN_FOR_ARG_CHECK 100
 /* void Serialprintln(const char *input...)
@@ -242,13 +241,13 @@ String util_GET_Request(const char *url)
 
     if (httpResponseCode > 0)
     {
-        DBGf("HTTP Response code: ", httpResponseCode);
+        DBGf("HTTP Response code: %d", httpResponseCode);
         payload = http.getString();
     }
     else
     {
-        DBGf("Error code: ", httpResponseCode);
-        payload="";
+        DBGf("Error code: %d", httpResponseCode);
+        payload = "";
     }
     http.end();
 
