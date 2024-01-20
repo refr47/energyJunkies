@@ -62,8 +62,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define LOG_LEVEL ESP_LOG_INFO
 #define MY_ESP_LOG_LEVEL ESP_LOG_INFO
 
-#define INVERTER_DATA webSockData.mbContainer.inverterSumValues.data
-#define METER_DATA webSockData.mbContainer.meterValues.data
+
 
 typedef struct _ALARM_TEMPERATURE
 {
@@ -681,7 +680,7 @@ void loop()
                 webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
             }
         }
-        tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
+        tft_drawInfo(webSockData);
         timeSlice.previousMillisAkku = timeSlice.currentMillis;
     }
 
@@ -743,7 +742,7 @@ void loop()
                         webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
                     }
 
-                    tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
+                    tft_drawInfo(webSockData);
                     DBG("END VERbrauch");
 #ifdef MQTT
 

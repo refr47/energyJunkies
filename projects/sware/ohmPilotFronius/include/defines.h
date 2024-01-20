@@ -4,8 +4,16 @@
 #define MODBUS_PORT "502"
 #define JSON_OBJECT_SETUP_LEN 1024 /// www.cpp,
 
+#define INVERTER_DATA webSockData.mbContainer.inverterSumValues.data
+#define METER_DATA webSockData.mbContainer.meterValues.data
+#define AKKU_STATE webSockData.mbContainer.akkuState.data
+#define AKKU_STRG webSockData.mbContainer.akkuStr.data
+
+
 #include "debugConsole.h"
 #include "modbusRegister.h"
+
+
 
 typedef struct
 {
