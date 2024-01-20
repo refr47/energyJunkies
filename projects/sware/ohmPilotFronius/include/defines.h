@@ -8,6 +8,7 @@
 #define METER_DATA webSockData.mbContainer.meterValues.data
 #define AKKU_STATE webSockData.mbContainer.akkuState.data
 #define AKKU_STRG webSockData.mbContainer.akkuStr.data
+#define FRONIUS_API webSockData.fronius_SOLAR_POWERFLOW
 
 
 #include "debugConsole.h"

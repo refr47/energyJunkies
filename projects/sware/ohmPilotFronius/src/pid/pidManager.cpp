@@ -74,10 +74,10 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
      } */
     if (webSockData.states.froniusAPI)
     {
-        availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_pv + webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_load;
-        gridWatt = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
+        availableWatt = FRONIUS_API.p_pv +FRONIUS_API.p_akku + FRONIUS_API.p_load;
+        gridWatt = FRONIUS_API.p_grid;
         DBGf("pidManager::task,fronisAPI: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
-        DBGf("pidManager::task,fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", webSockData.fronius_SOLAR_POWERFLOW.p_pv, webSockData.fronius_SOLAR_POWERFLOW.p_akku, webSockData.fronius_SOLAR_POWERFLOW.p_load);
+        DBGf("pidManager::task,fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", FRONIUS_API.p_pv, FRONIUS_API.p_akku, FRONIUS_API.p_load);
     }
     else
     {
