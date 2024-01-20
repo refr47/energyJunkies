@@ -376,7 +376,8 @@ void tft_drawInfoNoModbus(TEMPERATURE &temp)
     currentLine = saveCurLine;
 }
 
-void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
+// TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC
+void tft_drawInfo(WEBSOCK_DATA &webSockData)
 {
 
     saveCurLine = currentLine;
@@ -387,13 +388,13 @@ void tft_drawInfo(TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC)
     tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur", TFT_SKYBLUE);
     tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie", TFT_SKYBLUE);
     ++currentLine;
-    if (temp.alarm)
+    if (webSockData.temperature.alarm)
         txtColor = TFT_RED;
-    sprintf(displayBuffer, "%.2f", temp.sensor1);
+    sprintf(displayBuffer, "%.2f", webSockData.temperature.sensor1);
     tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 1", displayBuffer);
     txtColor = TFT_WHITE;
     // production LINE 1
-    if (modb.inverterSumValues.data.acCurrentPower >= 0.0)
+    if (webSockData.mbContainer.data.acCurrentPower >= 0.0)
         txtColor = TFT_WHITE;
     else
         txtColor = TFT_GREEN;

@@ -115,9 +115,7 @@ static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager;
 static WEBSOCK_DATA webSockData;
 static double availablePowerFromWRInWatt = 0.0;
-#ifdef FRONIUS_API
-static FRONIUS_SOLAR_POWERFLOW fronius_SOLAR_POWERFLOW;
-#endif
+
 /* **************************************************************************
         ProtoTypes
 */
@@ -302,8 +300,8 @@ void setup()
             }
             else
             {
-                memset(&fronius_SOLAR_POWERFLOW, 0, sizeof(fronius_SOLAR_POWERFLOW));
-                if (solar_get_powerflow(fronius_SOLAR_POWERFLOW))
+                memset(&webSockData.fronius_SOLAR_POWERFLOW, 0, sizeof(FRONIUS_SOLAR_POWERFLOW));
+                if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
                 {
                     webSockData.states.froniusAPI = true;
                     tft_printKeyValue("Fronius Solar API", "Yes", TFT_GREEN);
@@ -676,11 +674,11 @@ void loop()
         if (webSockData.states.froniusAPI)
         {
             // !!!!!!!! OVERRIDE MODBUS values with REST API values
-            if (solar_get_powerflow(fronius_SOLAR_POWERFLOW))
+            if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
             {
-                webSockData.mbContainer.akkuStr.data.chargeRate = fronius_SOLAR_POWERFLOW.p_akku;
-                webSockData.mbContainer.akkuStr.data.dischargeRate = fronius_SOLAR_POWERFLOW.rel_Autonomy;
-                webSockData.mbContainer.akkuStr.data.maxChargeRate = fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+                webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
+                webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
+                webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
             }
         }
         tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);
@@ -738,11 +736,11 @@ void loop()
 #ifndef TEST_PID_WWWW
                     availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
 #endif
-                    if (solar_get_powerflow(fronius_SOLAR_POWERFLOW))
+                    if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
                     {
-                        webSockData.mbContainer.akkuStr.data.chargeRate = fronius_SOLAR_POWERFLOW.p_akku;
-                        webSockData.mbContainer.akkuStr.data.dischargeRate = fronius_SOLAR_POWERFLOW.rel_Autonomy;
-                        webSockData.mbContainer.akkuStr.data.maxChargeRate = fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+                        webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
+                        webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
+                        webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
                     }
 
                     tft_drawInfo(webSockData.temperature, webSockData.mbContainer, webSockData.pidContainer);

@@ -73,6 +73,16 @@ typedef struct _STATES
     bool tempSensorOK;
     bool froniusAPI;
 } STATES;
+
+typedef struct _FRONIUS_SOLAR_POWERFLOW
+{
+    double p_akku;
+    double p_grid;
+    double p_load;
+    double p_pv;
+    unsigned int rel_Autonomy;
+    unsigned int rel_SelfConsumption;
+} FRONIUS_SOLAR_POWERFLOW;
 typedef struct _WEBSOCK
 {
     MB_CONTAINER mbContainer;
@@ -81,16 +91,10 @@ typedef struct _WEBSOCK
     PID_CONTAINER pidContainer;
     STATES states;
     Setup setupData;
+#ifdef FRONIUS_API
+    FRONIUS_SOLAR_POWERFLOW fronius_SOLAR_POWERFLOW;
+#endif
 
 } WEBSOCK_DATA;
 
 typedef WEBSOCK_DATA &(*CALLBACK_GET_DATA)();
-
-typedef struct _FRONIUS_SOLAR_POWERFLOW {
-        double p_akku;
-        double p_grid;
-        double p_load;
-        double p_pv;
-        unsigned int rel_Autonomy;
-        unsigned int rel_SelfConsumption;
-}FRONIUS_SOLAR_POWERFLOW;
