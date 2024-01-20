@@ -74,16 +74,20 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
      } */
     if (webSockData.states.froniusAPI)
     {
-        availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_pv -= webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_load;
+        availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_pv + webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_load;
         gridWatt = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
+        DBGf("pidManager::task,fronisAPI: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
+        DBGf("pidManager::task,fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", webSockData.fronius_SOLAR_POWERFLOW.p_pv, webSockData.fronius_SOLAR_POWERFLOW.p_akku, webSockData.fronius_SOLAR_POWERFLOW.p_load);
     }
     else
     {
         availableWatt = INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower;
         gridWatt = INVERTER_DATA.acCurrentPower;
+        DBGf("pidManager::task,modbus: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
+        DBGf("pidManager::task,modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
     }
 
-    DBGf("PinManager::task: AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
+    // DBGf("PinManager::task: AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
     /* if (availableWatt < 10)
         return true; */
 
@@ -154,7 +158,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     }
 
     DBGf("PIDManagerTask::exit  mCurrPower (W): %f, anaOutput(PWM) %f, Dig1: %d, Dig2: %d", availableWatt, mAnalogOut, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
-   
+
     return true;
 }
 

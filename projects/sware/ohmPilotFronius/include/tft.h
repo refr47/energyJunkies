@@ -25,3 +25,4 @@ void tft_drawInfoNoModbus(TEMPERATURE &temp);
 void tft_print_test(int yLine, int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value);
 
 #endif
+

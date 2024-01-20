@@ -45,8 +45,8 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 
 #define TEMPERATURE_INTERVAL 5000UL             // 5 secs
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
-#define MODBUS_INTERVALL 5000UL
-#define PID_CONTROLLER_INTERVALL 10000 // 0.1 secs default sample time
+#define MODBUS_INTERVALL 10000UL
+#define PID_CONTROLLER_INTERVALL 20000 // 0.1 secs default sample time
 #define LOGGING_FLUSH_INTERVALL 60000
 #define MODBUS_AKKU_INTERVALL 5000
 #define CLOCK_INTERVALL 1000           // secs
@@ -61,8 +61,6 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #endif
 #define LOG_LEVEL ESP_LOG_INFO
 #define MY_ESP_LOG_LEVEL ESP_LOG_INFO
-
-
 
 typedef struct _ALARM_TEMPERATURE
 {
@@ -283,9 +281,10 @@ void setup()
 #ifdef WEATHER_API
     wheater_getForecast();
 #endif
-    if (!mb_readAll(webSockData.setup,webSockData.mbContainer)){
+    if (!mb_readAll(webSockData.setup, webSockData.mbContainer))
+    {
         DBGf("Init::readAllModbusValues did not succeed");
-         tft_printKeyValue("Modbus Read", "Error", TFT_RED);
+        tft_printKeyValue("Modbus Read", "Error", TFT_RED);
     }
 
     webSockData.states.froniusAPI = false;
@@ -323,7 +322,6 @@ void setup()
     // init display with capacity of
 
 #endif
-
 
     DBGf("Setup PID-Controller");
 #ifdef MQTT
@@ -584,7 +582,7 @@ void loop()
     /* ***********************                   FETCH TEMperature           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillTemp > TEMPERATURE_INTERVAL)
     {
-        DBGf("TEMPERATURE_INTERVAL");
+        // DBGf("TEMPERATURE_INTERVAL");
         if (!temp_getTemperature(webSockData.temperature))
         {
 
@@ -692,7 +690,7 @@ void loop()
 #endif
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
-        DBGf("MODBUS_INTERVALL");
+        // DBGf("MODBUS_INTERVALL");
         if (!webSockData.states.modbusOK)
         {
             tft_drawInfoNoModbus(webSockData.temperature);
@@ -716,7 +714,7 @@ void loop()
                 util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer); //  Produktion
                 DBGf("Produktion %s", formatBuffer);
 
-                DBGf("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer)); // Grid Bezug positiv, ansonst - 
+                DBGf("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer)); // Grid Bezug positiv, ansonst -
 
                 if (METER_DATA.acCurrentPower < 0.0 && (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower < 0))
 
@@ -733,7 +731,7 @@ void loop()
                     // DBGf(", int: %d", webSockData.pidContainer.mCurrentPower);
                     //  pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
 
-                    //webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5; // ????
+                    // webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5; // ????
                     webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
                     webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
                     webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
@@ -768,7 +766,7 @@ void loop()
 
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {
-        DBGf("LOGGING_FLUSH_INTERVALL");
+        // DBGf("LOGGING_FLUSH_INTERVALL");
         if (webSockData.states.cardWriterOK)
         {
 
@@ -786,10 +784,10 @@ void loop()
     if (timeSlice.currentMillis - timeSlice.previousMillisController > PID_CONTROLLER_INTERVALL)
     {
         DBGf("PID_CONTROLLER_INTERVALL");
-        
+
         if (!alarmContainer.alarmTemp.alarmTemp)
         {
-             pidPinManager.task(webSockData);
+            pidPinManager.task(webSockData);
 
             /*  if (availablePowerFromWRInWatt < 0.0) // energy export
              {
@@ -807,7 +805,7 @@ void loop()
              } */
         }
         timeSlice.previousMillisController = timeSlice.currentMillis;
-        DBGf("PID_CONTROLLER_INTERVALL");
+        // DBGf("PID_CONTROLLER_INTERVALL");
     }
 
     // delay(2000);
@@ -816,7 +814,7 @@ void loop()
     /* ***********************                   CONFIG LIVE UPDATE sTAMMdaTEN via WEB           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisTestConfig > CONFIG_PARAM_TEST_INTERVALL)
     {
-        DBGf("CONFIG_PARAM_TEST_INTERVALL");
+        // DBGf("CONFIG_PARAM_TEST_INTERVALL");
         timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
 #ifdef TEST_PID_WWWW
         Setup d;
@@ -844,7 +842,7 @@ void loop()
 
     if (timeSlice.currentMillis - timeSlice.previousMillisWebSocks > WEBSOCK_NOTIFY_INTERVALL)
     {
-        DBGf("WEBSOCK_NOTIFY_INTERVALL");
+        // DBGf("WEBSOCK_NOTIFY_INTERVALL");
         timeSlice.previousMillisWebSocks = timeSlice.currentMillis;
         notifyClients(getJsonObj());
     }
