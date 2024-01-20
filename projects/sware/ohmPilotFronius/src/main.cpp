@@ -283,6 +283,11 @@ void setup()
 #ifdef WEATHER_API
     wheater_getForecast();
 #endif
+    if (!mb_readAll(webSockData.setup,webSockData.mbContainer)){
+        DBGf("Init::readAllModbusValues did not succeed");
+         tft_printKeyValue("Modbus Read", "Error", TFT_RED);
+    }
+
     webSockData.states.froniusAPI = false;
 #ifdef FRONIUS_API
 
@@ -318,6 +323,7 @@ void setup()
     // init display with capacity of
 
 #endif
+
 
     DBGf("Setup PID-Controller");
 #ifdef MQTT
@@ -651,7 +657,7 @@ void loop()
     }
 
     /* ***********************                   MODBUS           ************************/
-
+#ifdef AKKU_TRAC
     if (timeSlice.currentMillis - timeSlice.previousMillisAkku > MODBUS_AKKU_INTERVALL)
     {
         DBGf("MODBUS_AKKU_INTERVALL");
@@ -683,7 +689,7 @@ void loop()
         tft_drawInfo(webSockData);
         timeSlice.previousMillisAkku = timeSlice.currentMillis;
     }
-
+#endif
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
         DBGf("MODBUS_INTERVALL");
@@ -703,14 +709,14 @@ void loop()
         }
         else
         {
-            if (mb_readSmartMeterAndInverterOnly(webSockData.setupData, webSockData.mbContainer))
+            if (mb_readInverterDynamic(webSockData.setupData, webSockData.mbContainer))
             {
 
                 memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
-                util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer);
+                util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer); //  Produktion
                 DBGf("Produktion %s", formatBuffer);
 
-                DBGf("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer));
+                DBGf("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer)); // Grid Bezug positiv, ansonst - 
 
                 if (METER_DATA.acCurrentPower < 0.0 && (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower < 0))
 
@@ -727,7 +733,7 @@ void loop()
                     // DBGf(", int: %d", webSockData.pidContainer.mCurrentPower);
                     //  pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
 
-                    webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5; // ????
+                    //webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5; // ????
                     webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
                     webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
                     webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
@@ -780,9 +786,10 @@ void loop()
     if (timeSlice.currentMillis - timeSlice.previousMillisController > PID_CONTROLLER_INTERVALL)
     {
         DBGf("PID_CONTROLLER_INTERVALL");
+        
         if (!alarmContainer.alarmTemp.alarmTemp)
         {
-            // pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
+             pidPinManager.task(webSockData);
 
             /*  if (availablePowerFromWRInWatt < 0.0) // energy export
              {

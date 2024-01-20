@@ -73,7 +73,7 @@ public:
     void config(Setup &setup, int digOut1, int digOut2, int anOut);
     void reset(); //
 
-    bool task(Setup &setup, double *currentAvailablePower); // > 0: bezug vom Netz, <0 eigene Produktion
+    bool task(WEBSOCK_DATA &webSockData); // > 0: bezug vom Netz, <0 eigene Produktion
 
     int getStateOfDigPin(short pin) // 0, 1
     {
@@ -83,22 +83,20 @@ public:
     {
         return mOuts[2].mValue;
     }
-    double getCurrentPower()
+   /*  double getCurrentPower()
     {
         return mCurrentPower;
-    }
-    double getReservedPower()
-    {
-        return mPidSetPoint;
-    }
+    } */
 
 private:
     Pins mOuts[3];
     double mAnalogOut;
-    double mPidSetPoint;
-    double mCurrentPower;
+    double onePhase;
+    double availableWatt;
+    double gridWatt;
+    // double mCurrentPower;
 
-    PID mPid;
+    // PID mPid;
 
     unsigned long mDelayDigOutOn;
     unsigned long mDelayDigOutOff;

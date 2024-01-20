@@ -216,6 +216,17 @@ typedef struct
 
 Structure for Device Management; blockID is currently SmartMeter
 */
+
+bool mb_readAll(Setup &setup, MB_CONTAINER &mContainer) {
+    DBGf("modbusReader::mb_readAll");
+    if (!mb_readSmartMeterAndInverterOnly(setup,mContainer)) 
+        return false;
+    if (!mb_readAkkuOnly(setup,mContainer))
+        return false;
+    return true;
+
+}
+
 bool mb_readSmartMeterAndInverterOnly(Setup &setUpData, MB_CONTAINER &mbContainer)
 {
     // read smart meter

@@ -11,6 +11,7 @@ gen24 symo registers
 
 bool mb_init(Setup &);
 bool mb_readInverterStatic();
+bool mb_readAll(Setup &setup, MB_CONTAINER &);
 bool mb_readInverterDynamic(Setup &setup, MB_CONTAINER &);
 bool mb_readSmartMeter(Setup &setUpData, MB_CONTAINER &);
 bool mb_readInverter(Setup &setUpData, MB_CONTAINER &);
