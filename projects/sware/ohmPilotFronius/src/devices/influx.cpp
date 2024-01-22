@@ -75,6 +75,9 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     energy.addField("pv",INVERTER_DATA.acCurrentPower);
      energy.addField("availableWatt",INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower);
 #endif
+    energy.addField("pwm", webSockData.pidContainer.mAnalogOut);
+    energy.addField("relay1", webSockData.pidContainer.PID_PIN1);
+    energy.addField("relay2", webSockData.pidContainer.PID_PIN2);
 
     boiler.addField("temperature1", webSockData.temperature.sensor1);
     boiler.addField("temperature2", webSockData.temperature.sensor2);
@@ -86,8 +89,8 @@ bool influx_write(WEBSOCK_DATA &webSockData)
         Serial.println(client.getLastErrorMessage());
         return false;
     }
-     proto = client.pointToLineProtocol(boiler);
-       if (!client.writePoint(boiler))
+    proto = client.pointToLineProtocol(boiler);
+    if (!client.writePoint(boiler))
     {
         Serial.print("InfluxDB write failed: ");
         Serial.println(client.getLastErrorMessage());
