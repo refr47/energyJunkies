@@ -333,10 +333,9 @@ void setup()
     DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
     tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
     pidPinManager.config(webSockData.setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
-    #ifdef INFLUX
+#ifdef INFLUX
     influx_init();
-    #endif
-    
+#endif
 }
 if (webSockData.states.networkOK)
 {
@@ -752,9 +751,8 @@ void loop()
                         webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
                         webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
                     }
-
                     tft_drawInfo(webSockData);
-                    DBG("END VERbrauch");
+                    influx_write(webSockData);
 #ifdef MQTT
 
                     mqtt_publish_modbus_current_state(webSockData.mbContainer);

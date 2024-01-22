@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <time.h>
 #include "influx.h"
-#include "defines.h"
 
 #include "debugConsole.h"
 
@@ -14,8 +13,8 @@
 
 static InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN);
 // Data point
-static Point sensor("boiler");
-static Point sensor2("reboot");
+static Point energy("energy");
+static Point boiler("boiler");
 
 bool influx_init()
 {
@@ -38,17 +37,61 @@ bool influx_init()
     sprintf(buf, "%d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
     // Report RSSI of currently connected network
-    sensor2.addTag("device", "ES32");
-    sensor2.clearFields();
-    sensor2.addField("bootAt", buf);
+    // sensor2.addTag("device", "ES32");
+    Point environment("environment");
+    environment.addField("device", "esp32");
+    environment.addField("inverter", "fronius");
+    environment.addField("model", "gen24");
+    environment.addField("bootAt", buf);
     // Print what are we exactly writing
-    Serial.print("Writing: ");
-    client.pointToLineProtocol(sensor2);
-    Serial.println(client.pointToLineProtocol(sensor2));
-    if (!client.writePoint(sensor2))
+
+    client.pointToLineProtocol(environment);
+    DBGf("Write to influx: %s", client.pointToLineProtocol(environment).c_str());
+    if (!client.writePoint(environment))
     {
         Serial.print("InfluxDB write failed: ");
         Serial.println(client.getLastErrorMessage());
+    }
+    return true;
+}
+
+bool influx_write(WEBSOCK_DATA &webSockData)
+{
+    energy.clearFields();
+    boiler.clearFields();
+#ifdef FRONIUS_API
+    if (webSockData.setup.externerSpeicher)
+    {
+        energy.addField("akku", FRONIUS.p_akku);
+    }
+
+    energy.addField("grid", FRONIUS.p_grid);
+    energy.addField("load", FRONIUS.p_load);
+    energy.addField("pv", FRONIUS.p_pv);
+    energy.addField("availableWatt", (FRONIUS.p_pv + FRONIUS.p_akku + FRONIUS.p_load));
+#else
+    energy.addField("grid", METER_DATA.acCurrentPower);
+    energy.addField("load", (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower);
+    energy.addField("pv",INVERTER_DATA.acCurrentPower);
+     energy.addField("availableWatt",INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower);
+#endif
+
+    boiler.addField("temperature1", webSockData.temperature.sensor1);
+    boiler.addField("temperature2", webSockData.temperature.sensor2);
+
+    String proto = client.pointToLineProtocol(energy);
+    if (!client.writePoint(energy))
+    {
+        Serial.print("InfluxDB write failed: ");
+        Serial.println(client.getLastErrorMessage());
+        return false;
+    }
+     proto = client.pointToLineProtocol(boiler);
+       if (!client.writePoint(boiler))
+    {
+        Serial.print("InfluxDB write failed: ");
+        Serial.println(client.getLastErrorMessage());
+        return false;
     }
     return true;
 }
