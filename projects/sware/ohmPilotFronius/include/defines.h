@@ -1,4 +1,8 @@
 #pragma once
+// influx, curTime:
+#define NtpServer1 "pool.ntp.org"
+#define NtpServer2 "time.nist.gov"
+#define EUROPE_VIENNA_TZ "CET-1CEST,M3.5.0,M10.5.0/3" // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
 
 #define LEN_WLAN 30
 #define MODBUS_PORT "502"
@@ -8,13 +12,10 @@
 #define METER_DATA webSockData.mbContainer.meterValues.data
 #define AKKU_STATE webSockData.mbContainer.akkuState.data
 #define AKKU_STRG webSockData.mbContainer.akkuStr.data
-#define FRONIUS_API webSockData.fronius_SOLAR_POWERFLOW
-
+#define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
 
 #include "debugConsole.h"
 #include "modbusRegister.h"
-
-
 
 typedef struct
 {

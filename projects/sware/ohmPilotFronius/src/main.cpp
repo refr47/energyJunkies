@@ -25,6 +25,9 @@
 #ifdef FRONIUS_API
 #include "froniusSolarAPI.h"
 #endif
+#ifdef INFLUX
+#include "influx.h"
+#endif
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -330,6 +333,10 @@ void setup()
     DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
     tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
     pidPinManager.config(webSockData.setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
+    #ifdef INFLUX
+    influx_init();
+    #endif
+    
 }
 if (webSockData.states.networkOK)
 {

@@ -4,8 +4,7 @@
 #include "esp_sntp.h"
 #include "curTime.h"
 #include "debugConsole.h"
-
-#define EUROPE_VIENNA_TZ "CET-1CEST,M3.5.0,M10.5.0/3" // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
+#include "defines.h"
 
 using namespace std;
 
@@ -16,8 +15,6 @@ typedef struct
     short hourTo;
 } DATE_TIME;
 
-const char *ntpServer1 = "pool.ntp.org";
-const char *ntpServer2 = "time.nist.gov";
 const long gmtOffset_sec = 3600;
 const int daylightOffset_sec = 3600;
 
@@ -28,9 +25,10 @@ void time_init()
 {
     // esp_sntp_servermode_dhcp(1); // (optional)
 
-    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2);
+    configTime(gmtOffset_sec, daylightOffset_sec, NtpServer1, NtpServer2);
     setenv("TZ", EUROPE_VIENNA_TZ, 1);
     tzset();
+
     DATE_TIME cell;
     cell.month = 1;
     cell.hourFrom = 16;
@@ -100,21 +98,21 @@ bool time_print()
     return true;
 }
 
-time_t time_getTimeStamp() {
+time_t time_getTimeStamp()
+{
     return time(NULL);
 }
 
-
-bool getCurrentTime(char *buffer,const unsigned len) {
-      struct tm timeinfo;
+bool getCurrentTime(char *buffer, const unsigned len)
+{
+    struct tm timeinfo;
     if (!getLocalTime(&timeinfo))
     {
-        
+
         return false;
     }
-    strftime (buffer,len,"%F  %T",&timeinfo);
+    strftime(buffer, len, "%F  %T", &timeinfo);
     return true;
-
 }
 bool time_storeCurrentTime()
 {
