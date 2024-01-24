@@ -306,11 +306,12 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
     }
     else
     {
-        bool success = mb.connect(remote); // Try to connect if no connection
+        bool success = isConnectedAndReconnect(); // Try to connect if no connection
         // Serial.println(success ? F("Successfully connected to Modbus server") : F("Failed to connect to Modbus server"));
 
         if (success)
         {
+            transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId); // Initiate Read Holding Register from Modbus Slave
             DBGf("Modbus read susccessfully ...");
         }
         else
@@ -394,10 +395,10 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         readIndex = (readIndex + 1) % REG_BLOCK_COUNT;
         return true;
     }
-    else
+    /* else
     {
         DBGf("Modbus:: Cannot read registers ()");
         return false;
-    }
+    } */
     // DBGf("mb_readInverterDynamic EXit for readIndex: %d", readIndex);
 }

@@ -295,34 +295,25 @@ void setup()
 
     if (soloar_init(webSockData.setupData))
     {
-        if (webSockData.states.modbusOK)
+
+        memset(&webSockData.fronius_SOLAR_POWERFLOW, 0, sizeof(FRONIUS_SOLAR_POWERFLOW));
+        if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
         {
-            if (!mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer))
-            {
-                webSockData.states.modbusOK = false;
-                ledHandler_showModbusError(true);
-                tft_printKeyValue("Fronius Solar API", "NO", TFT_RED);
-                DBGf("Fronius solar API Support: NO");
-            }
+            webSockData.states.froniusAPI = true;
+            tft_printKeyValue("Fronius Solar API", "Yes", TFT_GREEN);
+            if (webSockData.setup.externerSpeicher)
+                tft_printKeyValue("AKKU", "Yes", TFT_GREEN);
             else
-            {
-                memset(&webSockData.fronius_SOLAR_POWERFLOW, 0, sizeof(FRONIUS_SOLAR_POWERFLOW));
-                if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
-                {
-                    webSockData.states.froniusAPI = true;
-                    tft_printKeyValue("Fronius Solar API", "Yes", TFT_GREEN);
-                    DBGf("Fronius solar API Support: YES");
-                }
-                else
-                {
-                    DBGf("setup::solar_init - Cannot access Fronius REST  SOLAR API form converter!");
-                    tft_printKeyValue(" Fronius Solar API", "ERROR", TFT_RED);
-                }
-            }
+                tft_printKeyValue("AKKU", "No", TFT_GREEN);
+
+            DBGf("Fronius solar API Support: YES, AKKU: %s", webSockData.setup.externerSpeicher == true ? "Yes" : "NO");
+        }
+        else
+        {
+            DBGf("setup::solar_init - Cannot access Fronius REST  SOLAR API form converter!");
+            tft_printKeyValue(" Fronius Solar API", "ERROR", TFT_RED);
         }
     }
-
-    // init display with capacity of
 
 #endif
 
