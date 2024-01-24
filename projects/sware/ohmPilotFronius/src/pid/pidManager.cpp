@@ -3,6 +3,9 @@
 #include "debugConsole.h"
 #include "pidManager.h"
 #include "mqtt.h"
+#ifdef TEST_PID_WWWW
+#include "eprom.h"
+#endif
 
 // pid settings and gains
 #define OUTPUT_MIN 0
@@ -74,7 +77,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
      } */
     if (webSockData.states.froniusAPI)
     {
-        availableWatt = FRONIUS.p_pv +FRONIUS.p_akku + FRONIUS.p_load;
+        availableWatt = FRONIUS.p_pv + FRONIUS.p_akku + FRONIUS.p_load;
         gridWatt = FRONIUS.p_grid;
         DBGf("pidManager::task,fronisAPI: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
         DBGf("pidManager::task,fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load);
@@ -87,6 +90,18 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         DBGf("pidManager::task,modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
     }
 
+#ifdef TEST_PID_WWWW
+    Setup d;
+    eprom_getSetup(d);
+    // eprom_show(d);
+    if (eprom_stammDataUpdate())
+    {
+
+        availableWatt = (double)d.exportWatt;
+        DBGf("main PID-TEST update - available watts: %f", availableWatt);
+    }
+
+#endif
     // DBGf("PinManager::task: AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
     /* if (availableWatt < 10)
         return true; */

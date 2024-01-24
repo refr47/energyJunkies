@@ -812,7 +812,7 @@ void loop()
     {
         // DBGf("CONFIG_PARAM_TEST_INTERVALL");
         timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
-#ifdef TEST_PID_WWWW
+#ifdef TEST_PID_WWWW1
         Setup d;
         eprom_getSetup(d);
         // eprom_show(d);
