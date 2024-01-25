@@ -6,6 +6,9 @@
 #ifdef TEST_PID_WWWW
 #include "eprom.h"
 #endif
+#ifdef INFLUX
+#include "influx.h"
+#endif
 
 // pid settings and gains
 #define OUTPUT_MIN 0
@@ -66,9 +69,11 @@ void PinManager::reset()
     }
 }
 
-double prevAvailableWatt = 0.0;
+
 #ifdef TEST_PID_WWWW
 Setup d;
+double prevAvailableWatt = 0.0;
+double firstAvailableWatt=0.0;
 
 #endif
 
@@ -97,7 +102,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     }
 
 #ifdef TEST_PID_WWWW
-
+    firstAvailableWatt=availableWatt;
     eprom_getSetup(d);
     // eprom_show(d);
     if (eprom_stammDataUpdate())
@@ -190,6 +195,9 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     DBGf("PIDManagerTask::exit  mCurrPower (W): %f, anaOutput(PWM) %f, Dig1: %d, Dig2: %d", availableWatt, mAnalogOut, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
 
 #ifdef TEST_PID_WWWW
+#ifdef INFLUX
+    influx_write_test(firstAvailableWatt, availableWatt, webSockData);
+#endif
     prevAvailableWatt = (int)availableWatt;
 
 #endif

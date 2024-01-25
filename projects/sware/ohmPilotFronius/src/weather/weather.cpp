@@ -6,7 +6,7 @@
 
 #ifdef WEATHER_API
 
-#define HOST_NAME "https://api.open-meteo.com" 
+#define HOST_NAME WEATHER_API
 #define PATH_NAME_FORECAST "/v1/forecast"
 
 #define PARAM HOST_NAME PATH_NAME_FORECAST "?latitude=" LATITUDE "&longitude=" LONGITUDE "&hourly=temperature_2m"

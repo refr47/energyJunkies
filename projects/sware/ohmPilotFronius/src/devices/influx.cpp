@@ -6,7 +6,7 @@
 
 #include "debugConsole.h"
 
-#define INFLUXDB_URL "http://rantanplan-ethernet:8086"
+#define INFLUXDB_URL INFLUX
 #define INFLUXDB_TOKEN "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="
 #define INFLUXDB_ORG "d727c1fb692f26f9"
 #define INFLUXDB_BUCKET "energieJunkies"
@@ -15,6 +15,7 @@ static InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUX
 // Data point
 static Point energy("energy");
 static Point boiler("boiler");
+static Point simulation("simulation");
 
 bool influx_init()
 {
@@ -69,6 +70,7 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     energy.addField("load", FRONIUS.p_load);
     energy.addField("pv", FRONIUS.p_pv);
     energy.addField("availableWatt", (FRONIUS.p_pv + FRONIUS.p_akku + FRONIUS.p_load));
+
 #else
     energy.addField("grid", METER_DATA.acCurrentPower);
     energy.addField("load", (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower);
@@ -93,6 +95,24 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     if (!client.writePoint(boiler))
     {
         Serial.print("InfluxDB write failed: ");
+        Serial.println(client.getLastErrorMessage());
+        return false;
+    }
+    return true;
+}
+
+bool influx_write_test(double availableData,double availableDataAfter, WEBSOCK_DATA &webSockData)
+{
+    simulation.clearFields();
+    simulation.addField("pwm", webSockData.pidContainer.mAnalogOut);
+    simulation.addField("relay1", webSockData.pidContainer.PID_PIN1);
+    energy.addField("relay2", webSockData.pidContainer.PID_PIN2);
+    energy.addField("availAbleWattBefor",availableData);
+    energy.addField("availAbleWattAfter",availableDataAfter);
+      String proto = client.pointToLineProtocol(simulation);
+    if (!client.writePoint(simulation))
+    {
+        Serial.print("InfluxDB write failed (simulation): ");
         Serial.println(client.getLastErrorMessage());
         return false;
     }
