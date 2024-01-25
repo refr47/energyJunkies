@@ -46,6 +46,10 @@ Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von 
 	- DTEST_PID_WWWW1=1  # Test des Reglers, wobei dann die in der RestSchnittstelle unter Stammdaten eingegeben Daten nach dem Speichern übernommen werden
 	- DMQTT='"10.0.0.2"'   # falls man einen mqtt-Server nutzt
 	- DPID_LIB=1                # Verwendung der PID-Lib für den REgler
+   	-DMODBUS_VERBOSE=1 	# Modbus Kommunikation im Debug-Modus
+	-DWEATHER_API=1		# Einbindung des Wetter API (https://api.open-meteo.com) 
+	-DFRONIUS_API=1		# Bei eineme Fronius WR: Verwendung des Solar API (http Protokoll)
+	-DINFLUX=1		# Verwendung der Influx DB
 
 
 ***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode
