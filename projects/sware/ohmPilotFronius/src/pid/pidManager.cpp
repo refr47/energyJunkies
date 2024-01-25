@@ -66,6 +66,12 @@ void PinManager::reset()
     }
 }
 
+double prevAvailableWatt = 0.0;
+#ifdef TEST_PID_WWWW
+Setup d;
+
+#endif
+
 bool PinManager::task(WEBSOCK_DATA &webSockData)
 {
     bool result = false;
@@ -91,7 +97,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     }
 
 #ifdef TEST_PID_WWWW
-    Setup d;
+
     eprom_getSetup(d);
     // eprom_show(d);
     if (eprom_stammDataUpdate())
@@ -99,12 +105,18 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 
         availableWatt = (double)d.exportWatt;
         DBGf("main PID-TEST update - available watts: %f", availableWatt);
+        eprom_stammDataUpdateReset();
     }
-
+    else
+        availableWatt = prevAvailableWatt;
 #endif
     // DBGf("PinManager::task: AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
     /* if (availableWatt < 10)
         return true; */
+    if (abs(availableWatt) < 20.0)
+    {
+        return true;
+    }
 
     if (availableWatt < 0.0)
     {
@@ -112,6 +124,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         if (availableWatt < onePhase)
         {
             mAnalogOut = OUTPUT_MAX * availableWatt / onePhase;
+            availableWatt = 0.0;
             DBGf("PidManager::task - reduce pwm %.3f", mAnalogOut);
             mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
             return true;
@@ -143,8 +156,10 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     {
         if (availableWatt <= onePhase)
         {
+
             mAnalogOut = OUTPUT_MAX * availableWatt / onePhase;
             mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
+            availableWatt = 0.0;
             DBGf("PidManager:: <  0,mCurrentPower <= onePhase: %f", mAnalogOut);
         }
         else
@@ -174,6 +189,10 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 
     DBGf("PIDManagerTask::exit  mCurrPower (W): %f, anaOutput(PWM) %f, Dig1: %d, Dig2: %d", availableWatt, mAnalogOut, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
 
+#ifdef TEST_PID_WWWW
+    prevAvailableWatt = (int)availableWatt;
+
+#endif
     return true;
 }
 
