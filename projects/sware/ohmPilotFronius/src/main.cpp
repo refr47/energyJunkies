@@ -292,16 +292,18 @@ void setup()
 
     webSockData.states.froniusAPI = false;
 #ifdef FRONIUS_API
-
-    if (soloar_init(webSockData.setupData))
+    bool akkuAvailable = false;
+    if (soloar_init(webSockData.setupData, &akkuAvailable))
     {
-
+        webSockData.setup.externerSpeicher = akkuAvailable;
+        DBGf("main - akku: %d", webSockData.setup.externerSpeicher);
         memset(&webSockData.fronius_SOLAR_POWERFLOW, 0, sizeof(FRONIUS_SOLAR_POWERFLOW));
         if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
         {
             webSockData.states.froniusAPI = true;
+            DBGf("main1 - akku: %d", webSockData.setup.externerSpeicher);
             tft_printKeyValue("Fronius Solar API", "Yes", TFT_GREEN);
-            if (webSockData.setup.externerSpeicher)
+            if (webSockData.setup.externerSpeicher == true)
                 tft_printKeyValue("AKKU", "Yes", TFT_GREEN);
             else
                 tft_printKeyValue("AKKU", "No", TFT_GREEN);

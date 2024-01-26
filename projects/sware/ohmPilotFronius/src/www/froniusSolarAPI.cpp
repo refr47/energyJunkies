@@ -9,12 +9,14 @@
 
 static String uRL = "";
 
-bool soloar_init(Setup &setup)
+bool soloar_init(Setup &setup, bool *akku)
 {
     char buf[50];
     sprintf(buf, "http://%s%s", setup.ipInverterAsString.c_str(), PATH_NAME_FORECAST);
     uRL = buf;
+    DBGf("solar_init() for %s", buf);
     setup.externerSpeicher = false;
+    *akku = false;
     String json_array = util_GET_Request(uRL.c_str());
     JSONVar my_obj = JSON.parse(json_array);
     if (JSON.typeof(my_obj) == "undefined")
@@ -22,11 +24,17 @@ bool soloar_init(Setup &setup)
         DBG("Parsing input failed!");
         return false;
     }
-    if (isdigit(my_obj["site"]["P_Akku"]))
+    if (JSON.typeof(my_obj["site"]["P_Akku"]) == "undefined")
+    {
+        DBG("solar_init Akku is not available!!");
+    }
+    else
     {
         setup.externerSpeicher = true;
-        DBG("solar_init - akku vorhanden!");
+        *akku = true;
+        DBGf("solar_init - akku  vorhanden!");
     }
+    DBGf("solar_init() EXIT with akku: %d", setup.externerSpeicher);
     return true;
 }
 
