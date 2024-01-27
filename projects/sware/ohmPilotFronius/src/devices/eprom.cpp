@@ -141,6 +141,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.pid_min_time_for_dig_output_inMS = 10000;
     setup.pid_powerWhichNeedNotConsumed = 10;
     setup.exportWatt = 10;
+    setup.additionalLoad=0.0;
     DBGf("eprom_test_write_Eprom END");
 
     eprom_storeSetup(setup);
@@ -149,8 +150,8 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 static void printEprom(Setup &setup)
 {
     char buffer[500];
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f  PID_I: %f PID_D %f  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d, ExportWatt: %d ----- \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_d, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_powerWhichNeedNotConsumed, setup.pidChanged, setup.exportWatt
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f  PID_I: %f PID_D %f  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d, ExportWatt: %d , AdditionalLoad: %.3f----- \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_d, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_powerWhichNeedNotConsumed, setup.pidChanged, setup.exportWatt,setup.additionalLoad
 
     );
     DBGf("%s", buffer);

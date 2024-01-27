@@ -51,7 +51,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[SIM_BIAS_POWER] = buff;
     DBGf("ajaxCalls_handleGetSetup - return ");
     return returnFromStoreSetup(true, data, request);
-}
+}  
 
 void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus)
 {
