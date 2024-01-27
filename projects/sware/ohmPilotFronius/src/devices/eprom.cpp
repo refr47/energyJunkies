@@ -24,7 +24,7 @@ void eprom_storeSetup(Setup &setup)
 {
     stammDataUpdateWatch = true;
     preferences.begin(CREDENTIALS, false);
-#ifndef TEST_PID
+
     preferences.clear();
     preferences.putString(_SSID, setup.ssid);
     preferences.putString(_PASSWORD, setup.passwd);
@@ -38,13 +38,13 @@ void eprom_storeSetup(Setup &setup)
     preferences.putUInt(_PID_DIG_OUT_OFF_DELAY_MS, setup.pid_min_time_before_switch_off_channel_inMS);
     preferences.putUInt(_PID_MIN_ON_TIME_MS, setup.pid_min_time_for_dig_output_inMS);
     preferences.putUInt(_PID_TARGET_POWER, setup.pid_powerWhichNeedNotConsumed);
-#endif
+
     preferences.putFloat(_PID_P, setup.pid_p);
     preferences.putFloat(_PID_I, setup.pid_i);
     preferences.putFloat(_PID_D, setup.pid_d);
     // only for testing pid controller
-    preferences.putChar(_PID_TEST, setup.testPid);
-    preferences.putInt(_EN_EXPORT, setup.exportWatt);
+    preferences.putDouble(_EN_LOAD, setup.additionalLoad);
+    preferences.putInt(_EN_BIAS, setup.exportWatt);
     preferences.end();
 }
 
@@ -107,8 +107,8 @@ void eprom_getSetup(Setup &setup)
     setup.pid_min_time_for_dig_output_inMS = preferences.getUInt(_PID_MIN_ON_TIME_MS);
     setup.pid_powerWhichNeedNotConsumed = preferences.getUInt(_PID_TARGET_POWER);
     setup.pidChanged = false;
-    setup.testPid = preferences.getChar(_PID_TEST);
-    setup.exportWatt = preferences.getInt(_EN_EXPORT);
+    setup.additionalLoad = preferences.getDouble(_EN_LOAD);
+    setup.exportWatt = preferences.getInt(_EN_BIAS);
     preferences.end();
 }
 

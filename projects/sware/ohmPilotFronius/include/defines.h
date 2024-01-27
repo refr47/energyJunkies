@@ -38,7 +38,7 @@ typedef struct
     unsigned int pid_min_time_for_dig_output_inMS;
     unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
     bool pidChanged;
-    char testPid;
+    double additionalLoad;
     int exportWatt;
 } Setup;
 

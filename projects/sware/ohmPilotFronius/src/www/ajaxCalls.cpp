@@ -45,8 +45,10 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[PID_I] = buff;
     sprintf(buff, "%.2f", setup.pid_d);
     data[PID_D] = buff;
+    sprintf(buff,"%.2f", setup.additionalLoad);
+    data[SIM_ADDITIONAL_LOAD]=buff;
     sprintf(buff, "%d", setup.exportWatt);
-    data[AVAILABLE_POW] = buff;
+    data[SIM_BIAS_POWER] = buff;
     DBGf("ajaxCalls_handleGetSetup - return ");
     return returnFromStoreSetup(true, data, request);
 }
@@ -195,9 +197,17 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     else
         return returnFromStoreSetup(errorH, data, request);
 
-    argument = jsonObj[AVAILABLE_POW];
-    DBGf("ARG: %s, VAl: %s", AVAILABLE_POW, argument);
-    errorH = util_checkParamInt(AVAILABLE_POW, argument, data, &result);
+
+  argument = jsonObj[SIM_ADDITIONAL_LOAD];
+    DBGf("ARG: %s, VAl: %s", SIM_ADDITIONAL_LOAD, argument);
+    errorH = util_checkParamFloat(SIM_ADDITIONAL_LOAD, argument, data, &resultF);
+    if (errorH)
+        setup.additionalLoad = resultF;
+
+
+    argument = jsonObj[SIM_BIAS_POWER];
+    DBGf("ARG: %s, VAl: %s", SIM_BIAS_POWER, argument);
+    errorH = util_checkParamInt(SIM_BIAS_POWER, argument, data, &result);
     if (errorH)
         setup.exportWatt = result;
     DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");

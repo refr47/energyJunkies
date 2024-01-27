@@ -17,8 +17,8 @@ function createDataSet() {
     ['Ausgangsregler (P-Anteil)', '0.9', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (I-Anteil)', '0.1', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (D-Anteil)', '0.0', 'PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'],
-    ['Z_TEST', 'j', 'j|n'],
-    ['Z_Available_energy', '2000', 'Momentaner Export '],
+    ['SIM_Additional_Load', '0.0', 'Simulation: zusätzliche Last'],
+    ['SIM_Bias_Powery', '2000', 'Simulation: Bias Watt'],
   ];
 
 

@@ -21,7 +21,8 @@
 #define _PID_TARGET_POWER "tpow"         // target power - max available power
 
 #define _PID_TEST "pT"
-#define _EN_EXPORT "eX"
+#define _EN_BIAS "eX"
+#define _EN_LOAD "enL"
 void eprom_storeSetup(Setup &setup);
 void eprom_getSetup(Setup &setup);
 void eprom_isInit();
