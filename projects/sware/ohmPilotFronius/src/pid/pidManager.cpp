@@ -76,6 +76,7 @@ void PinManager::reset()
 static Setup d;
 // static double prevAvailableWatt = 0.0;
 static double statusBoilerWatt = 0.0;
+static double firstAvailableWatt = 0.0;
 static boolean isNegative = false;
 #endif
 
@@ -91,7 +92,10 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     DBGf("=================PID Start =======================");
     if (webSockData.states.froniusAPI)
     {
-        availableWatt = FRONIUS.p_pv + FRONIUS.p_akku + FRONIUS.p_load;
+        if (FRONIUS.p_akku < 0.0)
+            availableWatt = FRONIUS.p_pv + FRONIUS.p_akku + FRONIUS.p_load;
+        else
+            availableWatt = FRONIUS.p_pv + FRONIUS.p_load;
         gridWatt = FRONIUS.p_grid;
         DBGf("fronisAPI: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
         DBGf("fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load);
@@ -109,20 +113,13 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     // eprom_show(d);
     if (eprom_stammDataUpdate())
     {
-
-        availableWatt += (double)d.exportWatt;
-
         eprom_stammDataUpdateReset();
     }
-    else
-    {
-        availableWatt += (double)d.exportWatt;
-        
-    }
-    availableWatt += statusBoilerWatt;
-    DBGf("Abs: %f, stateBoiler: %f newAvailableWatt: %f", ABS(availableWatt), statusBoilerWatt, availableWatt);
-   
-    
+
+    availableWatt += (double)d.exportWatt;
+    availableWatt -= statusBoilerWatt;
+    DBGf("Abs: %f, stateBoiler: %f newAvailableWatt: %f, Sockel: %d", ABS(availableWatt), statusBoilerWatt, availableWatt, d.exportWatt);
+
     /* if (prevAvailableWatt != START_VALUE_FOR_AIVALABLE_WATT)
         availableWatt = prevAvailableWatt; */
 #endif
@@ -132,7 +129,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     if (ABS(availableWatt) < 20.0)
     {
 #ifdef TEST_PID_WWWW
-        // prevAvailableWatt = firstAvailableWatt;
+        DBGf("ABS<20, PWM: %.3f", mAnalogOut);
 #endif
         return true;
     }
@@ -163,7 +160,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         {
             mAnalogOut = 0.0;
             statusBoilerWatt -= availableWatt;
-            
+
             availableWatt = 0.0;
             DBGf("PidManager::task - reduce pwm %.3f", mAnalogOut);
             mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
@@ -207,12 +204,12 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
             }
             if (availableWatt < onePhase && mAnalogOut < 254)
             {
-                DBGf("PidManager:: >  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * availableWatt / onePhase);
+                DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * availableWatt / onePhase);
                 statusBoilerWatt += availableWatt;
                 mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * availableWatt / onePhase); // [0..255]
                 availableWatt = 0.0;
             }
-            else if ( mAnalogOut < 254)
+            else if (mAnalogOut < 254)
             {
                 mAnalogOut = OUTPUT_MAX;
                 mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
@@ -225,15 +222,16 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     }
     if (isNegative)
         availableWatt *= -1.0;
-        
-    DBGf("PIDManagerTask::exit  mCurrPower (W): %f, anaOutput(PWM) %f, Dig1: %d, Dig2: %d", availableWatt, mAnalogOut, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
+
+    DBGf("Eexit  mCurrPower (W): %f, anaOutput(PWM) %f, Dig1: %d, Dig2: %d", availableWatt, mAnalogOut, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
 
 #ifdef TEST_PID_WWWW
 #ifdef INFLUX
     influx_write_test(statusBoilerWatt, availableWatt, webSockData);
 #endif
 
-    DBGf("PidManagerTask: available: %f, boiler: %f", availableWatt, statusBoilerWatt);
+    DBGf("Available: %f, boiler: %f", availableWatt, statusBoilerWatt);
+    DBGf("=================PID End =======================");
 #endif
     return true;
 }

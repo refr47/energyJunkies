@@ -101,15 +101,15 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     return true;
 }
 
-bool influx_write_test(double availableData, double availableDataAfter, WEBSOCK_DATA &webSockData)
+bool influx_write_test(double boilerData, double availableWatt, WEBSOCK_DATA &webSockData)
 {
     DBGf("influx_write_test BEGIN");
     simulation.clearFields();
     simulation.addField("pwm", webSockData.pidContainer.mAnalogOut);
     simulation.addField("relay1", webSockData.pidContainer.PID_PIN1);
     simulation.addField("relay2", webSockData.pidContainer.PID_PIN2);
-    simulation.addField("availAbleWattBefor", availableData);
-    simulation.addField("availAbleWattAfter", availableDataAfter);
+    simulation.addField("statusBoiler", boilerData);
+    simulation.addField("availableWatt", availableWatt);
     String proto = client.pointToLineProtocol(simulation);
     if (!client.writePoint(simulation))
     {
