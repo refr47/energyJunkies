@@ -135,6 +135,8 @@ function onMessage(event) {
   replace(2, data["EINS"], true); // Einspeisung
   replace(3, data["TPS"], false); // Sensorik Temp
   replace(6, data["HL3"], false); // pwm 
+  replace(12, data["SimBias"], false); // Sim Bias
+  replace(13, data["SimLoad"], false); // Sim Load
 }
 
 function replaceDataReceivedSym() {
@@ -152,12 +154,14 @@ function createDataSetM() {
     ['Temperatur', '49', "Grad"],
     ['Pufferspeicher L1', '1', "Aus:0, Ein: 1"],
     ['Pufferspeicher L2', '1', "Aus:0, Ein: 1"],
-    ['Pufferspeicher L3', '10', "PWM"],
+    ['Pufferspeicher L3', '10', "PWM"], //6
     ['Pufferspeicher reservier', '0', "W"],
     ['Speicher', 'j', "Aus:0, Ein: 1"],
     ['Speicher Kapazität (kW)', '13 kW', "kW"],
     ['Speicher Zustand (kW)', '3 kW', "kW"],
     ['Speicher Laden (Watt)', '200 W', "W"],
+    ['SIM_Additional_Load', '0.0 kW', "kW"], //12
+    ['SIM_Bias_Powery', '0.0 kW', "kW"],
   ];
 
 

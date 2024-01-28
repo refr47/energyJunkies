@@ -177,11 +177,10 @@ void setup()
     // eprom_test_write_Eprom("Milchbehaelter", "47754775");
     //    eprom_clearLifeData();
     eprom_isInit();
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
     eprom_getSetup(webSockData.setupData);
     eprom_getLifeData(lifeData);
     // eprom_show(webSockData.setupData);
-
-    // eprom_test_read_Eprom();
 
     // if (strcmp(webSockData.setupData.ssid, "---") == 0)
     if (strcmp(webSockData.setupData.ssid, "--") == 0)
@@ -225,6 +224,7 @@ void setup()
         // tft_printInfo("       ");
         tft_printKeyValue("Init Time", "OK", TFT_GREEN);
         time_init(); // init time
+        time_currentTimeStamp();
         DBGf("Setup Modbus ...");
         if (!mb_init(webSockData.setupData))
         {

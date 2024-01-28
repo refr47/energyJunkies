@@ -24,6 +24,8 @@
 #define AKKU_ENTLADEN "AkDis"
 #define NETZ_EXPORT_INS "NEI"
 #define NETZ_IMPORT_INS "NII"
+#define SIM_BIAS "SimBias"
+#define SIM_LOAD "SimLoad"
 
 #define HEIZPATRONE_L1 1
 #define HEIZPATRONE_L2 2
@@ -136,6 +138,8 @@ String getJsonObj()
     readings[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
     readings[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
     readings[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate;
+    readings[SIM_BIAS] = data.setup.exportWatt;
+    readings[SIM_LOAD] = data.setup.additionalLoad;
 
     String jsonString = JSON.stringify(readings);
     // DBGf("JSON-String: %s", jsonString.c_str());

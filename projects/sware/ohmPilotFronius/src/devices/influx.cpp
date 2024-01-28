@@ -16,6 +16,7 @@ static InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUX
 static Point energy("energy");
 static Point boiler("boiler");
 static Point simulation("simulation");
+static Point inverter("inverter");
 
 bool influx_init()
 {
@@ -114,6 +115,24 @@ bool influx_write_test(double boilerData, double availableWatt, WEBSOCK_DATA &we
     if (!client.writePoint(simulation))
     {
         Serial.print("InfluxDB write failed (simulation): ");
+        Serial.println(client.getLastErrorMessage());
+        return false;
+    }
+    return true;
+}
+
+bool influx_write_production(double pv, double akku, double load)
+{
+    DBGf("influx_write_production BEGIN");
+    inverter.clearFields();
+    inverter.addField("pv", pv);
+    inverter.addField("akku", akku);
+    inverter.addField("load", load);
+
+    String proto = client.pointToLineProtocol(inverter);
+    if (!client.writePoint(inverter))
+    {
+        Serial.print("InfluxDB write failed (inverter): ");
         Serial.println(client.getLastErrorMessage());
         return false;
     }

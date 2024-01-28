@@ -3,7 +3,7 @@
 #include "time.h"
 #include "esp_sntp.h"
 #include "curTime.h"
-#include "debugConsole.h"
+// #include "debugConsole.h"
 #include "defines.h"
 
 using namespace std;
@@ -91,9 +91,9 @@ bool time_print()
         Serial.println("Failed to obtain time");
         return false;
     }
-    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+    // Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
     time_t timestamp = time(NULL);
-    DBGf("TimeStamp: %d", timestamp);
+    // DBGf("TimeStamp: %d", timestamp);
 
     return true;
 }
@@ -119,4 +119,20 @@ bool time_storeCurrentTime()
     if (!getLocalTime(&currentTime))
         return false;
     return true;
+}
+
+static char buf[20];
+char *time_currentTimeStamp()
+{
+    time_t t = time(NULL);
+    struct tm *tmp = gmtime(&t);
+
+    /*     int h = (t / 3600) % 24;
+        int m = (t / 60) % 60;
+        int s = t % 60; */
+
+    sprintf(buf, "%02d:%02d:%02d\n", (t / 3600) % 24, (t / 60) % 60, t % 60);
+
+    // Serial.println(buf);
+    return buf;
 }
