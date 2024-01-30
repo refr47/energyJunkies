@@ -4,6 +4,9 @@
 #include <PID_v1.h>
 #include "defines.h"
 
+
+#define MAX_LEN_MEASURE  10  // length of array for storing measure 
+
 enum OutputType
 {
     Analog,

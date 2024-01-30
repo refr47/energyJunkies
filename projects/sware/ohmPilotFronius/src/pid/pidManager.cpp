@@ -27,7 +27,7 @@
 #define KP 1
 #define KI 0.5
 #define KD 0
-
+ 
 // power has to be above set point for this time, before next digital output
 // is activated (in ms)
 #define DELAY_DIG_OUT_ON 5000
@@ -42,6 +42,8 @@ static int MIN_ON_TIME = 10000;
 static const int id_DIG_PIN_1 = 0;
 static const int id_DIG_PIN_2 = 1;
 static const int id_ANA_PWM = 2;
+
+
 
 PinManager::PinManager()
 {
@@ -91,7 +93,8 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
          DBGf("Energy Import %.3f",METER_DATA.acCurrentPower);
          return true;
 
-     } */
+     } */ 
+
     DBGf("=================PID Start =======================");
     if (webSockData.states.froniusAPI)
     {
@@ -114,6 +117,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         DBGf("modbus: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
         DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
     }
+
 
 #ifdef TEST_PID_WWWW
     eprom_getSetup(d);
