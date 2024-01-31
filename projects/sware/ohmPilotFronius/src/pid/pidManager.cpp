@@ -227,7 +227,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     // availableWatt -= statusBoilerWatt;
     availableWatt -= d.additionalLoad;
     firstAvailableWatt = availableWatt;
-    DBGf("Abs: %f, stateBoiler: %f newAvailableWatt: %f, Bias: %d, addLoad: %.3f", ABS(availableWatt), statusBoilerWatt, availableWatt, d.exportWatt, d.additionalLoad);
+    DBGf("Abs: %f,  newAvailableWatt: %f, Bias: %d, addLoad: %.3f", ABS(availableWatt),  availableWatt, d.exportWatt, d.additionalLoad);
 
     /* if (prevAvailableWatt != START_VALUE_FOR_AIVALABLE_WATT)
         availableWatt = prevAvailableWatt; */
@@ -235,13 +235,14 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     // DBGf("PinManager::task: AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
     /* if (availableWatt < 10)
         return true; */
+    storage=0.0;
     if (ABS(availableWatt) < 20.0)
     {
 #ifdef TEST_PID_WWWW
         DBGf("ABS<20, PWM: %.3f", mAnalogOut);
 #endif
 #ifdef INFLUX
-        influx_write_test(statusBoilerWatt, availableWatt, webSockData);
+        influx_write_test(storage, availableWatt, webSockData);
 #endif
         return true;
     }
@@ -255,7 +256,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         DBGf("AvilableWatt: %f < 0, Consumation, analogOut: %.3f   ", availableWatt, mAnalogOut);
         availableWatt *= -1.0; // simpler for computing
 
-        double storage = getWattBoundInRelays();
+        storage = getWattBoundInRelays();
         if (availableWatt < storage)
         {
             if (storage - availableWatt > onePhase)
@@ -328,7 +329,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 #ifdef TEST_PID_WWWW
         isNegative = false;
 #endif
-        double storage = getWattBoundInRelays();
+        storage = getWattBoundInRelays();
         if (availableWatt < storage)
         {
             if (storage - availableWatt > onePhase)
@@ -388,7 +389,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 
 #ifdef TEST_PID_WWWW
 #ifdef INFLUX
-    influx_write_test(statusBoilerWatt, availableWatt, webSockData);
+    influx_write_test(storage, availableWatt, webSockData);
 #endif
 
     DBGf("Available: %f, boiler: %f", availableWatt, statusBoilerWatt);

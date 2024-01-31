@@ -100,6 +100,7 @@ private:
     double onePhase;
     double availableWatt;
     double gridWatt;
+    double storage;
     // double mCurrentPower;
 
     // PID mPid;
