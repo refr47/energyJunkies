@@ -109,7 +109,7 @@ bool influx_write_test(double boilerData, double availableWatt, WEBSOCK_DATA &we
     simulation.addField("pwm", webSockData.pidContainer.mAnalogOut);
     simulation.addField("relay1", webSockData.pidContainer.PID_PIN1);
     simulation.addField("relay2", webSockData.pidContainer.PID_PIN2);
-    simulation.addField("statusBoiler", boilerData);
+    simulation.addField("storage", boilerData);
     simulation.addField("availableWatt", availableWatt);
     String proto = client.pointToLineProtocol(simulation);
     if (!client.writePoint(simulation))

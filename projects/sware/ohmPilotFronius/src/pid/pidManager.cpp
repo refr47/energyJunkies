@@ -45,7 +45,7 @@ static const int id_ANA_PWM = 2;
 
 PinManager::PinManager()
 {
-    memset(availablePower, 0, sizeof(availablePower));
+    availablePower.clear();
 
     powerIndex = 0;
 }
@@ -164,12 +164,12 @@ void PinManager::adustPWM(double storage)
 
     if (mAnalogOut >= OUTPUT_MAX)
     {
-        DBGf("adustManager, ");
+        DBGf("adustManager, nothing to do, mAnalogOut: %f", mAnalogOut);
     }
     if (availableWatt < onePhase)
     {
         DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * availableWatt / onePhase);
-
+        mAnalogOut = OUTPUT_MAX * availableWatt / onePhase;
         mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * availableWatt / onePhase); // [0..255]
         availableWatt = 0.0;
     }
@@ -196,9 +196,9 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     if (webSockData.states.froniusAPI)
     {
         if (FRONIUS.p_akku < 0.0)
-            availableWatt = FRONIUS.p_pv + FRONIUS.p_akku - FRONIUS.p_grid + FRONIUS.p_load;
+            availableWatt = FRONIUS.p_akku - FRONIUS.p_grid;
         else
-            availableWatt = FRONIUS.p_pv - FRONIUS.p_grid + FRONIUS.p_load;
+            availableWatt = 0.0 - FRONIUS.p_grid;
         gridWatt = FRONIUS.p_grid;
         DBGf("fronisAPI: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
         DBGf("fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load);
@@ -227,7 +227,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     // availableWatt -= statusBoilerWatt;
     availableWatt -= d.additionalLoad;
     firstAvailableWatt = availableWatt;
-    DBGf("Abs: %f,  newAvailableWatt: %f, Bias: %d, addLoad: %.3f", ABS(availableWatt),  availableWatt, d.exportWatt, d.additionalLoad);
+    DBGf("Abs: %f,  newAvailableWatt: %f, Bias: %d, addLoad: %.3f", ABS(availableWatt), availableWatt, d.exportWatt, d.additionalLoad);
 
     /* if (prevAvailableWatt != START_VALUE_FOR_AIVALABLE_WATT)
         availableWatt = prevAvailableWatt; */
@@ -235,7 +235,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     // DBGf("PinManager::task: AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
     /* if (availableWatt < 10)
         return true; */
-    storage=0.0;
+    storage = 0.0;
     if (ABS(availableWatt) < 20.0)
     {
 #ifdef TEST_PID_WWWW
@@ -253,28 +253,36 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         isNegative = true;
 #endif
 
-        DBGf("AvilableWatt: %f < 0, Consumation, analogOut: %.3f   ", availableWatt, mAnalogOut);
+        DBGf("AvailableWatt: %f < 0, Consumation, analogOut: %.3f   ", availableWatt, mAnalogOut);
         availableWatt *= -1.0; // simpler for computing
 
         storage = getWattBoundInRelays();
-        if (availableWatt < storage)
+        DBGf("storage: %.3f", storage);
+        if (storage >= 0.0)
         {
-            if (storage - availableWatt > onePhase)
-            {
-                availableWatt *= -1.00; // for reduceRelayStorage; adding onePhase to availableWatt
-                storage = reduceRelayStorage(storage);
-                availableWatt *= -1.00;
-            }
+            DBGf("1 availableWatt < storage: %.3f", storage);
+            /* if (storage >= onePhase)
+            { */
+            DBGf("2 storage %.3f - availableWatt %.3f> onePhase: ", storage, availableWatt);
+            availableWatt *= -1.00; // for reduceRelayStorage; adding onePhase to availableWatt
+            storage = reduceRelayStorage(storage);
+            availableWatt *= -1.00;
+            DBGf("3 storage %.3f - availableWatt %.3f> onePhase: ", storage, availableWatt);
+            // }
         }
         if (availableWatt >= onePhase)
         {
+            DBGf("4 availableWatt >= onePhase %.3f", availableWatt);
             mAnalogOut = OUTPUT_MIN;
             mOuts[id_ANA_PWM].setValue(mAnalogOut);
-            DBGf("availableWatt >= onePhase,pwm=0, analogOutput: .3f",mAnalogOut);
+            DBGf("5 availableWatt >= onePhase,pwm=0, analogOutput: %.3f", mAnalogOut);
         }
         else if (availableWatt < onePhase)
         {
-           adustPWM(storage);
+            adustPWM(storage);
+            /* mAnalogOut = OUTPUT_MIN;
+            mOuts[id_ANA_PWM].setValue(mAnalogOut); */
+            DBGf("6 availableWatt < onePhase, mAnalogOut: %.3f", mAnalogOut);
         }
 
 #ifdef HH
@@ -329,14 +337,19 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 #ifdef TEST_PID_WWWW
         isNegative = false;
 #endif
-        storage = getWattBoundInRelays();
-        if (availableWatt < storage)
+        // storage = getWattBoundInRelays();
+        /*   if (availableWatt < storage)
+          {
+              DBGf("1 availableWatt < storage: %.3f", storage);
+              if (storage > 0.0)
+              {
+                  storage = reduceRelayStorage(storage);
+                  DBGf("2 storage - availableWatt %.3f > onePhase %.3f", availableWatt, storage);
+              }
+          } */
+        if (availableWatt > onePhase)
         {
-            if (storage - availableWatt > onePhase)
-                storage = reduceRelayStorage(storage);
-        }
-        else if (availableWatt - storage > onePhase)
-        {
+            DBGf("3 storage - availableWatt - storage > onePhase %.3f > onePhase %.3f", availableWatt, storage);
             storage = addRelayStorage(storage);
         }
         adustPWM(storage);
@@ -385,14 +398,14 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     if (isNegative)
         availableWatt *= -1.0;
 
-    DBGf("Eexit  mCurrPower (W): %f, akku: %.3f anaOutput(PWM) %f, Dig1: %d, Dig2: %d", availableWatt, statusBoilerWatt, mAnalogOut, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
+    DBGf("Eexit  mCurrPower (W): %f, storage: %.3f anaOutput(PWM) %f, Dig1: %d, Dig2: %d", availableWatt, storage, mAnalogOut, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
 
 #ifdef TEST_PID_WWWW
 #ifdef INFLUX
     influx_write_test(storage, availableWatt, webSockData);
 #endif
 
-    DBGf("Available: %f, boiler: %f", availableWatt, statusBoilerWatt);
+    DBGf("Available: %f, storage: %f", availableWatt, storage);
     DBGf("=================PID End =======================");
 #endif
     prevAvailableWatt = firstAvailableWatt;
