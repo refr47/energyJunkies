@@ -27,7 +27,7 @@
 #define KP 1
 #define KI 0.5
 #define KD 0
- 
+
 // power has to be above set point for this time, before next digital output
 // is activated (in ms)
 #define DELAY_DIG_OUT_ON 5000
@@ -43,10 +43,11 @@ static const int id_DIG_PIN_1 = 0;
 static const int id_DIG_PIN_2 = 1;
 static const int id_ANA_PWM = 2;
 
-
-
 PinManager::PinManager()
 {
+    memset(availablePower, 0, sizeof(availablePower));
+
+    powerIndex = 0;
 }
 
 void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
@@ -73,6 +74,33 @@ void PinManager::reset()
     }
 }
 
+double PinManager::getMeanOfAvailAblePower()
+{
+
+    // Find and remove the minimum and maximum elements
+    auto minIt = std::min_element(availablePower.begin(), availablePower.end());
+    auto maxIt = std::max_element(availablePower.begin(), availablePower.end());
+
+    if (minIt != availablePower.end() && maxIt != availablePower.end())
+    {
+        availablePower.erase(minIt);
+        availablePower.erase(maxIt);
+
+        // Compute the mean of the remaining elements
+        int sum = 0;
+        for (int num : availablePower)
+        {
+            sum += num;
+        }
+
+        double mean = static_cast<double>(sum) / availablePower.size();
+        DBGf("PinManager:: mean: %.3f", mean);
+        powerIndex = 0;
+        availablePower.clear();
+        return mean;
+    }
+}
+
 #ifdef TEST_PID_WWWW
 #define START_VALUE_FOR_AIVALABLE_WATT -99999.0
 static Setup d;
@@ -84,6 +112,75 @@ static double prozent = 0.0;
 static boolean isNegative = false;
 #endif
 
+double PinManager::getWattBoundInRelays()
+{
+
+    double storage = 0.0;
+
+    for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2 && availableWatt > onePhase; i++)
+    {
+        if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
+            storage += onePhase;
+        return storage;
+    }
+}
+
+double PinManager::reduceRelayStorage(double storage)
+{
+    for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
+    {
+        if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
+        {
+            mOuts[i].setValue(0.00);
+            availableWatt += onePhase;
+            storage -= onePhase;
+            DBGf("PidManager:: reduceRelayStorage < 0 , Power Off DigiOut:%d, availableWatt %.3f", i, availableWatt);
+            // return storage;
+            break;
+        }
+    }
+    return storage;
+}
+
+double PinManager::addRelayStorage(double storage)
+{
+    for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
+    {
+        if (!mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
+        {
+            mOuts[i].setValue(1);
+            availableWatt -= onePhase;
+            storage += onePhase;
+            DBGf("PidManager:: >  0,addRelayStorage >= onePhase: L %d active", i);
+            // return storage;
+            break;
+        }
+    }
+    return storage;
+}
+
+void PinManager::adustPWM(double storage)
+{
+
+    if (mAnalogOut >= OUTPUT_MAX)
+    {
+        DBGf("adustManager, ");
+    }
+    if (availableWatt < onePhase)
+    {
+        DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * availableWatt / onePhase);
+
+        mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * availableWatt / onePhase); // [0..255]
+        availableWatt = 0.0;
+    }
+    else
+    {
+        mAnalogOut = OUTPUT_MAX;
+        mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
+        DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX);
+    }
+}
+
 bool PinManager::task(WEBSOCK_DATA &webSockData)
 {
     bool result = false;
@@ -93,7 +190,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
          DBGf("Energy Import %.3f",METER_DATA.acCurrentPower);
          return true;
 
-     } */ 
+     } */
 
     DBGf("=================PID Start =======================");
     if (webSockData.states.froniusAPI)
@@ -118,7 +215,6 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
     }
 
-
 #ifdef TEST_PID_WWWW
     eprom_getSetup(d);
     // eprom_show(d);
@@ -128,7 +224,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     }
 
     availableWatt += (double)d.exportWatt;
-    availableWatt -= statusBoilerWatt;
+    // availableWatt -= statusBoilerWatt;
     availableWatt -= d.additionalLoad;
     firstAvailableWatt = availableWatt;
     DBGf("Abs: %f, stateBoiler: %f newAvailableWatt: %f, Bias: %d, addLoad: %.3f", ABS(availableWatt), statusBoilerWatt, availableWatt, d.exportWatt, d.additionalLoad);
@@ -158,6 +254,29 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 
         DBGf("AvilableWatt: %f < 0, Consumation, analogOut: %.3f   ", availableWatt, mAnalogOut);
         availableWatt *= -1.0; // simpler for computing
+
+        double storage = getWattBoundInRelays();
+        if (availableWatt < storage)
+        {
+            if (storage - availableWatt > onePhase)
+            {
+                availableWatt *= -1.00; // for reduceRelayStorage; adding onePhase to availableWatt
+                storage = reduceRelayStorage(storage);
+                availableWatt *= -1.00;
+            }
+        }
+        if (availableWatt >= onePhase)
+        {
+            mAnalogOut = OUTPUT_MIN;
+            mOuts[id_ANA_PWM].setValue(mAnalogOut);
+            DBGf("availableWatt >= onePhase,pwm=0, analogOutput: .3f",mAnalogOut);
+        }
+        else if (availableWatt < onePhase)
+        {
+           adustPWM(storage);
+        }
+
+#ifdef HH
         if (availableWatt >= onePhase)
         {
 
@@ -201,6 +320,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
             statusBoilerWatt -= onePhase;
             DBGf("availableWatt < 0,mCurrentPower <= onePhase PWM: %d", 0);
         }
+#endif
     }
     else
     {
@@ -208,6 +328,18 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 #ifdef TEST_PID_WWWW
         isNegative = false;
 #endif
+        double storage = getWattBoundInRelays();
+        if (availableWatt < storage)
+        {
+            if (storage - availableWatt > onePhase)
+                storage = reduceRelayStorage(storage);
+        }
+        else if (availableWatt - storage > onePhase)
+        {
+            storage = addRelayStorage(storage);
+        }
+        adustPWM(storage);
+#ifdef HH
         if (availableWatt <= onePhase)
         {
 
@@ -247,6 +379,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
                 DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX);
             }
         }
+#endif
     }
     if (isNegative)
         availableWatt *= -1.0;

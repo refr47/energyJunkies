@@ -3,7 +3,9 @@
 #include <Arduino.h>
 #include <PID_v1.h>
 #include "defines.h"
-
+#include <vector>
+#include <iostream>
+#include <algorithm>
 
 #define MAX_LEN_MEASURE  10  // length of array for storing measure 
 
@@ -86,10 +88,11 @@ public:
     {
         return mOuts[2].mValue;
     }
-   /*  double getCurrentPower()
-    {
-        return mCurrentPower;
-    } */
+    double getWattBoundInRelays();
+    double reduceRelayStorage(double storage);
+    double addRelayStorage(double storage);
+    void adustPWM(double storage);
+
 
 private:
     Pins mOuts[3];
@@ -100,6 +103,10 @@ private:
     // double mCurrentPower;
 
     // PID mPid;
+
+    std::vector<double> availablePower;
+    int powerIndex;
+    double getMeanOfAvailAblePower();
 
     unsigned long mDelayDigOutOn;
     unsigned long mDelayDigOutOff;
