@@ -226,7 +226,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         gridWatt = METER_DATA.acCurrentPower;
         DBGf("modbus: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
         DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
-        #ifdef INFLUX
+#ifdef INFLUX
         influx_write_production(INVERTER_DATA.acCurrentPower, 0.0, METER_DATA.acCurrentPower);
 #endif
     }
@@ -250,7 +250,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 #endif
     if (powerIndex < MAX_LEN_MEASURE)
     {
-        availablePower = availablePower;
+        availablePower.push_back(availableWatt); // availablePower;
         ++powerIndex;
         DBGf("sIZEOF BUFFER. %d", availablePower.size());
 #ifdef TEST_PID_WWWW
@@ -259,11 +259,14 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         return true;
 #endif
 #endif
-    } else {
-        availablePower.push_back(getMeanOfAvailAblePower());
-        DBGf("Means of MAX_LEN_MEASURE-2 measures ");
     }
-   
+    else
+    {
+        availableWatt = getMeanOfAvailAblePower();
+        DBGf("Means of MAX_LEN_MEASURE-2 measures ");
+        powerIndex = 0;
+    }
+
     if (ABS(availableWatt) < 20.0)
     {
 #ifdef TEST_PID_WWWW
