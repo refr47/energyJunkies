@@ -120,7 +120,7 @@ double PinManager::getWattBoundInRelays()
     DBGf("getWattBoundInRelays");
     for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
     {
-    /*     DBGf("index: %d,isDigOn(): %d, tivationTimeElapsed(): %d", i, mOuts[i].isDigOn(), mOuts[i].hasActivationTimeElapsed()); */
+        /*     DBGf("index: %d,isDigOn(): %d, tivationTimeElapsed(): %d", i, mOuts[i].isDigOn(), mOuts[i].hasActivationTimeElapsed()); */
         if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
         {
             store += onePhase;
@@ -226,6 +226,9 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         gridWatt = METER_DATA.acCurrentPower;
         DBGf("modbus: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
         DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
+        #ifdef INFLUX
+        influx_write_production(INVERTER_DATA.acCurrentPower, 0.0, METER_DATA.acCurrentPower);
+#endif
     }
 
 #ifdef TEST_PID_WWWW
@@ -245,10 +248,22 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     /* if (prevAvailableWatt != START_VALUE_FOR_AIVALABLE_WATT)
         availableWatt = prevAvailableWatt; */
 #endif
-    // DBGf("PinManager::task: AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
-    /* if (availableWatt < 10)
-        return true; */
-    // storage = 0.0;
+    if (powerIndex < MAX_LEN_MEASURE)
+    {
+        availablePower = availablePower;
+        ++powerIndex;
+        DBGf("sIZEOF BUFFER. %d", availablePower.size());
+#ifdef TEST_PID_WWWW
+#ifdef INFLUX
+        influx_write_test(storage, availableWatt, webSockData);
+        return true;
+#endif
+#endif
+    } else {
+        availablePower.push_back(getMeanOfAvailAblePower());
+        DBGf("Means of MAX_LEN_MEASURE-2 measures ");
+    }
+   
     if (ABS(availableWatt) < 20.0)
     {
 #ifdef TEST_PID_WWWW
