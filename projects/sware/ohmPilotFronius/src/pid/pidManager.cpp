@@ -48,6 +48,7 @@ PinManager::PinManager()
     availablePower.clear();
 
     powerIndex = 0;
+    storage = 0;
 }
 
 void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
@@ -115,35 +116,46 @@ static boolean isNegative = false;
 double PinManager::getWattBoundInRelays()
 {
 
-    double storage = 0.0;
-
-    for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2 && availableWatt > onePhase; i++)
+    double store = 0.0;
+    DBGf("getWattBoundInRelays");
+    for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
     {
+    /*     DBGf("index: %d,isDigOn(): %d, tivationTimeElapsed(): %d", i, mOuts[i].isDigOn(), mOuts[i].hasActivationTimeElapsed()); */
         if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-            storage += onePhase;
-        return storage;
+        {
+            store += onePhase;
+        }
+        // DBGf("getWattBoundInRelays store: %f", store);
     }
+    return store;
 }
 
-double PinManager::reduceRelayStorage(double storage)
+double PinManager::reduceRelayStorage()
 {
+    DBGf("PidManager:reduceRelayStorage , storage: %.3f BEGIN", storage);
     for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
     {
         if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
         {
-            mOuts[i].setValue(0.00);
-            availableWatt += onePhase;
+            mOuts[i].setValue(0);
+            if (availableWatt - onePhase > 0.0)
+            {
+                availableWatt -= onePhase;
+            }
+            else
+                availableWatt = 0.0;
             storage -= onePhase;
             DBGf("PidManager:: reduceRelayStorage < 0 , Power Off DigiOut:%d, availableWatt %.3f", i, availableWatt);
-            // return storage;
             break;
         }
     }
+    DBGf("PidManager:reduceRelayStorage storage: %.3f EXIT", storage);
     return storage;
 }
 
-double PinManager::addRelayStorage(double storage)
+double PinManager::addRelayStorage()
 {
+    DBGf("PidManager:addRelayStorage storage: %.3f BEGIN", storage);
     for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
     {
         if (!mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
@@ -156,10 +168,11 @@ double PinManager::addRelayStorage(double storage)
             break;
         }
     }
+    DBGf("PidManager:addRelayStorage storage: %.3f ExIT", storage);
     return storage;
 }
 
-void PinManager::adustPWM(double storage)
+void PinManager::adustPWM()
 {
 
     if (mAnalogOut >= OUTPUT_MAX)
@@ -170,7 +183,7 @@ void PinManager::adustPWM(double storage)
     {
         DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * availableWatt / onePhase);
         mAnalogOut = OUTPUT_MAX * availableWatt / onePhase;
-        mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * availableWatt / onePhase); // [0..255]
+        mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
         availableWatt = 0.0;
     }
     else
@@ -200,7 +213,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         else
             availableWatt = 0.0 - FRONIUS.p_grid;
         gridWatt = FRONIUS.p_grid;
-        DBGf("fronisAPI: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
+        DBGf("fronisAPI: availableWatt: %.3f, gridWatt: %.3f, store: %.3f", availableWatt, gridWatt, getWattBoundInRelays());
         DBGf("fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load);
 #ifdef INFLUX
         influx_write_production(FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load);
@@ -235,7 +248,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     // DBGf("PinManager::task: AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
     /* if (availableWatt < 10)
         return true; */
-    storage = 0.0;
+    // storage = 0.0;
     if (ABS(availableWatt) < 20.0)
     {
 #ifdef TEST_PID_WWWW
@@ -257,16 +270,14 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         availableWatt *= -1.0; // simpler for computing
 
         storage = getWattBoundInRelays();
-        DBGf("storage: %.3f", storage);
-        if (storage >= 0.0)
+        DBGf("storage: %.3f , availableWatt: %.3f ", storage, availableWatt);
+        if (storage > 0.0)
         {
             DBGf("1 availableWatt < storage: %.3f", storage);
             /* if (storage >= onePhase)
             { */
             DBGf("2 storage %.3f - availableWatt %.3f> onePhase: ", storage, availableWatt);
-            availableWatt *= -1.00; // for reduceRelayStorage; adding onePhase to availableWatt
-            storage = reduceRelayStorage(storage);
-            availableWatt *= -1.00;
+            storage = reduceRelayStorage();
             DBGf("3 storage %.3f - availableWatt %.3f> onePhase: ", storage, availableWatt);
             // }
         }
@@ -279,7 +290,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         }
         else if (availableWatt < onePhase)
         {
-            adustPWM(storage);
+            adustPWM();
             /* mAnalogOut = OUTPUT_MIN;
             mOuts[id_ANA_PWM].setValue(mAnalogOut); */
             DBGf("6 availableWatt < onePhase, mAnalogOut: %.3f", mAnalogOut);
@@ -350,9 +361,9 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         if (availableWatt > onePhase)
         {
             DBGf("3 storage - availableWatt - storage > onePhase %.3f > onePhase %.3f", availableWatt, storage);
-            storage = addRelayStorage(storage);
+            storage = addRelayStorage();
         }
-        adustPWM(storage);
+        adustPWM();
 #ifdef HH
         if (availableWatt <= onePhase)
         {
@@ -398,18 +409,18 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     if (isNegative)
         availableWatt *= -1.0;
 
-    DBGf("Eexit  mCurrPower (W): %f, storage: %.3f anaOutput(PWM) %f, Dig1: %d, Dig2: %d", availableWatt, storage, mAnalogOut, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
+    DBGf("Eexit  mCurrPower (W): %.3f, storage: %.3f STore: %.3f,anaOutput(PWM) %f, Dig1: %d, Dig2: %d", availableWatt, storage, mAnalogOut, getWattBoundInRelays(), this->getStateOfDigPin(0), this->getStateOfDigPin(1));
 
 #ifdef TEST_PID_WWWW
 #ifdef INFLUX
     influx_write_test(storage, availableWatt, webSockData);
 #endif
 
-    DBGf("Available: %f, storage: %f", availableWatt, storage);
+    DBGf("Available: %.3f, storage: %.3f", availableWatt, storage);
     DBGf("=================PID End =======================");
 #endif
     prevAvailableWatt = firstAvailableWatt;
-
+    delay(15000);
     return true;
 }
 

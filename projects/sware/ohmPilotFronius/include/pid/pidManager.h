@@ -7,7 +7,7 @@
 #include <iostream>
 #include <algorithm>
 
-#define MAX_LEN_MEASURE  10  // length of array for storing measure 
+#define MAX_LEN_MEASURE 10 // length of array for storing measure
 
 enum OutputType
 {
@@ -54,13 +54,13 @@ private:
 
     bool hasActivationTimeElapsed(void)
     {
-        DBGf("Pin %d, activTime: %d", mPin, mActivationTime);
+        // DBGf("Pin %d, activTime: %d", mPin, mActivationTime);
         if (millis() - mActivationTime > mMinOnTime)
         {
-            DBGf("Pin free");
+            // DBGf("Pin free");
             return true;
         }
-        DBGf("Pin occupied");
+        // DBGf("Pin occupied by time");
         return false;
     }
 
@@ -89,10 +89,9 @@ public:
         return mOuts[2].mValue;
     }
     double getWattBoundInRelays();
-    double reduceRelayStorage(double storage);
-    double addRelayStorage(double storage);
-    void adustPWM(double storage);
-
+    double reduceRelayStorage();
+    double addRelayStorage();
+    void adustPWM();
 
 private:
     Pins mOuts[3];
