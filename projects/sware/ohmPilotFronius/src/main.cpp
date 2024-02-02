@@ -5,13 +5,11 @@
 
 #include "debugConsole.h"
 #include "wlan.h"
-#ifdef FRONIUS
+#ifdef FRONIUS_IV
 #include "modbusReader.h"
-#elif HUAWEI
+#elif HUAWEI_IV
 #include "huawei.h"
 #endif
-
-
 
 #include "cardRW.h"
 #include "utils.h"
@@ -56,7 +54,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define TEMPERATURE_INTERVAL 5000UL             // 5 secs
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
 #define MODBUS_INTERVALL 2000UL
-#define PID_CONTROLLER_INTERVALL 20000 // 0.1 secs default sample time
+#define PID_CONTROLLER_INTERVALL 2000 // 0.1 secs default sample time
 #define LOGGING_FLUSH_INTERVALL 60000
 #define MODBUS_AKKU_INTERVALL 5000
 #define CLOCK_INTERVALL 1000           // secs
@@ -745,12 +743,14 @@ void loop()
 #ifndef TEST_PID_WWWW
                     availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
 #endif
+#ifdef FRONIUS_API
                     if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
                     {
                         webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
                         webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
                         webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
                     }
+#endif
                     tft_drawInfo(webSockData);
                     influx_write(webSockData);
 #ifdef MQTT

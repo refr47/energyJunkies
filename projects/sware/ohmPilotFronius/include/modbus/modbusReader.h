@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef FRONIUS_API
+
 #include "defines.h"
 
 /*
@@ -17,3 +19,5 @@ bool mb_readSmartMeter(Setup &setUpData, MB_CONTAINER &);
 bool mb_readInverter(Setup &setUpData, MB_CONTAINER &);
 bool mb_readSmartMeterAndInverterOnly(Setup &setUpData, MB_CONTAINER &);
 bool mb_readAkkuOnly(Setup &setUpData, MB_CONTAINER &);
+
+#endif

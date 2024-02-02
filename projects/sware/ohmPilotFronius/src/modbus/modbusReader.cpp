@@ -1,3 +1,4 @@
+#ifdef FRONIUS_IV
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #else
@@ -99,7 +100,7 @@ static MODBUS_READ_t regsToRead[REG_BLOCK_COUNT] = {
     {AKKU_STRG_BLOCK_ID, INVERTER_ID, INVERTER_STRG_REGS_START, INVERTER_STRG_REGS_LEN, "AkkuS"}};
 
 // highest number of registers to be printed (derived of regsToRead highest register number)
-const int regsCount = METER_REGS_LEN; // max(max(INVERTER_SUM_REGS_LEN, INVERTER_STATE_REGS_LEN), max(INVERTER_STRG_REGS_LEN, METER_REGS_LEN));
+static const int regsCount = METER_REGS_LEN; // max(max(INVERTER_SUM_REGS_LEN, INVERTER_STATE_REGS_LEN), max(INVERTER_STRG_REGS_LEN, METER_REGS_LEN));
 
 /*
         **************************************************************************
@@ -402,3 +403,6 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
     } */
     // DBGf("mb_readInverterDynamic EXit for readIndex: %d", readIndex);
 }
+
+
+#endif

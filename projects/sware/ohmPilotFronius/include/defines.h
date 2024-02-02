@@ -14,8 +14,14 @@
 #define AKKU_STRG webSockData.mbContainer.akkuStr.data
 #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
 
+
 #include "debugConsole.h"
+
+#ifdef FRONIUS_IV
 #include "modbusRegister.h"
+#elif HUAWEI_IV
+#include "huaweiDefines.h"
+#endif
 
 typedef struct
 {

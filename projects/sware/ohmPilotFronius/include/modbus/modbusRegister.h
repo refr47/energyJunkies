@@ -1,4 +1,6 @@
 #pragma once
+#ifdef FRONIUS_IV
+
 
 #include <Arduino.h>
 
@@ -190,3 +192,5 @@ void swapRegs(uint16_t regs[], int count);
 u8_t getHighByte(uint16_t b);
 u8_t getLowByte(uint16_t b);
 void makeString(int indexF, int indexT, int16_t *regArr, char **stringBase);
+
+#endif

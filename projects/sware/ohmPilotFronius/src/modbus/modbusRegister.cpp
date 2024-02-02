@@ -1,3 +1,5 @@
+#ifdef FRONIUS_IV
+
 #define __MODBUS_REGISTER_CPP
 
 #include "modbusRegister.h"
@@ -96,3 +98,5 @@ void makeString(int indexF, int indexT, int16_t *regArr, char **stringBase)
         *(++base) = 0;
     }
 }
+
+#endif
