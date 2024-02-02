@@ -7,7 +7,7 @@
 #include <iostream>
 #include <algorithm>
 
-#define MAX_LEN_MEASURE 2 // length of array for storing measure
+#define MAX_LEN_MEASURE 4 // length of array for storing measure
 
 enum OutputType
 {

@@ -80,18 +80,17 @@ double PinManager::getMeanOfAvailAblePower()
 
     std::sort(availablePower.begin(), availablePower.end());
     double sum = 0;
-    for (int jj=1;jj<availablePower.size()-1;jj++)
+    for (int jj = 1; jj < availablePower.size() - 1; jj++)
     {
         sum += availablePower[jj];
     }
+    DBGf("getMeanOfAvailablePower: %.3f, length: %d", sum, availablePower.size());
 
-    double mean = static_cast<double>(sum) / availablePower.size()-2;
-    DBGf("getMeanOfAvailablePower: %.3f",mean);
+    double mean = static_cast<double>(sum) / (availablePower.size() - 2);
+    DBGf("getMeanOfAvailablePower: %.3f", mean);
     availablePower.clear();
     return mean;
 }
-
-
 
 #ifdef TEST_PID_WWWW
 #define START_VALUE_FOR_AIVALABLE_WATT -99999.0
@@ -204,8 +203,8 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         else
             availableWatt = 0.0 - FRONIUS.p_grid;
         gridWatt = FRONIUS.p_grid;
-        DBGf("fronisAPI: availableWatt: %.3f, gridWatt: %.3f, store: %.3f", availableWatt, gridWatt, getWattBoundInRelays());
-        DBGf("fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load);
+        /*   DBGf("fronisAPI: availableWatt: %.3f, gridWatt: %.3f, store: %.3f", availableWatt, gridWatt, getWattBoundInRelays());
+          DBGf("fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load); */
 #ifdef INFLUX
         influx_write_production(FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load);
 #endif
@@ -215,8 +214,8 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         // METER_DATA.acCurrentPower < 0: export: else import
         availableWatt = INVERTER_DATA.acCurrentPower - METER_DATA.acCurrentPower;
         gridWatt = METER_DATA.acCurrentPower;
-        DBGf("modbus: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
-        DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
+        /* DBGf("modbus: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
+        DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower); */
 #ifdef INFLUX
         influx_write_production(INVERTER_DATA.acCurrentPower, 0.0, METER_DATA.acCurrentPower);
 #endif
