@@ -84,10 +84,10 @@ double PinManager::getMeanOfAvailAblePower()
     {
         sum += availablePower[jj];
     }
-    DBGf("getMeanOfAvailablePower: %.3f, length: %d", sum, availablePower.size());
+    // DBGf("getMeanOfAvailablePower: %.3f, length: %d", sum, availablePower.size());
 
     double mean = static_cast<double>(sum) / (availablePower.size() - 2);
-    DBGf("getMeanOfAvailablePower: %.3f", mean);
+    // DBGf("getMeanOfAvailablePower: %.3f", mean);
     availablePower.clear();
     return mean;
 }
