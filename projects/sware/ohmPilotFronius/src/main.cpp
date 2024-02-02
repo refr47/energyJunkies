@@ -5,7 +5,14 @@
 
 #include "debugConsole.h"
 #include "wlan.h"
+#ifdef FRONIUS
 #include "modbusReader.h"
+#elif HUAWEI
+#include "huawei.h"
+#endif
+
+
+
 #include "cardRW.h"
 #include "utils.h"
 #include "tft.h"

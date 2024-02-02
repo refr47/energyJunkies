@@ -56,9 +56,9 @@ int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int
         case 1:
         default:
             value = source[relation[i].sourceIndex];
-            // DBGf("scaleValues (1,0); index: %d value: %d scaleFac: %d", i, value, relation[i].scaleIndex);
+            
         }
-        // only scale values having a scale factor (-1 denotes do not scale)
+       
         if (relation[i].scaleIndex < 0)
         {
             target[relation[i].targetIndex] = value;
