@@ -78,29 +78,20 @@ void PinManager::reset()
 double PinManager::getMeanOfAvailAblePower()
 {
 
-    // Find and remove the minimum and maximum elements
-    auto minIt = std::min_element(availablePower.begin(), availablePower.end());
-    auto maxIt = std::max_element(availablePower.begin(), availablePower.end());
-
-    if (minIt != availablePower.end() && maxIt != availablePower.end())
+    std::sort(availablePower.begin(), availablePower.end());
+    double sum = 0;
+    for (int jj=1;jj<availablePower.size()-1;jj++)
     {
-        availablePower.erase(minIt);
-        availablePower.erase(maxIt);
-
-        // Compute the mean of the remaining elements
-        int sum = 0;
-        for (int num : availablePower)
-        {
-            sum += num;
-        }
-
-        double mean = static_cast<double>(sum) / availablePower.size();
-        DBGf("PinManager:: mean: %.3f", mean);
-        powerIndex = 0;
-        availablePower.clear();
-        return mean;
+        sum += availablePower[jj];
     }
+
+    double mean = static_cast<double>(sum) / availablePower.size()-2;
+    DBGf("getMeanOfAvailablePower: %.3f",mean);
+    availablePower.clear();
+    return mean;
 }
+
+
 
 #ifdef TEST_PID_WWWW
 #define START_VALUE_FOR_AIVALABLE_WATT -99999.0
@@ -255,7 +246,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         DBGf("sIZEOF BUFFER. %d", availablePower.size());
 #ifdef TEST_PID_WWWW
 #ifdef INFLUX
-        influx_write_test(storage, availableWatt, webSockData);
+        influx_write_mean_val(availableWatt);
         return true;
 #endif
 #endif

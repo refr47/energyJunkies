@@ -17,6 +17,8 @@ static Point energy("energy");
 static Point boiler("boiler");
 static Point simulation("simulation");
 static Point inverter("inverter");
+static Point means("means");
+
 
 bool influx_init()
 {
@@ -133,6 +135,34 @@ bool influx_write_production(double pv, double akku, double load)
     if (!client.writePoint(inverter))
     {
         Serial.print("InfluxDB write failed (inverter): ");
+        Serial.println(client.getLastErrorMessage());
+        return false;
+    }
+    return true;
+}
+
+//static Point means("means");
+
+bool influx_write_mean_val(double watt) {
+    means.clearFields();
+    means.addField("availableW",watt);
+    String proto = client.pointToLineProtocol(means);
+    if (!client.writePoint(means))
+    {
+        Serial.print("InfluxDB write failed (means): ");
+        Serial.println(client.getLastErrorMessage());
+        return false;
+    }
+    return true;
+}
+
+bool influx_write_mean(double mean) {
+     means.clearFields();
+    means.addField("availableW",mean);
+    String proto = client.pointToLineProtocol(means);
+    if (!client.writePoint(means))
+    {
+        Serial.print("InfluxDB write failed (means): ");
         Serial.println(client.getLastErrorMessage());
         return false;
     }
