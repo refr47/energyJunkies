@@ -15,7 +15,6 @@
 #define AKKU_STRG webSockData.mbContainer.akkuStr.data
 #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
 
-
 #include "debugConsole.h"
 
 #ifdef FRONIUS_IV
@@ -50,7 +49,7 @@ typedef struct
     unsigned int ipAmisReaderHost;
     char amisKey[AMIS_KEY_LEN];
     String amisReaderHost;
-} Setup; 
+} Setup;
 
 typedef struct
 {
@@ -103,6 +102,15 @@ typedef struct _FRONIUS_SOLAR_POWERFLOW
     unsigned int rel_Autonomy;
     unsigned int rel_SelfConsumption;
 } FRONIUS_SOLAR_POWERFLOW;
+
+typedef struct _AMIS_READER
+{
+    double absolutImportInkWh;
+    double absolutExportInkWh;
+    double currentWirkleistungInKwPlus;
+    double currentWirkleistungInKwMinus;
+
+} AMIS_READER;
 typedef struct _WEBSOCK
 {
     MB_CONTAINER mbContainer;
@@ -113,6 +121,9 @@ typedef struct _WEBSOCK
     Setup setupData;
 #ifdef FRONIUS_API
     FRONIUS_SOLAR_POWERFLOW fronius_SOLAR_POWERFLOW;
+#endif
+#ifdef AMIS_READER_DEV
+    AMIS_READER amisReader;
 #endif
 
 } WEBSOCK_DATA;

@@ -33,6 +33,9 @@
 #ifdef INFLUX
 #include "influx.h"
 #endif
+#ifdef AMIS_READER_DEV
+#include "amisReader.h"
+#endif
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -61,7 +64,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define WEBSOCK_NOTIFY_INTERVALL 10000 // 5 secs
 #define SHOW_IP_ADDR_INTERVALL 5000
 #define CONFIG_PARAM_TEST_INTERVALL 2000
-
+#define AMIS_READER_INTERVALL 10000
 #define FORMAT_CHAR_BUFFER_LEN 50 // @see loop
 
 #ifndef TAG
@@ -101,6 +104,7 @@ typedef struct _TIME_SLICE
     unsigned long previousMillisController;
     unsigned long previousMillisTestConfig;
     unsigned long previousMillisAkku;
+    unsigned long previousMillisAmis;
     unsigned long currentMillis;
 
 } TIME_SLICE;
@@ -334,7 +338,10 @@ void setup()
 #ifdef INFLUX
     influx_init();
 #endif
+#ifdef AMIS_READER_DEV
+    amisReader_initRestTargets(webSockData.setupData);
 }
+#endif
 if (webSockData.states.networkOK)
 {
     delay(10000);
@@ -342,17 +349,17 @@ if (webSockData.states.networkOK)
 }
 ESP_LOGI(TAG, "Setup done - all components are working...");
 #else
-        ESP_LOGI(TAG, "Start testing...");
+    ESP_LOGI(TAG, "Start testing...");
 
-        pinMode(SWITCH_KEY_ENTER, INPUT_PULLUP);
-        /* pinMode(SWITCH_KEY_UP, INPUT_PULLUP);
-        pinMode(SWITCH_KEY_DOWN, INPUT_PULLUP); */
-        pinMode(SWITCH_KEY_ESC, INPUT_PULLUP);
+    pinMode(SWITCH_KEY_ENTER, INPUT_PULLUP);
+    /* pinMode(SWITCH_KEY_UP, INPUT_PULLUP);
+    pinMode(SWITCH_KEY_DOWN, INPUT_PULLUP); */
+    pinMode(SWITCH_KEY_ESC, INPUT_PULLUP);
 
-        pinMode(RELAY_L1, OUTPUT);
-        pinMode(RELAY_L2, OUTPUT);
-        pinMode(PWM_FOR_PID, OUTPUT);
-        memset(&timeSlice, 0, sizeof(timeSlice));
+    pinMode(RELAY_L1, OUTPUT);
+    pinMode(RELAY_L2, OUTPUT);
+    pinMode(PWM_FOR_PID, OUTPUT);
+    memset(&timeSlice, 0, sizeof(timeSlice));
 
 #endif
 }
@@ -690,6 +697,21 @@ void loop()
         }
         tft_drawInfo(webSockData);
         timeSlice.previousMillisAkku = timeSlice.currentMillis;
+    }
+#endif
+
+#ifdef AMIS_READER_DEV
+    if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
+    {
+        if (amisReader_readRestTarget(webSockData))
+        {
+            DBGf("main:: AmisReader: available is: %.3f", webSockData.amisReader.currentWirkleistungInKwPlus - webSockData.amisReader.currentWirkleistungInKwMinus);
+        }
+        else
+        {
+            DBGf("main::AmisReader data not available.");
+        }
+        timeSlice.previousMillisAmis = timeSlice.currentMillis;
     }
 #endif
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)

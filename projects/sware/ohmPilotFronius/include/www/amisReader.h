@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef AMIS_READER_DEV
+
 #include <Arduino.h>
 #include <lwip/sockets.h>
 #include <lwip/netdb.h>
@@ -52,12 +54,9 @@ typedef struct {
 } HTTP_REST_TARGET_t;
 
 
-static KEY_VALUE_MAP_t amisKeyValueMap[AMIS_VALUE_COUNT] = {
-        {"1.8.0", 0},
-        {"2.8.0", 1},
-        {"1.7.0",2},
-        {"2.7.0",3},
-
-};
 
 
+bool amisReader_initRestTargets(Setup &setup);
+bool amisReader_readRestTarget(WEBSOCK_DATA &);
+
+#endif
