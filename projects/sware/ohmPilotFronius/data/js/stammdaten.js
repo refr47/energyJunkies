@@ -19,6 +19,9 @@ function createDataSet() {
     ['Ausgangsregler (D-Anteil)', '0.0', 'PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'],
     ['SIM_Additional_Load', '0.0', 'Simulation: zusätzliche Last'],
     ['SIM_Bias_Powery', '2000', 'Simulation: Bias Watt'],
+    ['AmisReaderHost', 'HOST', 'Amis Reader Host (Name | TCPIP)'],
+    ['AmisReaderKey', 'Key', 'Amis ReaderkEY'],
+
   ];
 
 

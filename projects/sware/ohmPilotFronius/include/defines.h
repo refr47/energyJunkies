@@ -6,6 +6,7 @@
 
 #define LEN_WLAN 30
 #define MODBUS_PORT "502"
+#define AMIS_KEY_LEN 35
 #define JSON_OBJECT_SETUP_LEN 1024 /// www.cpp,
 
 #define INVERTER_DATA webSockData.mbContainer.inverterSumValues.data
@@ -46,7 +47,10 @@ typedef struct
     bool pidChanged;
     double additionalLoad;
     int exportWatt;
-} Setup;
+    unsigned int ipAmisReaderHost;
+    char amisKey[AMIS_KEY_LEN];
+    String amisReaderHost;
+} Setup; 
 
 typedef struct
 {

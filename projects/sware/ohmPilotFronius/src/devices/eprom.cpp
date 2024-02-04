@@ -45,6 +45,13 @@ void eprom_storeSetup(Setup &setup)
     // only for testing pid controller
     preferences.putDouble(_EN_LOAD, setup.additionalLoad);
     preferences.putInt(_EN_BIAS, setup.exportWatt);
+    bool result=true;
+    setup.ipAmisReaderHost = ipv4_string_to_int(setup.amisReaderHost, &result);
+    if (!result)
+        DBGf("ERPROM - Error in converting AmisReader IPAdress!!");
+
+    preferences.putInt(_AMIS_READER_HOST, setup.ipAmisReaderHost);
+    preferences.putString(_AMIS_READER_KEY, setup.amisKey);
     preferences.end();
 }
 
@@ -109,6 +116,14 @@ void eprom_getSetup(Setup &setup)
     setup.pidChanged = false;
     setup.additionalLoad = preferences.getDouble(_EN_LOAD);
     setup.exportWatt = preferences.getInt(_EN_BIAS);
+    setup.ipAmisReaderHost = preferences.getUInt(_AMIS_READER_HOST);
+    setup.amisReaderHost = ipv4_int_to_string(setup.ipAmisReaderHost, &result);
+    if (!result)
+        DBGf("ERPROM - Error in converting AmisReader IPAdress!!");
+
+    String key= preferences.getString(_AMIS_READER_KEY);
+    strncpy(setup.amisKey,key.c_str(), AMIS_KEY_LEN - 1);
+
     preferences.end();
 }
 
@@ -141,7 +156,12 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.pid_min_time_for_dig_output_inMS = 10000;
     setup.pid_powerWhichNeedNotConsumed = 10;
     setup.exportWatt = 10;
-    setup.additionalLoad=0.0;
+    setup.additionalLoad = 0.0;
+    String ipAmis = "10.0.0.21";
+    setup.ipAmisReaderHost = ipv4_string_to_int(ipAmis, &result);
+    if (!result)
+        DBGf("IP translate did not succeed.");
+    strncpy(setup.amisKey, "ABCDFGASDFGDSAERTQWEREW§EWERQEEE", AMIS_KEY_LEN - 1);
     DBGf("eprom_test_write_Eprom END");
 
     eprom_storeSetup(setup);
@@ -150,10 +170,8 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 static void printEprom(Setup &setup)
 {
     char buffer[500];
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f  PID_I: %f PID_D %f  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d, ExportWatt: %d , AdditionalLoad: %.3f----- \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_d, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_powerWhichNeedNotConsumed, setup.pidChanged, setup.exportWatt,setup.additionalLoad
-
-    );
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f  PID_I: %f PID_D %f  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d, ExportWatt: %d , AdditionalLoad: %.3f, amisReader: %s----- \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_d, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_powerWhichNeedNotConsumed, setup.pidChanged, setup.exportWatt, setup.additionalLoad, setup.amisReaderHost);
     DBGf("%s", buffer);
 }
 

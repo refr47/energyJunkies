@@ -25,5 +25,8 @@
 #define SIM_ADDITIONAL_LOAD "SIM_Additional_Load"
 #define SIM_BIAS_POWER "SIM_Bias_Powery"
 
+#define AMIS_READER_HOST "AmisReaderHost"
+#define AMIS_READER_KEY "AmisReaderKey"
+
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus);

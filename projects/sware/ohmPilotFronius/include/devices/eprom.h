@@ -23,6 +23,9 @@
 #define _PID_TEST "pT"
 #define _EN_BIAS "eX"
 #define _EN_LOAD "enL"
+#define _AMIS_READER_HOST "arH"
+#define _AMIS_READER_KEY "arK"
+
 
 void eprom_storeSetup(Setup &setup);
 void eprom_getSetup(Setup &setup);
