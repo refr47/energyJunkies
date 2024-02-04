@@ -1,0 +1,38 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/tmp/tmp.Dxqq4XAh46/energy_logger.c
+errno.h
+-
+stdio.h
+-
+math.h
+-
+modbus/modbus.h
+-
+unistd.h
+-
+time.h
+-
+stdbool.h
+-
+stdlib.h
+-
+string.h
+-
+energy_logger.h
+/tmp/tmp.Dxqq4XAh46/energy_logger.h
+
+/tmp/tmp.Dxqq4XAh46/energy_logger.h
+sys/socket.h
+-
+netinet/in.h
+-
+netdb.h
+-
+

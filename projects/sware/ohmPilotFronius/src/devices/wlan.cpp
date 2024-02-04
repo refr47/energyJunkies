@@ -12,7 +12,7 @@
 #define WIFI_RECONNECT_FALSE "Not Connected"
 
 #define WIFI_TRY_DELAY 1000
-#define WIFI_NUMBER_OF_TRIES 7
+#define WIFI_NUMBER_OF_TRIES 15
 #define WIFI_RECONNECT_TRY_IN_INTERVALL 30000
 
 static unsigned long previousMillis = 0;
@@ -20,8 +20,8 @@ static unsigned long previousMillis = 0;
 bool wifi_init(Setup &setup)
 {
     WiFi.mode(WIFI_STA);
-    strcpy(setup.ssid, "Milchbehaelter");
-    strcpy(setup.passwd, "47754775");
+    /* strcpy(setup.ssid, "Milchbehaelter");
+    strcpy(setup.passwd, "47754775"); */
 
     // WiFi.begin("setup.ssid," setup.passwd);
 
@@ -62,7 +62,7 @@ bool wifi_init(Setup &setup)
     wl_status_t stat = WL_IDLE_STATUS;
     wl_status_t statWifi = WiFi.status();
     bool printNewLine = true;
-    char buf[100];
+    char buf[200];
 
     while (true)
     {
@@ -109,8 +109,8 @@ bool wifi_init(Setup &setup)
             return true;
             break;
         default:
-            DBG("[WiFi] WiFi Status: %x", WiFi.status());
-            sprintf(buf, "%s [%d]", WiFi.status(), WIFI_NUMBER_OF_TRIES - numberOfTries);
+            DBG("[WiFi] WiFi Status:");
+            sprintf(buf, "[%d]", /*WiFi.status(),*/ WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
             break;
         }

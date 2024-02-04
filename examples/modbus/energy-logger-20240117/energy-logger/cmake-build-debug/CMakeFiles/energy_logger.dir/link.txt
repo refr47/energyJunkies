@@ -1,0 +1,1 @@
+/usr/bin/cc -g   CMakeFiles/energy_logger.dir/energy_logger.c.o  -o energy_logger  -lm -lmodbus -ljson-c 

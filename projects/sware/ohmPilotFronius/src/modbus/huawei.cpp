@@ -12,6 +12,11 @@
 #include "debugConsole.h"
 #include "defines.h"
 /*
+1 789 691 368    anydesk
+
+ssid: 	HUAWEI-2.4G-neVU
+
+inverter: 192.168.100.211
 https://debacher.de/wiki/Sun2000_Modbus_Register
 
 https://support.huawei.com/enterprise/de/doc/EDOC1100173913
@@ -19,9 +24,11 @@ https://support.huawei.com/enterprise/de/doc/EDOC1100173913
 Der Standardport für ModbusTCP ist 502.
 https://forum.fhem.de/index.php?topic=115422.0
 
+Inverter: SDongleA-BT2270594860
+
 */
 #define MODBUS_WAIT_FOR_DATA_IN_MS 500
-#define TEXT_LEN  512
+#define TEXT_LEN 512
 
 #define REG_BLOCK_COUNT 1
 #define INVERTER_SUM_BLOCK_ID 0
@@ -29,7 +36,7 @@ https://forum.fhem.de/index.php?topic=115422.0
 #define INVERTER_SUM_REGS_LEN 19
 #define INVERTER_SUM_VALUE_LEN 3
 
-#define METER_BLOCK_ID  1
+#define METER_BLOCK_ID 1
 #define METER_REGS_LEN 70
 #define METER_REGS_START 40071
 
@@ -42,7 +49,6 @@ typedef struct scaleIndex
     int regCount;    // number of registers to combine into one float value
 } SCALE_INDEX_t;
 
-
 static MODBUS_READ_t regsToRead[REG_BLOCK_COUNT] = {
     {INVERTER_SUM_BLOCK_ID, INVERTER_ID, INVERTER_SUM_REGS_START, INVERTER_SUM_REGS_LEN, "Inverter"},
 };
@@ -53,16 +59,14 @@ static SCALE_INDEX_t scaleInverterSum[INVERTER_SUM_VALUE_LEN] = {
     {2, 40100 - INVERTER_SUM_REGS_START, 40101 - INVERTER_SUM_REGS_START, 1}  // AC total energy imported
 };
 
- // scaling relations for meter values
+// scaling relations for meter values
 static SCALE_INDEX_t scaleMeter[METER_VALUE_LEN] = {
     {0, 40087 - METER_REGS_START, 40091 - METER_REGS_START, 1}, // AC current power
     {1, 40107 - METER_REGS_START, 40123 - METER_REGS_START, 2}, // AC total energy exported
     {2, 40115 - METER_REGS_START, 40123 - METER_REGS_START, 2}  // AC total energy imported
 };
 
-
 METER_VALUE_t meterValues;
-
 
 static int16_t resArr[REG_BLOCK_COUNT][regsCount];
 #ifdef MODBUS_VERBOSE
@@ -141,7 +145,6 @@ static void swapRegs(uint16_t regs[], int count)
         regs[count - 1 - i] = temp;
     }
 }
- 
 
 static int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int count)
 {
@@ -184,19 +187,15 @@ static int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation
         case 1:
         default:
             value = source[relation[i].sourceIndex];
-            
         }
-       
-      
-            target[relation[i].targetIndex] = value;
-       
+
+        target[relation[i].targetIndex] = value;
     }
     // DBGf("scaleValues :: END and count: %d", count);
     return 0;
 }
 
-
-static int readIndex=0;
+static int readIndex = 0;
 
 bool mb_readInverterDynamic(Setup &setup, MB_CONTAINER &container)
 {
@@ -243,15 +242,15 @@ bool mb_readInverterDynamic(Setup &setup, MB_CONTAINER &container)
             // inverterSumValues.data.acCurrentPower : produktion
             // DBGf("INVERTER_SUM_BLOCK_ID ");
             // DBGf("Val 1 %d".resArr[readIndex].)
-               scaleValues(inverterSumValues.value, resArr[readIndex], scaleInverterSum, INVERTER_SUM_VALUE_LEN);
-#ifdef MODBUS_VERBOSE            
+            scaleValues(inverterSumValues.value, resArr[readIndex], scaleInverterSum, INVERTER_SUM_VALUE_LEN);
+#ifdef MODBUS_VERBOSE
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;", inverterSumValues.data.acCurrentPower,
                     inverterSumValues.data.acTotalEnergy, inverterSumValues.data.dcCurrentPower);
 #endif
 
             memcpy(&container.inverterSumValues.data, &inverterSumValues.data, sizeof(inverterSumValues.data));
             break;
-             case METER_BLOCK_ID:
+        case METER_BLOCK_ID:
             // DBGf("METER_BLOCK_ID ");
             //  meterValues.data.acCurrentPower : aktuelle einspeisung (-), Bezug: +
             scaleValues(meterValues.value, resArr[readIndex], scaleMeter, METER_VALUE_LEN);
@@ -261,7 +260,6 @@ bool mb_readInverterDynamic(Setup &setup, MB_CONTAINER &container)
 #endif
             memcpy(&container.meterValues.data, &meterValues.data, sizeof(meterValues.data));
             break;
-       
         }
 #ifdef MODBUS_VERBOSE
         if (text[0] != '\0')
