@@ -45,12 +45,14 @@ void eprom_storeSetup(Setup &setup)
     // only for testing pid controller
     preferences.putDouble(_EN_LOAD, setup.additionalLoad);
     preferences.putInt(_EN_BIAS, setup.exportWatt);
-    bool result=true;
+    bool result = true;
     setup.ipAmisReaderHost = ipv4_string_to_int(setup.amisReaderHost, &result);
     if (!result)
         DBGf("ERPROM - Error in converting AmisReader IPAdress!!");
-
-    preferences.putInt(_AMIS_READER_HOST, setup.ipAmisReaderHost);
+    /* else
+        DBGf("EPROM - amis reader %s, ip: %d", setup.amisReaderHost.c_str(), setup.ipAmisReaderHost);
+ */
+    preferences.putUInt(_AMIS_READER_HOST, setup.ipAmisReaderHost);
     preferences.putString(_AMIS_READER_KEY, setup.amisKey);
     preferences.end();
 }
@@ -120,10 +122,11 @@ void eprom_getSetup(Setup &setup)
     setup.amisReaderHost = ipv4_int_to_string(setup.ipAmisReaderHost, &result);
     if (!result)
         DBGf("ERPROM - Error in converting AmisReader IPAdress!!");
+   // DBGf("eprom_getSetup() .. AmisReaderHost: %d %s", setup.ipAmisReaderHost,setup.amisReaderHost.c_str());
 
-    String key= preferences.getString(_AMIS_READER_KEY);
-    strncpy(setup.amisKey,key.c_str(), AMIS_KEY_LEN - 1);
-    DBGf("eprom_getSetup() .. AmisReaderHost: %s, Key: %s",setup.amisReaderHost, setup.amisKey);
+    String key = preferences.getString(_AMIS_READER_KEY);
+    strncpy(setup.amisKey, key.c_str(), AMIS_KEY_LEN - 1);
+    //DBGf("eprom_getSetup() .. AmisReaderHost: %s, Key: %s", setup.amisReaderHost, setup.amisKey);
     preferences.end();
 }
 

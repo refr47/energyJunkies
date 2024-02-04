@@ -17,20 +17,20 @@
 #define REQUEST_LENGTH 64
 // length of json object key
 #define KEY_LENGTH 32
-#define TARGET_NAME_LEN 24 
-#define AMIS_VALUE_COUNT 4
+#define TARGET_NAME_LEN 24
+#define AMIS_VALUE_COUNT 5
 #define REST_TARGET_COUNT 1
 
-
-typedef struct {
+typedef struct
+{
     // (start) index of source register
     char key[KEY_LENGTH];
     // index of destination field element
     int valueIndex;
 } KEY_VALUE_MAP_t;
 
-
-typedef struct {
+typedef struct
+{
     // rest API target name
     char text[TARGET_NAME_LEN];
     // host name of the rest API target
@@ -48,13 +48,10 @@ typedef struct {
     // number of values to build from json object
     int valueCount;
     // translated values (maybe scaled) array
-    double *values;
+    long *values;
     // json object key to values mapping array
     KEY_VALUE_MAP_t *mapping;
 } HTTP_REST_TARGET_t;
-
-
-
 
 bool amisReader_initRestTargets(Setup &setup);
 bool amisReader_readRestTarget(WEBSOCK_DATA &);
