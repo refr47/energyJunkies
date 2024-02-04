@@ -123,7 +123,7 @@ void eprom_getSetup(Setup &setup)
 
     String key= preferences.getString(_AMIS_READER_KEY);
     strncpy(setup.amisKey,key.c_str(), AMIS_KEY_LEN - 1);
-
+    DBGf("eprom_getSetup() .. AmisReaderHost: %s, Key: %s",setup.amisReaderHost, setup.amisKey);
     preferences.end();
 }
 
