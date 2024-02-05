@@ -1,4 +1,4 @@
-//#include "PID_v1.h"
+// #include "PID_v1.h"
 #include "esp32-hal.h"
 #include "debugConsole.h"
 #include "pidManager.h"
@@ -242,7 +242,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     {
         availablePower.push_back(availableWatt); // availablePower;
         ++powerIndex;
-        DBGf("sIZEOF BUFFER. %d", availablePower.size());
+        // DBGf("sIZEOF BUFFER. %d", availablePower.size());
 #ifdef TEST_PID_WWWW
 #ifdef INFLUX
         influx_write_mean_val(availableWatt);

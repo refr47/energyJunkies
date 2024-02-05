@@ -150,8 +150,8 @@ function replaceDataReceivedSym() {
 function createDataSetM() {
   dataSetOut = [
     ['Produktion', '0', "Watt"],
-    ['Verbrauch', '1000', "Watt"],
-    ['Einspeisung/Bezug', '2589', "Watt"],
+    ['Verbrauch', '0', "Watt"],
+    ['Einspeisung/Bezug', '0', "Watt"],
     ['Akku', '0', "Watt"],
     ['Temperatur', '49', "Grad"],
     ['Pufferspeicher L1', '1', "Aus:0, Ein: 1"],
