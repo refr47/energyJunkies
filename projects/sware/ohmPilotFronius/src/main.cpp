@@ -340,6 +340,18 @@ void setup()
 #endif
 #ifdef AMIS_READER_DEV
     amisReader_initRestTargets(webSockData.setupData);
+    if (amisReader_readRestTarget(webSockData))
+    {
+        webSockData.states.amisReader = true;
+        tft_printKeyValue("Init AMIS-Reader", "ok", TFT_GREEN);
+        DBGf("AMIS-Reader:: connected successfully ...");
+    }
+    else
+    {
+        webSockData.states.amisReader = false;
+        tft_printKeyValue("Init AMIS-Reader", "Error", TFT_RED);
+        DBGf("AMIS-Reader:: connection failed ...");
+    }
 }
 #endif
 if (webSockData.states.networkOK)
@@ -349,17 +361,17 @@ if (webSockData.states.networkOK)
 }
 ESP_LOGI(TAG, "Setup done - all components are working...");
 #else
-    ESP_LOGI(TAG, "Start testing...");
+        ESP_LOGI(TAG, "Start testing...");
 
-    pinMode(SWITCH_KEY_ENTER, INPUT_PULLUP);
-    /* pinMode(SWITCH_KEY_UP, INPUT_PULLUP);
-    pinMode(SWITCH_KEY_DOWN, INPUT_PULLUP); */
-    pinMode(SWITCH_KEY_ESC, INPUT_PULLUP);
+        pinMode(SWITCH_KEY_ENTER, INPUT_PULLUP);
+        /* pinMode(SWITCH_KEY_UP, INPUT_PULLUP);
+        pinMode(SWITCH_KEY_DOWN, INPUT_PULLUP); */
+        pinMode(SWITCH_KEY_ESC, INPUT_PULLUP);
 
-    pinMode(RELAY_L1, OUTPUT);
-    pinMode(RELAY_L2, OUTPUT);
-    pinMode(PWM_FOR_PID, OUTPUT);
-    memset(&timeSlice, 0, sizeof(timeSlice));
+        pinMode(RELAY_L1, OUTPUT);
+        pinMode(RELAY_L2, OUTPUT);
+        pinMode(PWM_FOR_PID, OUTPUT);
+        memset(&timeSlice, 0, sizeof(timeSlice));
 
 #endif
 }
@@ -701,17 +713,25 @@ void loop()
 #endif
 
 #ifdef AMIS_READER_DEV
-    if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
+    if (!webSockData.states.amisReader)
     {
-        if (amisReader_readRestTarget(webSockData))
+        webSockData.amisReader.saldo = 0;
+    }
+    else
+    {
+        if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
         {
-            DBGf("main:: AmisReader: available is: %.3f", webSockData.amisReader.currentWirkleistungInKwPlus - webSockData.amisReader.currentWirkleistungInKwMinus);
+
+            if (amisReader_readRestTarget(webSockData))
+            {
+                DBGf("main:: AmisReader: available is: %d, import: %d , export: %d", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
+            }
+            else
+            {
+                DBGf("main::AmisReader data not available.");
+            }
+            timeSlice.previousMillisAmis = timeSlice.currentMillis;
         }
-        else
-        {
-            DBGf("main::AmisReader data not available.");
-        }
-        timeSlice.previousMillisAmis = timeSlice.currentMillis;
     }
 #endif
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)

@@ -5,20 +5,17 @@
 #include "debugConsole.h"
 
 #define RESPONSE_LENGTH 1024
+#define AMIS_VALUE_COUNT 3
 
 static KEY_VALUE_MAP_t amisKeyValueMap[AMIS_VALUE_COUNT] = {
     {"1.8.0", 0},
     {"2.8.0", 1},
-    {"1.7.0", 2},
-    {"2.7.0", 3},
-    {"saldo", 4}
+    {"saldo", 2}
 
 };
 
-static long amisValues[AMIS_VALUE_COUNT];
-
 static HTTP_REST_TARGET_t restTarget[REST_TARGET_COUNT] = {
-    {"Amis reader", "amisreader", {0}, 80, "/rest", "GET /rest HTTP/1.0\r\n\r\n", -1, AMIS_VALUE_COUNT, amisValues, amisKeyValueMap}};
+    {"Amis reader", "amisreader", {0}, 80, "/rest", "GET /rest HTTP/1.0\r\n\r\n", -1, AMIS_VALUE_COUNT, amisKeyValueMap}};
 
 /* ****************** PROTOTYPES **********************************************/
 
@@ -37,7 +34,7 @@ bool amisReader_initRestTargets(Setup &setup)
     restTarget[0].serverAddr.sin_port = htons(restTarget[0].port);
     restTarget[0].serverAddr.sin_family = AF_INET;
     inet_ntop(AF_INET, &(restTarget[0].serverAddr.sin_addr), str, INET_ADDRSTRLEN);
-    memset(&(restTarget[0].values), 0, sizeof(amisValues));
+
     DBGf("amisReader_initRestTargets - AmisReader:: IP: %s", str);
     return true;
 }
@@ -116,7 +113,7 @@ bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData)
     }
 
     jsonStart = strchr(response, '{');
-    //DBGf("readJsonResponse() - payload: %s", response);
+    // DBGf("readJsonResponse() - payload: %s", response);
     if (jsonStart != NULL)
     {
         mapJsonValues(target, jsonStart, webSockData);
@@ -127,25 +124,33 @@ bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData)
 void mapJsonValues(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_DATA &webSockData)
 {
     StaticJsonDocument<512> jsonBuffer;
-   
-    DBGf("mapJsonValues   ENTER  %s", jsonStart);
+
+    //DBGf("mapJsonValues   ENTER  %s", jsonStart);
 
     deserializeJson(jsonBuffer, jsonStart);
-    DBGf("mapJsonValues %s", jsonStart);
-    long value;
+    //DBGf("mapJsonValues %s", jsonStart);
+
     for (int i = 0; i < target->valueCount; i++)
     {
-        DBGf("map, key: %s", target->mapping[i].key);
-        DBGf("map, jsonObj: %d", jsonBuffer[target->mapping[i].key]);
-       // value = jsonBuffer[target->mapping[i].key];
-        // target->values[i] = jsonBuffer[target->mapping[0].key];
-        DBGf("values: %d", value);
-        DBGf("values: %f", target->values[i]);
-
-        /*   DBGf("-- formated values %.3f for key: %s", target->values[i], jsonBuffer[target->mapping[0].key]); */
+       /*  DBGf("map, key: %s", target->mapping[i].key);
+        DBGf("map, jsonObj: %d", jsonBuffer[target->mapping[i].key]); */
+        switch (i)
+        {
+        case 0:
+            webSockData.amisReader.absolutImportInkWh = jsonBuffer[target->mapping[i].key];
+            break;
+        case 1:
+            webSockData.amisReader.absolutExportInkWh = jsonBuffer[target->mapping[i].key];
+            break;
+        case 2:
+            webSockData.amisReader.saldo = jsonBuffer[target->mapping[i].key];
+            break;
+        default:
+            DBGf("amisReader::mapJsonValues() no mapping found for index: %d", i);
+        }
     }
-    memcpy(&webSockData.amisReader, target->values, sizeof(AMIS_READER));
-    DBGf("mapJsonValues: Wirkleistung P+ %.3f", webSockData.amisReader.currentWirkleistungInKwPlus);
+
+    DBGf("mapJsonValues: Wirkleistung P+ %.3f", webSockData.amisReader.absolutImportInkWh);
 }
 
 #endif

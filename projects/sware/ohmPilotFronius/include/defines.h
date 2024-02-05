@@ -91,6 +91,7 @@ typedef struct _STATES
     bool flashOK;
     bool tempSensorOK;
     bool froniusAPI;
+    bool amisReader;
 } STATES;
 
 typedef struct _FRONIUS_SOLAR_POWERFLOW
@@ -105,10 +106,9 @@ typedef struct _FRONIUS_SOLAR_POWERFLOW
 
 typedef struct _AMIS_READER
 {
-    double absolutImportInkWh;
-    double absolutExportInkWh;
-    double currentWirkleistungInKwPlus;
-    double currentWirkleistungInKwMinus;
+    long absolutImportInkWh;
+    long absolutExportInkWh;
+    long saldo;
 
 } AMIS_READER;
 typedef struct _WEBSOCK

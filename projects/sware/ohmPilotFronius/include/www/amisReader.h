@@ -18,7 +18,7 @@
 // length of json object key
 #define KEY_LENGTH 32
 #define TARGET_NAME_LEN 24
-#define AMIS_VALUE_COUNT 5
+
 #define REST_TARGET_COUNT 1
 
 typedef struct
@@ -47,8 +47,6 @@ typedef struct
     int socketFd;
     // number of values to build from json object
     int valueCount;
-    // translated values (maybe scaled) array
-    long *values;
     // json object key to values mapping array
     KEY_VALUE_MAP_t *mapping;
 } HTTP_REST_TARGET_t;
