@@ -81,7 +81,9 @@ String getJsonObj()
 {
     WEBSOCK_DATA data = webSockData();
     DBGf("webSocks - getJsonOj:  %.2lf", data.temperature.sensor1);
-
+#ifdef AMIS_READER_DEV
+    readings[EINSPEISUNG] = data.amisReader.saldo;
+#endif
 #ifdef FRONIUS_API
     readings[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
     readings[EINSPEISUNG] = data.fronius_SOLAR_POWERFLOW.p_grid;
