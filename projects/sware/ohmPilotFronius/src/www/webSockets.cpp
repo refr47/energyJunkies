@@ -12,6 +12,7 @@
 #define PRODUKTION "PR"
 #define EIGENVERBRAUCH "EV"
 #define EINSPEISUNG "EINS"
+#define AKKU "AKKU"
 #define TEMP_PUFFERSPEICHER "TPS"
 
 #define HEIZPATRONE_L3 "HL3"
@@ -81,7 +82,15 @@ String getJsonObj()
     WEBSOCK_DATA data = webSockData();
     DBGf("webSocks - getJsonOj:  %.2lf", data.temperature.sensor1);
 
+#ifdef FRONIUS_API
+    readings[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
+    readings[EINSPEISUNG] = data.fronius_SOLAR_POWERFLOW.p_grid;
+    readings[EIGENVERBRAUCH] = data.fronius_SOLAR_POWERFLOW.p_load;
+    readings[AKKU] = data.fronius_SOLAR_POWERFLOW.p_akku;
+
+#else
     readings[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
+    readings[AKKU] = 0;
 
     if (data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
     {
@@ -95,7 +104,7 @@ String getJsonObj()
         readings[EINSPEISUNG] = prevValueFromSmartMeter;
         readings[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter;
     }
-
+#endif
     if (data.temperature.alarm)
     {
         if (data.temperature.sensor1 > 0.0 && data.temperature.sensor2 > 0.0)

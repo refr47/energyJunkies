@@ -133,8 +133,9 @@ function onMessage(event) {
   else
     dataSetOut[2][0] = "Einspeisung"
   replace(2, data["EINS"], true); // Einspeisung
-  replace(3, data["TPS"], false); // Sensorik Temp
-  replace(6, data["HL3"], false); // pwm 
+  replace(3, data["AKKU"], false)
+  replace(4, data["TPS"], false); // Sensorik Temp
+  replace(7, data["HL3"], false); // pwm 
   replace(12, data["SimBias"], false); // Sim Bias
   replace(13, data["SimLoad"], false); // Sim Load
 }
@@ -151,13 +152,13 @@ function createDataSetM() {
     ['Produktion', '0', "Watt"],
     ['Verbrauch', '1000', "Watt"],
     ['Einspeisung/Bezug', '2589', "Watt"],
+    ['Akku', '0', "Watt"],
     ['Temperatur', '49', "Grad"],
     ['Pufferspeicher L1', '1', "Aus:0, Ein: 1"],
     ['Pufferspeicher L2', '1', "Aus:0, Ein: 1"],
-    ['Pufferspeicher L3', '10', "PWM"], //6
+    ['Pufferspeicher L3', '10', "PWM"], //7
     ['Pufferspeicher reservier', '0', "W"],
     ['Speicher', 'j', "Aus:0, Ein: 1"],
-    ['Speicher Kapazität (kW)', '13 kW', "kW"],
     ['Speicher Zustand (kW)', '3 kW', "kW"],
     ['Speicher Laden (Watt)', '200 W', "W"],
     ['SIM_Additional_Load', '0.0 kW', "kW"], //12
