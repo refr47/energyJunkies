@@ -11,17 +11,23 @@ function createDataSet() {
     ['Mindest_Einspeisung', '100', 'Strom, der vom Heizregler nicht verwendet werden darf (in W)'],
     ['Speicher', 'n', 'Externer Speicher steht zur Verfügung (j,n)'],
     ['Speicher_Prioritaet', '1', '1: Externer Speicher vorrangig, 2: nachrangig'],
-    ['Mindeslaufzeit_Digital', '2', 'Mindeslaufzeit vor einer Änderung der digitalen Ports (in ms)'],
-    ['Mindeslaufzeit_Phase', '2', 'Mindeslaufzeit, in der eine Phase eingeschaltet ist (in ms)'],
-    ['Mindeslaufzeit_Regler', '2', 'Zeitperiode, in der Änderungen vom Regler nicht berücksichtigt werden (in ms)'],
-    ['Ausgangsregler (P-Anteil)', '0.9', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
+    /*  ['Mindeslaufzeit_Digital', '2', 'Mindeslaufzeit vor einer Änderung der digitalen Ports (in ms)'],
+     ['Mindeslaufzeit_Phase', '2', 'Mindeslaufzeit, in der eine Phase eingeschaltet ist (in ms)'], */
+    ['Mindeslaufzeit_Regler', '2', 'Zeitperiode, in der Änderungen vom Regler nicht berücksichtigt werden (in s)'],
+    /* ['Ausgangsregler (P-Anteil)', '0.9', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (I-Anteil)', '0.1', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
-    ['Ausgangsregler (D-Anteil)', '0.0', 'PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'],
+    ['Ausgangsregler (D-Anteil)', '0.0', 'PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'], */
+    ['AmisReaderHost', 'AmisReader-Host', 'Amis Reader Host (Name | TCPIP)'],
+    ['AmisReaderKey', 'Key', 'Amis ReaderkEY'],
+    ['MQTT-Server', 'MQTT-Host', 'MQTT-Server'],
+    ['MQTT-User', 'User', 'MQTT-User'],
+    ['MQTT-Password', 'Password', 'MQTT-Password'],
+    ['Influx-Server', 'Influx-Host', 'Influx-Server'],
+    ['Influx-Token', 'Token', 'Influx-Token'],
+    ['Influx-Org', 'Org', 'Influx-Org'],
+    ['Influx-Bucket', 'Bucket', 'Influx-Bucket'],
     ['SIM_Additional_Load', '0.0', 'Simulation: zusätzliche Last'],
     ['SIM_Bias_Powery', '2000', 'Simulation: Bias Watt'],
-    ['AmisReaderHost', 'HOST', 'Amis Reader Host (Name | TCPIP)'],
-    ['AmisReaderKey', 'Key', 'Amis ReaderkEY'],
-
   ];
 
 
@@ -83,17 +89,16 @@ function showAjaxSuccess(text) {
 
 function evalIt(value, index) {
   console.log("val: " + value + " , ind: " + index)
+  let ipaddress =
+    /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/;
+
   if (value == "")
     return showError("Feld kann nicht leer sein.")
   let nu = 0, fnum = 0.0
   $('#error').hide()
   switch (index) {
-    case 2: if (!value)
+    case 2: if (!value)   // ip inverter
       return showError("Eingabe (TCP-Adresse) erforderlich")
-
-      let ipaddress =
-        /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/;
-
       if (!ipaddress.test(value))
         return showError("Keine gültige IP-Adresse!")
 
@@ -134,43 +139,61 @@ function evalIt(value, index) {
       if (nu < 1 || nu > 3)
         return showError("Wertebereich ungültig (>0 und <= 3)")
       break;
-    case 9: if (isNaN(value)) // Mindestlaufzeit digitaler kanal
+    case 9: if (isNaN(value)) // Mindestlaufzeit regler
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
       if (nu < 1)
         return showError("Wertebereich ungültig (>0 )")
       break;
-    case 10: if (isNaN(value)) // Mindestlaufzeit phase
-      return showError("Numerische Eingabe erforderlich")
-      nu = parseInt(value)
-      if (nu < 1)
-        return showError("Wertebereich ungültig (>0 )")
+    case 10: if (isNaN(value))
+      return showError("Eingabe erforderlich")
+      if (value == "AmisReader-Host") // no mqtt server
+        break;
+      if (!ipaddress.test(value))
+        return showError("Keine gültige IP-Adresse!")
       break;
-    case 11: if (isNaN(value)) // Mindestlaufzeit regler
-      return showError("Numerische Eingabe erforderlich")
-      nu = parseInt(value)
-      if (nu < 1)
-        return showError("Wertebereich ungültig (>0 )")
+    case 11: if (isNaN(value))
+      return showError("Eingabe erforderlich") // amis key
+      if (value.length != 33)
+        return showError("Key muss eine Länge von 33 Zeichen haben") // amis key
       break;
     case 12: if (isNaN(value)) // pid regler, p anteil
-      return showError("Numerische Eingabe erforderlich")
-      fnum = parseFloat(value)
-      if (fnum < 0.0)
-        return showError("Wertebereich ungültig (>=0.0 )")
+      return showError(" Eingabe erforderlich")
+      if (value == "MQTT-Host") // no mqtt server
+        break;
+      if (!ipaddress.test(value))
+        return showError("Keine gültige IP-Adresse!")
       break;
-    case 13: if (isNaN(value)) // pid i anteil
+    case 13: if (isNaN(value))
+      return showError("Eingabe erforderlich") // mqtt user
+      break;
+    case 14: if (isNaN(value))
+      return showError("Eingabe erforderlich") // mqtt passwd
+      break;
+    case 15: if (isNaN(value)) // 
+      return showError(" Eingabe erforderlich")
+      if (value == "INFLUX-Host") // no influx server
+        break;
+      break;
+    case 16: if (isNaN(value))
+      return showError("Eingabe erforderlich") // influx token
+      break;
+    case 17: if (isNaN(value))
+      return showError("Eingabe erforderlich") // influx bucket
+      break;
+
+    case 17: if (isNaN(value)) //wimulation additional load
       return showError("Numerische Eingabe erforderlich")
       fnum = parseFloat(value)
       if (fnum < 0.0)
         return showError("Wertebereich ungültig (>=0.0)")
       break;
 
-    case 14: if (isNaN(value)) // pid d anteil
+    case 18: if (isNaN(value)) // simulation bias power
       return showError("Numerische Eingabe erforderlich")
-      fnum = parseFloat(value)
-
-      if (fnum < 0.0)
-        return showError("Wertebereich ungültig (>=0.0)")
+      nu = parseInt(value)
+      if (fnum < 0)
+        return showError("Wertebereich ungültig (>=0)")
       break;
 
 

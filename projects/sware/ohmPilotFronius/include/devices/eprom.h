@@ -11,20 +11,31 @@
 #define _TEMP_MIN_IN_GRAD "einT"
 #define _EXTERNER_SPEICHER "eS"
 #define _EXTERNER_SPEICHER_PRIORI "esP"
-#define _PID_P "pid_p"
+/* #define _PID_P "pid_p"
 #define _PID_I "pid_i"
-#define _PID_D "pid_d"
+#define _PID_D "pid_d" */
 
 #define _PID_DIG_OUT_ON_DELAY_MS "doD"   // power has to be above set point before controller is invoked
-#define _PID_DIG_OUT_OFF_DELAY_MS "ddms" // minimal time before pid controller turns off channel/pin
-#define _PID_MIN_ON_TIME_MS "dmin"       // minimal on time for digital output (in ms)
+/* #define _PID_DIG_OUT_OFF_DELAY_MS "ddms" // minimal time before pid controller turns off channel/pin
+#define _PID_MIN_ON_TIME_MS "dmin"       // minimal on time for digital output (in ms) */
 #define _PID_TARGET_POWER "tpow"         // target power - max available power
 
-#define _PID_TEST "pT"
+/* #define _PID_TEST "pT" */
 #define _EN_BIAS "eX"
 #define _EN_LOAD "enL"
+
 #define _AMIS_READER_HOST "arH"
+#define AMIS_READER_HOST_DEFAULT "AmisReader-Host"
 #define _AMIS_READER_KEY "arK"
+
+#define _MQTT_HOST "mqH"
+#define _MQTT_USER "mqU"
+#define _MQTT_PASSWD "mqP"
+
+#define _INFLUX_HOST "infH"
+#define _INFLUX_TOKEN "infT"
+#define _INFLUX_ORG "infO"
+#define _INFLUX_BUCKET "infB"
 
 
 void eprom_storeSetup(Setup &setup);

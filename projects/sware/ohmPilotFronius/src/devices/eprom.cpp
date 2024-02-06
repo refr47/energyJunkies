@@ -22,6 +22,7 @@ void eprom_stammDataUpdateReset()
 
 void eprom_storeSetup(Setup &setup)
 {
+    bool result = true;
     stammDataUpdateWatch = true;
     preferences.begin(CREDENTIALS, false);
 
@@ -31,29 +32,48 @@ void eprom_storeSetup(Setup &setup)
     preferences.putUInt(_HEIZSTAB_LEISTUNG_IN_WATT, setup.heizstab_leistung_in_watt);
     preferences.putUInt(_TEMP_MAX_IN_GRAD, setup.tempMaxAllowedInGrad);
     preferences.putUInt(_TEMP_MIN_IN_GRAD, setup.tempMinInGrad);
-    preferences.putUInt(_INVERTER_IP, setup.ipInverter);
+    preferences.putUInt(_INVERTER_IP, ipv4_string_to_int(setup.ipInverterAsString, &result));
+    if (!result)
+        DBGf("ERPROM - Error in converting Inverter IPAdress!!");
     preferences.putBool(_EXTERNER_SPEICHER, setup.externerSpeicher);
     preferences.putChar(_EXTERNER_SPEICHER_PRIORI, setup.externerSpeicherPriori);
-    preferences.putUInt(_PID_DIG_OUT_ON_DELAY_MS, setup.pid_min_time_without_contoller_inMS);
-    preferences.putUInt(_PID_DIG_OUT_OFF_DELAY_MS, setup.pid_min_time_before_switch_off_channel_inMS);
-    preferences.putUInt(_PID_MIN_ON_TIME_MS, setup.pid_min_time_for_dig_output_inMS);
     preferences.putUInt(_PID_TARGET_POWER, setup.pid_powerWhichNeedNotConsumed);
+    preferences.putUInt(_PID_DIG_OUT_ON_DELAY_MS, setup.pid_min_time_without_contoller_inMS);
+    if (strcmp(AMIS_READER_HOST_DEFAULT, setup.amisReaderHost.c_str()) != 0)
+    {
+        setup.ipAmisReaderHost = ipv4_string_to_int(setup.amisReaderHost, &result);
+        if (!result)
+            DBGf("ERPROM - Error in converting AmisReader IPAdress!!");
+    }
+    else
+        setup.ipAmisReaderHost = 0;
+    preferences.putUInt(_AMIS_READER_HOST, setup.ipAmisReaderHost);
+    preferences.putString(_AMIS_READER_KEY, setup.amisKey);
 
-    preferences.putFloat(_PID_P, setup.pid_p);
-    preferences.putFloat(_PID_I, setup.pid_i);
-    preferences.putFloat(_PID_D, setup.pid_d);
-    // only for testing pid controller
-    preferences.putDouble(_EN_LOAD, setup.additionalLoad);
-    preferences.putInt(_EN_BIAS, setup.exportWatt);
-    bool result = true;
-    setup.ipAmisReaderHost = ipv4_string_to_int(setup.amisReaderHost, &result);
-    if (!result)
-        DBGf("ERPROM - Error in converting AmisReader IPAdress!!");
+    preferences.putString(_MQTT_HOST, setup.mqttHost);
+    preferences.putString(_MQTT_PASSWD, setup.mqttPass);
+    preferences.putString(_MQTT_USER, setup.mqttUser);
+
+    preferences.putString(_INFLUX_HOST, setup.influxHost);
+    preferences.putString(_INFLUX_BUCKET, setup.influxBucket);
+    preferences.putString(_INFLUX_ORG, setup.influxOrg);
+    preferences.putString(_INFLUX_TOKEN, setup.influxToken);
+
     /* else
         DBGf("EPROM - amis reader %s, ip: %d", setup.amisReaderHost.c_str(), setup.ipAmisReaderHost);
  */
-    preferences.putUInt(_AMIS_READER_HOST, setup.ipAmisReaderHost);
-    preferences.putString(_AMIS_READER_KEY, setup.amisKey);
+
+    /*  preferences.putUInt(_PID_DIG_OUT_OFF_DELAY_MS, setup.pid_min_time_before_switch_off_channel_inMS);
+     preferences.putUInt(_PID_MIN_ON_TIME_MS, setup.pid_min_time_for_dig_output_inMS);
+
+
+     preferences.putFloat(_PID_P, setup.pid_p);
+     preferences.putFloat(_PID_I, setup.pid_i);
+     preferences.putFloat(_PID_D, setup.pid_d); */
+    // only for testing pid controller
+    preferences.putDouble(_EN_LOAD, setup.additionalLoad);
+    preferences.putInt(_EN_BIAS, setup.exportWatt);
+
     preferences.end();
 }
 
@@ -107,26 +127,38 @@ void eprom_getSetup(Setup &setup)
 
     setup.externerSpeicher = preferences.getBool(_EXTERNER_SPEICHER);
     setup.externerSpeicherPriori = preferences.getChar(_EXTERNER_SPEICHER_PRIORI);
-    setup.pid_p = preferences.getFloat(_PID_P);
+    /* setup.pid_p = preferences.getFloat(_PID_P);
     setup.pid_i = preferences.getFloat(_PID_I);
-    setup.pid_d = preferences.getFloat(_PID_D);
+    setup.pid_d = preferences.getFloat(_PID_D); */
 
     setup.pid_min_time_without_contoller_inMS = preferences.getUInt(_PID_DIG_OUT_ON_DELAY_MS);
-    setup.pid_min_time_before_switch_off_channel_inMS = preferences.getUInt(_PID_DIG_OUT_OFF_DELAY_MS);
-    setup.pid_min_time_for_dig_output_inMS = preferences.getUInt(_PID_MIN_ON_TIME_MS);
-    setup.pid_powerWhichNeedNotConsumed = preferences.getUInt(_PID_TARGET_POWER);
-    setup.pidChanged = false;
-    setup.additionalLoad = preferences.getDouble(_EN_LOAD);
-    setup.exportWatt = preferences.getInt(_EN_BIAS);
+    /*   setup.pid_min_time_before_switch_off_channel_inMS = preferences.getUInt(_PID_DIG_OUT_OFF_DELAY_MS);
+      setup.pid_min_time_for_dig_output_inMS = preferences.getUInt(_PID_MIN_ON_TIME_MS);
+      setup.pid_powerWhichNeedNotConsumed = preferences.getUInt(_PID_TARGET_POWER);
+      setup.pidChanged = false; */
+
     setup.ipAmisReaderHost = preferences.getUInt(_AMIS_READER_HOST);
     setup.amisReaderHost = ipv4_int_to_string(setup.ipAmisReaderHost, &result);
     if (!result)
         DBGf("ERPROM - Error in converting AmisReader IPAdress!!");
-   // DBGf("eprom_getSetup() .. AmisReaderHost: %d %s", setup.ipAmisReaderHost,setup.amisReaderHost.c_str());
+    // DBGf("eprom_getSetup() .. AmisReaderHost: %d %s", setup.ipAmisReaderHost,setup.amisReaderHost.c_str());
 
     String key = preferences.getString(_AMIS_READER_KEY);
     strncpy(setup.amisKey, key.c_str(), AMIS_KEY_LEN - 1);
-    //DBGf("eprom_getSetup() .. AmisReaderHost: %s, Key: %s", setup.amisReaderHost, setup.amisKey);
+
+    strcpy(setup.mqttHost, preferences.getString(_MQTT_HOST).c_str());
+    strcpy(setup.mqttPass, preferences.getString(_MQTT_PASSWD).c_str());
+    strcpy(setup.mqttUser, preferences.getString(_MQTT_USER).c_str());
+
+    strcpy(setup.influxHost, preferences.getString(_INFLUX_HOST).c_str());
+    strcpy(setup.influxBucket, preferences.getString(_INFLUX_BUCKET).c_str());
+    strcpy(setup.influxOrg, preferences.getString(_INFLUX_ORG).c_str());
+    strcpy(setup.influxToken, preferences.getString(_INFLUX_TOKEN).c_str());
+
+    setup.additionalLoad = preferences.getDouble(_EN_LOAD);
+    setup.exportWatt = preferences.getInt(_EN_BIAS);
+
+    // DBGf("eprom_getSetup() .. AmisReaderHost: %s, Key: %s", setup.amisReaderHost, setup.amisKey);
     preferences.end();
 }
 
@@ -150,13 +182,13 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 
     setup.externerSpeicher = false;
     setup.externerSpeicherPriori = '1';
-    setup.pid_p = 1.0;
-    setup.pid_i = 0.5;
-    setup.pid_d = 0.01;
+    /*  setup.pid_p = 1.0;
+     setup.pid_i = 0.5;
+     setup.pid_d = 0.01; */
 
     setup.pid_min_time_without_contoller_inMS = 5000;
-    setup.pid_min_time_before_switch_off_channel_inMS = 2000;
-    setup.pid_min_time_for_dig_output_inMS = 10000;
+    /*  setup.pid_min_time_before_switch_off_channel_inMS = 2000;
+     setup.pid_min_time_for_dig_output_inMS = 10000; */
     setup.pid_powerWhichNeedNotConsumed = 10;
     setup.exportWatt = 10;
     setup.additionalLoad = 0.0;
@@ -173,8 +205,8 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 static void printEprom(Setup &setup)
 {
     char buffer[500];
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d PID_P: %f  PID_I: %f PID_D %f  DIG_OUT_ON_DELAY_MS: %d DIG_OUT_OFF_DELAY_MS %d MIN_ON_TIME_MS %d TARGET_POWER %d pidChanged: %d, ExportWatt: %d , AdditionalLoad: %.3f, amisReader: %s----- \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_p, setup.pid_i, setup.pid_d, setup.pid_min_time_without_contoller_inMS, setup.pid_min_time_before_switch_off_channel_inMS, setup.pid_min_time_for_dig_output_inMS, setup.pid_powerWhichNeedNotConsumed, setup.pidChanged, setup.exportWatt, setup.additionalLoad, setup.amisReaderHost);
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d   Controller_OUT_ON_DELAY_MS: %d   ExportWatt: %d , AdditionalLoad: %.3f, amisReader: %s----- \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_min_time_without_contoller_inMS, setup.exportWatt, setup.additionalLoad, setup.amisReaderHost);
     DBGf("%s", buffer);
 }
 

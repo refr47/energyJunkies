@@ -26,12 +26,16 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[HEIZSTABLEISTUNG] = buff;
     sprintf(buff, "%d", setup.pid_powerWhichNeedNotConsumed);
     data[EINSPEISUNG_MUSS] = buff;
-    sprintf(buff, "%d", setup.pid_min_time_before_switch_off_channel_inMS);
-    data[MINDEST_LAUFZEIT_DIGITALER_OUT] = buff;
+
+    /*  sprintf(buff, "%d", setup.pid_min_time_before_switch_off_channel_inMS);
+     data[MINDEST_LAUFZEIT_DIGITALER_OUT] = buff;
+     */
     sprintf(buff, "%d", setup.pid_min_time_without_contoller_inMS);
-    data[MINDEST_LAUFZEIT_PORT_ON] = buff;
-    sprintf(buff, "%d", setup.pid_min_time_for_dig_output_inMS);
     data[MINDEST_LAUFZEIT_REGLER_KONSTANT] = buff;
+
+    /*   sprintf(buff, "%d", setup.pid_min_time_for_dig_output_inMS);
+      data[MINDEST_LAUFZEIT_REGLER_KONSTANT] = buff;
+    */
     data[EXTERNER_SPEICHER] = setup.externerSpeicher ? "j'" : "n";
     sprintf(buff, "%c", setup.externerSpeicherPriori);
     data[EXTERNER_SPEICHER_PRIORI] = buff;
@@ -39,22 +43,43 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[TEMP_AUSSCHALTEN] = buff;
     sprintf(buff, "%d", setup.tempMinInGrad);
     data[TEMP_EINSCHALT] = buff;
-    sprintf(buff, "%.2f", setup.pid_p);
-    data[PID_P] = buff;
-    sprintf(buff, "%.2f", setup.pid_i);
-    data[PID_I] = buff;
-    sprintf(buff, "%.2f", setup.pid_d);
-    data[PID_D] = buff;
-    sprintf(buff, "%.2f", setup.additionalLoad);
-    data[SIM_ADDITIONAL_LOAD] = buff;
-    sprintf(buff, "%d", setup.exportWatt);
-    data[SIM_BIAS_POWER] = buff;
+    /*   mqtt*/
+    sprintf(buff, "%d", setup.mqttHost);
+    data[WWW_MQTT_HOST] = buff;
+    sprintf(buff, "%d", setup.mqttUser);
+    data[WWW_MQTT_USER] = buff;
+    sprintf(buff, "%d", setup.mqttPass);
+    data[WWW_MQTT_PASWWD] = buff;
+
+    /* INflux*/
+
+    sprintf(buff, "%d", setup.influxHost);
+    data[WWW_INFLUX_HOST] = buff;
+    sprintf(buff, "%d", setup.influxToken);
+    data[WWW_INFLUX_TOKEN] = buff;
+    sprintf(buff, "%d", setup.influxOrg);
+    data[WWW_INFLUX_ORG] = buff;
+    sprintf(buff, "%d", setup.influxBucket);
+    data[WWW_INFLUX_BUCKET] = buff;
+    /*  amis*/
 
     sprintf(buff, "%s", setup.amisReaderHost);
     data[AMIS_READER_HOST] = buff;
     DBGf("ajaxCalls_handleGetSetup - AMIS_READER_HOST: %s", buff);
     sprintf(buff, "%s", setup.amisKey);
     data[AMIS_READER_KEY] = buff;
+
+    /*     sprintf(buff, "%.2f", setup.pid_p);
+        data[PID_P] = buff;
+        sprintf(buff, "%.2f", setup.pid_i);
+        data[PID_I] = buff;
+        sprintf(buff, "%.2f", setup.pid_d);
+        data[PID_D] = buff; */
+
+    sprintf(buff, "%.2f", setup.additionalLoad);
+    data[SIM_ADDITIONAL_LOAD] = buff;
+    sprintf(buff, "%d", setup.exportWatt);
+    data[SIM_BIAS_POWER] = buff;
 
     DBGf("ajaxCalls_handleGetSetup - return ");
     return returnFromStoreSetup(true, data, request);
@@ -127,22 +152,26 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         setup.pid_powerWhichNeedNotConsumed = result;
     else
         return returnFromStoreSetup(errorH, data, request);
-    argument = jsonObj[MINDEST_LAUFZEIT_DIGITALER_OUT];
 
-    DBGf("ARG: %s, VAl: %s", MINDEST_LAUFZEIT_DIGITALER_OUT, argument);
-    errorH = util_checkParamInt(MINDEST_LAUFZEIT_DIGITALER_OUT, argument, data, &result);
-    if (errorH)
-        setup.pid_min_time_before_switch_off_channel_inMS = result;
-    else
-        return returnFromStoreSetup(errorH, data, request);
-    argument = jsonObj[MINDEST_LAUFZEIT_PORT_ON];
+    /*  argument = jsonObj[MINDEST_LAUFZEIT_DIGITALER_OUT];
 
-    DBGf("ARG: %s, VAl: %s", MINDEST_LAUFZEIT_PORT_ON, argument);
-    errorH = util_checkParamInt(MINDEST_LAUFZEIT_PORT_ON, argument, data, &result);
-    if (errorH)
-        setup.pid_min_time_for_dig_output_inMS = result;
-    else
-        return returnFromStoreSetup(errorH, data, request);
+
+        DBGf("ARG: %s, VAl: %s", MINDEST_LAUFZEIT_DIGITALER_OUT, argument);
+        errorH = util_checkParamInt(MINDEST_LAUFZEIT_DIGITALER_OUT, argument, data, &result);
+        if (errorH)
+            setup.pid_min_time_before_switch_off_channel_inMS = result;
+        else
+            return returnFromStoreSetup(errorH, data, request);
+        argument = jsonObj[MINDEST_LAUFZEIT_PORT_ON];
+
+        DBGf("ARG: %s, VAl: %s", MINDEST_LAUFZEIT_PORT_ON, argument);
+        errorH = util_checkParamInt(MINDEST_LAUFZEIT_PORT_ON, argument, data, &result);
+        if (errorH)
+            setup.pid_min_time_for_dig_output_inMS = result;
+        else
+            return returnFromStoreSetup(errorH, data, request);
+    */
+
     argument = jsonObj[MINDEST_LAUFZEIT_REGLER_KONSTANT];
 
     DBGf("ARG: %s, VAl: %s", MINDEST_LAUFZEIT_REGLER_KONSTANT, argument);
@@ -184,6 +213,80 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         setup.tempMinInGrad = result;
     else
         return returnFromStoreSetup(errorH, data, request);
+    /*            MQTT */
+    argument = jsonObj[WWW_MQTT_HOST];
+    DBGf("ARG: %s, VAl: %s", WWW_MQTT_HOST, argument);
+    errorH = util_isFieldFilled(WWW_MQTT_HOST, argument, data);
+    if (errorH)
+    {
+        strncpy(setup.mqttHost, jsonObj[WWW_MQTT_HOST], MQTT_HOST_LEN);
+    }
+    else
+        return returnFromStoreSetup(errorH, data, request);
+
+    argument = jsonObj[WWW_MQTT_PASWWD];
+    DBGf("ARG: %s, VAl: %s", WWW_MQTT_PASWWD, argument);
+    errorH = util_isFieldFilled(WWW_MQTT_PASWWD, argument, data);
+    if (errorH)
+    {
+        strncpy(setup.mqttPass, jsonObj[WWW_MQTT_PASWWD], MQTT_PASS_LEN);
+    }
+    else
+        return returnFromStoreSetup(errorH, data, request);
+
+    argument = jsonObj[WWW_MQTT_USER];
+    DBGf("ARG: %s, VAl: %s", WWW_MQTT_USER, argument);
+    errorH = util_isFieldFilled(WWW_MQTT_USER, argument, data);
+    if (errorH)
+    {
+        strncpy(setup.mqttPass, jsonObj[WWW_MQTT_USER], MQTT_USER_LEN);
+    }
+    else
+        return returnFromStoreSetup(errorH, data, request);
+
+    /*            influx */
+
+    argument = jsonObj[WWW_INFLUX_HOST];
+    DBGf("ARG: %s, VAl: %s", WWW_INFLUX_HOST, argument);
+    errorH = util_isFieldFilled(WWW_INFLUX_HOST, argument, data);
+    if (errorH)
+    {
+        strncpy(setup.influxHost, jsonObj[WWW_INFLUX_HOST], INFLUX_HOST_LEN);
+    }
+    else
+        return returnFromStoreSetup(errorH, data, request);
+
+    argument = jsonObj[WWW_INFLUX_TOKEN];
+    DBGf("ARG: %s, VAl: %s", WWW_INFLUX_TOKEN, argument);
+    errorH = util_isFieldFilled(WWW_INFLUX_TOKEN, argument, data);
+    if (errorH)
+    {
+        strncpy(setup.influxToken, jsonObj[WWW_INFLUX_TOKEN], INFLUX_TOKEN_LEN);
+    }
+    else
+        return returnFromStoreSetup(errorH, data, request);
+
+    argument = jsonObj[WWW_INFLUX_ORG];
+    DBGf("ARG: %s, VAl: %s", WWW_INFLUX_ORG, argument);
+    errorH = util_isFieldFilled(WWW_INFLUX_ORG, argument, data);
+    if (errorH)
+    {
+        strncpy(setup.influxOrg, jsonObj[WWW_INFLUX_ORG], INFLUX_ORG_LEN);
+    }
+    else
+        return returnFromStoreSetup(errorH, data, request);
+
+    argument = jsonObj[WWW_INFLUX_BUCKET];
+    DBGf("ARG: %s, VAl: %s", WWW_INFLUX_BUCKET, argument);
+    errorH = util_isFieldFilled(WWW_INFLUX_BUCKET, argument, data);
+    if (errorH)
+    {
+        strncpy(setup.influxBucket, jsonObj[WWW_INFLUX_BUCKET], INFLUX_BUCKET_LEN);
+    }
+    else
+        return returnFromStoreSetup(errorH, data, request);
+
+    /*
     argument = jsonObj[PID_P];
     DBGf("ARG: %s, VAl: %s", PID_P, argument);
     errorH = util_checkParamFloat(PID_P, argument, data, &resultF);
@@ -203,18 +306,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         setup.pid_d = resultF;
     else
         return returnFromStoreSetup(errorH, data, request);
-
-    argument = jsonObj[SIM_ADDITIONAL_LOAD];
-    DBGf("ARG: %s, VAl: %s", SIM_ADDITIONAL_LOAD, argument);
-    errorH = util_checkParamFloat(SIM_ADDITIONAL_LOAD, argument, data, &resultF);
-    if (errorH)
-        setup.additionalLoad = resultF;
-
-    argument = jsonObj[SIM_BIAS_POWER];
-    DBGf("ARG: %s, VAl: %s", SIM_BIAS_POWER, argument);
-    errorH = util_checkParamInt(SIM_BIAS_POWER, argument, data, &result);
-    if (errorH)
-        setup.exportWatt = result;
+*/
 
     argument = jsonObj[AMIS_READER_HOST];
     DBGf("ARG: %s, VAl: %s", AMIS_READER_HOST, argument);
@@ -234,6 +326,18 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     }
     else
         return returnFromStoreSetup(errorH, data, request);
+
+    argument = jsonObj[SIM_ADDITIONAL_LOAD];
+    DBGf("ARG: %s, VAl: %s", SIM_ADDITIONAL_LOAD, argument);
+    errorH = util_checkParamFloat(SIM_ADDITIONAL_LOAD, argument, data, &resultF);
+    if (errorH)
+        setup.additionalLoad = resultF;
+
+    argument = jsonObj[SIM_BIAS_POWER];
+    DBGf("ARG: %s, VAl: %s", SIM_BIAS_POWER, argument);
+    errorH = util_checkParamInt(SIM_BIAS_POWER, argument, data, &result);
+    if (errorH)
+        setup.exportWatt = result;
 
     DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");
     eprom_storeSetup(setup);

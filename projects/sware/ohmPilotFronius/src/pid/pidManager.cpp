@@ -55,9 +55,9 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
 {
 
     onePhase = setup.heizstab_leistung_in_watt / 3.00;
-    mOuts[id_DIG_PIN_1].init(digOut1, setup.pid_min_time_for_dig_output_inMS, Digital);
-    mOuts[id_DIG_PIN_2].init(digOut2, setup.pid_min_time_for_dig_output_inMS, Digital);
-    mOuts[id_ANA_PWM].init(anOut, setup.pid_min_time_for_dig_output_inMS, Analog);
+    mOuts[id_DIG_PIN_1].init(digOut1, 1000, Digital);
+    mOuts[id_DIG_PIN_2].init(digOut2, 1000, Digital);
+    mOuts[id_ANA_PWM].init(anOut, 1000, Analog);
 
     mDelayDigOutOn = millis();
     mDelayDigOutOff = millis();

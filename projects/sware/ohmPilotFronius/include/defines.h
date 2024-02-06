@@ -6,7 +6,17 @@
 
 #define LEN_WLAN 30
 #define MODBUS_PORT "502"
+
 #define AMIS_KEY_LEN 35
+#define AMIS_HOST_LEN 50
+#define MQTT_HOST_LEN 50
+#define MQTT_USER_LEN 25
+#define MQTT_PASS_LEN 25
+#define INFLUX_HOST_LEN 50
+#define INFLUX_TOKEN_LEN 95
+#define INFLUX_ORG_LEN 30
+#define INFLUX_BUCKET_LEN 30
+
 #define JSON_OBJECT_SETUP_LEN 1024 /// www.cpp,
 
 #define INVERTER_DATA webSockData.mbContainer.inverterSumValues.data
@@ -36,19 +46,32 @@ typedef struct
     String ipInverterAsString;
     bool externerSpeicher;
     char externerSpeicherPriori;
-    float pid_p;
-    float pid_i;
-    float pid_d;
     unsigned int pid_min_time_without_contoller_inMS;
-    unsigned int pid_min_time_before_switch_off_channel_inMS;
-    unsigned int pid_min_time_for_dig_output_inMS;
+    /*   float pid_p;
+      float pid_i;
+      float pid_d;
+
+      unsigned int pid_min_time_before_switch_off_channel_inMS;
+      unsigned int pid_min_time_for_dig_output_inMS;
+      */
     unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
-    bool pidChanged;
-    double additionalLoad;
-    int exportWatt;
+    // bool pidChanged;
     unsigned int ipAmisReaderHost;
     char amisKey[AMIS_KEY_LEN];
     String amisReaderHost;
+
+    char mqttHost[MQTT_HOST_LEN];
+    char mqttUser[MQTT_USER_LEN];
+    char mqttPass[MQTT_PASS_LEN];
+
+    char influxHost[INFLUX_HOST_LEN];
+    char influxToken[INFLUX_TOKEN_LEN];
+    char influxOrg[INFLUX_ORG_LEN];
+    char influxBucket[INFLUX_BUCKET_LEN];
+
+    double additionalLoad;
+    int exportWatt;
+
 } Setup;
 
 typedef struct

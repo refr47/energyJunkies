@@ -334,7 +334,7 @@ void setup()
 #ifdef MQTT
     mqtt_publish_pidParams(webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
 #endif
-    DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
+    //DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
     tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
     pidPinManager.config(webSockData.setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
 #ifdef INFLUX
