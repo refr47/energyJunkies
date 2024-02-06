@@ -255,6 +255,8 @@ void setup()
     }
 #endif
 #ifndef EJ
+
+
 #ifdef MQTT
     if (!mqtt_init())
     {
@@ -712,7 +714,6 @@ void loop()
     }
 #endif
 
-#ifdef AMIS_READER_DEV
     if (!webSockData.states.amisReader)
     {
         webSockData.amisReader.saldo = 0;
@@ -733,7 +734,7 @@ void loop()
             timeSlice.previousMillisAmis = timeSlice.currentMillis;
         }
     }
-#endif
+
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
         // DBGf("MODBUS_INTERVALL");

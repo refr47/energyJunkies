@@ -119,12 +119,10 @@ typedef struct _WEBSOCK
     PID_CONTAINER pidContainer;
     STATES states;
     Setup setupData;
-#ifdef FRONIUS_API
+
     FRONIUS_SOLAR_POWERFLOW fronius_SOLAR_POWERFLOW;
-#endif
-#ifdef AMIS_READER_DEV
+
     AMIS_READER amisReader;
-#endif
 
 } WEBSOCK_DATA;
 
