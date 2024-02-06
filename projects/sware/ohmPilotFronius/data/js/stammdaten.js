@@ -319,16 +319,22 @@ function renewTable() {
         replace(6, data["Mindest_Einspeisung"])
         replace(7, data["Speicher"])
         replace(8, data["Speicher_Prioritaet"])
-        replace(9, data["Mindeslaufzeit_Digital"])
-        replace(10, data["Mindeslaufzeit_Phase"])
-        replace(11, data["Mindeslaufzeit_Regler"])
-        replace(12, data["Ausgangsregler (P-Anteil)"])
-        replace(13, data["Ausgangsregler (I-Anteil)"])
-        replace(14, data["Ausgangsregler (D-Anteil)"])
-        replace(15, data["SIM_Additional_Load"])
-        replace(16, data["SIM_Bias_Powery"])
-        replace(17, data["Amis Reader Host (Name | TCPIP)"])
-        replace(18, data["Amis ReaderKey"])
+        replace(9, data["Mindeslaufzeit_Regler"])
+        replace(10, data["Amis Reader Host (Name | TCPIP)"])
+        replace(11, data["Amis ReaderKey"])
+
+        replace(12, data["MQTT-Server"])
+        replace(13, data["MQTT-User"])
+        replace(14, data["MQTT-Password"])
+
+        replace(15, data["Influx-Server"])
+        replace(16, data["Influx-Token"])
+        replace(17, data["Influx-Org"])
+        replace(18, data["Influx-Bucket"])
+
+        replace(19, data["SIM_Additional_Load"])
+        replace(20, data["SIM_Bias_Powery"])
+        
       } else {
         console.log("Some error ")
       }
