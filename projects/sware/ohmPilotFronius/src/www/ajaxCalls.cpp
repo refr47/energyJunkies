@@ -52,6 +52,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 
     sprintf(buff, "%s", setup.amisReaderHost);
     data[AMIS_READER_HOST] = buff;
+    DBGf("ajaxCalls_handleGetSetup - AMIS_READER_HOST: %s", buff);
     sprintf(buff, "%s", setup.amisKey);
     data[AMIS_READER_KEY] = buff;
 

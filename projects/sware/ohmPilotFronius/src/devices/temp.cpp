@@ -66,6 +66,7 @@ bool temp_init()
             ESP_LOGE(TAG, "temp_init() - keine Temperatursensorik gefunden.");
         }
     }
+    DBG("\n");
     return true;
 }
 
@@ -78,11 +79,25 @@ bool temp_getTemperature(TEMPERATURE &container)
     delay(1000);
     container.sensor1 = sensors.getTempC(sensor1);
     container.sensor2 = sensors.getTempC(sensor2);
-    if (container.sensor1 < 0 || container.sensor2 < 0)
+    if (container.sensor1 < 0 )
     {
-        ESP_LOGE(TAG, "temp_getTemperature - Temperatur kann nicht negativ sein.");
-        return false;
+        ESP_LOGE(TAG, "temp_getTemperature - Temperatur Sensor 1 (%.2f) kann nicht negativ sein.", container.sensor1);
     }
+    if (container.sensor2 < 0)
+    {
+        ESP_LOGE(TAG, "temp_getTemperature - Temperatur Sensor 2 (%.2f) kann nicht negativ sein.", container.sensor1);
+    }
+     if (container.sensor1 < 0 && container.sensor2 < 0)
+        return false;
+    if (container.sensor1 > 0)
+    {
+        container.sensor2 = container.sensor1;
+    }else
+    
+    {
+        container.sensor1 = container.sensor2;
+    }
+
     /* float tempC = sensors.getTempCByIndex(0);
     float tempC1 = sensors.getTempCByIndex(1);
     DBG("Sensor 1: ");

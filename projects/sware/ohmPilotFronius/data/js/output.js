@@ -6,12 +6,12 @@ var dataTableMobil;
 
 
 const HEIZPATRONE_L1 = 1;
-const HEIZPATRONE_L2 = 2
-const AKKU_AVAILABLE = 3
-const STATE_CARDWRITE = 4
-const STATE_MODBUS = 5
-const STATE_FLASH = 6
-const STATE_TEMPSENSOR = 7
+const HEIZPATRONE_L2 = 2;
+const AKKU_AVAILABLE = 3;
+const STATE_CARDWRITE = 4;
+const STATE_MODBUS = 5;
+const STATE_FLASH = 6;
+const STATE_TEMPSENSOR = 7;
 
 
 function addErrors(errorList) {
@@ -133,6 +133,10 @@ function onMessage(event) {
   else
     dataSetOut[2][0] = "Einspeisung"
   replace(2, data["EINS"], true); // Einspeisung
+  if (data["AKKU"] > 0.0)
+    dataSetOut[3][0] = "Akku entladen"
+  else
+    dataSetOut[3][0] = "Akku laden"
   replace(3, data["AKKU"], false)
   replace(4, data["TPS"], false); // Sensorik Temp
   replace(7, data["HL3"], false); // pwm 

@@ -302,7 +302,10 @@ function renewTable() {
         replace(12, data["Ausgangsregler (P-Anteil)"])
         replace(13, data["Ausgangsregler (I-Anteil)"])
         replace(14, data["Ausgangsregler (D-Anteil)"])
-
+        replace(15, data["SIM_Additional_Load"])
+        replace(16, data["SIM_Bias_Powery"])
+        replace(17, data["Amis Reader Host (Name | TCPIP)"])
+        replace(18, data["Amis ReaderKey"])
       } else {
         console.log("Some error ")
       }
@@ -312,6 +315,7 @@ function renewTable() {
     }
   });
 }
+
 
 
 function buildStaticTable() {

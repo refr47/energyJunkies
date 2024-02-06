@@ -88,7 +88,7 @@ String getJsonObj()
     readings[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
     readings[EINSPEISUNG] = data.fronius_SOLAR_POWERFLOW.p_grid;
     readings[EIGENVERBRAUCH] = data.fronius_SOLAR_POWERFLOW.p_load;
-    readings[AKKU] = data.fronius_SOLAR_POWERFLOW.p_akku;
+    readings[AKKU] = (int)data.fronius_SOLAR_POWERFLOW.p_akku;
 
 #else
     readings[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
