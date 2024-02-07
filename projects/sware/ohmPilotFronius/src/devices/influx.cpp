@@ -19,8 +19,8 @@ static Point simulation("simulation");
 static Point inverter("inverter");
 static Point means("means");
 
-static bool influxAvailable=false;
-static bool *isInfluxValid=&influxAvailable;
+static bool influxAvailable = false;
+static bool *isInfluxValid = &influxAvailable;
 
 bool influx_init(WEBSOCK_DATA &webSockData)
 {
@@ -65,20 +65,21 @@ bool influx_init(WEBSOCK_DATA &webSockData)
 bool influx_write(WEBSOCK_DATA &webSockData)
 {
 
-
-    DBGf("influx_write - valid: %d",*isInfluxValid);
     energy.clearFields();
     boiler.clearFields();
 #ifdef FRONIUS_API
-    if (webSockData.setup.externerSpeicher)
+    if (webSockData.states.froniusAPI)
     {
-        energy.addField("akku", FRONIUS.p_akku);
-    }
+        if (webSockData.setup.externerSpeicher)
+        {
+            energy.addField("akku", FRONIUS.p_akku);
+        }
 
-    energy.addField("grid", FRONIUS.p_grid);
-    energy.addField("load", FRONIUS.p_load);
-    energy.addField("pv", FRONIUS.p_pv);
-    energy.addField("availableWatt", (FRONIUS.p_pv + FRONIUS.p_akku + FRONIUS.p_load));
+        energy.addField("grid", FRONIUS.p_grid);
+        energy.addField("load", FRONIUS.p_load);
+        energy.addField("pv", FRONIUS.p_pv);
+        energy.addField("availableWatt", (FRONIUS.p_pv + FRONIUS.p_akku + FRONIUS.p_load));
+    }
 
 #else
     energy.addField("grid", METER_DATA.acCurrentPower);
@@ -112,8 +113,8 @@ bool influx_write(WEBSOCK_DATA &webSockData)
 
 bool influx_write_test(double boilerData, double availableWatt, WEBSOCK_DATA &webSockData)
 {
-    DBGf("influx_write_test BEGIN, isValid: %d",*isInfluxValid);
-    
+    DBGf("influx_write_test BEGIN, isValid: %d", *isInfluxValid);
+
     simulation.clearFields();
     simulation.addField("pwm", webSockData.pidContainer.mAnalogOut);
     simulation.addField("relay1", webSockData.pidContainer.PID_PIN1);
@@ -148,11 +149,12 @@ bool influx_write_production(double pv, double akku, double load)
     return true;
 }
 
-//static Point means("means");
+// static Point means("means");
 
-bool influx_write_mean_val(double watt) {
+bool influx_write_mean_val(double watt)
+{
     means.clearFields();
-    means.addField("availableW",watt);
+    means.addField("availableW", watt);
     String proto = client.pointToLineProtocol(means);
     if (!client.writePoint(means))
     {
@@ -163,9 +165,10 @@ bool influx_write_mean_val(double watt) {
     return true;
 }
 
-bool influx_write_mean(double mean) {
-     means.clearFields();
-    means.addField("availableW",mean);
+bool influx_write_mean(double mean)
+{
+    means.clearFields();
+    means.addField("availableW", mean);
     String proto = client.pointToLineProtocol(means);
     if (!client.writePoint(means))
     {
