@@ -49,7 +49,6 @@ void tft_init()
     ledcSetup(0, 2000, 8);
     ledcAttachPin(PIN_LCD_BL, 0);
     ledcWrite(0, 255);
-
     tft.setSwapBytes(true);
     width = tft.width();
     height = tft.height();

@@ -4,7 +4,7 @@
 
 #include "defines.h"
 
-bool soloar_init(Setup &setup, bool *);
+bool soloar_init(WEBSOCK_DATA &webSockData, bool *);
 bool solar_get_powerflow(FRONIUS_SOLAR_POWERFLOW &container);
 
 #endif

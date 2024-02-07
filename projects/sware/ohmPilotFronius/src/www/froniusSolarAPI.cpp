@@ -9,14 +9,19 @@
 
 static String uRL = "";
 
-bool soloar_init(Setup &setup, bool *akku)
+static bool solar_valid=false;
+static bool p_solarValid=&solar_valid;
+
+bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
 {
     char buf[50];
     int httpResponseCode=0;
-    sprintf(buf, "http://%s%s", setup.ipInverterAsString.c_str(), PATH_NAME_FORECAST);
+    solar_valid=&webSockData.states.froniusAPI;
+
+    sprintf(buf, "http://%s%s", webSockData.setup.ipInverterAsString.c_str(), PATH_NAME_FORECAST);
     uRL = buf;
     DBGf("solar_init() for %s", buf);
-    setup.externerSpeicher = false;
+    webSockData.setup.externerSpeicher = false;
     *akku = false;
     String json_array = util_GET_Request(uRL.c_str(),&httpResponseCode);
     if (httpResponseCode != 200) {
@@ -35,11 +40,11 @@ bool soloar_init(Setup &setup, bool *akku)
     }
     else
     {
-        setup.externerSpeicher = true;
+        webSockData.setup.externerSpeicher = true;
         *akku = true;
         DBGf("solar_init - akku  vorhanden!");
     }
-    DBGf("solar_init() EXIT with akku: %d", setup.externerSpeicher);
+    DBGf("solar_init() EXIT with akku: %d", webSockData.setup.externerSpeicher);
     return true;
 }
 

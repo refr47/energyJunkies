@@ -303,7 +303,7 @@ void setup()
     webSockData.states.froniusAPI = false;
 #ifdef FRONIUS_API
     bool akkuAvailable = false;
-    if (soloar_init(webSockData.setupData, &akkuAvailable))
+    if (soloar_init(webSockData, &akkuAvailable))
     {
         webSockData.setup.externerSpeicher = akkuAvailable;
         DBGf("main - akku: %d", webSockData.setup.externerSpeicher);
@@ -371,7 +371,17 @@ void setup()
 if (webSockData.states.networkOK)
 {
     delay(10000);
-    tft_clearScreen();
+   
+    DBGf(" -------- States ---------------");
+    DBGf("Fronius: %c", webSockData.states.froniusAPI == true ? 'y' : 'n');
+    DBGf("AmisReader: %c", webSockData.states.amisReader == true ? 'y' : 'n');
+    DBGf("CardWrite: %c", webSockData.states.cardWriterOK == true ? 'y' : 'n');
+    DBGf("FlashFS: %c", webSockData.states.flashOK == true ? 'y' : 'n');
+    DBGf("Influx: %c", webSockData.states.influx == true ? 'y' : 'n');
+    DBGf("Modbus: %c", webSockData.states.influx == true ? 'y' : 'n');
+    DBGf("MqTT: %c", webSockData.states.mqtt == true ? 'y' : 'n');
+    DBGf("TempSensor: %c", webSockData.states.tempSensorOK == true ? 'y' : 'n');
+     tft_clearScreen();
 }
 ESP_LOGI(TAG, "Setup done - all components are working...");
 #else
