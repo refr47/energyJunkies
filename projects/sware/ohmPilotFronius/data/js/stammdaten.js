@@ -17,12 +17,12 @@ function createDataSet() {
     /* ['Ausgangsregler (P-Anteil)', '0.9', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (I-Anteil)', '0.1', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (D-Anteil)', '0.0', 'PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'], */
-    ['Amis Reader Host (TCP/IP)', 'AmisReader-Host', 'Amis Reader Host (TCP/IP)'],
-    ['Amis Reader Key', 'Key', 'Amis Reader kEY'],
-    ['MQTT-Server', 'MQTT-Host', 'MQTT-Server'],
+    ['Amis Reader Host (TCP/IP)', 'AmisReader-Host', 'Amis Reader Host (TCP/IP) | ---'],
+    ['Amis Reader Key', 'Key', 'Amis Reader kEY | ---' ],
+    ['MQTT-Server', 'MQTT-Host', 'MQTT-Server | ---'],
     ['MQTT-User', 'User', 'MQTT-User'],
     ['MQTT-Password', 'Password', 'MQTT-Password'],
-    ['Influx-Server', 'Influx-Host', 'Influx-Server'],
+    ['Influx-Server', 'Influx-Host', 'Influx-Server | ---'],
     ['Influx-Token', 'Token', 'Influx-Token'],
     ['Influx-Org', 'Org', 'Influx-Org'],
     ['Influx-Bucket', 'Bucket', 'Influx-Bucket'],
@@ -145,9 +145,8 @@ function evalIt(value, index) {
       if (nu < 1)
         return showError("Wertebereich ungültig (>0 )")
       break;
-    case 10: if (isNaN(value))
-      return showError("Eingabe erforderlich")
-      if (value == "AmisReader-Host") // no mqtt server
+    case 10: 
+      if (value == "---") // no mqtt server
         break;
       if (!ipaddress.test(value))
         return showError("Keine gültige IP-Adresse!")
@@ -157,7 +156,7 @@ function evalIt(value, index) {
         return showError("Key muss eine Länge von 32 Zeichen haben") // amis key
       break;
     case 12:
-      if (value == "MQTT_Host") // no mqtt server
+      if (value == "---") // no mqtt server
         break;
       if (!ipaddress.test(value))
         return showError("Keine gültige IP-Adresse!")
@@ -167,7 +166,7 @@ function evalIt(value, index) {
     case 14:  // mqtt passwd
       break;
     case 15:
-      if (value == "INFLUX_Host") // no influx server
+      if (value == "---") // no influx server
         break;
       break;
     case 16:  // influx token

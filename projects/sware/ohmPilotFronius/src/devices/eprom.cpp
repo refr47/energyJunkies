@@ -191,7 +191,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     /*  setup.pid_min_time_before_switch_off_channel_inMS = 2000;
      setup.pid_min_time_for_dig_output_inMS = 10000; */
     setup.pid_powerWhichNeedNotConsumed = 10;
-    strcpy(setup.mqttHost, "MQTT_HOST");
+    strcpy(setup.mqttHost, "---");
     strcpy(setup.mqttPass, "MQTT_PASS");
     strcpy(setup.mqttUser, "MQTT_USER");
     strcpy(setup.influxHost, "http://rantanplan-ethernet:8086");

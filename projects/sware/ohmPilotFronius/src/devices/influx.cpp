@@ -19,11 +19,14 @@ static Point simulation("simulation");
 static Point inverter("inverter");
 static Point means("means");
 
+static bool influxAvailable=false;
+static bool *isInfluxValid=&influxAvailable;
 
-bool influx_init()
+bool influx_init(WEBSOCK_DATA &webSockData)
 {
     client.setInsecure();
     timeSync(EUROPE_VIENNA_TZ, NtpServer1, NtpServer2);
+    isInfluxValid = &webSockData.states.influx;
     DBGf("Init influx");
     // Check server connection
     if (client.validateConnection())
@@ -61,6 +64,9 @@ bool influx_init()
 
 bool influx_write(WEBSOCK_DATA &webSockData)
 {
+
+
+    DBGf("influx_write - valid: %d",*isInfluxValid);
     energy.clearFields();
     boiler.clearFields();
 #ifdef FRONIUS_API
@@ -106,7 +112,8 @@ bool influx_write(WEBSOCK_DATA &webSockData)
 
 bool influx_write_test(double boilerData, double availableWatt, WEBSOCK_DATA &webSockData)
 {
-    DBGf("influx_write_test BEGIN");
+    DBGf("influx_write_test BEGIN, isValid: %d",*isInfluxValid);
+    
     simulation.clearFields();
     simulation.addField("pwm", webSockData.pidContainer.mAnalogOut);
     simulation.addField("relay1", webSockData.pidContainer.PID_PIN1);

@@ -132,7 +132,6 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
             data["error"] = "IP-Transformation war nicht erfolgreich!";
             return returnFromStoreSetup(false, data, request);
         }
-        
     }
     else
         return returnFromStoreSetup(errorH, data, request);

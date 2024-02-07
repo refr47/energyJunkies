@@ -35,8 +35,16 @@ bool amisReader_initRestTargets(Setup &setup)
     restTarget[0].serverAddr.sin_family = AF_INET;
     inet_ntop(AF_INET, &(restTarget[0].serverAddr.sin_addr), str, INET_ADDRSTRLEN);
 
-    DBGf("amisReader_initRestTargets - AmisReader:: IP: %s", str);
-    return true;
+    restTarget[0].socketFd = socket(AF_INET, SOCK_STREAM, 0);
+    if (restTarget[0].socketFd >= 0)
+    {
+        int retVal = connect(restTarget[0].socketFd, (struct sockaddr *)&restTarget[0].serverAddr,
+                             sizeof(restTarget[0].serverAddr));
+        close(restTarget[0].socketFd);
+        DBGf("amisReader_initRestTargets - AmisReader:: IP: %s, RetVal open socket %d", str, retVal);
+        return true;
+    }
+    return false;
 }
 
 bool amisReader_readRestTarget(WEBSOCK_DATA &webSockData)
@@ -125,15 +133,15 @@ void mapJsonValues(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_DATA &we
 {
     StaticJsonDocument<512> jsonBuffer;
 
-    //DBGf("mapJsonValues   ENTER  %s", jsonStart);
+    // DBGf("mapJsonValues   ENTER  %s", jsonStart);
 
     deserializeJson(jsonBuffer, jsonStart);
-    //DBGf("mapJsonValues %s", jsonStart);
+    // DBGf("mapJsonValues %s", jsonStart);
 
     for (int i = 0; i < target->valueCount; i++)
     {
-       /*  DBGf("map, key: %s", target->mapping[i].key);
-        DBGf("map, jsonObj: %d", jsonBuffer[target->mapping[i].key]); */
+        /*  DBGf("map, key: %s", target->mapping[i].key);
+         DBGf("map, jsonObj: %d", jsonBuffer[target->mapping[i].key]); */
         switch (i)
         {
         case 0:

@@ -12,12 +12,17 @@ static String uRL = "";
 bool soloar_init(Setup &setup, bool *akku)
 {
     char buf[50];
+    int httpResponseCode=0;
     sprintf(buf, "http://%s%s", setup.ipInverterAsString.c_str(), PATH_NAME_FORECAST);
     uRL = buf;
     DBGf("solar_init() for %s", buf);
     setup.externerSpeicher = false;
     *akku = false;
-    String json_array = util_GET_Request(uRL.c_str());
+    String json_array = util_GET_Request(uRL.c_str(),&httpResponseCode);
+    if (httpResponseCode != 200) {
+        DBGf("solar_init:: Fronius API nicht erreichbar - kein Fronius Inverter?");
+        return false;
+    }
     JSONVar my_obj = JSON.parse(json_array);
     if (JSON.typeof(my_obj) == "undefined")
     {
@@ -42,7 +47,12 @@ bool solar_get_powerflow(FRONIUS_SOLAR_POWERFLOW &container)
 {
 
     DBGf("solar_get_powerflow() - uRL: %s", uRL.c_str());
-    String json_array = util_GET_Request(uRL.c_str());
+    int htppResponse=0;
+    String json_array = util_GET_Request(uRL.c_str(),&htppResponse);
+    if (htppResponse !=200) {
+        DBGf("solar_get_powerflow:: ResponsCode != 200");
+        return false;
+    }
     // DBGf("solar_get_powerFlow(): %s", json_array);
     JSONVar my_obj = JSON.parse(json_array);
     if (JSON.typeof(my_obj) == "undefined")

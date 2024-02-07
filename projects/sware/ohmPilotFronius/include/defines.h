@@ -115,6 +115,8 @@ typedef struct _STATES
     bool tempSensorOK;
     bool froniusAPI;
     bool amisReader;
+    bool influx;
+    bool mqtt;
 } STATES;
 
 typedef struct _FRONIUS_SOLAR_POWERFLOW

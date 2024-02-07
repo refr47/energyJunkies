@@ -317,7 +317,6 @@ void setup()
                 tft_printKeyValue("AKKU", "Yes", TFT_GREEN);
             else
                 tft_printKeyValue("AKKU", "No", TFT_GREEN);
-
             DBGf("Fronius solar API Support: YES, AKKU: %s", webSockData.setup.externerSpeicher == true ? "Yes" : "NO");
         }
         else
@@ -337,21 +336,35 @@ void setup()
     tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
     pidPinManager.config(webSockData.setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
 #ifdef INFLUX
-    influx_init();
+    webSockData.states.influx = false;
+    if (influx_init(webSockData))
+    {
+        webSockData.states.influx = true;
+    }
 #endif
+    webSockData.states.amisReader = false;
 #ifdef AMIS_READER_DEV
-    amisReader_initRestTargets(webSockData.setupData);
-    if (amisReader_readRestTarget(webSockData))
+    if (amisReader_initRestTargets(webSockData.setupData))
     {
         webSockData.states.amisReader = true;
-        tft_printKeyValue("Init AMIS-Reader", "ok", TFT_GREEN);
-        DBGf("AMIS-Reader:: connected successfully ...");
+
+        if (amisReader_readRestTarget(webSockData))
+        {
+            webSockData.states.amisReader = true;
+            tft_printKeyValue("Init AMIS-Reader", "ok", TFT_GREEN);
+            DBGf("AMIS-Reader:: connected successfully ...");
+        }
+        else
+        {
+            webSockData.states.amisReader = false;
+            tft_printKeyValue("Init AMIS-Reader", "Error", TFT_RED);
+            DBGf("AMIS-Reader:: connection failed ...");
+        }
     }
     else
     {
-        webSockData.states.amisReader = false;
-        tft_printKeyValue("Init AMIS-Reader", "Error", TFT_RED);
-        DBGf("AMIS-Reader:: connection failed ...");
+        tft_printKeyValue("NO AMIS-Reader", "Error", TFT_RED);
+        DBGf("amisReader not found");
     }
 }
 #endif
@@ -786,11 +799,16 @@ void loop()
                     availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
 #endif
 #ifdef FRONIUS_API
-                    if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
+
+                    if (webSockData.states.froniusAPI)
                     {
-                        webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
-                        webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
-                        webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+
+                        if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
+                        {
+                            webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
+                            webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
+                            webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+                        }
                     }
 #endif
                     tft_drawInfo(webSockData);
