@@ -17,8 +17,8 @@ function createDataSet() {
     /* ['Ausgangsregler (P-Anteil)', '0.9', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (I-Anteil)', '0.1', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (D-Anteil)', '0.0', 'PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'], */
-    ['AmisReaderHost', 'AmisReader-Host', 'Amis Reader Host (Name | TCPIP)'],
-    ['AmisReaderKey', 'Key', 'Amis ReaderkEY'],
+    ['Amis Reader Host (TCP/IP)', 'AmisReader-Host', 'Amis Reader Host (TCP/IP)'],
+    ['Amis Reader Key', 'Key', 'Amis Reader kEY'],
     ['MQTT-Server', 'MQTT-Host', 'MQTT-Server'],
     ['MQTT-User', 'User', 'MQTT-User'],
     ['MQTT-Password', 'Password', 'MQTT-Password'],
@@ -152,34 +152,27 @@ function evalIt(value, index) {
       if (!ipaddress.test(value))
         return showError("Keine gültige IP-Adresse!")
       break;
-    case 11: if (isNaN(value))
-      return showError("Eingabe erforderlich") // amis key
-      if (value.length != 33)
-        return showError("Key muss eine Länge von 33 Zeichen haben") // amis key
+    case 11:  // amis key
+      if (value.length != 32)
+        return showError("Key muss eine Länge von 32 Zeichen haben") // amis key
       break;
-    case 12: if (isNaN(value)) // pid regler, p anteil
-      return showError(" Eingabe erforderlich")
-      if (value == "MQTT-Host") // no mqtt server
+    case 12:
+      if (value == "MQTT_Host") // no mqtt server
         break;
       if (!ipaddress.test(value))
         return showError("Keine gültige IP-Adresse!")
       break;
-    case 13: if (isNaN(value))
-      return showError("Eingabe erforderlich") // mqtt user
+    case 13:  // mqtt user
       break;
-    case 14: if (isNaN(value))
-      return showError("Eingabe erforderlich") // mqtt passwd
+    case 14:  // mqtt passwd
       break;
-    case 15: if (isNaN(value)) // 
-      return showError(" Eingabe erforderlich")
-      if (value == "INFLUX-Host") // no influx server
+    case 15:
+      if (value == "INFLUX_Host") // no influx server
         break;
       break;
-    case 16: if (isNaN(value))
-      return showError("Eingabe erforderlich") // influx token
+    case 16:  // influx token
       break;
-    case 17: if (isNaN(value))
-      return showError("Eingabe erforderlich") // influx bucket
+    case 17:  // influx bucket
       break;
 
     case 17: if (isNaN(value)) //wimulation additional load
@@ -320,8 +313,8 @@ function renewTable() {
         replace(7, data["Speicher"])
         replace(8, data["Speicher_Prioritaet"])
         replace(9, data["Mindeslaufzeit_Regler"])
-        replace(10, data["Amis Reader Host (Name | TCPIP)"])
-        replace(11, data["Amis ReaderKey"])
+        replace(10, data["Amis Reader Host (TCP/IP)"])
+        replace(11, data["Amis Reader Key"])
 
         replace(12, data["MQTT-Server"])
         replace(13, data["MQTT-User"])
@@ -334,7 +327,7 @@ function renewTable() {
 
         replace(19, data["SIM_Additional_Load"])
         replace(20, data["SIM_Bias_Powery"])
-        
+
       } else {
         console.log("Some error ")
       }

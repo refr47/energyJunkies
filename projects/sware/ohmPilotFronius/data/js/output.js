@@ -115,16 +115,16 @@ function onMessage(event) {
   else
     interpretError(errorBitVektor);
   if ((errorBitVektor & (1 << HEIZPATRONE_L1)) != 0)
-    dataSetOut[4][1] = "1"
-  else
-    dataSetOut[4][1] = "0"
-  let row = dataTableMobil.row(4)
-  row.invalidate().draw();
-  if ((errorBitVektor & (1 << HEIZPATRONE_L2)) != 0)
     dataSetOut[5][1] = "1"
   else
     dataSetOut[5][1] = "0"
-  row = dataTableMobil.row(5)
+  let row = dataTableMobil.row(5)
+  row.invalidate().draw();
+  if ((errorBitVektor & (1 << HEIZPATRONE_L2)) != 0)
+    dataSetOut[6][1] = "1"
+  else
+    dataSetOut[6][1] = "0"
+  row = dataTableMobil.row(6)
   row.invalidate().draw();
   replace(0, data["PR"], true); // ProdukTION
   replace(1, data["EV"], true); // Verbrauch

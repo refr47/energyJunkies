@@ -44,22 +44,22 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     sprintf(buff, "%d", setup.tempMinInGrad);
     data[TEMP_EINSCHALT] = buff;
     /*   mqtt*/
-    sprintf(buff, "%d", setup.mqttHost);
+    sprintf(buff, "%s", setup.mqttHost);
     data[WWW_MQTT_HOST] = buff;
-    sprintf(buff, "%d", setup.mqttUser);
+    sprintf(buff, "%s", setup.mqttUser);
     data[WWW_MQTT_USER] = buff;
-    sprintf(buff, "%d", setup.mqttPass);
+    sprintf(buff, "%s", setup.mqttPass);
     data[WWW_MQTT_PASWWD] = buff;
 
     /* INflux*/
 
-    sprintf(buff, "%d", setup.influxHost);
+    sprintf(buff, "%s", setup.influxHost);
     data[WWW_INFLUX_HOST] = buff;
-    sprintf(buff, "%d", setup.influxToken);
+    sprintf(buff, "%s", setup.influxToken);
     data[WWW_INFLUX_TOKEN] = buff;
-    sprintf(buff, "%d", setup.influxOrg);
+    sprintf(buff, "%s", setup.influxOrg);
     data[WWW_INFLUX_ORG] = buff;
-    sprintf(buff, "%d", setup.influxBucket);
+    sprintf(buff, "%s", setup.influxBucket);
     data[WWW_INFLUX_BUCKET] = buff;
     /*  amis*/
 
@@ -123,6 +123,8 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     {
         bool result = true;
         String ipInv = argument;
+        setup.ipInverter = ipv4_string_to_int(ipInv, &result);
+        DBGf("Setup: IP-Transformation: %s - %d", argument, setup.ipInverter);
         if (!result)
         {
             DBGf("handleStoreSetup IP translate did not succeed for IP: %s ", argument);
@@ -130,8 +132,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
             data["error"] = "IP-Transformation war nicht erfolgreich!";
             return returnFromStoreSetup(false, data, request);
         }
-        else
-            setup.ipInverter = ipv4_string_to_int(ipInv, &result);
+        
     }
     else
         return returnFromStoreSetup(errorH, data, request);
@@ -239,7 +240,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     errorH = util_isFieldFilled(WWW_MQTT_USER, argument, data);
     if (errorH)
     {
-        strncpy(setup.mqttPass, jsonObj[WWW_MQTT_USER], MQTT_USER_LEN);
+        strncpy(setup.mqttUser, jsonObj[WWW_MQTT_USER], MQTT_USER_LEN);
     }
     else
         return returnFromStoreSetup(errorH, data, request);

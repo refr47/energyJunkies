@@ -23,20 +23,18 @@
 #define PID_D "Ausgangsregler (D-Anteil)" */
 
 #define WWW_MQTT_HOST "MQTT-Server"
-#define WWW_MQTT_USER  "MQTT-User"
+#define WWW_MQTT_USER "MQTT-User"
 #define WWW_MQTT_PASWWD "MQTT-Password"
 #define WWW_INFLUX_HOST "Influx-Server"
 #define WWW_INFLUX_TOKEN "Influx-Token"
 #define WWW_INFLUX_ORG "Influx-Org"
 #define WWW_INFLUX_BUCKET "Influx-Bucket"
 
-
-#define AMIS_READER_HOST "AmisReaderHost"
-#define AMIS_READER_KEY "AmisReaderKey"
+#define AMIS_READER_HOST "Amis Reader Host (TCP/IP)"
+#define AMIS_READER_KEY "Amis Reader Key"
 
 #define SIM_ADDITIONAL_LOAD "SIM_Additional_Load"
 #define SIM_BIAS_POWER "SIM_Bias_Powery"
-
 
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus);

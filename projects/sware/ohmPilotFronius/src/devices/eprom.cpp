@@ -32,9 +32,7 @@ void eprom_storeSetup(Setup &setup)
     preferences.putUInt(_HEIZSTAB_LEISTUNG_IN_WATT, setup.heizstab_leistung_in_watt);
     preferences.putUInt(_TEMP_MAX_IN_GRAD, setup.tempMaxAllowedInGrad);
     preferences.putUInt(_TEMP_MIN_IN_GRAD, setup.tempMinInGrad);
-    preferences.putUInt(_INVERTER_IP, ipv4_string_to_int(setup.ipInverterAsString, &result));
-    if (!result)
-        DBGf("ERPROM - Error in converting Inverter IPAdress!!");
+    preferences.putUInt(_INVERTER_IP, setup.ipInverter);
     preferences.putBool(_EXTERNER_SPEICHER, setup.externerSpeicher);
     preferences.putChar(_EXTERNER_SPEICHER_PRIORI, setup.externerSpeicherPriori);
     preferences.putUInt(_PID_TARGET_POWER, setup.pid_powerWhichNeedNotConsumed);
@@ -132,6 +130,7 @@ void eprom_getSetup(Setup &setup)
     setup.pid_d = preferences.getFloat(_PID_D); */
 
     setup.pid_min_time_without_contoller_inMS = preferences.getUInt(_PID_DIG_OUT_ON_DELAY_MS);
+    setup.pid_powerWhichNeedNotConsumed = preferences.getUInt(_PID_TARGET_POWER);
     /*   setup.pid_min_time_before_switch_off_channel_inMS = preferences.getUInt(_PID_DIG_OUT_OFF_DELAY_MS);
       setup.pid_min_time_for_dig_output_inMS = preferences.getUInt(_PID_MIN_ON_TIME_MS);
       setup.pid_powerWhichNeedNotConsumed = preferences.getUInt(_PID_TARGET_POWER);
@@ -165,6 +164,8 @@ void eprom_getSetup(Setup &setup)
 void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 {
     Setup setup;
+    char bu[100];
+    memset(bu, 0, 100);
 
     strncpy(setup.ssid, wlanE, LEN_WLAN - 1);
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
@@ -175,12 +176,12 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.tempMinInGrad = 10;
     String ipInv = "10.0.0.2";
     bool result = true;
-
+    setup.ipInverterAsString = ipInv;
     setup.ipInverter = ipv4_string_to_int(ipInv, &result);
     if (!result)
         DBGf("IP translate did not succeed.");
 
-    setup.externerSpeicher = false;
+    setup.externerSpeicher = true;
     setup.externerSpeicherPriori = '1';
     /*  setup.pid_p = 1.0;
      setup.pid_i = 0.5;
@@ -190,13 +191,23 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     /*  setup.pid_min_time_before_switch_off_channel_inMS = 2000;
      setup.pid_min_time_for_dig_output_inMS = 10000; */
     setup.pid_powerWhichNeedNotConsumed = 10;
-    setup.exportWatt = 10;
-    setup.additionalLoad = 0.0;
+    strcpy(setup.mqttHost, "MQTT_HOST");
+    strcpy(setup.mqttPass, "MQTT_PASS");
+    strcpy(setup.mqttUser, "MQTT_USER");
+    strcpy(setup.influxHost, "http://rantanplan-ethernet:8086");
+    strcpy(setup.influxBucket, "energieJunkies");
+    strcpy(setup.influxOrg, "d727c1fb692f26f9");
+    strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q==");
     String ipAmis = "10.0.0.21";
+    setup.amisReaderHost = ipAmis;
     setup.ipAmisReaderHost = ipv4_string_to_int(ipAmis, &result);
     if (!result)
         DBGf("IP translate did not succeed.");
     strncpy(setup.amisKey, "ABCDFGASDFGDSAERTQWEREW§EWERQEEE", AMIS_KEY_LEN - 1);
+
+    setup.exportWatt = 10;
+    setup.additionalLoad = 0.0;
+
     DBGf("eprom_test_write_Eprom END");
 
     eprom_storeSetup(setup);
@@ -204,9 +215,9 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 
 static void printEprom(Setup &setup)
 {
-    char buffer[500];
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d   Controller_OUT_ON_DELAY_MS: %d   ExportWatt: %d , AdditionalLoad: %.3f, amisReader: %s----- \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_min_time_without_contoller_inMS, setup.exportWatt, setup.additionalLoad, setup.amisReaderHost);
+    char buffer[800];
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c TCP: %d   Controller_OUT_ON_DELAY_MS: %d   ExportWatt: %d , AdditionalLoad: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s---- \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.pid_min_time_without_contoller_inMS, setup.exportWatt, setup.additionalLoad, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
     DBGf("%s", buffer);
 }
 
