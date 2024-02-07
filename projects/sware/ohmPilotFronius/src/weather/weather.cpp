@@ -16,9 +16,10 @@ void wheater_getForecast()
 
     int httpResponseCode=0;
     String json_array = util_GET_Request(PARAM,&httpResponseCode);
-    Serial.println(json_array);
+    //Serial.println(json_array);
     JSONVar my_obj = JSON.parse(json_array);
-    Serial.println(my_obj);
+    //Serial.println(my_obj);
+    DBGf("wheater_getForecast URL: %s",PARAM);
 }
 
 #endif

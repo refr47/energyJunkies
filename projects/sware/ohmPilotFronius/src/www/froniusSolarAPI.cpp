@@ -23,6 +23,7 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
     DBGf("solar_init() for %s", buf);
     webSockData.setup.externerSpeicher = false;
     *akku = false;
+    
     String json_array = util_GET_Request(uRL.c_str(),&httpResponseCode);
     if (httpResponseCode != 200) {
         DBGf("solar_init:: Fronius API nicht erreichbar - kein Fronius Inverter?");
