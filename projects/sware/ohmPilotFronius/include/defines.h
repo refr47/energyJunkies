@@ -1,4 +1,6 @@
 #pragma once
+#include <Arduino.h>
+#include <arpa/inet.h>
 // influx, curTime:
 #define NtpServer1 "pool.ntp.org"
 #define NtpServer2 "time.nist.gov"
@@ -43,7 +45,8 @@ typedef struct
     unsigned int tempMaxAllowedInGrad;
     unsigned int tempMinInGrad;
     unsigned int ipInverter;
-    String ipInverterAsString;
+    char inverterAsString[INET_ADDRSTRLEN];
+
     bool externerSpeicher;
     char externerSpeicherPriori;
     unsigned int pid_min_time_without_contoller_inMS;
@@ -58,8 +61,8 @@ typedef struct
     // bool pidChanged;
     unsigned int ipAmisReaderHost;
     char amisKey[AMIS_KEY_LEN];
-    String amisReaderHost;
 
+    char amisReaderHost[INET_ADDRSTRLEN];
     char mqttHost[MQTT_HOST_LEN];
     char mqttUser[MQTT_USER_LEN];
     char mqttPass[MQTT_PASS_LEN];

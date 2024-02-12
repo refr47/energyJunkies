@@ -29,7 +29,7 @@ bool amisReader_initRestTargets(Setup &setup)
     char str[INET_ADDRSTRLEN];
     DBGf("AmisReader - init() ");
     // store this IP address in sa:
-    inet_pton(AF_INET, setup.amisReaderHost.c_str(), &(restTarget[0].serverAddr.sin_addr));
+    inet_pton(AF_INET, setup.amisReaderHost, &(restTarget[0].serverAddr.sin_addr));
     // now get it back and print it
     restTarget[0].serverAddr.sin_port = htons(restTarget[0].port);
     restTarget[0].serverAddr.sin_family = AF_INET;

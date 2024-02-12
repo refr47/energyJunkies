@@ -9,23 +9,25 @@
 
 static String uRL = "";
 
-static bool solar_valid=false;
-static bool p_solarValid=&solar_valid;
+static bool solar_valid = false;
+static bool p_solarValid = &solar_valid;
 
 bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
 {
     char buf[50];
-    int httpResponseCode=0;
-    solar_valid=&webSockData.states.froniusAPI;
+    int httpResponseCode = 0;
+    DBGf("solar_init BEGIN ");
+    p_solarValid = &webSockData.states.froniusAPI;
 
-    sprintf(buf, "http://%s%s", webSockData.setup.ipInverterAsString.c_str(), PATH_NAME_FORECAST);
+    sprintf(buf, "http://%s%s", webSockData.setup.inverterAsString, PATH_NAME_FORECAST);
     uRL = buf;
     DBGf("solar_init() for %s", buf);
     webSockData.setup.externerSpeicher = false;
     *akku = false;
-    
-    String json_array = util_GET_Request(uRL.c_str(),&httpResponseCode);
-    if (httpResponseCode != 200) {
+
+    String json_array = util_GET_Request(uRL.c_str(), &httpResponseCode);
+    if (httpResponseCode != 200)
+    {
         DBGf("solar_init:: Fronius API nicht erreichbar - kein Fronius Inverter?");
         return false;
     }
@@ -53,9 +55,10 @@ bool solar_get_powerflow(FRONIUS_SOLAR_POWERFLOW &container)
 {
 
     DBGf("solar_get_powerflow() - uRL: %s", uRL.c_str());
-    int htppResponse=0;
-    String json_array = util_GET_Request(uRL.c_str(),&htppResponse);
-    if (htppResponse !=200) {
+    int htppResponse = 0;
+    String json_array = util_GET_Request(uRL.c_str(), &htppResponse);
+    if (htppResponse != 200)
+    {
         DBGf("solar_get_powerflow:: ResponsCode != 200");
         return false;
     }
@@ -74,16 +77,16 @@ bool solar_get_powerflow(FRONIUS_SOLAR_POWERFLOW &container)
     container.rel_Autonomy = my_obj["site"]["rel_Autonomy"];
     container.rel_SelfConsumption = my_obj["site"]["rel_SelfConsumption"];
 
-/* #ifdef MODBUS_VERBOSE
-    DBGf("Fronius API: ");
-    DBGf("AKKU: %f", container.p_akku);
-    DBGf("Grid: %f", container.p_grid);
-    DBGf("Load: %f", container.p_load);
-    DBGf("PV: %f", container.p_pv);
-    DBGf("SelfConsumption: %f", container.rel_SelfConsumption);
-    DBGf("rel_Autonomy: %f", container.rel_Autonomy);
+    /* #ifdef MODBUS_VERBOSE
+        DBGf("Fronius API: ");
+        DBGf("AKKU: %f", container.p_akku);
+        DBGf("Grid: %f", container.p_grid);
+        DBGf("Load: %f", container.p_load);
+        DBGf("PV: %f", container.p_pv);
+        DBGf("SelfConsumption: %f", container.rel_SelfConsumption);
+        DBGf("rel_Autonomy: %f", container.rel_Autonomy);
 
-#endif */
+    #endif */
     return true;
 }
 

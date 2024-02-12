@@ -15,10 +15,10 @@
 #define _PID_I "pid_i"
 #define _PID_D "pid_d" */
 
-#define _PID_DIG_OUT_ON_DELAY_MS "doD"   // power has to be above set point before controller is invoked
+#define _PID_DIG_OUT_ON_DELAY_MS "doD" // power has to be above set point before controller is invoked
 /* #define _PID_DIG_OUT_OFF_DELAY_MS "ddms" // minimal time before pid controller turns off channel/pin
 #define _PID_MIN_ON_TIME_MS "dmin"       // minimal on time for digital output (in ms) */
-#define _PID_TARGET_POWER "tpow"         // target power - max available power
+#define _PID_TARGET_POWER "tpow" // target power - max available power
 
 /* #define _PID_TEST "pT" */
 #define _EN_BIAS "eX"
@@ -37,10 +37,10 @@
 #define _INFLUX_ORG "infO"
 #define _INFLUX_BUCKET "infB"
 
-
 void eprom_storeSetup(Setup &setup);
 void eprom_getSetup(Setup &setup);
 void eprom_isInit();
+String& eprom_getInverter(Setup &setup, String &inverterAsString);
 
 void eprom_test_write_Eprom(const char *, const char *);
 void eprom_test_read_Eprom();
@@ -51,6 +51,7 @@ void eprom_getLifeData(LIFE_DATA &data);
 
 bool eprom_stammDataUpdate();
 void eprom_stammDataUpdateReset();
+void printEprom(Setup &setup);
 
 #define _LIFE_DATA "lifeD"
 #define _TEMP_LIMIT_REACHED "t"

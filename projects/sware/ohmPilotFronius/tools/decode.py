@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+
+
+#https://www.tinkerunity.org/topic/7980-backtrace-und-debug-m%C3%B6glichkeiten/
+import argparse
+import os
+import sys
+import subprocess
+import serial
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-f", "--firmware")
+parser.add_argument("backtrace", nargs='*', default=None)
+args = parser.parse_args()
+
+def get_latest_fw(fw_type=''):
+    files = os.listdir("build")
+    files = [x for x in files if x.endswith(".elf") and (fw_type == '' or x.startswith(fw_type + "_firmware"))]
+    latest = max(files, key=lambda x: int(x.replace(".elf", "").replace("-NIGHTLY", "").replace("-WITH-WIFI-PASSPHRASE-DO-NOT-DISTRIBUTE", "").split("_firmware_")[1].split("_")[3], 16), default=None)
+    if latest is None:
+        print("Failed to find a firmware containing the string {}".format(fw_type))
+        sys.exit(0)
+    return os.path.join("build", latest)
+
+if args.firmware is None:
+    firmware = get_latest_fw()
+else:
+    if ".elf" in args.firmware:
+        firmware = args.firmware
+    else:
+        firmware = get_latest_fw(args.firmware)
+os.system("pio pkg exec xtensa-esp32-elf-addr2line -- -pfiaC -e {} {}".format(firmware, " ".join(args.backtrace)))

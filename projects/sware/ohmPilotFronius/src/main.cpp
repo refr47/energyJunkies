@@ -186,11 +186,28 @@ void setup()
     // eprom_test_write_Eprom("Milchbehaelter", "47754775");
     //    eprom_clearLifeData();
     eprom_isInit();
+
     // eprom_test_write_Eprom("Milchbehaelter", "47754775");
     eprom_getSetup(webSockData.setupData);
-    eprom_getLifeData(lifeData);
-    // eprom_show(webSockData.setupData);
+    // eprom_getLifeData(lifeData);
+    DBGf("first print   ");
+    printEprom(webSockData.setupData);
+    DBGf("sec print   ");
+    printEprom(webSockData.setupData);
+    DBGf("print inverter   ");
+    Serial.println(webSockData.setup.ipInverter);
+    Serial.println(webSockData.setup.inverterAsString);
+    String inv;
+    DBGf("get inverter   ");
+    String res = eprom_getInverter(webSockData.setupData, inv);
+    Serial.println("01");
+    Serial.println(webSockData.setup.ipInverter);
 
+    Serial.println(res);
+    Serial.println(inv);
+    // printEprom(webSockData.setupData);
+    //  eprom_show(webSockData.setupData);
+    DBGf("get network   ");
     // if (strcmp(webSockData.setupData.ssid, "---") == 0)
     if (strcmp(webSockData.setupData.ssid, "--") == 0)
     {
@@ -198,12 +215,15 @@ void setup()
         webSockData.states.networkOK = false;
         www_init(NULL, NULL, getDataForWebSocket); // act as access point
     }
+    Serial.println("1");
+    Serial.println(webSockData.setup.inverterAsString);
+
     if (networkCredentialsInEEprom)
     {
 
-        char buff[130];
-        memset(buff, 0, strlen(buff));
-
+        /*       char buff[130];
+              memset(buff, 0, strlen(buff)); */
+#ifdef CARD
         if (!wifi_init(webSockData.setupData))
         {
             DBGf("Cannot connect - show available networks: ");
@@ -224,12 +244,16 @@ void setup()
             webSockData.states.flashOK = www_init(pBuf, webSockData.setupData.ssid, getDataForWebSocket); // do not act as apoint
             webSockData.states.networkOK = true;
         }
+        Serial.println("2");
+        Serial.println(webSockData.setup.inverterAsString);
+
         if (!webSockData.states.networkOK)
         {
             DBGf("Network does not work!");
             // tft_printInfo("No valid network!");
             return;
         }
+
         // tft_printInfo("       ");
         tft_printKeyValue("Init Time", "OK", TFT_GREEN);
         time_init(); // init time
@@ -247,7 +271,8 @@ void setup()
             webSockData.states.modbusOK = true;
             tft_printKeyValue("Init Modbus", "ok", TFT_GREEN);
         }
-        memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
+#endif
+        // memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
 #ifdef EJ
 
         delay(3000);
@@ -264,6 +289,7 @@ void setup()
     else
         DBGf("Mqtt-Server:: connected successfully ...");
 #endif
+#ifdef CARD
     if (cardRW_setup(false, false))
     {
         webSockData.states.cardWriterOK = true;
@@ -279,30 +305,51 @@ void setup()
         webSockData.states.cardWriterOK = false;
         ledHandler_showCardReaderError(true);
     }
-
-    if (temp_init())
-    { // temperature
-
-        tft_printKeyValue("Init Sensors", "OK", TFT_GREEN);
-        webSockData.states.tempSensorOK = true;
-    }
-    else
-    {
-        webSockData.states.tempSensorOK = false;
-        tft_printKeyValue("Init Sensors", "Error", TFT_RED);
-    }
-#ifdef WEATHER_API
-    wheater_getForecast();
 #endif
-    if (!mb_readAll(webSockData.setup, webSockData.mbContainer))
-    {
-        DBGf("Init::readAllModbusValues did not succeed");
-        tft_printKeyValue("Modbus Read", "Error", TFT_RED);
-    }
+    /*  if (temp_init())
+     {
+
+         tft_printKeyValue("Init Sensors", "OK", TFT_GREEN);
+         webSockData.states.tempSensorOK = true;
+     }
+     else
+     {
+         webSockData.states.tempSensorOK = false;
+         tft_printKeyValue("Init Sensors", "Error", TFT_RED);
+     } */
+#ifdef WEATHER_API
+    // wheater_getForecast();
+#endif
+    /* if (!mb_readAll(webSockData.setup, webSockData.mbContainer))
+     {
+         DBGf("Init::readAllModbusValues did not succeed");
+         tft_printKeyValue("Modbus Read", "Error", TFT_RED);
+     }  */
 
     webSockData.states.froniusAPI = false;
+    DBGf("=== NExT print   ");
+    delay(5000);
+    printEprom(webSockData.setupData);
 #ifdef FRONIUS_API
     bool akkuAvailable = false;
+    DBGf("main::before solar_init");
+    try
+    {
+        printEprom(webSockData.setup);
+    }
+    catch (const std::exception &e)
+    {
+        Serial.println("Exception occured:");
+    }
+
+    DBGf("main::before solar_init 2, tcp as uint: %d", webSockData.setup.ipInverter);
+    const char *cp = webSockData.setup.inverterAsString;
+    if (cp == NULL)
+        DBGf("cp is null");
+    else
+        DBGf("CP is: %s", cp);
+    Serial.println(webSockData.setup.inverterAsString);
+    DBGf("inverter: %s", webSockData.setup.inverterAsString);
     if (soloar_init(webSockData, &akkuAvailable))
     {
         webSockData.setup.externerSpeicher = akkuAvailable;
@@ -371,7 +418,7 @@ void setup()
 if (webSockData.states.networkOK)
 {
     delay(10000);
-   
+
     DBGf(" -------- States ---------------");
     DBGf("Fronius: %c", webSockData.states.froniusAPI == true ? 'y' : 'n');
     DBGf("AmisReader: %c", webSockData.states.amisReader == true ? 'y' : 'n');
@@ -381,7 +428,7 @@ if (webSockData.states.networkOK)
     DBGf("Modbus: %c", webSockData.states.influx == true ? 'y' : 'n');
     DBGf("MqTT: %c", webSockData.states.mqtt == true ? 'y' : 'n');
     DBGf("TempSensor: %c", webSockData.states.tempSensorOK == true ? 'y' : 'n');
-     tft_clearScreen();
+    tft_clearScreen();
 }
 ESP_LOGI(TAG, "Setup done - all components are working...");
 #else
@@ -415,7 +462,6 @@ static double currentConsumeInWatt, accumulatedWatt = 0.0;
 #define MAX_VAL 1700.0
 
 #endif
-
 void loop()
 {
 
@@ -770,7 +816,7 @@ void loop()
                 ledHandler_showModbusError(false);
                 webSockData.states.modbusOK = true;
 #ifdef MQTT
-                mqtt_publish_modbus_reconnect(webSockData.setupData.ipInverterAsString.c_str());
+                mqtt_publish_modbus_reconnect(webSockData.setupData.inverterAsString.c_str());
 #endif
             }
         }

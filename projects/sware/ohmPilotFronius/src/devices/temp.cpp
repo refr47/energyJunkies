@@ -25,10 +25,14 @@ DeviceAddress sensor2 = {0x28, 0xBE, 0x5C, 0x57, 0x4, 0xE1, 0x3C, 0xD2};
 // function to print a device address
 void printAddress(DeviceAddress deviceAddress)
 {
-    for (uint8_t i = 0; i < 8; i++)
-    {
-        DBG(" %x", deviceAddress[i]);
-    }
+    char buff[100];
+    sprintf(buff, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", deviceAddress[0], deviceAddress[1], deviceAddress[2], deviceAddress[3], deviceAddress[4], deviceAddress[5], deviceAddress[6], deviceAddress[7]);
+    /*  for (uint8_t i = 0; i < 8; i++)
+     {
+         buf[i]=deviceAddress[i];
+     } */
+    DBGf(" %s", buff);
+    DBGf("END init temperature ...");
 }
 bool temp_init()
 {
@@ -79,7 +83,7 @@ bool temp_getTemperature(TEMPERATURE &container)
     delay(1000);
     container.sensor1 = sensors.getTempC(sensor1);
     container.sensor2 = sensors.getTempC(sensor2);
-    if (container.sensor1 < 0 )
+    if (container.sensor1 < 0)
     {
         ESP_LOGE(TAG, "temp_getTemperature - Temperatur Sensor 1 (%.2f) kann nicht negativ sein.", container.sensor1);
     }
@@ -87,13 +91,14 @@ bool temp_getTemperature(TEMPERATURE &container)
     {
         ESP_LOGE(TAG, "temp_getTemperature - Temperatur Sensor 2 (%.2f) kann nicht negativ sein.", container.sensor1);
     }
-     if (container.sensor1 < 0 && container.sensor2 < 0)
+    if (container.sensor1 < 0 && container.sensor2 < 0)
         return false;
     if (container.sensor1 > 0)
     {
         container.sensor2 = container.sensor1;
-    }else
-    
+    }
+    else
+
     {
         container.sensor1 = container.sensor2;
     }

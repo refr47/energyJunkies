@@ -20,7 +20,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 
     data[WLAN_ESSID] = setup.ssid;
     data[WLAN_PASSWD] = setup.passwd;
-    data[IP_INVERTER] = setup.ipInverterAsString;
+    data[IP_INVERTER] = setup.inverterAsString;
 
     sprintf(buff, "%d", setup.heizstab_leistung_in_watt);
     data[HEIZSTABLEISTUNG] = buff;
@@ -122,8 +122,8 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     if (errorH)
     {
         bool result = true;
-        String ipInv = argument;
-        setup.ipInverter = ipv4_string_to_int(ipInv, &result);
+
+        setup.ipInverter = ipv4_string_to_int((char *)argument, &result);
         DBGf("Setup: IP-Transformation: %s - %d", argument, setup.ipInverter);
         if (!result)
         {
@@ -312,7 +312,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     DBGf("ARG: %s, VAl: %s", AMIS_READER_HOST, argument);
     if (util_isFieldFilled(AMIS_READER_HOST, argument, data))
     {
-        setup.amisReaderHost = argument;
+        strcpy(setup.amisReaderHost, argument);
     }
     else
         return returnFromStoreSetup(errorH, data, request);

@@ -101,9 +101,9 @@ bool isConnectedAndReconnect()
 bool mb_init(Setup &setUpData)
 {
 
-    DBGf(" Inverter Addr: %s", setUpData.ipInverterAsString);
+    DBGf(" Inverter Addr: %s", setUpData.inverterAsString);
 
-    if (!remote.fromString(setUpData.ipInverterAsString))
+    if (!remote.fromString(setUpData.inverterAsString))
     {
         DBGf("mb_init:: - cannot convert IP-Adresse of Converter from string");
         return false;
