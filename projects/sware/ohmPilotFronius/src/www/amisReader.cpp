@@ -44,6 +44,7 @@ bool amisReader_initRestTargets(Setup &setup)
         DBGf("amisReader_initRestTargets - AmisReader:: IP: %s, RetVal open socket %d", str, retVal);
         return true;
     }
+    DBGf("AmisReader not available at IP: %s", setup.amisReaderHost);
     return false;
 }
 

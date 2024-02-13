@@ -64,7 +64,7 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
 }
 void PinManager::reset()
 {
-    mAnalogOut=0.0;
+    mAnalogOut = 0.0;
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
     for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
     {
