@@ -201,9 +201,6 @@ void setup()
         webSockData.states.networkOK = false;
         www_init(NULL, NULL, getDataForWebSocket); // act as access point
     }
-    Serial.println("1");
-    Serial.println(webSockData.setup.inverterAsString);
-
     if (networkCredentialsInEEprom)
     {
 
@@ -230,9 +227,7 @@ void setup()
             webSockData.states.flashOK = www_init(pBuf, webSockData.setupData.ssid, getDataForWebSocket); // do not act as apoint
             webSockData.states.networkOK = true;
         }
-        Serial.println("2");
-        Serial.println(webSockData.setup.inverterAsString);
-
+      
         if (!webSockData.states.networkOK)
         {
             DBGf("Network does not work!");
