@@ -57,7 +57,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define TEMPERATURE_INTERVAL 5000UL             // 5 secs
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
 #define MODBUS_INTERVALL 2000UL
-#define PID_CONTROLLER_INTERVALL 2000 // 0.1 secs default sample time
+#define PID_CONTROLLER_INTERVALL 1000 // 0.1 secs default sample time
 #define LOGGING_FLUSH_INTERVALL 60000
 #define MODBUS_AKKU_INTERVALL 5000
 #define CLOCK_INTERVALL 1000           // secs
