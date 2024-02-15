@@ -24,6 +24,18 @@
 // Gives the timeout delay for receiving packets
 // in seconds
 #define RECV_TIMEOUT 1
+
+/* socket variables , defined in amisReader and froniusSolarAPI*/
+extern KEY_VALUE_MAP_t amisKeyValueMap;
+extern KEY_VALUE_MAP_t froniusKeyValueMap;
+
+static HTTP_REST_TARGET_t restTarget[REST_TARGET_COUNT] = {
+	{"Amis reader", "amisreader", {0}, 80, "/rest", "GET /rest HTTP/1.0\r\n\r\n", -1, AMIS_VALUE_COUNT, &amisKeyValueMap},
+	{"Fronius Solar API", "fronius rest", {0}, 80, "/status/powerflow", "GET /status/powerflow HTTP/1.0\r\n\r\n", -1, FRONIUS_VALUE_COUNT, &froniusKeyValueMap}};
+
+
+
+static bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData,GET_JSON_DATA getJson);
 int pingloop = 1;
 
 // ping packet structure
@@ -271,6 +283,117 @@ String util_GET_Request(const char *url, int *httpResponseCode)
 
 	return payload;
 }
+
+bool utils_sock_initRestTargets( char *host, int index)
+{
+
+	char str[INET_ADDRSTRLEN];
+	DBGf("utils_sock_initRestTargets - init(), host: %s ", host);
+	// store this IP address in sa:
+	inet_pton(AF_INET, host, &(restTarget[index].serverAddr.sin_addr));
+	// now get it back and print it
+	restTarget[index].serverAddr.sin_port = htons(restTarget[index].port);
+	restTarget[index].serverAddr.sin_family = AF_INET;
+	inet_ntop(AF_INET, &(restTarget[index].serverAddr.sin_addr), str, INET_ADDRSTRLEN);
+
+	restTarget[0].socketFd = socket(AF_INET, SOCK_STREAM, 0);
+	if (restTarget[0].socketFd >= 0)
+	{
+		int retVal = connect(restTarget[index].socketFd, (struct sockaddr *)&restTarget[index].serverAddr,
+							 sizeof(restTarget[index].serverAddr));
+		close(restTarget[index].socketFd);
+		DBGf("utils_sock_initRestTargets - :: IP: %s, RetVal open socket %d", str, retVal);
+		return true;
+	}
+	DBGf("AmisReader not available at IP: %s", host);
+	return false;
+}
+
+bool utils_sock_readRestTarget(WEBSOCK_DATA &webSockData, int index,GET_JSON_DATA getJson)
+{
+ restTarget[0].socketFd = socket(AF_INET, SOCK_STREAM, 0);
+    if (restTarget[0].socketFd >= 0)
+    {
+        int retVal = connect(restTarget[index].socketFd, (struct sockaddr *)&restTarget[index].serverAddr,
+                             sizeof(restTarget[0].serverAddr));
+        if (retVal >= 0 || errno == EISCONN)
+        {
+            if (!readJsonResponse(&restTarget[index], webSockData,getJson))
+            {
+                DBGf("amisReader_readRestTarget:: Cannot read Response of socket communication with amisReader ");
+                close(restTarget[index].socketFd);
+                return false;
+            }
+            close(restTarget[index].socketFd);
+        }
+        else
+        {
+            DBGf("amisReader_readRestTarget:: Socket error %s mit retVal: %d", strerror(errno), retVal);
+            return false;
+        }
+    }
+    return true;
+}
+
+#define RESPONSE_LENGTH 1024
+
+
+bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData,GET_JSON_DATA getJson)
+{
+    int bytes, sent, received, total;
+    char response[RESPONSE_LENGTH];
+    int responseLen = sizeof(response);
+    char *jsonStart;
+
+    /* send the request */
+    total = strlen(target->request);
+    sent = 0;
+    do
+    {
+        bytes = write(target->socketFd, target->request + sent, total - sent);
+        if (bytes < 0)
+            return bytes;
+        if (bytes == 0)
+            break;
+        sent += bytes;
+    } while (sent < total);
+
+    /* receive the response */
+    memset(response, 0, responseLen);
+    total = responseLen - 1;
+    received = 0;
+    do
+    {
+        bytes = read(target->socketFd, response + received, total - received);
+        if (bytes < 0)
+        {
+            DBGf("readJsonResponse() - cannot read bytes from socket (bytes <0)");
+            return false;
+            // return bytes;
+        }
+
+        if (bytes == 0)
+            break;
+        received += bytes;
+    } while (received < 1); // total);
+
+    if (received == total)
+    {
+
+        DBGf("readJsonResponse() - too much data (receivedd == total)");
+        return false;
+        return 0;
+    }
+
+    jsonStart = strchr(response, '{');
+    // DBGf("readJsonResponse() - payload: %s", response);
+    if (jsonStart != NULL)
+    {
+         (*getJson)(target, jsonStart, webSockData);
+    }
+    return true;
+}
+
 
 #ifdef NOT
 struct ping_pkt

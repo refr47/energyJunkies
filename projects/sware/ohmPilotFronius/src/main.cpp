@@ -334,7 +334,7 @@ void setup()
         webSockData.setup.externerSpeicher = akkuAvailable;
         DBGf("main - akku: %d", webSockData.setup.externerSpeicher);
         memset(&webSockData.fronius_SOLAR_POWERFLOW, 0, sizeof(FRONIUS_SOLAR_POWERFLOW));
-        if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
+        if (solar_get_powerflow(webSockData))
         {
             webSockData.states.froniusAPI = true;
             DBGf("main1 - akku: %d", webSockData.setup.externerSpeicher);
@@ -728,63 +728,47 @@ void loop()
 
     /* ***********************                   MODBUS           ************************/
 
-    if (timeSlice.currentMillis - timeSlice.previousMillisAkku > MODBUS_AKKU_INTERVALL)
+    if ((webSockData.states.froniusAPI == true) && (webSockData.setup.externerSpeicher == true))
     {
-        DBGf("MODBUS_AKKU_INTERVALL");
 
-        if (webSockData.states.modbusOK && webSockData.states.froniusAPI)
+        if (timeSlice.currentMillis - timeSlice.previousMillisAkku > MODBUS_AKKU_INTERVALL)
         {
-            if (!mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer))
+
+            if (webSockData.states.modbusOK)
             {
-                webSockData.states.modbusOK = false;
-                ledHandler_showModbusError(true);
-            }
-        }
-        else
-        {
-            memset(&webSockData.mbContainer.akkuState, 0, sizeof(AKKU_STATE_VALUE_t));
-            memset(&webSockData.mbContainer.akkuStr, 0, sizeof(AKKU_STRG_VALUE_t));
-        }
-
-   /*      if (webSockData.states.froniusAPI)
-        {
-            // !!!!!!!! OVERRIDE MODBUS values with REST API values
-            if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
-            {
-                webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
-                webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
-                webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
-            }
-        } */
-        tft_drawInfo(webSockData);
-        timeSlice.previousMillisAkku = timeSlice.currentMillis;
-    }
-
-
-    if (!webSockData.states.amisReader)
-    {
-        webSockData.amisReader.saldo = 0;
-    }
-    else
-    {
-        if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
-        {
-
-            if (amisReader_readRestTarget(webSockData))
-            {
-                DBGf("main:: AmisReader: available is: %d, import: %d , export: %d", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
+                if (!mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer))
+                {
+                    webSockData.states.modbusOK = false;
+                    memset(&webSockData.mbContainer.akkuState, 0, sizeof(AKKU_STATE_VALUE_t));
+                    memset(&webSockData.mbContainer.akkuStr, 0, sizeof(AKKU_STRG_VALUE_t));
+                    ledHandler_showModbusError(true);
+                }
             }
             else
             {
-                DBGf("main::AmisReader data not available.");
+                DBGf("main::webSockData.states.froniusAP:!mb_readAkkuOnl");
+                memset(&webSockData.mbContainer.akkuState, 0, sizeof(AKKU_STATE_VALUE_t));
+                memset(&webSockData.mbContainer.akkuStr, 0, sizeof(AKKU_STRG_VALUE_t));
             }
-            timeSlice.previousMillisAmis = timeSlice.currentMillis;
+
+            /*      if (webSockData.states.froniusAPI)
+                 {
+                     // !!!!!!!! OVERRIDE MODBUS values with REST API values
+                     if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
+                     {
+                         webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
+                         webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
+                         webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+                     }
+                 } */
+            tft_drawInfo(webSockData);
+            timeSlice.previousMillisAkku = timeSlice.currentMillis;
         }
     }
 
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
-// DBGf("MODBUS_INTERVALL");
+        // DBGf("MODBUS_INTERVALL");
 
         if (!webSockData.states.modbusOK)
         {
@@ -802,15 +786,25 @@ void loop()
         }
         else
         {
-            if (!webSockData.states.froniusAPI)
+#ifdef FRONIUS_API
+
+            if (webSockData.states.froniusAPI)
             {
-                if (!mb_readInverter(webSockData.setupData, webSockData.mbContainer))
+
+                if (solar_get_powerflow(webSockData))
                 {
-                    webSockData.states.modbusOK = false;
-                    ledHandler_showModbusError(true);
-                }   
+                    webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
+                    webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
+                    webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+                    INVERTER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_pv;
+                    METER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_load;
+                  
+                }
             }
-                if (mb_readInverterDynamic(webSockData.setupData, webSockData.mbContainer))
+#endif
+            else
+            {
+                if (mb_readInverter(webSockData.setupData, webSockData.mbContainer))
                 {
 
                     memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
@@ -824,53 +818,58 @@ void loop()
                     {
                         DBGf("Wrong meter value from smartmeter - current production: %f !", METER_DATA.acCurrentPower);
 #ifdef MQTT
-                    mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
+                        mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
 #endif
-                }
-                else
-                {
-                    DBGf("  in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
-                    webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
-                    // DBGf(", int: %d", webSockData.pidContainer.mCurrentPower);
-                    //  pidContainer.mCurrentPower = (int)pidPinManager.getCurrentPower();
-
-                    // webSockData.pidContainer.powerNotUseable = (int)pidPinManager.getReservedPower() + 0.5; // ????
-                    webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
-                    webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
-                    webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+                    }
+                    else
+                    {
+                        DBGf("  in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
+                        webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
+                       
 
 #ifndef TEST_PID_WWWW
-                    availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
+                        availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
 #endif
-#ifdef FRONIUS_API
 
-                    if (webSockData.states.froniusAPI)
-                    {
-
-                        if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
-                        {
-                            webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
-                            webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
-                            webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
-                        }
-                    }
-#endif
-                    tft_drawInfo(webSockData);
-                    influx_write(webSockData);
+                        tft_drawInfo(webSockData);
+                        influx_write(webSockData);
 #ifdef MQTT
 
-                    mqtt_publish_modbus_current_state(webSockData.mbContainer);
+                        mqtt_publish_modbus_current_state(webSockData.mbContainer);
 #endif
+                    }
+                }
+                else
+                { // if readModbus
+                    DBGf("MAIN::ModbusTimeSlice::  Error in reading modubs");
                 }
             }
-            else
-            { // if readModbus
-                DBGf("MAIN::ModbusTimeSlice::  Error in reading modubs");
-            }
-        } // if modbusstate
+        } // if (!webSockData.states.modbusOK
 
         timeSlice.previousMillModbus = timeSlice.currentMillis;
     } // if
+
+    if (!webSockData.states.amisReader)
+    {
+        webSockData.amisReader.saldo = 0;
+    }
+    else
+    {
+        if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
+        {
+
+            if (amisReader_readRestTarget(webSockData))
+            {
+                DBGf("main:: AmisReader: available is: %d, import: %d , export: %d", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
+                 METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
+            }
+            else
+            {
+                DBGf("main::AmisReader data not available.");
+            }
+            timeSlice.previousMillisAmis = timeSlice.currentMillis;
+        }
+    }
 
     /* ***********************                   FLUSH LOGGING FILE           ************************/
 
@@ -897,7 +896,11 @@ void loop()
 
         if (!alarmContainer.alarmTemp.alarmTemp)
         {
+
             // pidPinManager.task(webSockData);
+            webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
+            webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
+            webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
 
             /*  if (availablePowerFromWRInWatt < 0.0) // energy export
              {

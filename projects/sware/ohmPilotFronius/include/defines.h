@@ -1,6 +1,9 @@
 #pragma once
 #include <Arduino.h>
 #include <arpa/inet.h>
+#include <lwip/sockets.h>
+#include <lwip/netdb.h>
+
 // influx, curTime:
 #define NtpServer1 "pool.ntp.org"
 #define NtpServer2 "time.nist.gov"
@@ -26,6 +29,27 @@
 #define AKKU_STATE webSockData.mbContainer.akkuState.data
 #define AKKU_STRG webSockData.mbContainer.akkuStr.data
 #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
+
+
+/* ****************** SOCKETS *****************/
+// length of ip address string
+#define IP_LENGTH 64
+// host name length
+#define HOSTNAME_LENGTH 64
+// length of the resource identifier
+#define RESOURCE_LENGTH 64
+// HTTP rest API request length
+#define REQUEST_LENGTH 64
+// length of json object key
+#define KEY_LENGTH 32
+#define TARGET_NAME_LEN 24
+
+/*    sock*/
+#define REST_TARGET_COUNT 2
+#define AMIS_READER_INDEX 0
+#define FRONIUS_SOLAR_API_INDEX 1
+#define AMIS_VALUE_COUNT 3
+#define FRONIUS_VALUE_COUNT 6
 
 #include "debugConsole.h"
 
@@ -155,3 +179,35 @@ typedef struct _WEBSOCK
 } WEBSOCK_DATA;
 
 typedef WEBSOCK_DATA &(*CALLBACK_GET_DATA)();
+
+typedef struct
+{
+    // (start) index of source register
+    char key[KEY_LENGTH];
+    // index of destination field element
+    int valueIndex;
+} KEY_VALUE_MAP_t;
+
+typedef struct
+{
+    // rest API target name
+    char text[TARGET_NAME_LEN];
+    // host name of the rest API target
+    char hostname[HOSTNAME_LENGTH];
+    // server details
+    struct sockaddr_in serverAddr;
+    // rest API port
+    uint16_t port;
+    // rest API resource identifier
+    char resource[RESOURCE_LENGTH];
+    // complete rest API HTTP request
+    char request[REQUEST_LENGTH];
+    // file descriptor of connection socket
+    int socketFd;
+    // number of values to build from json object
+    int valueCount;
+    // json object key to values mapping array
+    KEY_VALUE_MAP_t *mapping;
+} HTTP_REST_TARGET_t;
+
+typedef void (*GET_JSON_DATA)(HTTP_REST_TARGET_t *, char *, WEBSOCK_DATA &);

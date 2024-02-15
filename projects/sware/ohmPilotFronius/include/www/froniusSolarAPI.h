@@ -5,6 +5,6 @@
 #include "defines.h"
 
 bool soloar_init(WEBSOCK_DATA &webSockData, bool *);
-bool solar_get_powerflow(FRONIUS_SOLAR_POWERFLOW &container);
+bool solar_get_powerflow(WEBSOCK_DATA &webSockData);
 
 #endif
