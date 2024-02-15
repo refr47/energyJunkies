@@ -16,7 +16,7 @@ void swapRegs(uint16_t regs[], int count)
         regs[count - 1 - i] = temp;
     }
 }
- 
+
 int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int count)
 {
     int64_t value;
@@ -58,16 +58,18 @@ int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int
         case 1:
         default:
             value = source[relation[i].sourceIndex];
-            
+            //DBGf("==> scaling, value: %d", value);
         }
-       
+
         if (relation[i].scaleIndex < 0)
         {
             target[relation[i].targetIndex] = value;
+            // DBGf("==> scaleIndex < 0: %d", relation[i].scaleIndex);
         }
         else
         {
             target[relation[i].targetIndex] = value * pow(10, source[relation[i].scaleIndex]);
+            // DBGf("==> scaleIndex > 0: %x", target[relation[i].targetIndex]);
         }
     }
     // DBGf("scaleValues :: END and count: %d", count);

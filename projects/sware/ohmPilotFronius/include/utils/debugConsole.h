@@ -37,9 +37,9 @@ static const char *currTime()
 
 #define DBG(format, ...) DEBUG_PORT.printf(format, ##__VA_ARGS__) */
 
-#define DBGf(M, ...) DEBUG_PORT.printf("%s/%s:%d | " M "\n", DATE_STRING, FINFO, __LINE__, ##__VA_ARGS__)
+#define DBGf(M, ...) DEBUG_PORT.printf("%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
-#define DBG(M, ...) DEBUG_PORT.printf("%s/%s:%d | " M, DATE_STRING, FINFO, __LINE__, ##__VA_ARGS__)
+#define DBG(M, ...) DEBUG_PORT.printf("%s:%d | " M, FINFO, __LINE__, ##__VA_ARGS__)
 
 /* #define DBGln(a) (Serial.println(a))
 #define DBG1ln(a, f) (Serial.println(a, f))

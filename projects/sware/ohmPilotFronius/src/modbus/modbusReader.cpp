@@ -115,13 +115,14 @@ bool isConnectedAndReconnect()
     {
         success = mb.connect(remote);
         delay(1000);
+        mb.client();
         DBGf("modbus do connect .... %x", success);
 
         if (!success)
         {
             DBGf("Error in connection to Inverter via Modbus: %s", strerror(errno));
         }
-    }
+        }
 
     return success;
 }
@@ -291,10 +292,12 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
 
     // result of modbus access functions
     uint16_t transId = 0;
+    bool connected = mb.isConnected(remote);
+    DBGf("MOdbus is connected ?????????????? %d", connected);
     if (mb.isConnected(remote))
     { // Check if connection to Modbus Slave is established
 
-        transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId); // Initiate Read Holding Register from Modbus Slave
+        transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)&resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId); // Initiate Read Holding Register from Modbus Slave
         if (transId == 0)
         {
             DBGf("Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", regsToRead[readIndex].deviceId,
@@ -312,7 +315,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
 
         if (success)
         {
-            transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId); // Initiate Read Holding Register from Modbus Slave
+            transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)&resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId); // Initiate Read Holding Register from Modbus Slave
             DBGf("Modbus read susccessfully ...");
         }
         else
@@ -359,6 +362,14 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
             break;
         case AKKU_STRG_BLOCK_ID:
             scaleValues(akkuStrgValues.value, resArr[readIndex], akkuInverterStrg, INVERTER_STRG_VALUE_LEN);
+          /*   auto source = resArr[readIndex];
+            DBGf("================================================");
+
+            for (int jj = 0; jj < INVERTER_STRG_VALUE_LEN; jj++)
+            {
+                int value = source[akkuInverterStrg[jj].sourceIndex];
+                DBGf("akkuStrgValues.value[%d] %d", jj, value);
+            } */
             double maxChargePower; // max. charge rate in W
 #ifdef MODBUS_VERBOSE
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;",
@@ -378,7 +389,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
                 cp = readIndex == 0 ? "Inverter" : "SmartMeter";
             else
                 cp = readIndex == 2 ? "Akku State" : "Akku Strg";
-            DBGf("ModbusReader::Index: [%s] , data: %s", cp, text);
+            DBGf("ModbusReader::Index:[%d]:: [%s] , data: %s", readIndex, cp, text);
             text[0] = '\0';
         }
         else
@@ -394,6 +405,9 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
             // delay(1000);
         }
         readIndex = (readIndex + 1) % REG_BLOCK_COUNT;
+
+        bool connected = mb.isConnected(remote);
+        //DBGf("END MOdbus is connected ?????????????? %d", connected);
         return true;
     }
     /* else
@@ -403,6 +417,5 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
     } */
     // DBGf("mb_readInverterDynamic EXit for readIndex: %d", readIndex);
 }
-
 
 #endif

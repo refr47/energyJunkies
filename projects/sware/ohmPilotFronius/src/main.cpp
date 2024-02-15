@@ -63,7 +63,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define CLOCK_INTERVALL 1000           // secs
 #define WEBSOCK_NOTIFY_INTERVALL 10000 // 5 secs
 #define SHOW_IP_ADDR_INTERVALL 5000
-#define CONFIG_PARAM_TEST_INTERVALL 2000
+#define CONFIG_PARAM_TEST_INTERVALL 6000
 #define AMIS_READER_INTERVALL 10000
 #define FORMAT_CHAR_BUFFER_LEN 50 // @see loop
 
@@ -227,7 +227,7 @@ void setup()
             webSockData.states.flashOK = www_init(pBuf, webSockData.setupData.ssid, getDataForWebSocket); // do not act as apoint
             webSockData.states.networkOK = true;
         }
-      
+
         if (!webSockData.states.networkOK)
         {
             DBGf("Network does not work!");
@@ -727,12 +727,12 @@ void loop()
     }
 
     /* ***********************                   MODBUS           ************************/
-#ifdef AKKU_TRAC
+
     if (timeSlice.currentMillis - timeSlice.previousMillisAkku > MODBUS_AKKU_INTERVALL)
     {
         DBGf("MODBUS_AKKU_INTERVALL");
 
-        if (webSockData.states.modbusOK)
+        if (webSockData.states.modbusOK && webSockData.states.froniusAPI)
         {
             if (!mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer))
             {
@@ -746,7 +746,7 @@ void loop()
             memset(&webSockData.mbContainer.akkuStr, 0, sizeof(AKKU_STRG_VALUE_t));
         }
 
-        if (webSockData.states.froniusAPI)
+   /*      if (webSockData.states.froniusAPI)
         {
             // !!!!!!!! OVERRIDE MODBUS values with REST API values
             if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
@@ -755,11 +755,11 @@ void loop()
                 webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
                 webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
             }
-        }
+        } */
         tft_drawInfo(webSockData);
         timeSlice.previousMillisAkku = timeSlice.currentMillis;
     }
-#endif
+
 
     if (!webSockData.states.amisReader)
     {
@@ -784,7 +784,8 @@ void loop()
 
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
     {
-        // DBGf("MODBUS_INTERVALL");
+// DBGf("MODBUS_INTERVALL");
+
         if (!webSockData.states.modbusOK)
         {
             tft_drawInfoNoModbus(webSockData.temperature);
@@ -801,19 +802,27 @@ void loop()
         }
         else
         {
-            if (mb_readInverterDynamic(webSockData.setupData, webSockData.mbContainer))
+            if (!webSockData.states.froniusAPI)
             {
-
-                memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
-                util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer); //  Produktion
-                DBGf("Produktion %s", formatBuffer);
-
-                DBGf("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer)); // Grid Bezug positiv, ansonst -
-
-                if (METER_DATA.acCurrentPower < 0.0 && (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower < 0))
-
+                if (!mb_readInverter(webSockData.setupData, webSockData.mbContainer))
                 {
-                    DBGf("Wrong meter value from smartmeter - current production: %f !", METER_DATA.acCurrentPower);
+                    webSockData.states.modbusOK = false;
+                    ledHandler_showModbusError(true);
+                }   
+            }
+                if (mb_readInverterDynamic(webSockData.setupData, webSockData.mbContainer))
+                {
+
+                    memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
+                    util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer); //  Produktion
+                    DBGf("Produktion %s", formatBuffer);
+
+                    DBGf("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer)); // Grid Bezug positiv, ansonst -
+
+                    if (METER_DATA.acCurrentPower < 0.0 && (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower < 0))
+
+                    {
+                        DBGf("Wrong meter value from smartmeter - current production: %f !", METER_DATA.acCurrentPower);
 #ifdef MQTT
                     mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
 #endif
@@ -859,6 +868,7 @@ void loop()
                 DBGf("MAIN::ModbusTimeSlice::  Error in reading modubs");
             }
         } // if modbusstate
+
         timeSlice.previousMillModbus = timeSlice.currentMillis;
     } // if
 
@@ -887,7 +897,7 @@ void loop()
 
         if (!alarmContainer.alarmTemp.alarmTemp)
         {
-            pidPinManager.task(webSockData);
+            // pidPinManager.task(webSockData);
 
             /*  if (availablePowerFromWRInWatt < 0.0) // energy export
              {
@@ -914,6 +924,7 @@ void loop()
     /* ***********************                   CONFIG LIVE UPDATE sTAMMdaTEN via WEB           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisTestConfig > CONFIG_PARAM_TEST_INTERVALL)
     {
+        mb_readAkkuOnly(webSockData.setup, webSockData.mbContainer);
         // DBGf("CONFIG_PARAM_TEST_INTERVALL");
         timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
 #ifdef TEST_PID_WWWW1

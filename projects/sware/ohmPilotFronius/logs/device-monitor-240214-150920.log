@@ -1,0 +1,359 @@
+␛[37mmain.cpp:171 | Energie-Junkies -- Harvester ---
+tft.cpp:55 | TFT Width 320,Height: 240
+␛[37mt␛[37mft.cpp:122 | Frequency    =  240 MHz
+tft.cpp:126 | Check tft SPI
+tft.cpp:129 | MOSI    =  13
+tft.cpp:134 | MISO    =  12
+tft.cpp:139 | SCK    =  14
+␛[37me␛[37mprom.cpp:108 | eprom_isInit:: Nothing to do
+␛[37me␛[37mprom.cpp:144 | eprom_getSetup() .. AmisReaderHost: 167772181 10.0.0.21
+␛[37mm␛[37main.cpp:196 | get network   
+␛[37mw␛[37mlan.cpp:28 | WIFI: Milchbehaelter, Passwd: 47754775
+wlan.cpp:29 | Connecting to WiFi ..
+␛[37mw␛[37mlan.cpp:38 | .␛[37mw␛[37mlan.cpp:38 | .␛[37mw␛[37mlan.cpp:38 | .␛[37mw␛[37mlan.cpp:38 | .␛[37mw␛[37mlan.cpp:38 | .␛[37mw␛[37mlan.cpp:56 | [Wifi] Connecting to Milchbehaelter 
+␛[37mw␛[37mlan.cpp:97 | [WiFi] WiFi is disconnected
+␛[37mw␛[37mlan.cpp:104 | [WiFi] WiFi is connected!␛[37mw␛[37mlan.cpp:107 | [WiFi] IP address: 10.0.0.3
+main.cpp:224 | Connected with ip: 10.0.0.3
+␛[37mw␛[37mww.cpp:164 | WWW init server with ip: 10.0.0.3
+␛[37mc␛[37murTime.cpp:81 | Init time from ntp
+␛[37mm␛[37main.cpp:242 | Setup Modbus ...
+modbusReader.cpp:133 |  Inverter Addr: 10.0.0.2
+␛[37mm␛[37modbusReader.cpp:119 | modbus do connect .... 1
+␛[37mc␛[37mardRW_setup.cpp:38 | CardReader, logToCard: 0, logInverterToCard: 0
+␛[37mE␛[37m (70349) EJunkies: f_mount failed: (3) The physical drive cannot work
+␛[37mE␛[37m (70849) EJunkies: Select Failed
+␛[37mc␛[37mardRW_setup.cpp:51 | Try to mount card (1)
+␛[37mE␛[37m (73349) EJunkies: f_mount failed: (3) The physical drive cannot work
+␛[37mE␛[37m (73849) EJunkies: Select Failed
+␛[37mc␛[37mardRW_setup.cpp:51 | Try to mount card (2)
+␛[37mE␛[37m (76349) EJunkies: f_mount failed: (3) The physical drive cannot work
+␛[37mE␛[37m (76849) EJunkies: Select Failed
+␛[37mc␛[37mardRW_setup.cpp:51 | Try to mount card (3)
+␛[37mE␛[37m (79349) EJunkies: f_mount failed: (3) The physical drive cannot work
+␛[37mE␛[37m (79849) EJunkies: Select Failed
+␛[37mc␛[37mardRW_setup.cpp:51 | Try to mount card (4)
+␛[37mE␛[37m (82349) EJunkies: f_mount failed: (3) The physical drive cannot work
+␛[37mE␛[37m (82849) EJunkies: Select Failed
+␛[37mc␛[37mardRW_setup.cpp:51 | Try to mount card (5)
+cardRW_setup.cpp:54 | Card Mount Failed:  6 trials
+E (84849) EJunkies: SD Card Reader kann nicht initialisiert werden!
+␛[37mmain.cpp:284 | Logging to file cannot be initiated ...
+␛[37mt␛[37memp.cpp:41 | Init Temp Sensor...
+␛[37mt␛[37memp.cpp:53 | Locating devices...Found :2 devices
+␛[37mt␛[37memp.cpp:61 | Found device 0 with address:
+temp.cpp:34 |  28:9A:2C:57:04:E1:3C:␛[37mD5
+temp.cpp:35 | END init temperature ...
+␛[37mt␛[37memp.cpp:61 | Found device 1 with address:
+temp.cpp:34 |  28:BE:5C:57:04:E1:3C:D2
+temp.cpp:35 | END init temperature ...
+temp.cpp:73 | 
+␛[37mm␛[37modbusReader.cpp:224 | modbusReader::mb_readAll
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[1]:: [SmartMeter] , data:         0.000;        0.000;        0.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[0]:: [Inverter] , data:         0.000;        0.000;        0.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:         0.000;        0.000;        0.000;        0.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:         0.000;        0.000;        0.000;        0.000;        0.000;        0.000;        0.000;
+modbusReader.cpp:403 |  
+main.cpp:314 | main::before solar_init
+␛[37meprom.cpp:246 | printEprom ============================================ begin
+
+␛[37me␛[37mprom.cpp:249 | EPROM out 
+
+ WLAN: , Passwd:  HeizstabLeistungInWatt: 0, AusschaltTempInC: 0 MindesttempInGrad: 0 externer SPeicher: 0 P␛[37mriorität: 
+eprom.cpp:250 | print eprom - sizeof buffer: 131
+eprom.cpp:251 | printEprom ========================================␛[37m=␛[37m=============== end
+
+main.cpp:324 | main::before solar_init 2, tcp as uint: 0
+main.cpp:329 | CP is: 
+
+main.cpp:331 | inverter:␛[37m 
+froniusSolarAPI.cpp:19 | solar_init BEGIN 
+froniusSolarAPI.cpp:24 | solar_init() for http:///status/powerflow
+␛[37mE␛[37m (86982) EJunkies: DNS Failed for 
+␛[37mu␛[37mtils.cpp:267 | Error code: -1
+␛[37mf␛[37mroniusSolarAPI.cpp:31 | solar_init:: Fronius API nicht erreichbar - kein Fronius Inverter?
+main.cpp:357 | Setup PID-Controller
+␛[37mS␛[37myncing time
+␛[37mSynchronized time: ␛[37mW␛[37med Feb 14 15:09:56 2024
+
+␛[37mi␛[37mnflux.cpp:30 | Init influx
+␛[37mi␛[37mnflux.cpp:34 | Connected to InfluxDB: http://rantanplan-ethernet:8086
+␛[37mi␛[37mnflux.cpp:56 | Write to influx: environment device="esp32",inverter="fronius",model="gen24",bootAt="2024-02-14 15:09:56
+"
+␛[37ma␛[37mmisReader.cpp:30 | AmisReader - init() 
+␛[37ma␛[37mmisReader.cpp:44 | amisReader_initRestTargets - AmisReader:: IP: 10.0.0.21, RetVal open socket 0
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:381 | AMIS-Reader:: connected successfully ...
+␛[37mm␛[37main.cpp:401 |  -------- States ---------------
+main.cpp:402 | Fronius: n
+main.cpp:403 | AmisReader: y
+main.cpp:404 | CardWrite: n
+main.cpp:405 | FlashFS: y
+␛[37mmain.cpp:406 | Influx: y
+main.cpp:407 | Modbus: y
+main.cpp:408 | MqTT: n
+main.cpp:409 | TempSensor: y
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: -8, import: 28512257 , export: 16289308
+main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:119 | modbus do connect .... 1
+␛[37mm␛[37modbusReader.cpp:319 | Modbus read susccessfully ...
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990833.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:         0.000;        0.000;        0.000;        0.000;        0.000;        0.000;        0.000;
+modbusReader.cpp:403 |  
+␛[37mwebSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990833.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990833.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: -4, import: 28512257 , export: 16289308
+␛[37mwebSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: 11, import: 28512257 , export: 16289308
+␛[37mwebSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mmain.cpp:775 | main:: AmisReader: available is: 9, import: 28512257 , export: 16289308
+␛[37mwebSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.100;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: -5, import: 28512257 , export: 16289308
+webSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: 7, import: 28512257 , export: 16289308
+webSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: -24, import: 28512257 , export: 16289308
+webSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: 20, import: 28512257 , export: 16289308
+␛[37mwebSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.239
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: 2, import: 28512257 , export: 16289308
+webSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: 6, import: 28512257 , export: 16289308
+webSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: -10, import: 28512257 , export: 16289308
+␛[37mwebSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] ,␛[37m ␛[37mdata:     13824.000;    12800.000;    12800.000; 24990854.000;
+modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37ma␛[37mmisReader.cpp:162 | mapJsonValues: Wirkleistung P+ 0.000
+␛[37mm␛[37main.cpp:775 | main:: AmisReader: available is: 10, import: 28512257 , export: 16289308
+webSockets.cpp:83 | webSocks - getJsonOj:  15.00
+␛[37mm␛[37main.cpp:684 |  TEMP in Celsius, S1: 15.000000, S2: 15.000000
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[3]:: [Akku Strg] , data:     12800.000;      100.000;      100.000;        0.000;       88.200;      100.000;      100.000;
+modbusReader.cpp:403 |  
+␛[37mm␛[37main.cpp:888 | PID_CONTROLLER_INTERVALL
+␛[37mm␛[37modbusReader.cpp:392 | ModbusReader::Index:[2]:: [Akku State] , data:     13824.000;    12800.000;    12800.000; 24990854.000;
