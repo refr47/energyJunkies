@@ -169,8 +169,8 @@ void setup()
 {
 
     DBGbgn(115200);
-    while (!Serial)
-        ;
+   /*  while (!Serial)
+        ; */
 
     DBGf("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
@@ -201,7 +201,7 @@ void setup()
 
     DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
-    // if (strcmp(webSockData.setupData.ssid, "---") == 0)
+    
     if (strcmp(webSockData.setupData.ssid, "--") == 0)
     {
         networkCredentialsInEEprom = false;
@@ -209,14 +209,7 @@ void setup()
         www_init(NULL, NULL, getDataForWebSocket); // act as access point
     }
 
-    DBGf("bevore networkCredentialsInEEprom");
-    /*  for (int jj = 0; jj < 5; jj++)
-     {
-         eprom_show(webSockData.setupData);
-         delay(1000);
-     }
-     eprom_show(webSockData.setupData); */
-
+   
     if (networkCredentialsInEEprom)
     {
 
@@ -252,8 +245,7 @@ void setup()
         time_init(); // init time
         time_currentTimeStamp();
 
-        DBGf("mb_init");
-        /*   eprom_show(webSockData.setupData); */
+    
         DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
         DBGf("Setup Modbus ...");
         if (!mb_init(webSockData.setupData))
@@ -270,13 +262,7 @@ void setup()
         }
 
         DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-        DBGf("after Modbus ...");
-
-        for (int jj = 0; jj < 1; jj++)
-        {
-            eprom_show(webSockData.setupData);
-            delay(1000);
-        }
+     
 
         // memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
 #ifdef EJ
@@ -294,7 +280,7 @@ void setup()
     }
     else
         DBGf("Mqtt-Server:: connected successfully ...");
-
+#endif
     webSockData.states.cardWriterOK = false;
     if (cardRW_setup(false, false))
     {
@@ -311,12 +297,11 @@ void setup()
 
         ledHandler_showCardReaderError(true);
     }
-#endif
+
     /* ESP_ERROR_CHECK(heap_trace_stop());
     heap_trace_dump(); */
     DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
-    DBGf("main:: before temp_init()");
-    eprom_show(webSockData.setup);
+  
 
     if (temp_init())
     {
@@ -333,10 +318,9 @@ void setup()
     // wheater_getForecast();
 #endif
 
-    DBGf("main:: before mb_readAll()");
-    eprom_show(webSockData.setup);
+   
 
-    if (!mb_readAll(webSockData.setup, webSockData.mbContainer))
+    if (!mb_readAll(webSockData.setupData, webSockData.mbContainer))
     {
         DBGf("Init::readAllModbusValues did not succeed");
         tft_printKeyValue("Modbus Read", "Error", TFT_RED);
@@ -346,30 +330,29 @@ void setup()
 
 #ifdef FRONIUS_API
     bool akkuAvailable = false;
-    DBGf("main::before solar_init");
-    eprom_show(webSockData.setup);
+  
 
-    const char *cp = webSockData.setup.inverterAsString;
+    const char *cp = webSockData.setupData.inverterAsString;
     if (cp == NULL)
         DBGf("cp is null");
     else
         DBGf("inverter is: %s", cp);
-    DBGf("AmisReader: %s , tcp: %d", webSockData.setup.amisReaderHost, webSockData.setup.ipAmisReaderHost);
+    DBGf("AmisReader: %s , tcp: %d", webSockData.setupData.amisReaderHost, webSockData.setupData.ipAmisReaderHost);
     if (soloar_init(webSockData, &akkuAvailable))
     {
-        webSockData.setup.externerSpeicher = akkuAvailable;
-        DBGf("main - akku: %d", webSockData.setup.externerSpeicher);
+        webSockData.setupData.externerSpeicher = akkuAvailable;
+        DBGf("main - akku: %d", webSockData.setupData.externerSpeicher);
         memset(&webSockData.fronius_SOLAR_POWERFLOW, 0, sizeof(FRONIUS_SOLAR_POWERFLOW));
         if (solar_get_powerflow(webSockData))
         {
             webSockData.states.froniusAPI = true;
-            DBGf("main1 - akku: %d", webSockData.setup.externerSpeicher);
+            DBGf("main1 - akku: %d", webSockData.setupData.externerSpeicher);
             tft_printKeyValue("Fronius Solar API", "Yes", TFT_GREEN);
-            if (webSockData.setup.externerSpeicher == true)
+            if (webSockData.setupData.externerSpeicher == true)
                 tft_printKeyValue("AKKU", "Yes", TFT_GREEN);
             else
                 tft_printKeyValue("AKKU", "No", TFT_GREEN);
-            DBGf("Fronius solar API Support: YES, AKKU: %s", webSockData.setup.externerSpeicher == true ? "Yes" : "NO");
+            DBGf("Fronius solar API Support: YES, AKKU: %s", webSockData.setupData.externerSpeicher == true ? "Yes" : "NO");
         }
         else
         {
@@ -754,7 +737,7 @@ void loop()
 
     /* ***********************                   MODBUS           ************************/
 
-    if ((webSockData.states.froniusAPI == true) && (webSockData.setup.externerSpeicher == true))
+    if ((webSockData.states.froniusAPI == true) && (webSockData.setupData.externerSpeicher == true))
     {
 
         if (timeSlice.currentMillis - timeSlice.previousMillisAkku > MODBUS_AKKU_INTERVALL)
@@ -950,7 +933,7 @@ void loop()
     /* ***********************                   CONFIG LIVE UPDATE sTAMMdaTEN via WEB           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisTestConfig > CONFIG_PARAM_TEST_INTERVALL)
     {
-        mb_readAkkuOnly(webSockData.setup, webSockData.mbContainer);
+        mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer);
         // DBGf("CONFIG_PARAM_TEST_INTERVALL");
         timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
 #ifdef TEST_PID_WWWW1
@@ -960,7 +943,7 @@ void loop()
         if (eprom_stammDataUpdate())
         {
             DBGf("main PID-TEST update");
-            availablePowerFromWRInWatt = webSockData.setup.exportWatt = d.exportWatt;
+            availablePowerFromWRInWatt = webSockData.setupData.exportWatt = d.exportWatt;
 
             webSockData.pidContainer.mCurrentPower = d.exportWatt * 1.00;
             DBGf("PID-TEST (1): available watt: %d", d.exportWatt);

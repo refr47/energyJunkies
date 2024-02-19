@@ -131,7 +131,7 @@ String getJsonObj()
         bitMaster |= (1 << HEIZPATRONE_L1);
     if (data.pidContainer.PID_PIN2 == 1)
         bitMaster |= (1 << HEIZPATRONE_L2);
-    if (data.setup.externerSpeicher == true)
+    if (data.setupData.externerSpeicher == true)
         bitMaster |= (1 << AKKU_AVAILABLE);
     if (!data.states.cardWriterOK)
         bitMaster |= (1 << STATE_CARDWRITE);
@@ -149,8 +149,8 @@ String getJsonObj()
     readings[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
     readings[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
     readings[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate;
-    readings[SIM_BIAS] = data.setup.exportWatt;
-    readings[SIM_LOAD] = data.setup.additionalLoad;
+    readings[SIM_BIAS] = data.setupData.exportWatt;
+    readings[SIM_LOAD] = data.setupData.additionalLoad;
 
     String jsonString = JSON.stringify(readings);
     // DBGf("JSON-String: %s", jsonString.c_str());
