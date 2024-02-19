@@ -61,6 +61,9 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
         DBGf("solar_init - akku  vorhanden!");
     }
 #endif
+
+    DBGf("froniusSolarAPI::soloar_init - amisReaderHOST: %s", webSockData.setup.inverterAsString);
+ 
     if (utils_sock_initRestTargets(webSockData.setup.inverterAsString, FRONIUS_SOLAR_API_INDEX))
     {
         DBGf("solar_init() - init REST API success");
@@ -159,7 +162,6 @@ static void mapJsonValuesFronius(HTTP_REST_TARGET_t *target, char *jsonStart, WE
         }
         DBGf("froniusSolarAPI::mapJsonValuesFronius ExIT");
     }
-
 }
 
 #endif

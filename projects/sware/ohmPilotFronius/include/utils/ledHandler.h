@@ -1,4 +1,5 @@
 #pragma once
+#include "pin_config.h"
 
 void ledHandler_init();
 void ledHandler_blink();

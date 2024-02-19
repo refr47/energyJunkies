@@ -122,7 +122,7 @@ bool isConnectedAndReconnect()
         {
             DBGf("Error in connection to Inverter via Modbus: %s", strerror(errno));
         }
-        }
+    }
 
     return success;
 }
@@ -138,7 +138,6 @@ bool mb_init(Setup &setUpData)
         return false;
     }
 
-    mb.client();
     return isConnectedAndReconnect();
 }
 
@@ -362,14 +361,14 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
             break;
         case AKKU_STRG_BLOCK_ID:
             scaleValues(akkuStrgValues.value, resArr[readIndex], akkuInverterStrg, INVERTER_STRG_VALUE_LEN);
-          /*   auto source = resArr[readIndex];
-            DBGf("================================================");
+            /*   auto source = resArr[readIndex];
+              DBGf("================================================");
 
-            for (int jj = 0; jj < INVERTER_STRG_VALUE_LEN; jj++)
-            {
-                int value = source[akkuInverterStrg[jj].sourceIndex];
-                DBGf("akkuStrgValues.value[%d] %d", jj, value);
-            } */
+              for (int jj = 0; jj < INVERTER_STRG_VALUE_LEN; jj++)
+              {
+                  int value = source[akkuInverterStrg[jj].sourceIndex];
+                  DBGf("akkuStrgValues.value[%d] %d", jj, value);
+              } */
             double maxChargePower; // max. charge rate in W
 #ifdef MODBUS_VERBOSE
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;%13.3lf;",
@@ -407,7 +406,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         readIndex = (readIndex + 1) % REG_BLOCK_COUNT;
 
         bool connected = mb.isConnected(remote);
-        //DBGf("END MOdbus is connected ?????????????? %d", connected);
+        // DBGf("END MOdbus is connected ?????????????? %d", connected);
         return true;
     }
     /* else

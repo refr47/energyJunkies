@@ -20,13 +20,13 @@ static void mapJsonValues(HTTP_REST_TARGET_t *target, char jsonString[], WEBSOCK
 // initialize the rest API targets
 bool amisReader_initRestTargets(Setup &setup)
 {
-
+    DBGf("amisReader_initRestTargets , HOST: %s", setup.amisReaderHost);
     return utils_sock_initRestTargets(setup.amisReaderHost, AMIS_READER_INDEX);
 }
 
 bool amisReader_readRestTarget(WEBSOCK_DATA &webSockData)
 {
-   
+
     return utils_sock_readRestTarget(webSockData, AMIS_READER_INDEX, mapJsonValues);
 }
 

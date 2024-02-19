@@ -1,8 +1,6 @@
 #include <Arduino.h>
 #include "ledHandler.h"
 
-#include "pin_config.h"
-
 #define MODBUS_ERROR 0
 #define CARD_READ_ERROR 1
 #define TEMPERATUR_ERROR 2

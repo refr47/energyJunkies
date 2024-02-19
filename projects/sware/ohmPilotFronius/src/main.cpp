@@ -2,6 +2,7 @@
 #include "esp_clk.h"
 #include <SPI.h>
 #include <esp_log.h>
+#include "esp_heap_trace.h"
 
 #include "debugConsole.h"
 #include "wlan.h"
@@ -72,6 +73,9 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #endif
 #define LOG_LEVEL ESP_LOG_INFO
 #define MY_ESP_LOG_LEVEL ESP_LOG_INFO
+
+#define NUM_RECORDS 100
+static heap_trace_record_t trace_record[NUM_RECORDS]; // This buffer must be in internal RAM
 
 typedef struct _ALARM_TEMPERATURE
 {
@@ -174,8 +178,9 @@ void setup()
     ledHandler_init();
     tft_init();
     tft_printSetup();
+    DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
-    /*  int currentState = digitalRead(INTERNAL_BUTTON_2_GPIO);
+    /*  int currentState = digitalRead(Iheap_caps_get_largest_free_block()NTERNAL_BUTTON_2_GPIO);
      DBGf("Interal button: %d", currentState); */
 
     /* uint32_t cpu_freq = esp_clk_cpu_freq();
@@ -187,13 +192,15 @@ void setup()
     //    eprom_clearLifeData();
     eprom_isInit();
 
+    // ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
     // eprom_test_write_Eprom("Milchbehaelter", "47754775");
     eprom_getSetup(webSockData.setupData);
     // eprom_getLifeData(lifeData);
 
     // printEprom(webSockData.setupData);
-    //  eprom_show(webSockData.setupData);
-    DBGf("get network   ");
+
+    DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+
     // if (strcmp(webSockData.setupData.ssid, "---") == 0)
     if (strcmp(webSockData.setupData.ssid, "--") == 0)
     {
@@ -201,6 +208,15 @@ void setup()
         webSockData.states.networkOK = false;
         www_init(NULL, NULL, getDataForWebSocket); // act as access point
     }
+
+    DBGf("bevore networkCredentialsInEEprom");
+    /*  for (int jj = 0; jj < 5; jj++)
+     {
+         eprom_show(webSockData.setupData);
+         delay(1000);
+     }
+     eprom_show(webSockData.setupData); */
+
     if (networkCredentialsInEEprom)
     {
 
@@ -215,6 +231,8 @@ void setup()
             wifi_scan_network();
             www_init(NULL, NULL, getDataForWebSocket); // act as access point
             webSockData.states.networkOK = false;
+            // tft_printInfo("No valid network!");
+            return;
         }
         else
         {
@@ -228,17 +246,15 @@ void setup()
             webSockData.states.networkOK = true;
         }
 
-        if (!webSockData.states.networkOK)
-        {
-            DBGf("Network does not work!");
-            // tft_printInfo("No valid network!");
-            return;
-        }
+        DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
-        // tft_printInfo("       ");
         tft_printKeyValue("Init Time", "OK", TFT_GREEN);
         time_init(); // init time
         time_currentTimeStamp();
+
+        DBGf("mb_init");
+        /*   eprom_show(webSockData.setupData); */
+        DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
         DBGf("Setup Modbus ...");
         if (!mb_init(webSockData.setupData))
         {
@@ -251,6 +267,15 @@ void setup()
         {
             webSockData.states.modbusOK = true;
             tft_printKeyValue("Init Modbus", "ok", TFT_GREEN);
+        }
+
+        DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+        DBGf("after Modbus ...");
+
+        for (int jj = 0; jj < 1; jj++)
+        {
+            eprom_show(webSockData.setupData);
+            delay(1000);
         }
 
         // memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
@@ -269,7 +294,7 @@ void setup()
     }
     else
         DBGf("Mqtt-Server:: connected successfully ...");
-#endif
+
     webSockData.states.cardWriterOK = false;
     if (cardRW_setup(false, false))
     {
@@ -286,6 +311,12 @@ void setup()
 
         ledHandler_showCardReaderError(true);
     }
+#endif
+    /* ESP_ERROR_CHECK(heap_trace_stop());
+    heap_trace_dump(); */
+    DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
+    DBGf("main:: before temp_init()");
+    eprom_show(webSockData.setup);
 
     if (temp_init())
     {
@@ -301,6 +332,10 @@ void setup()
 #ifdef WEATHER_API
     // wheater_getForecast();
 #endif
+
+    DBGf("main:: before mb_readAll()");
+    eprom_show(webSockData.setup);
+
     if (!mb_readAll(webSockData.setup, webSockData.mbContainer))
     {
         DBGf("Init::readAllModbusValues did not succeed");
@@ -312,23 +347,14 @@ void setup()
 #ifdef FRONIUS_API
     bool akkuAvailable = false;
     DBGf("main::before solar_init");
-    try
-    {
-        printEprom(webSockData.setup);
-    }
-    catch (const std::exception &e)
-    {
-        Serial.println("Exception occured:");
-    }
+    eprom_show(webSockData.setup);
 
-    DBGf("main::before solar_init 2, tcp as uint: %d", webSockData.setup.ipInverter);
     const char *cp = webSockData.setup.inverterAsString;
     if (cp == NULL)
         DBGf("cp is null");
     else
-        DBGf("CP is: %s", cp);
-    Serial.println(webSockData.setup.inverterAsString);
-    DBGf("inverter: %s", webSockData.setup.inverterAsString);
+        DBGf("inverter is: %s", cp);
+    DBGf("AmisReader: %s , tcp: %d", webSockData.setup.amisReaderHost, webSockData.setup.ipAmisReaderHost);
     if (soloar_init(webSockData, &akkuAvailable))
     {
         webSockData.setup.externerSpeicher = akkuAvailable;
@@ -798,7 +824,6 @@ void loop()
                     webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
                     INVERTER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_pv;
                     METER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_load;
-                  
                 }
             }
 #endif
@@ -806,7 +831,6 @@ void loop()
             {
                 if (mb_readInverter(webSockData.setupData, webSockData.mbContainer))
                 {
-
                     memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
                     util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer); //  Produktion
                     DBGf("Produktion %s", formatBuffer);
@@ -825,7 +849,6 @@ void loop()
                     {
                         DBGf("  in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
                         webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
-                       
 
 #ifndef TEST_PID_WWWW
                         availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
@@ -861,7 +884,7 @@ void loop()
             if (amisReader_readRestTarget(webSockData))
             {
                 DBGf("main:: AmisReader: available is: %d, import: %d , export: %d", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
-                 METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
+                METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
             }
             else
             {

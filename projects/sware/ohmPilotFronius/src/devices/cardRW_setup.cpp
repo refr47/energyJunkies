@@ -34,7 +34,7 @@ static bool logEventsToCard = false, logInverterToCard = false;
 void appendFile(fs::FS &fs, const char *path, const char *message);
 
 bool cardRW_setup(bool logToCard, bool logInverter)
-{
+{ 
     DBGf("CardReader, logToCard: %x, logInverterToCard: %x", logToCard, logInverter);
     logEventsToCard = logToCard;
     logInverterToCard = logInverter;
@@ -86,7 +86,7 @@ bool cardRW_setup(bool logToCard, bool logInverter)
 
     uint64_t cardSize = SD.cardSize() / (1024 * 1024);
     // DBGln("SD Card Size: %lluMB\n", cardSize);
-    DBGf("SD Card Size: %lluMB\n", cardSize);
+    DBGf("SD Card Size: %dMB\n", cardSize);
 
     return true;
 }

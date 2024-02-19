@@ -34,7 +34,8 @@
 #define CARDREADER_SPI_MOSI 11
 #define CARDREADER_SPI_CLK 12
 #define CARDREADER_SPI_MISO 13
-
+#define LED_ERROR1 43
+#define LED_ERROR2 44
 #ifdef ESP_S3
 #define ONE_WIRE_TEMP_GPIO 5
 #define PWM_FOR_PID 1
@@ -47,8 +48,7 @@
 #else
 #define ONE_WIRE_TEMP_GPIO 2
 #define PWM_FOR_PID 1
-#define LED_ERROR1 43
-#define LED_ERROR2 44
+
 #define SWITCH_KEY_ESC 18
 #define SWITCH_KEY_ENTER 17
 #define RELAY_L1 16

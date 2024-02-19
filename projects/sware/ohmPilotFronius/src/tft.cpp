@@ -1,6 +1,10 @@
-
+#include <Arduino.h>
 #include <SPI.h>
 #include "debugConsole.h"
+#include "defines.h"
+
+#ifdef ESP_LILY_GO
+
 #include "tft.h"
 #include "img/wlanPic24.h"
 #include "utils.h"
@@ -178,11 +182,12 @@ inline int tft_getWidth()
 {
     return width;
 }
+#ifdef DESP_LILY_GO
 TFT_eSPI &tft_getRoot()
 {
     return tft;
 }
-
+#endif
 void tft_print_txt(int num, ...)
 {
     va_list valist;
@@ -497,3 +502,25 @@ void tft_drawInfo(WEBSOCK_DATA &webSockData)
 
     currentLine = saveCurLine;
 }
+
+#else
+
+void tft_init() {}
+void tft_printSetup() {}
+// TFT_eSPI &tft_getRoot(){return null;}
+int tft_getHeight() { return 0; }
+int tft_getWidth() { return 0; }
+void tft_print_txt(int num, ...) {}
+void tft_showAvailableNetworks(int num, ...) {}
+void tft_drawNetworkInfo(char *ip, const char *essid) {}
+void tft_printKeyValue(const char *key, const char *value, u_int16_t txtColor) {}
+void tft_setCursor(int x, int y, int fontsize = 4) {}
+
+void tft_printInfo(const char *txt, bool newLine = true) {}
+void tft_clearScreen() {}
+void tft_updateTime(char *curTime) {}
+void tft_showIP(const char *ip) {}
+void tft_drawInfo(WEBSOCK_DATA &webSockData) {}
+void tft_drawInfoNoModbus(TEMPERATURE &temp) {}
+
+#endif

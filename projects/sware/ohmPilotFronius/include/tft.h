@@ -1,11 +1,14 @@
 #pragma once
+
 #include <TFT_eSPI.h>
 #include "pin_config.h"
 #include "defines.h"
 
 void tft_init();
 void tft_printSetup();
+#ifdef DESP_LILY_GO
 TFT_eSPI &tft_getRoot();
+#endif
 int tft_getHeight();
 int tft_getWidth();
 void tft_print_txt(int num, ...);
@@ -25,4 +28,3 @@ void tft_drawInfoNoModbus(TEMPERATURE &temp);
 void tft_print_test(int yLine, int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value);
 
 #endif
-
