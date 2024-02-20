@@ -299,16 +299,24 @@ bool utils_sock_initRestTargets(char *host, int index)
 	{
 		int retVal = connect(restTarget[index].socketFd, (struct sockaddr *)&restTarget[index].serverAddr,
 							 sizeof(restTarget[index].serverAddr));
-		close(restTarget[index].socketFd);
-		DBGf("utils_sock_initRestTargets - :: IP: %s, RetVal open socket %d", str, retVal);
-		if (retVal == -1)
+		
+		DBGf("utils_sock_initRestTargets - :: IP: %s, RetVal open socket %d,", str, retVal);
+		if (retVal >= 0 || errno == EISCONN)
 		{
-			DBGf("Host not available at IP: %s", host);
-			return false;
+			DBGf("Host  available at IP: %s", host);
+			close(restTarget[index].socketFd);
+			return true;
 		}
-		return true;
+		else	{
+			DBGf("Host not available at IP: %s,  errno: %s", host,strerror(errno));
+			close(restTarget[index].socketFd);
+			
+		}
+	} else {
+		DBGf("Host not available at IP: %s,(restTarget[0].socketFd < 0", host);
 	}
-	DBGf("Host not available at IP: %s", host);
+	
+	
 	return false;
 }
 
