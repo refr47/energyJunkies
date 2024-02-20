@@ -8,7 +8,7 @@
 #define PATH_NAME_FORECAST "/status/powerflow"
 
 static String uRL = "";
-
+  
 static bool solar_valid = false;
 static bool p_solarValid = &solar_valid;
 
@@ -22,7 +22,7 @@ KEY_VALUE_MAP_t froniusKeyValueMap[FRONIUS_VALUE_COUNT] = {
     {"site.rel_Autonomy", 4},
     {"site.rel_SelfConsumption", 5},
 
-};
+}; 
 
 bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
 {
@@ -62,7 +62,7 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
     }
 #endif
 
-    DBGf("froniusSolarAPI::soloar_init - amisReaderHOST: %s", webSockData.setupData.inverterAsString);
+    DBGf("froniusSolarAPI::soloar_init - fronius HOST: %s", webSockData.setupData.inverterAsString);
  
     if (utils_sock_initRestTargets(webSockData.setupData.inverterAsString, FRONIUS_SOLAR_API_INDEX))
     {

@@ -169,8 +169,8 @@ void setup()
 {
 
     DBGbgn(115200);
-   /*  while (!Serial)
-        ; */
+    /*  while (!Serial)
+         ; */
 
     DBGf("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
@@ -201,7 +201,6 @@ void setup()
 
     DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
-    
     if (strcmp(webSockData.setupData.ssid, "--") == 0)
     {
         networkCredentialsInEEprom = false;
@@ -209,7 +208,6 @@ void setup()
         www_init(NULL, NULL, getDataForWebSocket); // act as access point
     }
 
-   
     if (networkCredentialsInEEprom)
     {
 
@@ -245,7 +243,6 @@ void setup()
         time_init(); // init time
         time_currentTimeStamp();
 
-    
         DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
         DBGf("Setup Modbus ...");
         if (!mb_init(webSockData.setupData))
@@ -262,7 +259,6 @@ void setup()
         }
 
         DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-     
 
         // memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
 #ifdef EJ
@@ -301,7 +297,6 @@ void setup()
     /* ESP_ERROR_CHECK(heap_trace_stop());
     heap_trace_dump(); */
     DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
-  
 
     if (temp_init())
     {
@@ -318,8 +313,6 @@ void setup()
     // wheater_getForecast();
 #endif
 
-   
-
     if (!mb_readAll(webSockData.setupData, webSockData.mbContainer))
     {
         DBGf("Init::readAllModbusValues did not succeed");
@@ -330,7 +323,6 @@ void setup()
 
 #ifdef FRONIUS_API
     bool akkuAvailable = false;
-  
 
     const char *cp = webSockData.setupData.inverterAsString;
     if (cp == NULL)
@@ -881,7 +873,7 @@ void loop()
 
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {
-        // DBGf("LOGGING_FLUSH_INTERVALL");
+         DBGf("LOGGING_FLUSH_INTERVALL");
         if (webSockData.states.cardWriterOK)
         {
 
@@ -934,7 +926,7 @@ void loop()
     if (timeSlice.currentMillis - timeSlice.previousMillisTestConfig > CONFIG_PARAM_TEST_INTERVALL)
     {
         mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer);
-        // DBGf("CONFIG_PARAM_TEST_INTERVALL");
+        DBGf("CONFIG_PARAM_TEST_INTERVALL");
         timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
 #ifdef TEST_PID_WWWW1
         Setup d;
@@ -962,7 +954,7 @@ void loop()
 
     if (timeSlice.currentMillis - timeSlice.previousMillisWebSocks > WEBSOCK_NOTIFY_INTERVALL)
     {
-        // DBGf("WEBSOCK_NOTIFY_INTERVALL");
+        DBGf("WEBSOCK_NOTIFY_INTERVALL");
         timeSlice.previousMillisWebSocks = timeSlice.currentMillis;
         notifyClients(getJsonObj());
     }

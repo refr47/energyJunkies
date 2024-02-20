@@ -10,7 +10,7 @@
 #include <lwip/icmp.h>
 #include <lwip/ip.h>
 #include <lwip/netdb.h>
-
+ 
 #include <HTTPClient.h>
 
 // using namespace std; // im lazy
@@ -293,7 +293,7 @@ bool utils_sock_initRestTargets(char *host, int index)
 	restTarget[index].serverAddr.sin_port = htons(restTarget[index].port);
 	restTarget[index].serverAddr.sin_family = AF_INET;
 	inet_ntop(AF_INET, &(restTarget[index].serverAddr.sin_addr), str, INET_ADDRSTRLEN);
-
+   
 	restTarget[0].socketFd = socket(AF_INET, SOCK_STREAM, 0);
 	if (restTarget[0].socketFd >= 0)
 	{
