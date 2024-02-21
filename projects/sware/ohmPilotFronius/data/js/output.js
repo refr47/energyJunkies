@@ -126,6 +126,12 @@ function onMessage(event) {
     dataSetOut[6][1] = "0"
   row = dataTableMobil.row(6)
   row.invalidate().draw();
+  if ((errorBitVektor & (1 << AKKU_AVAILABLE)) != 0)
+    dataSetOut[9][1] = "1"
+  else
+    dataSetOut[9][1] = "0"
+  row = dataTableMobil.row(9)
+  row.invalidate().draw();
   replace(0, data["PR"], true); // ProdukTION
   replace(1, data["EV"], true); // Verbrauch
   if (data["EINS"] > 0.0)
@@ -140,8 +146,9 @@ function onMessage(event) {
   replace(3, data["AKKU"], false)
   replace(4, data["TPS"], false); // Sensorik Temp
   replace(7, data["HL3"], false); // pwm 
-  replace(12, data["SimBias"], false); // Sim Bias
-  replace(13, data["SimLoad"], false); // Sim Load
+  replace(10,data["AkStat", true]); // Akku Status
+  replace(11, data["SimBias"], false); // Sim Bias
+  replace(12, data["SimLoad"], false); // Sim Load
 }
 
 function replaceDataReceivedSym() {
@@ -161,12 +168,11 @@ function createDataSetM() {
     ['Pufferspeicher L1', '1', "Aus:0, Ein: 1"],
     ['Pufferspeicher L2', '1', "Aus:0, Ein: 1"],
     ['Pufferspeicher L3', '10', "PWM"], //7
-    ['Pufferspeicher reservier', '0', "W"],
-    ['Speicher', 'j', "Aus:0, Ein: 1"],
-    ['Speicher Zustand (kW)', '3 kW', "kW"],
-    ['Speicher Laden (Watt)', '200 W', "W"],
-    ['SIM_Additional_Load', '0.0 kW', "kW"], //12
-    ['SIM_Bias_Powery', '0.0 kW', "kW"],
+    ['Pufferspeicher reservier', '0', "W"], //8
+    ['Speicher', 'j', "Aus:0, Ein: 1"], // 9
+    ['Speicher Zustand (%)', '0.0', "%"], // 10
+    ['SIM_Additional_Load', '0.0 kW', "kW"], //11
+    ['SIM_Bias_Powery', '0.0 kW', "kW"], //12
   ];
 
 
