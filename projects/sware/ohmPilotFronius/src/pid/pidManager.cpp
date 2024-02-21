@@ -34,6 +34,7 @@
 // delay turning of next digital output for this time (in ms)
 #define DELAY_DIG_OUT_OFF 2000
 
+
 // minimal on time for digital output (in ms)
 static int MIN_ON_TIME = 10000;
 // target power - max available power
@@ -55,9 +56,9 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
 {
 
     onePhase = setup.heizstab_leistung_in_watt / 3.00;
-    mOuts[id_DIG_PIN_1].init(digOut1, 1000, Digital);
-    mOuts[id_DIG_PIN_2].init(digOut2, 1000, Digital);
-    mOuts[id_ANA_PWM].init(anOut, 1000, Analog);
+    mOuts[id_DIG_PIN_1].init(digOut1, MIN_ON_TIME, Digital);
+    mOuts[id_DIG_PIN_2].init(digOut2, MIN_ON_TIME, Digital);
+    mOuts[id_ANA_PWM].init(anOut, MIN_ON_TIME, Analog);
 
     mDelayDigOutOn = millis();
     mDelayDigOutOff = millis();

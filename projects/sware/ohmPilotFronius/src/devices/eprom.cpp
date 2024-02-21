@@ -131,7 +131,7 @@ void eprom_getSetup(Setup &setup)
         strncpy(setup.ssid, (const char *)ssid.c_str(), LEN_WLAN - 1);
         strncpy(setup.passwd, passwd.c_str(), LEN_WLAN - 1);
     }
-    DBGf("eprom_getSetup() .. WLAN: %s, Passwd: %s", setup.ssid, setup.passwd);
+    //  DBGf("eprom_getSetup() .. WLAN: %s, Passwd: %s", setup.ssid, setup.passwd);
     setup.heizstab_leistung_in_watt = preferences.getUInt(_HEIZSTAB_LEISTUNG_IN_WATT);
     setup.phasen_leistung_in_watt = (unsigned int)setup.heizstab_leistung_in_watt / 3; // pre calculation
     setup.tempMaxAllowedInGrad = preferences.getUInt(_TEMP_MAX_IN_GRAD);
@@ -142,7 +142,7 @@ void eprom_getSetup(Setup &setup)
     ipv4_int_to_string(setup.amisReaderHost, setup.ipAmisReaderHost, &result);
     if (!result)
         DBGf("ERPROM - Error in converting AmisReader IPAdress!!");
-    DBGf("eprom_getSetup() .. AmisReaderHost: %d %s", setup.ipAmisReaderHost, setup.amisReaderHost);
+    // DBGf("eprom_getSetup() .. AmisReaderHost: %d %s", setup.ipAmisReaderHost, setup.amisReaderHost);
 
     // String key = preferences.getString(_AMIS_READER_KEY);
     strncpy(setup.amisKey, preferences.getString(_AMIS_READER_KEY).c_str(), AMIS_KEY_LEN - 1);

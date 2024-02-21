@@ -353,7 +353,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
 #endif
             memcpy(&container.meterValues.data, &meterValues.data, sizeof(meterValues.data));
             break;
-        case AKKU_STATE_BLOCK_ID:
+        case AKKU_STATE_BLOCK_ID: 
             scaleValues(akkuStateValues.value, resArr[readIndex], akkuInverterState, INVERTER_STATE_VALUE_LEN);
 #ifdef MODBUS_VERBOSE
             sprintf(text, /*"%12s;*/ "%13.3lf;%13.3lf;%13.3lf;%13.3lf;", akkuStateValues.data.capacity,

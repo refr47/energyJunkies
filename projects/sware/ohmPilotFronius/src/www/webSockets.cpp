@@ -137,12 +137,12 @@ String getJsonObj()
         bitMaster |= (1 << STATE_CARDWRITE);
     if (!data.states.flashOK)
         bitMaster |= (1 << STATE_FLASH);
-    if (!data.states.modbusOK)
+    if (!data.states.modbusOK) 
         bitMaster |= (1 << STATE_MODBUS);
     if (!data.states.tempSensorOK)
         bitMaster |= (1 << STATE_TEMPSENSOR);
     readings[FEHLER] = bitMaster;
-
+ 
     readings[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;
     readings[MUSS_EINSPEISUNG] = data.pidContainer.powerNotUseable;
     readings[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
