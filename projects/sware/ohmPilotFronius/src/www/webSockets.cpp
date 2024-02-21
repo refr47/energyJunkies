@@ -12,7 +12,7 @@
 #define PRODUKTION "PR"
 #define EIGENVERBRAUCH "EV"
 #define EINSPEISUNG "EINS"
-#define AKKU "AKKU"
+#define AKKU_AKKU "AKKU"
 #define TEMP_PUFFERSPEICHER "TPS"
 
 #define HEIZPATRONE_L3 "HL3"
@@ -85,10 +85,13 @@ String getJsonObj()
     readings[EINSPEISUNG] = data.amisReader.saldo;
 #endif
 #ifdef FRONIUS_API
-    readings[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
-    readings[EINSPEISUNG] = data.fronius_SOLAR_POWERFLOW.p_grid;
-    readings[EIGENVERBRAUCH] = data.fronius_SOLAR_POWERFLOW.p_load;
-    readings[AKKU] = (int)data.fronius_SOLAR_POWERFLOW.p_akku;
+    if (data.states.froniusAPI)
+    {
+        readings[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
+        readings[EINSPEISUNG] = data.fronius_SOLAR_POWERFLOW.p_grid;
+        readings[EIGENVERBRAUCH] = data.fronius_SOLAR_POWERFLOW.p_load;
+        readings[AKKU_AKKU] = (int)data.fronius_SOLAR_POWERFLOW.p_akku;
+    }
 
 #else
     readings[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
@@ -137,12 +140,12 @@ String getJsonObj()
         bitMaster |= (1 << STATE_CARDWRITE);
     if (!data.states.flashOK)
         bitMaster |= (1 << STATE_FLASH);
-    if (!data.states.modbusOK) 
+    if (!data.states.modbusOK)
         bitMaster |= (1 << STATE_MODBUS);
     if (!data.states.tempSensorOK)
         bitMaster |= (1 << STATE_TEMPSENSOR);
     readings[FEHLER] = bitMaster;
- 
+
     readings[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;
     readings[MUSS_EINSPEISUNG] = data.pidContainer.powerNotUseable;
     readings[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
