@@ -20,5 +20,5 @@ bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocumen
 void util_pHW();
 char *util_format_Watt_kWatt(double val, char *formatBuf);
 String util_GET_Request(const char *url, int *httpResponseCode);
-bool utils_sock_initRestTargets(char *host, int index);
+bool utils_sock_initRestTargets(const char *host, int index);
 bool utils_sock_readRestTarget(WEBSOCK_DATA &, int index, GET_JSON_DATA getJson);

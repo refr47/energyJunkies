@@ -329,7 +329,7 @@ void setup()
         DBGf("cp is null");
     else
         DBGf("inverter is: %s", cp);
-    DBGf("AmisReader: %s , tcp: %d", webSockData.setupData.amisReaderHost, webSockData.setupData.ipAmisReaderHost);
+    DBGf("WR (FRonius detect solar api): %s , tcp: %d", webSockData.setupData.inverterAsString, webSockData.setupData.ipInverter);
     if (soloar_init(webSockData, &akkuAvailable))
     {
         webSockData.setupData.externerSpeicher = akkuAvailable;
@@ -873,7 +873,7 @@ void loop()
 
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {
-         DBGf("LOGGING_FLUSH_INTERVALL");
+        DBGf("LOGGING_FLUSH_INTERVALL");
         if (webSockData.states.cardWriterOK)
         {
 

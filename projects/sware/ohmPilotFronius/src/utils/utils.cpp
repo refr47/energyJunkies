@@ -10,7 +10,7 @@
 #include <lwip/icmp.h>
 #include <lwip/ip.h>
 #include <lwip/netdb.h>
- 
+
 #include <HTTPClient.h>
 
 // using namespace std; // im lazy
@@ -282,41 +282,54 @@ String util_GET_Request(const char *url, int *httpResponseCode)
 	return payload;
 }
 
-bool utils_sock_initRestTargets(char *host, int index)
+bool utils_sock_initRestTargets(const char *host, int index)
 {
 
-	char str[INET_ADDRSTRLEN];
 	DBGf("utils_sock_initRestTargets - init(), host: %s ", host);
-	// store this IP address in sa:
-	inet_pton(AF_INET, host, &(restTarget[index].serverAddr.sin_addr));
-	// now get it back and print it
+	char str[INET_ADDRSTRLEN];
+	restTarget[0].socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (restTarget[0].socketFd < 0)
+	{
+		DBGf("Host: %s cannot create socket,  errno: %s", host, strerror(errno));
+		return false;
+	}
+	// Configure the server address
 	restTarget[index].serverAddr.sin_port = htons(restTarget[index].port);
 	restTarget[index].serverAddr.sin_family = AF_INET;
-	inet_ntop(AF_INET, &(restTarget[index].serverAddr.sin_addr), str, INET_ADDRSTRLEN);
-   
-	restTarget[0].socketFd = socket(AF_INET, SOCK_STREAM, 0);
-	if (restTarget[0].socketFd >= 0)
-	{
-		int retVal = connect(restTarget[index].socketFd, (struct sockaddr *)&restTarget[index].serverAddr,
-							 sizeof(restTarget[index].serverAddr));
-		
-		DBGf("utils_sock_initRestTargets - :: IP: %s, RetVal open socket %d,", str, retVal);
-		if (retVal >= 0 || errno == EISCONN)
+	// restTarget[index].serverAddr = inet_addr(host);
+	inet_pton(AF_INET, host, &(restTarget[index].serverAddr.sin_addr));
+
+	// store this IP address in sa:
+	/*
+		inet_pton(AF_INET, host, &(restTarget[index].serverAddr.sin_addr));
+		// now get it back and print it
+
+		const char *ret = inet_ntop(AF_INET, &(restTarget[index].serverAddr.sin_addr), str, INET_ADDRSTRLEN);
+		if (ret == NULL)
 		{
-			DBGf("Host  available at IP: %s", host);
-			close(restTarget[index].socketFd);
-			return true;
+			DBGf("utils_sock_initRestTargets - inet_ntop() failed for host: %s and error: %s", host, strerror(errno));
+			return false;
 		}
-		else	{
-			DBGf("Host not available at IP: %s,  errno: %s", host,strerror(errno));
-			close(restTarget[index].socketFd);
-			
-		}
-	} else {
-		DBGf("Host not available at IP: %s,(restTarget[0].socketFd < 0", host);
+		else
+		{
+			DBGf("utils_sock_initRestTargets - inet_ntop() success for host: %s and address: %s", host, ret);
+		} */
+
+	int retVal = connect(restTarget[index].socketFd, (struct sockaddr *)&restTarget[index].serverAddr, sizeof(restTarget[index].serverAddr));
+
+	DBGf("utils_sock_initRestTargets - :: IP: %s, RetVal open socket %d,", str, retVal);
+	if (retVal >= 0 || errno == EISCONN)
+	{
+		DBGf("Host  available at IP: %s", host);
+		close(restTarget[index].socketFd);
+		return true;
 	}
-	
-	
+	else
+	{
+		DBGf("Host not available at IP: %s,  errno: %s", host, strerror(errno));
+		close(restTarget[index].socketFd);
+	}
+
 	return false;
 }
 
