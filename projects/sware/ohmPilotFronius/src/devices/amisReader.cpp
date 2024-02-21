@@ -41,8 +41,10 @@ static void mapJsonValues(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_D
 
     for (int i = 0; i < target->valueCount; i++)
     {
-        /*  DBGf("map, key: %s", target->mapping[i].key);
-         DBGf("map, jsonObj: %d", jsonBuffer[target->mapping[i].key]); */
+#ifdef VERBOSE
+        DBGf("map, key: %s", target->mapping[i].key);
+        DBGf("map, jsonObj: %d", jsonBuffer[target->mapping[i].key]);
+#endif
         switch (i)
         {
         case 0:

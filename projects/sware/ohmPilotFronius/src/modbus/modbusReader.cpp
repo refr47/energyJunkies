@@ -292,7 +292,9 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
     // result of modbus access functions
     uint16_t transId = 0;
     bool connected = mb.isConnected(remote);
-    DBGf("MOdbus is connected ?????????????? %d", connected);
+#ifdef VERBOSE
+    DBGf("mb_readInverterDynamic::MOdbus is connected  %d", connected);
+#endif
     if (mb.isConnected(remote))
     { // Check if connection to Modbus Slave is established
 

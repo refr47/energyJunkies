@@ -25,13 +25,13 @@ KEY_VALUE_MAP_t froniusKeyValueMap[FRONIUS_VALUE_COUNT] = {
 };
 
 bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
-{ 
+{
 
     char buf[70];
     memset(buf, 0, 70);
     int httpResponseCode = 0;
     DBGf("solar_init BEGIN ");
-    p_solarValid = &webSockData.states.froniusAPI;
+    // p_solarValid = &webSockData.states.froniusAPI;
 
     sprintf(buf, "http://%s%s", webSockData.setupData.inverterAsString, PATH_NAME_FORECAST);
     uRL = buf;
@@ -46,6 +46,12 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
         DBGf("solar_init:: Fronius API nicht erreichbar - kein Fronius Inverter?");
         return false;
     }
+#ifdef VERBOSE
+    else
+    {
+        DBGf("solar_init:: Got json: %s", json_array.c_str());
+    }
+#endif
     JSONVar my_obj = JSON.parse(json_array);
     if (JSON.typeof(my_obj) == "undefined")
     {
@@ -85,7 +91,9 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
 bool solar_get_powerflow(WEBSOCK_DATA &webSockData)
 {
 
+#ifdef VERBOSE
     DBGf("solar_get_powerflow() - uRL: %s", uRL.c_str());
+#endif
     int htppResponse = 0;
     String json_array = util_GET_Request(uRL.c_str(), &htppResponse);
     if (htppResponse != 200)
