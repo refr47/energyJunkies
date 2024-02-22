@@ -7,10 +7,10 @@ var dataSetIndex;
 
 function createDataSetI() {
   dataSetIndex = [
-    ['Fronius', '0', ""],
-    ['AmisReader', '0', ""],
-    ['CardReader', '0', ""],
-    ['Akku', '0', ""],
+    ['Fronius', '0', ""], // 0
+    ['AmisReader', '0', ""], //1
+    ['CardReader', '0', ""], //2
+    ['Akku', '0', ""], // 3
     ['Flash FS', '0', ""],
     ['Influx', '0', ""],
     ['Modbus', '0', ""],
@@ -55,13 +55,47 @@ function buildStaticTableI() {
 }
 
 
+function addErrorsI(errorList) {
+    $("#errorL").remove();
+    // $("#a").css('background-color', 'red');
+    const $ul = $('<ul>', { id: "errorL" }).appendTo('.flex-container');
+    $.each(errorList, function (index, errorName) {
+      console.log("Append: " + errorName)
+      // $('#errorL ul').append('<li><class="errListElem">'+errorName+'</li>')
+      $('<li>').text(errorName).appendTo($ul);
+    });
+    $(".flex-container").css('background-color', 'red');
+  }
+function replaceInd(index, val,val1) {
+
+    //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
+    const row = dataSetIndex.row(index)
+    // update model
+      dataSetOut[index][1] = val==true?"j":"n"
+      dataSetOut[index][2] = val1
+
+    //cell.css("background-color", "red")
+    row.invalidate().draw()
+  }
+
 function getData() {
   $.getJSON("/getOverview").done(function (data) {
-
+    replaceInd(0,data["FR"],data["FRIP"]);
+    replaceInd(1,data["AM"],data["AMIP"]);
+    replaceInd(2,data["CR"]," ");
+    replaceInd(3,data["AK"],data["AKK"]);
+    replaceInd(4,data["FL"]," ");
+    replaceInd(5,data["IN"],data["INIP"]);
+    replaceInd(6,data["MB"],data["MBIP"]);
+    replaceInd(7,data["MQ"],data["MQIP"]);
+    replaceInd(8,data["TEMP"],data["TEMPV"]);
     console.log("parsed ", data)
   })
     .fail(function (jqxhr) {
-      console.log(jqxhr.responseText);
+        let errVek = [];
+        errVek.push("Fehler beim Abrufen der Daten.");
+        addErrorsI(errVek);
+        console.log(jqxhr.responseText);
     });
 }
 
