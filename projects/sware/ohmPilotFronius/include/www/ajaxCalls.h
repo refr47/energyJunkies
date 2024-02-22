@@ -38,9 +38,9 @@
 #define SIM_BIAS_POWER "SIM_Bias_Powery"
 // getOverview
 #define WWW_FRONIUS "FR"
-#define WWW_FRONIUS_IP "FIP"
+#define WWW_FRONIUS_IP "FRIP"
 #define WWW_AMIS "AM"
-#define WWW_AMIS_IP "AIP"
+#define WWW_AMIS_IP "AMIP"
 #define WWW_CARDREADER "CR"
 #define WWW_AKKU "AK"
 #define WWW_AKKU_KAPA "AKK"
