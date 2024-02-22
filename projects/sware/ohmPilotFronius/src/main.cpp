@@ -632,7 +632,7 @@ void loop()
                 }
             }
 #endif
-            else
+            if (!webSockData.states.froniusAPI)
             {
                 DBGf("main::webSockData.states.modbus - modbus");
                 if (mb_readInverter(webSockData.setupData, webSockData.mbContainer))
