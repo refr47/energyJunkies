@@ -11,8 +11,9 @@
 #elif HUAWEI_IV
 #include "huawei.h"
 #endif
-
+#ifdef CARD_READER
 #include "cardRW.h"
+#endif
 #include "utils.h"
 #include "tft.h"
 // #include "graphicTest.h"
@@ -28,7 +29,7 @@
 #ifdef MQTT
 #include "mqtt.h"
 #endif
-#ifdef FRONIUS_API
+#ifdef FRONIUS_IV
 #include "froniusSolarAPI.h"
 #endif
 #ifdef INFLUX
@@ -144,16 +145,21 @@ void logging_init()
     DBGf("Setting log levels and callback");
     esp_log_level_set("*", MY_ESP_LOG_LEVEL);
     esp_log_level_set(TAG, LOG_LEVEL);
+#ifdef CARD_READER
     esp_log_set_vprintf(cardRW_LogOutput);
+
     if (!cardRW_createLoggingFile())
     {
         ESP_LOGE(TAG, "Cannot create logging file on sd card");
     }
+#endif
 }
 
 void test_cardReader()
 {
+#ifdef CARD_READER
     cardRW_listDir("/", 3);
+#endif
 }
 
 #ifdef EJ
@@ -169,12 +175,12 @@ void setup()
 {
 
     DBGbgn(115200);
-    /*  while (!Serial)
-         ; */
+    while (!Serial)
+        ;
 
     DBGf("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
-    // memset(&states, 0, sizeof(STATES));
+
     ledHandler_init();
     tft_init();
     tft_printSetup();
@@ -188,7 +194,7 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    eprom_test_write_Eprom("Milchbehaelter", "47754775");
     //    eprom_clearLifeData();
     eprom_isInit();
 
@@ -278,6 +284,7 @@ void setup()
         DBGf("Mqtt-Server:: connected successfully ...");
 #endif
     webSockData.states.cardWriterOK = false;
+#ifdef CARD_READER
     if (cardRW_setup(false, false))
     {
         webSockData.states.cardWriterOK = true;
@@ -293,7 +300,7 @@ void setup()
 
         ledHandler_showCardReaderError(true);
     }
-
+#endif
     /* ESP_ERROR_CHECK(heap_trace_stop());
     heap_trace_dump(); */
     DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
@@ -321,7 +328,7 @@ void setup()
 
     webSockData.states.froniusAPI = false;
 
-#ifdef FRONIUS_API
+#ifdef FRONIUS_IV
     bool akkuAvailable = false;
 
     const char *cp = webSockData.setupData.inverterAsString;
@@ -616,7 +623,7 @@ void loop()
         }
         else
         {
-#ifdef FRONIUS_API
+#ifdef FRONIUS_IV
 
             if (webSockData.states.froniusAPI)
             {
@@ -632,7 +639,7 @@ void loop()
                 }
             }
 #endif
-            else
+            if (!webSockData.states.froniusAPI)
             {
                 DBGf("main::webSockData.states.modbus - modbus");
                 if (mb_readInverter(webSockData.setupData, webSockData.mbContainer))
@@ -703,7 +710,7 @@ void loop()
 #endif
 
     /* ***********************                   FLUSH LOGGING FILE           ************************/
-
+#ifdef CARD_READER
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {
         DBGf("LOGGING_FLUSH_INTERVALL");
@@ -719,6 +726,7 @@ void loop()
             DBG("main:: flush logging - cannot flush!");
         }
     }
+#endif
     /* ***********************                   PID CONTROLLER           ************************/
 
     if (timeSlice.currentMillis - timeSlice.previousMillisController > PID_CONTROLLER_INTERVALL)

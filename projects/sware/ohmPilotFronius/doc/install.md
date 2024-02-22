@@ -48,7 +48,7 @@ Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von 
 	- DPID_LIB=1                # Verwendung der PID-Lib für den REgler
    	-DMODBUS_VERBOSE=1 	# Modbus Kommunikation im Debug-Modus
 	-DWEATHER_API=1		# Einbindung des Wetter API (https://api.open-meteo.com) 
-	-DFRONIUS_API=1		# Bei eineme Fronius WR: Verwendung des Solar API (http Protokoll)
+	-DFRONIUS_IV=1		# Bei eineme Fronius WR: Verwendung des Solar API (http Protokoll)
 	-DINFLUX=1		# Verwendung der Influx DB
 
 

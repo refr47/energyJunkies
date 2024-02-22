@@ -84,7 +84,7 @@ String getJsonObj()
 #ifdef AMIS_READER_DEV
     readings[EINSPEISUNG] = data.amisReader.saldo;
 #endif
-#ifdef FRONIUS_API
+#ifdef FRONIUS_IV
     if (data.states.froniusAPI)
     {
         readings[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
@@ -95,7 +95,7 @@ String getJsonObj()
 
 #else
     readings[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
-    readings[AKKU] = 0;
+    readings[AKKU_AKKU] = 0;
 
     if (data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
     {
@@ -150,8 +150,8 @@ String getJsonObj()
     readings[MUSS_EINSPEISUNG] = data.pidContainer.powerNotUseable;
     readings[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
     readings[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
-   /*  readings[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
-    readings[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate; */
+    /*  readings[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
+     readings[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate; */
     readings[SIM_BIAS] = data.setupData.exportWatt;
     readings[SIM_LOAD] = data.setupData.additionalLoad;
 

@@ -1,4 +1,4 @@
-
+#ifdef CARRD_READER
 #include <SD.h>
 #include <SPI.h>
 #include <FS.h>
@@ -24,7 +24,7 @@ const char *LOG_FILE_SYSTEM_NAME = "logSys.txt";
 #define MAX_LOG_SIZE 200
 #define MIN_SPACE_ON_SD_CARD_IN_BYTES 1025 * 512
 #define MAX_WRITES_BEFORE_FLASH 20
-#define COUNTER_MAX_FOR_MOUNT   5
+#define COUNTER_MAX_FOR_MOUNT 5
 
 static File loggingFile;
 static bool loggingAvailable = false;
@@ -34,7 +34,7 @@ static bool logEventsToCard = false, logInverterToCard = false;
 void appendFile(fs::FS &fs, const char *path, const char *message);
 
 bool cardRW_setup(bool logToCard, bool logInverter)
-{ 
+{
     DBGf("CardReader, logToCard: %x, logInverterToCard: %x", logToCard, logInverter);
     logEventsToCard = logToCard;
     logInverterToCard = logInverter;
@@ -110,7 +110,7 @@ bool cardRW_createLoggingFile()
 
 bool cardRW_flushLoggingFile()
 {
-      if (!loggingAvailable)
+    if (!loggingAvailable)
     {
         DBGf("Failed to update logging file");
         return false;
@@ -399,3 +399,5 @@ void cardRW_testFileIO(const char *path)
     DBGf("%u bytes written for %u ms\n", 2048 * 512, end);
     file.close();
 }
+
+#endif

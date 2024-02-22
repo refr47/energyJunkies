@@ -1,5 +1,5 @@
 #pragma once
-
+#ifdef CARD_READER
 bool cardRW_setup(bool, bool);
 bool cardRW_createLoggingFile();
 bool cardRW_closeLoggingFile();
@@ -14,3 +14,4 @@ bool cardRW_removeDir(const char *path);
 bool cardRW_renameFile(const char *path1, const char *path2);
 bool cardRW_deleteFile(const char *path);
 void cardRW_testFileIO(const char *path);
+#endif

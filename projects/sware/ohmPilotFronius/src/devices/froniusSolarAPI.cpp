@@ -1,5 +1,5 @@
 #include "froniusSolarAPI.h"
-#ifdef FRONIUS_API
+#ifdef FRONIUS_IV
 #include "utils.h"
 #include <Arduino_JSON.h>
 #include "defines.h"

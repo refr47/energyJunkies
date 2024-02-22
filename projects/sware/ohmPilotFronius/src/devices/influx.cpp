@@ -67,7 +67,7 @@ bool influx_write(WEBSOCK_DATA &webSockData)
 
     energy.clearFields();
     boiler.clearFields();
-#ifdef FRONIUS_API
+#ifdef FRONIUS_IV
     if (webSockData.states.froniusAPI)
     {
         if (webSockData.setupData.externerSpeicher)
@@ -83,9 +83,9 @@ bool influx_write(WEBSOCK_DATA &webSockData)
 
 #else
     energy.addField("grid", METER_DATA.acCurrentPower);
-    energy.addField("load", (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower);
-    energy.addField("pv",INVERTER_DATA.acCurrentPower);
-     energy.addField("availableWatt",INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower);
+    energy.addField("load", (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower));
+    energy.addField("pv", INVERTER_DATA.acCurrentPower);
+    energy.addField("availableWatt", INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower);
 #endif
     energy.addField("pwm", webSockData.pidContainer.mAnalogOut);
     energy.addField("relay1", webSockData.pidContainer.PID_PIN1);

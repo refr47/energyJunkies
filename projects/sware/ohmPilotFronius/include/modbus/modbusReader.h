@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef FRONIUS_API
+#ifdef FRONIUS_IV
 
 #include "defines.h"
 
