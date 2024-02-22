@@ -9,11 +9,11 @@
   <link rel="stylesheet" type="text/css" href="css/menu.css" />
   <link rel="stylesheet" type="text/css" href="css/main.css" />
   <link rel="stylesheet" type="text/css" href="css/datatables.min.css" />
-  
+
   <script src="js/navigation.js"></script>
   <script src="js/jquery-3.7.1.min.js"></script>
-  <script src="js/jquery-3.7.1.min.js"></script>
   <script src="js/datatables.min.js"></script>
+  <script src="js/index.js"></script>
   <script>
     document.title = 'Main';
     $(document).ready(function () {
@@ -21,14 +21,8 @@
       $('#backGr').load('headerF.html #backG')
 
       $('#myFooter').load('headerF.html #myFooter')
-      var data = $('#overview').DataTable({
-        "dom": 'rtip',
-        "lengthChange": false,
-        "info": false,
-        "bPaginate": false,
-        "responsive": true
-      });
-      $(".dataTables_filter").hide();
+      buildStaticTableM();
+      getData();
 
 
     })
@@ -41,7 +35,9 @@
     <div id="navBar"></div>
   </header>
   <h1>Übersicht</h1>
-  <table id="overview" class="display stripe cell-border hover" cellspacing="0" style="width:80%">
+  <table id="overview" class="stripe" style="width:80%">
+  </table>
+  <!-- <table id="overview" class="display stripe cell-border hover" cellspacing="0" style="width:80%">
     <thead>
       <tr>
         <th>Position</th>
@@ -74,7 +70,7 @@
     <td>189</td>
 </tr>
     </tbody>
-  </table>
+  </table> -->
 
 
 </body>
