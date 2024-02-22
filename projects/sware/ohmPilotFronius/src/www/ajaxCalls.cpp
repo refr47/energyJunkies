@@ -6,7 +6,14 @@
     *******************  PROTOTYPES
 
 */
+
+static CALLBACK_GET_DATA webSockData = NULL;
 static void returnFromStoreSetup(bool inputCorrect, StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data, AsyncWebServerRequest *request);
+
+void ajaxCalls_init(CALLBACK_GET_DATA getData)
+{
+    webSockData = getData;
+}
 
 static void handleGetSetup(AsyncWebServerRequest *request);
 
@@ -83,6 +90,104 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 
     DBGf("ajaxCalls_handleGetSetup - return ");
     return returnFromStoreSetup(true, data, request);
+}
+
+void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
+{
+    char formatBuffer[50] = "";
+    WEBSOCK_DATA webSockD = webSockData();
+    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+    // char buff[50]   ;
+    DBGf("ajaxCalls_handleGetOverview - begin");
+
+    data[WWW_FRONIUS] = webSockD.states.froniusAPI;
+    // sprintf(buff,"%s",webSockD.setupData.inverterAsString);
+    if (webSockD.states.froniusAPI)
+    {
+        data[WWW_FRONIUS_IP] = webSockD.setupData.inverterAsString;
+    }
+    else
+    {
+        data[WWW_FRONIUS_IP] = "";
+    }
+    data[WWW_AMIS] = webSockD.states.amisReader;
+    if (webSockD.states.amisReader)
+    {
+        data[WWW_AMIS_IP] = webSockD.setupData.amisReaderHost;
+    }
+    else
+    {
+        data[WWW_AMIS_IP] = "";
+    }
+    data[WWW_CARDREADER] = webSockD.states.cardWriterOK;
+    data[WWW_AKKU] = webSockD.setupData.externerSpeicher;
+    if (webSockD.setupData.externerSpeicher)
+        data[WWW_AKKU_KAPA] = webSockD.fronius_SOLAR_POWERFLOW.p_akku;
+    else
+    {
+        data[WWW_AKKU_KAPA] = 0.0;
+    }
+
+    data[WWW_FLASH] = webSockD.states.flashOK;
+    data[WWW_INFLUX] = webSockD.states.influx;
+    if (webSockD.states.influx)
+    {
+        data[WWW_INFLUX_IP] = webSockD.setupData.influxHost;
+    }
+    else
+    {
+        data[WWW_INFLUX_IP] = "";
+    }
+    data[WWW_MODBUS] = webSockD.states.modbusOK;
+
+    if (webSockD.states.modbusOK)
+    {
+        data[WWW_MODBUS_IP] = webSockD.setupData.inverterAsString;
+    }
+    else
+    {
+        data[WWW_MODBUS_IP] = "";
+    }
+
+    data[WWW_MQTT] = webSockD.states.mqtt;
+    if (webSockD.states.mqtt)
+    {
+        data[WWW_MQTT_IP] = webSockD.setupData.mqttHost;
+    }
+    else
+    {
+        data[WWW_MQTT_IP] = "";
+    }
+    data[WWW_TEMP_SENSOR] = webSockD.states.tempSensorOK;
+    if (webSockD.temperature.alarm)
+    {
+        if (webSockD.temperature.sensor1 > 0.0 && webSockD.temperature.sensor2 > 0.0)
+        {
+            sprintf(formatBuffer, "!!%.2f!!", (webSockD.temperature.sensor1 + webSockD.temperature.sensor2) / 2.0);
+            // readings[TEMP_PUFFERSPEICHER] = (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+        }
+        else
+        {
+            sprintf(formatBuffer, "!!%.2f %.2f", webSockD.temperature.sensor1, webSockD.temperature.sensor2);
+        }
+    }
+    else
+    {
+        sprintf(formatBuffer, "%.2f", (webSockD.temperature.sensor1 + webSockD.temperature.sensor2) / 2.0);
+    }
+    data[WWW_TEMP_SENSOR_VAL] = formatBuffer;
+    DBGf("ajaxCalls_handleGetOverview - return ");
+
+    String response;
+
+    data["done"] = 1;
+    data["error"] = "";
+    DBGf("returnFromStoreSetup - no errors ");
+    // eprom_storeSetup(setup);
+
+    serializeJson(data, response);
+    DBGf("returnFromStoreSetup - return ");
+    request->send(200, "application/json", response);
 }
 
 void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus)

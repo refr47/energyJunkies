@@ -5,6 +5,7 @@
 
 #include <AsyncJson.h>
 #include "debugConsole.h"
+#include "defines.h"
 
 #define WLAN_ESSID "WLAN_ESSID"
 #define WLAN_PASSWD "WLAN_Password"
@@ -35,6 +36,25 @@
 
 #define SIM_ADDITIONAL_LOAD "SIM_Additional_Load"
 #define SIM_BIAS_POWER "SIM_Bias_Powery"
+// getOverview
+#define WWW_FRONIUS "FR"
+#define WWW_FRONIUS_IP "FIP"
+#define WWW_AMIS "AM"
+#define WWW_AMIS_IP "AIP"
+#define WWW_CARDREADER "CR"
+#define WWW_AKKU "AK"
+#define WWW_AKKU_KAPA "AKK"
+#define WWW_FLASH "FL"
+#define WWW_INFLUX "IN"
+#define WWW_INFLUX_IP "INIP"
+#define WWW_MODBUS "MB"
+#define WWW_MODBUS_IP "MBIP"
+#define WWW_MQTT "MQ"
+#define WWW_MQTT_IP "MQIP"
+#define WWW_TEMP_SENSOR "TEMP"
+#define WWW_TEMP_SENSOR_VAL "TEMPV"
 
+void ajaxCalls_init(CALLBACK_GET_DATA webSockData);
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
+void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request);
 void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus);

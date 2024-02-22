@@ -185,6 +185,7 @@ bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockDat
     // Route for serving the root page  request->send(SPIFFS, "/index.html", String(), false, callBack);
 
     server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
+    server.on("/getOverview", HTTP_GET, ajaxCalls_handleGetOverview);
 
     // Route to load style.css file
     server.on("/css/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -250,7 +251,7 @@ bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockDat
     DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Origin"), F("*"));
     DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Headers"), F("content-type"));
 #endif
-
+    ajaxCalls_init(webSockData);
     server.addHandler(webSockets_init(webSockData));
     server.begin();
     return true;
