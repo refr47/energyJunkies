@@ -150,8 +150,8 @@ String getJsonObj()
     readings[MUSS_EINSPEISUNG] = data.pidContainer.powerNotUseable;
     readings[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
     readings[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
-    readings[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
-    readings[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate;
+   /*  readings[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
+    readings[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate; */
     readings[SIM_BIAS] = data.setupData.exportWatt;
     readings[SIM_LOAD] = data.setupData.additionalLoad;
 

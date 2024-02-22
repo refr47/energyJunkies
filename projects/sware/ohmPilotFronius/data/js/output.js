@@ -146,7 +146,7 @@ function onMessage(event) {
   replace(3, data["AKKU"], false)
   replace(4, data["TPS"], false); // Sensorik Temp
   replace(7, data["HL3"], false); // pwm 
-  replace(10,data["AkStat", true]); // Akku Status
+  replace(10, data["AkStat"], true); // Akku Status
   replace(11, data["SimBias"], false); // Sim Bias
   replace(12, data["SimLoad"], false); // Sim Load
 }
