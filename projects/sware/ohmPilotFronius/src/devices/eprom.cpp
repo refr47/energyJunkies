@@ -142,7 +142,7 @@ void eprom_getSetup(Setup &setup)
     ipv4_int_to_string(setup.amisReaderHost, setup.ipAmisReaderHost, &result);
     if (!result)
         DBGf("ERPROM - Error in converting AmisReader IPAdress!!");
-    // DBGf("eprom_getSetup() .. AmisReaderHost: %d %s", setup.ipAmisReaderHost, setup.amisReaderHost);
+    DBGf("eprom_getSetup() .. AmisReaderHost: %d %s", setup.ipAmisReaderHost, setup.amisReaderHost);
 
     // String key = preferences.getString(_AMIS_READER_KEY);
     strncpy(setup.amisKey, preferences.getString(_AMIS_READER_KEY).c_str(), AMIS_KEY_LEN - 1);

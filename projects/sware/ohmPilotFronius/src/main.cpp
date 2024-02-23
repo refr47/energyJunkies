@@ -60,6 +60,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define TEMPERATURE_INTERVAL 5000UL             // 5 secs
 #define TEMPERATURE_OVERHEATED_WAIT_IN_SECS 300 // 5 minute wait after temp of buffer store has climbed over upper limit
 #define MODBUS_INTERVALL 2000UL
+
 #define PID_CONTROLLER_INTERVALL 1000 // 0.1 secs default sample time
 #define LOGGING_FLUSH_INTERVALL 60000
 #define MODBUS_AKKU_INTERVALL 10000
@@ -68,6 +69,7 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define SHOW_IP_ADDR_INTERVALL 5000
 #define CONFIG_PARAM_TEST_INTERVALL 6000
 #define AMIS_READER_INTERVALL 10000
+#define RECONNET_INTERVALL 300000
 #define FORMAT_CHAR_BUFFER_LEN 50 // @see loop
 
 #ifndef TAG
@@ -99,6 +101,13 @@ typedef struct _ALARM
     _ALARM_MODBUS alarmModbus;
 } ALARM_CONTAINER;
 
+typedef struct _MAX_RECONNECTING_
+{
+
+    unsigned int modbusCounter;
+    unsigned int maxModbusCounter;
+
+} MAX_RECONNECTING;
 typedef struct _TIME_SLICE
 {
     unsigned long previousMillTemp;
@@ -111,7 +120,10 @@ typedef struct _TIME_SLICE
     unsigned long previousMillisTestConfig;
     unsigned long previousMillisAkku;
     unsigned long previousMillisAmis;
+    unsigned long previousMillisReconnect;
     unsigned long currentMillis;
+
+    MAX_RECONNECTING maxReconnecting;
 
 } TIME_SLICE;
 
@@ -182,6 +194,8 @@ void setup()
 
     DBGf("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
+    memset(&timeSlice, 0, sizeof(TIME_SLICE));
+    timeSlice.maxReconnecting.maxModbusCounter = 60000; // 1 min hat 60 secs
     bootCount++;
     Serial.println("Boot number: " + String(bootCount));
     ledHandler_init();
@@ -621,107 +635,89 @@ void loop()
     {
         // DBGf("MODBUS_INTERVALL");
 
-        if (!webSockData.states.modbusOK)
-        {
-            tft_drawInfoNoModbus(webSockData.temperature);
-            eprom_getSetup(webSockData.setupData); // reRead setup data from eprom - maybe changed by web
-            if (mb_init(webSockData.setupData))
-            {
-                DBGf("Reconnected modbus successfully.");
-                ledHandler_showModbusError(false);
-                webSockData.states.modbusOK = true;
-#ifdef MQTT
-                mqtt_publish_modbus_reconnect(webSockData.setupData.inverterAsString.c_str());
-#endif
-            }
-        }
-        else
-        {
 #ifdef FRONIUS_IV
 
-            if (webSockData.states.froniusAPI)
-            {
-
-                DBGf("main::webSockData.states.froniusAPI - modbus");
-                if (solar_get_powerflow(webSockData))
-                {
-                    webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
-                    webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
-                    webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
-                    INVERTER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_pv;
-                    METER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_load;
-                }
-            }
-#endif
-            if (!webSockData.states.froniusAPI)
-            {
-                DBGf("main::webSockData.states.modbus - modbus");
-                if (mb_readInverter(webSockData.setupData, webSockData.mbContainer))
-                {
-                    memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
-                    util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer); //  Produktion
-                    DBGf("Produktion %s", formatBuffer);
-
-                    DBGf("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer)); // Grid Bezug positiv, ansonst -
-
-                    if (METER_DATA.acCurrentPower < 0.0 && (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower < 0))
-
-                    {
-                        DBGf("Wrong meter value from smartmeter - current production: %f !", METER_DATA.acCurrentPower);
-#ifdef MQTT
-                        mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
-#endif
-                    }
-                    else
-                    {
-                        DBGf("  in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
-                        webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
-
-#ifndef TEST_PID_WWWW
-                        availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
-#endif
-
-                        tft_drawInfo(webSockData);
-                        influx_write(webSockData);
-#ifdef MQTT
-
-                        mqtt_publish_modbus_current_state(webSockData.mbContainer);
-#endif
-                    }
-                }
-                else
-                { // if readModbus
-                    DBGf("MAIN::ModbusTimeSlice::  Error in reading modubs");
-                }
-            }
-        } // if (!webSockData.states.modbusOK
-
-        timeSlice.previousMillModbus = timeSlice.currentMillis;
-    } // if
-
-    if (!webSockData.states.amisReader)
-    {
-        webSockData.amisReader.saldo = 0;
-    }
-#ifdef AMIS_READER_DEV
-    else
-    {
-        if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
+        if (webSockData.states.froniusAPI)
         {
 
-            if (amisReader_readRestTarget(webSockData))
+            DBGf("main::webSockData.states.froniusAPI - modbus");
+            if (solar_get_powerflow(webSockData))
             {
-                DBGf("main:: AmisReader: available is: %d, import: %d , export: %d", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
-                METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
+                webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
+                webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
+                webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+                INVERTER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_pv;
+                METER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_load;
+            }
+        }
+#endif
+        if (!webSockData.states.froniusAPI && webSockData.states.modbusOK)
+        {
+            DBGf("main::webSockData.states.modbus - modbus");
+            if (mb_readInverter(webSockData.setupData, webSockData.mbContainer))
+            {
+                memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
+                util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer); //  Produktion
+                DBGf("Produktion %s", formatBuffer);
+
+                DBGf("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer)); // Grid Bezug positiv, ansonst -
+
+                if (METER_DATA.acCurrentPower < 0.0 && (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower < 0))
+
+                {
+                    DBGf("Wrong meter value from smartmeter - current production: %f !", METER_DATA.acCurrentPower);
+#ifdef MQTT
+                    mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
+#endif
+                }
+                else
+                {
+                    DBGf("  in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
+                    webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
+
+#ifndef TEST_PID_WWWW
+                    availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
+#endif
+
+                    tft_drawInfo(webSockData);
+                    influx_write(webSockData);
+#ifdef MQTT
+
+                    mqtt_publish_modbus_current_state(webSockData.mbContainer);
+#endif
+                }
             }
             else
-            {
-                DBGf("main::AmisReader data not available.");
+            { // if readModbus
+                DBGf("MAIN::ModbusTimeSlice::  Error in reading modubs");
             }
-            timeSlice.previousMillisAmis = timeSlice.currentMillis;
         }
-    }
+        if (!webSockData.states.amisReader)
+        {
+            webSockData.amisReader.saldo = 0;
+        }
+#ifdef AMIS_READER_DEV
+        else
+        {
+            if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
+            {
+
+                if (amisReader_readRestTarget(webSockData))
+                {
+                    DBGf("main:: AmisReader: available is: %d, import: %d , export: %d", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
+                    METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
+                }
+                else
+                {
+                    DBGf("main::AmisReader data not available.");
+                }
+                timeSlice.previousMillisAmis = timeSlice.currentMillis;
+            }
+        }
 #endif
+
+        timeSlice.previousMillModbus = timeSlice.currentMillis;
+    }
 
     /* ***********************                   FLUSH LOGGING FILE           ************************/
 #ifdef CARD_READER
@@ -813,12 +809,39 @@ void loop()
         timeSlice.previousMillisWebSocks = timeSlice.currentMillis;
         notifyClients(getJsonObj());
     }
-    if (networkCredentialsInEEprom == false)
-    { // act as AP
-        www_run();
+
+    if (timeSlice.currentMillis - timeSlice.previousMillisReconnect > RECONNET_INTERVALL)
+    {
+        DBGf("RECONNET_INTERVALL");
+        bool modbusReconnect = true;
+        timeSlice.maxReconnecting.modbusCounter += 1;
+        if (timeSlice.maxReconnecting.modbusCounter > timeSlice.maxReconnecting.maxModbusCounter)
+        {
+            timeSlice.maxReconnecting.modbusCounter *= 2;
+            if (timeSlice.maxReconnecting.maxModbusCounter > 86400000)
+            {
+                modbusReconnect = false;
+            }
+        }
+        if (!webSockData.states.modbusOK && modbusReconnect)
+        {
+
+            eprom_getSetup(webSockData.setupData); // reRead setup data from eprom - maybe changed by web
+            if (mb_init(webSockData.setupData))
+            {
+                DBGf("Reconnected modbus successfully.");
+                ledHandler_showModbusError(false);
+                webSockData.states.modbusOK = true;
+#ifdef MQTT
+                mqtt_publish_modbus_reconnect(webSockData.setupData.inverterAsString.c_str());
+#endif
+            }
+        }
+        timeSlice.previousMillisReconnect = timeSlice.currentMillis;
     }
-    eM_setSleepTime(20);
-    eM_lightSleep();
+
+    // eM_setSleepTime(20);
+    // eM_lightSleep();
 #endif
 
 } // loop
