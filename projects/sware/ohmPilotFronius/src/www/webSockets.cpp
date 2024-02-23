@@ -84,7 +84,7 @@ String getJsonObj()
 #ifdef AMIS_READER_DEV
     readings[EINSPEISUNG] = data.amisReader.saldo;
 #endif
-#ifdef FRONIUS_IV
+
     if (data.states.froniusAPI)
     {
         readings[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
@@ -92,24 +92,43 @@ String getJsonObj()
         readings[EIGENVERBRAUCH] = data.fronius_SOLAR_POWERFLOW.p_load;
         readings[AKKU_AKKU] = (int)data.fronius_SOLAR_POWERFLOW.p_akku;
     }
-
-#else
-    readings[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
-    readings[AKKU_AKKU] = 0;
-
-    if (data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
+    else if (data.states.modbusOK)
     {
-        readings[EINSPEISUNG] = data.mbContainer.meterValues.data.acCurrentPower;
+        readings[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
+        readings[AKKU_AKKU] = 0;
 
-        readings[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower;
-        prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
+        if (data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
+        {
+            readings[EINSPEISUNG] = data.mbContainer.meterValues.data.acCurrentPower;
+
+            readings[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower;
+            prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
+        }
+        else
+        {
+            readings[EINSPEISUNG] = prevValueFromSmartMeter;
+            readings[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter;
+        }
     }
     else
     {
-        readings[EINSPEISUNG] = prevValueFromSmartMeter;
-        readings[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter;
+        if (data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
+        {
+            readings[EIGENVERBRAUCH] = data.mbContainer.meterValues.data.acCurrentPower;
+            readings[EINSPEISUNG] = 0.0;
+        }
+
+        else
+        {
+            readings[EINSPEISUNG] = data.mbContainer.meterValues.data.acCurrentPower;
+            readings[EIGENVERBRAUCH] = 0.0;
+        }
+
+        readings[PRODUKTION] = 0.0;
+
+        readings[AKKU_AKKU] = 0;
     }
-#endif
+
     if (data.temperature.alarm)
     {
         if (data.temperature.sensor1 > 0.0 && data.temperature.sensor2 > 0.0)

@@ -38,6 +38,7 @@
 #ifdef AMIS_READER_DEV
 #include "amisReader.h"
 #endif
+#include "energieManager.h"
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -76,8 +77,8 @@ GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pu
 #define MY_ESP_LOG_LEVEL ESP_LOG_INFO
 
 #define NUM_RECORDS 100
-static heap_trace_record_t trace_record[NUM_RECORDS]; // This buffer must be in internal RAM
-
+// static heap_trace_record_t trace_record[NUM_RECORDS]; // This buffer must be in internal RAM
+static RTC_DATA_ATTR int bootCount = 0;
 typedef struct _ALARM_TEMPERATURE
 {
     bool alarmTemp;
@@ -124,11 +125,11 @@ static bool networkCredentialsInEEprom = true;
 
 static TIME_SLICE timeSlice;
 
-static LIFE_DATA lifeData;
+// static LIFE_DATA lifeData;
 static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager;
 static WEBSOCK_DATA webSockData;
-static double availablePowerFromWRInWatt = 0.0;
+// static double availablePowerFromWRInWatt = 0.0;
 
 /* **************************************************************************
         ProtoTypes
@@ -177,10 +178,12 @@ void setup()
     DBGbgn(115200);
     while (!Serial)
         ;
+    btStop(); // stop bluetoothd
 
     DBGf("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
-
+    bootCount++;
+    Serial.println("Boot number: " + String(bootCount));
     ledHandler_init();
     tft_init();
     tft_printSetup();
@@ -194,8 +197,8 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    //    eprom_clearLifeData();
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    //     eprom_clearLifeData();
     eprom_isInit();
 
     // ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
@@ -251,11 +254,12 @@ void setup()
 
         DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
         DBGf("Setup Modbus ...");
+        webSockData.states.modbusOK = false;
         if (!mb_init(webSockData.setupData))
         {
             DBGf("Cannot initialize modbus ....");
             tft_printKeyValue("Init mdobus", "Error", TFT_RED);
-            webSockData.states.modbusOK = false;
+
             ledHandler_showModbusError(true);
         }
         else
@@ -304,7 +308,7 @@ void setup()
     /* ESP_ERROR_CHECK(heap_trace_stop());
     heap_trace_dump(); */
     DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
-
+    webSockData.states.tempSensorOK = false;
     if (temp_init())
     {
 
@@ -313,17 +317,19 @@ void setup()
     }
     else
     {
-        webSockData.states.tempSensorOK = false;
+
         tft_printKeyValue("Init Sensors", "Error", TFT_RED);
     }
 #ifdef WEATHER_API
     // wheater_getForecast();
 #endif
-
-    if (!mb_readAll(webSockData.setupData, webSockData.mbContainer))
+    if (webSockData.states.modbusOK)
     {
-        DBGf("Init::readAllModbusValues did not succeed");
-        tft_printKeyValue("Modbus Read", "Error", TFT_RED);
+        if (!mb_readAll(webSockData.setupData, webSockData.mbContainer))
+        {
+            DBGf("Init::readAllModbusValues did not succeed");
+            tft_printKeyValue("Modbus Read", "Error", TFT_RED);
+        }
     }
 
     webSockData.states.froniusAPI = false;
@@ -337,6 +343,8 @@ void setup()
     else
         DBGf("inverter is: %s", cp);
     DBGf("WR (FRonius detect solar api): %s , tcp: %d", webSockData.setupData.inverterAsString, webSockData.setupData.ipInverter);
+    webSockData.setupData.externerSpeicher = false;
+    webSockData.states.froniusAPI = false;
     if (soloar_init(webSockData, &akkuAvailable))
     {
         webSockData.setupData.externerSpeicher = akkuAvailable;
@@ -377,29 +385,34 @@ void setup()
     }
 #endif
     webSockData.states.amisReader = false;
-#ifdef AMIS_READER_DEV
-    if (amisReader_initRestTargets(webSockData.setupData))
-    {
-        webSockData.states.amisReader = true;
 
-        if (amisReader_readRestTarget(webSockData))
+#ifdef AMIS_READER_DEV
+    if (webSockData.states.froniusAPI == false && webSockData.states.modbusOK == false)
+    {
+        if (amisReader_initRestTargets(webSockData.setupData))
         {
             webSockData.states.amisReader = true;
-            tft_printKeyValue("Init AMIS-Reader", "ok", TFT_GREEN);
-            DBGf("AMIS-Reader:: connected successfully ...");
+
+            if (amisReader_readRestTarget(webSockData))
+            {
+                webSockData.states.amisReader = true;
+                tft_printKeyValue("Init AMIS-Reader", "ok", TFT_GREEN);
+                DBGf("AMIS-Reader:: connected successfully ...");
+            }
+            else
+            {
+
+                tft_printKeyValue("Init AMIS-Reader", "Error", TFT_RED);
+                DBGf("AMIS-Reader:: connection failed ...");
+            }
         }
         else
         {
-
-            tft_printKeyValue("Init AMIS-Reader", "Error", TFT_RED);
-            DBGf("AMIS-Reader:: connection failed ...");
+            tft_printKeyValue("NO AMIS-Reader", "Error", TFT_RED);
+            DBGf("amisReader not found");
         }
     }
-    else
-    {
-        tft_printKeyValue("NO AMIS-Reader", "Error", TFT_RED);
-        DBGf("amisReader not found");
-    }
+
 #endif
 }
 
@@ -433,6 +446,7 @@ ESP_LOGI(TAG, "Setup done - all components are working...");
         memset(&timeSlice, 0, sizeof(timeSlice));
 
 #endif
+eM_printWakeUpReason();
 }
 
 static char formatBuffer[FORMAT_CHAR_BUFFER_LEN];
@@ -803,7 +817,8 @@ void loop()
     { // act as AP
         www_run();
     }
-
+    eM_setSleepTime(20);
+    eM_lightSleep();
 #endif
 
 } // loop
