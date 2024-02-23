@@ -165,6 +165,7 @@ typedef struct _AMIS_READER
 typedef struct _WEBSOCK
 {
     MB_CONTAINER mbContainer;
+    // Setup setup;
     TEMPERATURE temperature;
     PID_CONTAINER pidContainer;
     STATES states;
