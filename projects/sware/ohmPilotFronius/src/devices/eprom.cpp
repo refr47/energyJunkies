@@ -199,7 +199,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.heizstab_leistung_in_watt = 5000;
     setup.tempMaxAllowedInGrad = 80;
     setup.tempMinInGrad = 10;
-    strcpy(setup.inverterAsString, "10.0.0.2");
+    strcpy(setup.inverterAsString, "10.0.0.3");
 
     bool result = true;
 

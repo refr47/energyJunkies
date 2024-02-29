@@ -211,7 +211,7 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+     eprom_test_write_Eprom("Milchbehaelter", "47754775");
     //     eprom_clearLifeData();
     eprom_isInit();
 
