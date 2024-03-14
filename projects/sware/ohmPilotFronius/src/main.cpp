@@ -43,7 +43,7 @@
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
 
-
+https://github.com/Xinyuan-LilyGO/T-Display-S3
 */
 
 /* ****************************************************************************
@@ -188,8 +188,8 @@ void setup()
 {
 
     DBGbgn(115200);
-    while (!Serial)
-        ;
+    /*   while (!Serial)
+          ; */
     btStop(); // stop bluetoothd
 
     DBGf("Energie-Junkies -- Harvester ---");
@@ -211,7 +211,7 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-     eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    eprom_test_write_Eprom("Milchbehaelter", "47754775");
     //     eprom_clearLifeData();
     eprom_isInit();
 
@@ -403,7 +403,7 @@ void setup()
 #ifdef AMIS_READER_DEV
     if (webSockData.states.froniusAPI == false && webSockData.states.modbusOK == false)
     {
-        if (amisReader_initRestTargets(webSockData.setupData))
+        if (amisReader_initRestTargets(webSockData))
         {
             webSockData.states.amisReader = true;
 
@@ -460,7 +460,7 @@ ESP_LOGI(TAG, "Setup done - all components are working...");
         memset(&timeSlice, 0, sizeof(timeSlice));
 
 #endif
-eM_printWakeUpReason();
+// eM_printWakeUpReason();
 }
 
 static char formatBuffer[FORMAT_CHAR_BUFFER_LEN];

@@ -282,9 +282,27 @@ String util_GET_Request(const char *url, int *httpResponseCode)
 	return payload;
 }
 
-bool utils_sock_initRestTargets(const char *host, int index)
+bool utils_sock_initRestTargets(Setup &setupData, int index)
 {
-
+	strcpy(restTarget[index].hostname, setupData.amisReaderHost);
+	if (!restTarget[index].localClient.connected())
+	{
+		if (restTarget[index].localClient.connect(restTarget[index].hostname, restTarget[index].port))
+		{
+			DBGf("Host  available at IP: %s", restTarget[index].hostname);
+			return true;
+		}
+		else
+		{
+			DBGf("Host not available at IP: %s", restTarget[index].hostname);
+			return false;
+		}
+	}
+	else
+	{
+		return true;
+	}
+#ifdef JJJJ
 	DBGf("utils_sock_initRestTargets - init(), host: %s ", host);
 	char str[INET_ADDRSTRLEN];
 	restTarget[0].socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -329,13 +347,31 @@ bool utils_sock_initRestTargets(const char *host, int index)
 		DBGf("Host not available at IP: %s,  errno: %s", host, strerror(errno));
 		close(restTarget[index].socketFd);
 	}
-
+#endif
 	return false;
 }
 
 bool utils_sock_readRestTarget(WEBSOCK_DATA &webSockData, int index, GET_JSON_DATA getJson)
 {
-	restTarget[0].socketFd = socket(AF_INET, SOCK_STREAM, 0);
+	if (!restTarget[index].localClient.connected())
+	{
+		if (!restTarget[index].localClient.connect(restTarget[index].hostname, restTarget[index].port))
+		{
+			DBGf("Host  not available at IP: %s", restTarget[index].hostname);
+			return false;
+		}
+		DBGf("Host %s is already connected", restTarget[index].hostname);
+	}
+	restTarget[index].localClient.println(restTarget[index].request);
+	if (!readJsonResponse(&restTarget[index], webSockData, getJson))
+	{
+		DBGf("amisReader_readRestTarget:: Cannot read Response of socket communication with host: %s", restTarget[index].hostname);
+		restTarget[index].localClient.stop();
+		return false;
+	}
+#ifdef JJJJJJ
+	restTarget[0]
+		.socketFd = socket(AF_INET, SOCK_STREAM, 0);
 	if (restTarget[0].socketFd >= 0)
 	{
 		int retVal = connect(restTarget[index].socketFd, (struct sockaddr *)&restTarget[index].serverAddr,
@@ -356,6 +392,7 @@ bool utils_sock_readRestTarget(WEBSOCK_DATA &webSockData, int index, GET_JSON_DA
 			return false;
 		}
 	}
+#endif
 	return true;
 }
 
@@ -363,11 +400,23 @@ bool utils_sock_readRestTarget(WEBSOCK_DATA &webSockData, int index, GET_JSON_DA
 
 bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData, GET_JSON_DATA getJson)
 {
-	int bytes, sent, received, total;
+	// int bytes, sent, received, total;
 	char response[RESPONSE_LENGTH];
-	int responseLen = sizeof(response);
+	// int responseLen = sizeof(response);
 	char *jsonStart;
+	while (!target->localClient.available())
+		; // wait for response
 
+	String str = target->localClient.readStringUntil('\n'); // read entire response
+	DBGf("readJsonResponse() - str: %s", str.c_str());
+	strcpy(response, str.c_str());
+	jsonStart = strchr(response, '{');
+	DBGf("readJsonResponse() - payload: %s", response);
+	if (jsonStart != NULL)
+	{
+		(*getJson)(target, jsonStart, webSockData);
+	}
+#ifdef JJJJJJ
 	/* send the request */
 	total = strlen(target->request);
 	sent = 0;
@@ -414,6 +463,8 @@ bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData, GET
 	{
 		(*getJson)(target, jsonStart, webSockData);
 	}
+#endif
+
 	return true;
 }
 

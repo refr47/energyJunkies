@@ -6,8 +6,7 @@
 
 #include "defines.h"
 
-   
-bool amisReader_initRestTargets(Setup &setup);
+bool amisReader_initRestTargets(WEBSOCK_DATA &setup);
 bool amisReader_readRestTarget(WEBSOCK_DATA &);
 
 #endif

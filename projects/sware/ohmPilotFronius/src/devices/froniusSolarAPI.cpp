@@ -11,7 +11,7 @@ static String uRL = "";
 
 static bool solar_valid = false;
 static bool p_solarValid = &solar_valid;
-
+ 
 static void mapJsonValuesFronius(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_DATA &webSockData);
 
 KEY_VALUE_MAP_t froniusKeyValueMap[FRONIUS_VALUE_COUNT] = {

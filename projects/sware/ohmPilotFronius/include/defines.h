@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include <WiFi.h>
 #include <arpa/inet.h>
 #include <lwip/sockets.h>
 #include <lwip/netdb.h>
@@ -207,6 +208,8 @@ typedef struct
     int valueCount;
     // json object key to values mapping array
     KEY_VALUE_MAP_t *mapping;
+
+    WiFiClient localClient;
 } HTTP_REST_TARGET_t;
 
 typedef void (*GET_JSON_DATA)(HTTP_REST_TARGET_t *, char *, WEBSOCK_DATA &);
