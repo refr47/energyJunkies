@@ -4,4 +4,5 @@
 #define LONGITUDE "13.5395"
 
 void wheater_getForecast();
+void wheater_print();
 #endif

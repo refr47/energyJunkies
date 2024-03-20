@@ -59,6 +59,16 @@
 #include "huaweiDefines.h"
 #endif
 
+#ifdef WEATHER_API
+#define FORCAST_DAYS_STRING "3"
+#define FORCAST_DAYS 3
+#define HOURS_PER_DAY 24
+#define TEMPERATURE_SIZE FORCAST_DAYS *HOURS_PER_DAY
+#define SUNDAY_LIGHT_SIZE FORCAST_DAYS *HOURS_PER_DAY
+#define DAILY_VALUES_SIZE 3
+
+#endif
+
 typedef struct
 {
     char ssid[LEN_WLAN];
@@ -213,3 +223,14 @@ typedef struct
 } HTTP_REST_TARGET_t;
 
 typedef void (*GET_JSON_DATA)(HTTP_REST_TARGET_t *, char *, WEBSOCK_DATA &);
+
+#ifdef WEATHER_API
+typedef struct _WHEATER_DATA
+{
+    double temperature[TEMPERATURE_SIZE];
+    double daylight[SUNDAY_LIGHT_SIZE];
+    time_t sunrise[DAILY_VALUES_SIZE];
+    time_t sunset[DAILY_VALUES_SIZE];
+    double uvIndex[DAILY_VALUES_SIZE];
+} WHEATER_DATA;
+#endif

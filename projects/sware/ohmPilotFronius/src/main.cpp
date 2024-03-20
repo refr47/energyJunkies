@@ -141,13 +141,15 @@ static TIME_SLICE timeSlice;
 static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager;
 static WEBSOCK_DATA webSockData;
+
 // static double availablePowerFromWRInWatt = 0.0;
 
 /* **************************************************************************
         ProtoTypes
 */
 
-WEBSOCK_DATA &getDataForWebSocket();
+WEBSOCK_DATA &
+getDataForWebSocket();
 
 // int sdCardLogOutput(const char *format, va_list args); // LOG-System
 
@@ -335,7 +337,8 @@ void setup()
         tft_printKeyValue("Init Sensors", "Error", TFT_RED);
     }
 #ifdef WEATHER_API
-    // wheater_getForecast();
+    wheater_getForecast();
+    wheater_print();
 #endif
     if (webSockData.states.modbusOK)
     {

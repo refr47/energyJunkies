@@ -108,7 +108,7 @@ bool solar_get_powerflow(WEBSOCK_DATA &webSockData)
         DBG("Parsing input failed!");
         return false;
     }
-
+ 
     webSockData.fronius_SOLAR_POWERFLOW.p_akku = my_obj["site"]["P_Akku"];
     webSockData.fronius_SOLAR_POWERFLOW.p_grid = my_obj["site"]["P_Grid"];
     webSockData.fronius_SOLAR_POWERFLOW.p_load = my_obj["site"]["P_Load"];
