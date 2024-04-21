@@ -185,7 +185,6 @@ void PinManager::adustPWM()
         DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX);
     }
 }
-
 bool PinManager::task(WEBSOCK_DATA &webSockData)
 {
     bool result = false;
@@ -231,11 +230,11 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         eprom_stammDataUpdateReset();
     }
 
-    availableWatt += (double)d.exportWatt;
+    //availableWatt += (double)d.forceHeating;
     // availableWatt -= statusBoilerWatt;
     availableWatt -= d.additionalLoad;
     firstAvailableWatt = availableWatt;
-    DBGf("Abs: %f,  newAvailableWatt: %f, Bias: %d, addLoad: %.3f", ABS(availableWatt), availableWatt, d.exportWatt, d.additionalLoad);
+    DBGf("Abs: %f,  newAvailableWatt: %f, addLoad: %.3f", ABS(availableWatt), availableWatt,  d.additionalLoad);
 
     /* if (prevAvailableWatt != START_VALUE_FOR_AIVALABLE_WATT)
         availableWatt = prevAvailableWatt; */

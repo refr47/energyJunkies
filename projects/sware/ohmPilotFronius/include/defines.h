@@ -107,7 +107,7 @@ typedef struct
     char influxBucket[INFLUX_BUCKET_LEN];
 
     double additionalLoad;
-    int exportWatt;
+    int forceHeating;
 
 } Setup;
 

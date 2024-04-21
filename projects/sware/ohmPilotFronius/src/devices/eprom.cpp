@@ -24,6 +24,7 @@ void eprom_storeSetup(Setup &setup)
 {
     bool result = true;
     stammDataUpdateWatch = true;
+    uint32_t ipAsInt;
     preferences.begin(CREDENTIALS, false);
 
     preferences.clear();
@@ -32,20 +33,40 @@ void eprom_storeSetup(Setup &setup)
     preferences.putUInt(_HEIZSTAB_LEISTUNG_IN_WATT, setup.heizstab_leistung_in_watt);
     preferences.putUInt(_TEMP_MAX_IN_GRAD, setup.tempMaxAllowedInGrad);
     preferences.putUInt(_TEMP_MIN_IN_GRAD, setup.tempMinInGrad);
+
     preferences.putUInt(_INVERTER_IP, setup.ipInverter);
+    // DBGf("eprom_storeSetup : IP address %d", setup.ipInverter);
+    result = false;
+    if (strlen(setup.inverterAsString) < 3)
+        ipAsInt = 0;
+    else
+    {
+        ipAsInt = ipv4_string_to_int(setup.inverterAsString, &result);
+        if (!result)
+        {
+            ipAsInt = 0;
+            DBGf("ERPROM - Error in converting Inverter IPAdress %s", setup.inverterAsString);
+        }
+    }
+    preferences.putUInt(_INVERTER_IP, ipAsInt);
     preferences.putBool(_EXTERNER_SPEICHER, setup.externerSpeicher);
     preferences.putChar(_EXTERNER_SPEICHER_PRIORI, setup.externerSpeicherPriori);
     preferences.putUInt(_PID_TARGET_POWER, setup.pid_powerWhichNeedNotConsumed);
     preferences.putUInt(_PID_DIG_OUT_ON_DELAY_MS, setup.pid_min_time_without_contoller_inMS);
-    if (strcmp(AMIS_READER_HOST_DEFAULT, setup.amisReaderHost) != 0)
-    {
-        ipv4_int_to_string(setup.amisReaderHost, setup.ipAmisReaderHost, &result);
-        if (!result)
-            DBGf("ERPROM - Error in converting AmisReader IPAdress!!");
-    }
+
+    if (strlen(setup.amisReaderHost) < 3)
+        ipAsInt = 0;
     else
-        setup.ipAmisReaderHost = 0;
-    preferences.putUInt(_AMIS_READER_HOST, setup.ipAmisReaderHost);
+    {
+        ipAsInt = ipv4_string_to_int(setup.amisReaderHost, &result);
+        if (!result)
+        {
+            ipAsInt = 0;
+            DBGf("ERPROM - Error in converting AmisREADER IPAdress %s", setup.amisReaderHost);
+        }
+    }
+
+    preferences.putUInt(_AMIS_READER_HOST, ipAsInt);
     preferences.putString(_AMIS_READER_KEY, setup.amisKey);
 
     preferences.putString(_MQTT_HOST, setup.mqttHost);
@@ -70,7 +91,7 @@ void eprom_storeSetup(Setup &setup)
      preferences.putFloat(_PID_D, setup.pid_d); */
     // only for testing pid controller
     preferences.putDouble(_EN_LOAD, setup.additionalLoad);
-    preferences.putInt(_EN_BIAS, setup.exportWatt);
+    preferences.putInt(_EN_FORCE_HEATING, setup.forceHeating);
 
     preferences.end();
 }
@@ -148,13 +169,12 @@ void eprom_getSetup(Setup &setup)
     strncpy(setup.amisKey, preferences.getString(_AMIS_READER_KEY).c_str(), AMIS_KEY_LEN - 1);
 
     setup.ipInverter = preferences.getUInt(_INVERTER_IP);
-    /*
-        DBGf("===>IP-Inverter eprom_getSetup: ");
-        DBGf("%d", setup.ipInverter);
-        DBG(" as string: "); */
     ipv4_int_to_string(setup.inverterAsString, setup.ipInverter, &result);
     if (!result)
-        DBGf("ERPROM - Error in converting IPAdress!!");
+        DBGf("ERPROM - Error in converting Inverter IPAdress!!");
+
+    DBGf("===>IP-Inverter eprom_getSetup: %d, as string: %s ", setup.ipInverter, setup.inverterAsString);
+
     // DBGf("EPROM::   IP-Inverter as string: %s", setup.inverterAsString);
     setup.externerSpeicher = preferences.getBool(_EXTERNER_SPEICHER);
     setup.externerSpeicherPriori = preferences.getChar(_EXTERNER_SPEICHER_PRIORI);
@@ -179,7 +199,7 @@ void eprom_getSetup(Setup &setup)
     strncpy(setup.influxToken, preferences.getString(_INFLUX_TOKEN).c_str(), INFLUX_TOKEN_LEN - 1);
 
     setup.additionalLoad = preferences.getDouble(_EN_LOAD);
-    setup.exportWatt = preferences.getInt(_EN_BIAS);
+    setup.forceHeating = preferences.getInt(_EN_FORCE_HEATING);
 
     // DBGf("eprom_getSetup() .. AmisReaderHost: %s, Key: %s", setup.amisReaderHost, setup.amisKey);
     // DBGf("EPROM::   IP-Inverter %d as string: %s", setup.ipInverter, setup.inverterAsString.c_str());
@@ -199,7 +219,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.heizstab_leistung_in_watt = 5000;
     setup.tempMaxAllowedInGrad = 80;
     setup.tempMinInGrad = 10;
-    strcpy(setup.inverterAsString, "10.0.0.3");
+    strcpy(setup.inverterAsString, "10.0.0.2");
 
     bool result = true;
 
@@ -232,7 +252,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
         DBGf("IP translate did not succeed.");
     strncpy(setup.amisKey, "ABCDFGASDFGDSAERTQWEREW§EWERQEEE", AMIS_KEY_LEN - 1);
 
-    setup.exportWatt = 10;
+    setup.forceHeating = 10;
     setup.additionalLoad = 0.0;
 
     DBGf("eprom_test_write_Eprom END");
@@ -245,8 +265,8 @@ void printEprom(Setup &setup)
     char buffer[600];
     memset(buffer, 0, 600);
     DBGf("\nprintEprom ============================================ ");
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Inverter TCP: %d ,InverterAsString: %s,  Controller_OUT_ON_DELAY_MS: %d   ExportWatt: %d , AdditionalLoad: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.inverterAsString, setup.pid_min_time_without_contoller_inMS, setup.exportWatt, setup.additionalLoad, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Inverter TCP: %d ,InverterAsString: %s,  Controller_OUT_ON_DELAY_MS: %d   forceHeating: %d , AdditionalLoad: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.ipInverter, setup.inverterAsString, setup.pid_min_time_without_contoller_inMS, setup.forceHeating, setup.additionalLoad, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
     DBGf("%s", buffer);
 
     DBGf("\n==========================(%d)============================== ", strlen(buffer));

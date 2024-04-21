@@ -171,7 +171,7 @@ String getJsonObj()
     readings[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
     /*  readings[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
      readings[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate; */
-    readings[SIM_BIAS] = data.setupData.exportWatt;
+    readings[SIM_BIAS] = data.setupData.forceHeating;
     readings[SIM_LOAD] = data.setupData.additionalLoad;
 
     String jsonString = JSON.stringify(readings);

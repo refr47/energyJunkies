@@ -789,10 +789,10 @@ void loop()
         if (eprom_stammDataUpdate())
         {
             DBGf("main PID-TEST update");
-            availablePowerFromWRInWatt = webSockData.setupData.exportWatt = d.exportWatt;
+            availablePowerFromWRInWatt = webSockData.setupData.forceHeating = d.forceHeating;
 
-            webSockData.pidContainer.mCurrentPower = d.exportWatt * 1.00;
-            DBGf("PID-TEST (1): available watt: %d", d.exportWatt);
+            webSockData.pidContainer.mCurrentPower = d.forceHeating * 1.00;
+            DBGf("PID-TEST (1): available watt: %d", d.forceHeating);
             eprom_stammDataUpdateReset();
         }
 

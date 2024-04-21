@@ -85,7 +85,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 
     sprintf(buff, "%.2f", setup.additionalLoad);
     data[SIM_ADDITIONAL_LOAD] = buff;
-    sprintf(buff, "%d", setup.exportWatt);
+    sprintf(buff, "%d", setup.forceHeating);
     data[SIM_BIAS_POWER] = buff;
 
     DBGf("ajaxCalls_handleGetSetup - return ");
@@ -321,75 +321,109 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     /*            MQTT */
     argument = jsonObj[WWW_MQTT_HOST];
     DBGf("ARG: %s, VAl: %s", WWW_MQTT_HOST, argument);
-    errorH = util_isFieldFilled(WWW_MQTT_HOST, argument, data);
-    if (errorH)
-    {
-        strncpy(setup.mqttHost, jsonObj[WWW_MQTT_HOST], MQTT_HOST_LEN);
-    }
-    else
-        return returnFromStoreSetup(errorH, data, request);
+    if (strlen(argument) < 3)
+        argument = EMPTY_STRING;
+    strncpy(setup.mqttHost, jsonObj[WWW_MQTT_HOST], MQTT_HOST_LEN);
+
+    /*   errorH = util_isFieldFilled(WWW_MQTT_HOST, argument, data);
+      if (errorH)
+      {
+          strncpy(setup.mqttHost, jsonObj[WWW_MQTT_HOST], MQTT_HOST_LEN);
+      }
+      else
+          return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[WWW_MQTT_PASWWD];
     DBGf("ARG: %s, VAl: %s", WWW_MQTT_PASWWD, argument);
-    errorH = util_isFieldFilled(WWW_MQTT_PASWWD, argument, data);
-    if (errorH)
-    {
-        strncpy(setup.mqttPass, jsonObj[WWW_MQTT_PASWWD], MQTT_PASS_LEN);
-    }
-    else
-        return returnFromStoreSetup(errorH, data, request);
+    if (strlen(argument) < 3)
+        argument = EMPTY_STRING;
+    strncpy(setup.mqttPass, jsonObj[WWW_MQTT_PASWWD], MQTT_PASS_LEN);
+
+    /*  errorH = util_isFieldFilled(WWW_MQTT_PASWWD, argument, data);
+     if (errorH)
+     {
+         strncpy(setup.mqttPass, jsonObj[WWW_MQTT_PASWWD], MQTT_PASS_LEN);
+     }
+     else
+         return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[WWW_MQTT_USER];
     DBGf("ARG: %s, VAl: %s", WWW_MQTT_USER, argument);
-    errorH = util_isFieldFilled(WWW_MQTT_USER, argument, data);
-    if (errorH)
-    {
-        strncpy(setup.mqttUser, jsonObj[WWW_MQTT_USER], MQTT_USER_LEN);
-    }
-    else
-        return returnFromStoreSetup(errorH, data, request);
+
+    if (strlen(argument) < 3)
+        argument = EMPTY_STRING;
+    strncpy(setup.mqttUser, jsonObj[WWW_MQTT_USER], MQTT_USER_LEN);
+
+    /*  errorH = util_isFieldFilled(WWW_MQTT_USER, argument, data);
+     if (errorH)
+     {
+         strncpy(setup.mqttUser, jsonObj[WWW_MQTT_USER], MQTT_USER_LEN);
+     }
+     else
+         return returnFromStoreSetup(errorH, data, request); */
 
     /*            influx */
 
     argument = jsonObj[WWW_INFLUX_HOST];
     DBGf("ARG: %s, VAl: %s", WWW_INFLUX_HOST, argument);
-    errorH = util_isFieldFilled(WWW_INFLUX_HOST, argument, data);
+
+    if (strlen(argument) < 3)
+        argument = EMPTY_STRING;
+    strncpy(setup.influxHost, jsonObj[WWW_INFLUX_HOST], INFLUX_HOST_LEN);
+
+    /* errorH = util_isFieldFilled(WWW_INFLUX_HOST, argument, data);
     if (errorH)
     {
         strncpy(setup.influxHost, jsonObj[WWW_INFLUX_HOST], INFLUX_HOST_LEN);
     }
     else
-        return returnFromStoreSetup(errorH, data, request);
+        return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[WWW_INFLUX_TOKEN];
     DBGf("ARG: %s, VAl: %s", WWW_INFLUX_TOKEN, argument);
-    errorH = util_isFieldFilled(WWW_INFLUX_TOKEN, argument, data);
-    if (errorH)
-    {
-        strncpy(setup.influxToken, jsonObj[WWW_INFLUX_TOKEN], INFLUX_TOKEN_LEN);
-    }
-    else
-        return returnFromStoreSetup(errorH, data, request);
+
+    if (strlen(argument) < 3)
+        argument = EMPTY_STRING;
+    strncpy(setup.influxToken, jsonObj[WWW_INFLUX_TOKEN], INFLUX_TOKEN_LEN);
+
+    /*  errorH = util_isFieldFilled(WWW_INFLUX_TOKEN, argument, data);
+     if (errorH)
+     {
+         strncpy(setup.influxToken, jsonObj[WWW_INFLUX_TOKEN], INFLUX_TOKEN_LEN);
+     }
+     else
+         return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[WWW_INFLUX_ORG];
     DBGf("ARG: %s, VAl: %s", WWW_INFLUX_ORG, argument);
-    errorH = util_isFieldFilled(WWW_INFLUX_ORG, argument, data);
+
+    if (strlen(argument) < 3)
+        argument = EMPTY_STRING;
+    strncpy(setup.influxOrg, jsonObj[WWW_INFLUX_ORG], INFLUX_ORG_LEN);
+
+    /* errorH = util_isFieldFilled(WWW_INFLUX_ORG, argument, data);
     if (errorH)
     {
         strncpy(setup.influxOrg, jsonObj[WWW_INFLUX_ORG], INFLUX_ORG_LEN);
     }
     else
-        return returnFromStoreSetup(errorH, data, request);
+        return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[WWW_INFLUX_BUCKET];
     DBGf("ARG: %s, VAl: %s", WWW_INFLUX_BUCKET, argument);
-    errorH = util_isFieldFilled(WWW_INFLUX_BUCKET, argument, data);
-    if (errorH)
-    {
-        strncpy(setup.influxBucket, jsonObj[WWW_INFLUX_BUCKET], INFLUX_BUCKET_LEN);
-    }
-    else
-        return returnFromStoreSetup(errorH, data, request);
+
+    if (strlen(argument) < 3)
+        argument = EMPTY_STRING;
+    strncpy(setup.influxBucket, jsonObj[WWW_INFLUX_BUCKET], INFLUX_BUCKET_LEN);
+
+    /*
+        errorH = util_isFieldFilled(WWW_INFLUX_BUCKET, argument, data);
+        if (errorH)
+        {
+            strncpy(setup.influxBucket, jsonObj[WWW_INFLUX_BUCKET], INFLUX_BUCKET_LEN);
+        }
+        else
+            return returnFromStoreSetup(errorH, data, request); */
 
     /*
     argument = jsonObj[PID_P];
@@ -415,12 +449,15 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
 
     argument = jsonObj[AMIS_READER_HOST];
     DBGf("ARG: %s, VAl: %s", AMIS_READER_HOST, argument);
-    if (util_isFieldFilled(AMIS_READER_HOST, argument, data))
+    if (strlen(argument) < 3)
+        argument = EMPTY_STRING;
+    strcpy(setup.amisReaderHost, argument);
+    /* if (util_isFieldFilled(AMIS_READER_HOST, argument, data))
     {
         strcpy(setup.amisReaderHost, argument);
     }
     else
-        return returnFromStoreSetup(errorH, data, request);
+        return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[AMIS_READER_KEY];
     DBGf("ARG: %s, VAl: %s", AMIS_READER_KEY, argument);
@@ -442,7 +479,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     DBGf("ARG: %s, VAl: %s", SIM_BIAS_POWER, argument);
     errorH = util_checkParamInt(SIM_BIAS_POWER, argument, data, &result);
     if (errorH)
-        setup.exportWatt = result;
+        setup.forceHeating = result;
 
     DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");
     eprom_storeSetup(setup);

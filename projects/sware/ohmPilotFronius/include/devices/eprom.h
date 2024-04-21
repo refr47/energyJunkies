@@ -21,7 +21,7 @@
 #define _PID_TARGET_POWER "tpow" // target power - max available power
 
 /* #define _PID_TEST "pT" */
-#define _EN_BIAS "eX"
+#define _EN_FORCE_HEATING "eX"
 #define _EN_LOAD "enL"
 
 #define _AMIS_READER_HOST "arH"
@@ -37,6 +37,7 @@
 #define _INFLUX_ORG "infO"
 #define _INFLUX_BUCKET "infB"
 
+#define EMPTY_STRING "\0"
 void eprom_storeSetup(Setup &setup);
 void eprom_getSetup(Setup &setup);
 void eprom_isInit();
