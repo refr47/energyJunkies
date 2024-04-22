@@ -354,12 +354,12 @@ void setup()
 #ifdef FRONIUS_IV
     bool akkuAvailable = false;
 
-    const char *cp = webSockData.setupData.inverterAsString;
+    const char *cp = webSockData.setupData.inverter;
     if (cp == NULL)
         DBGf("cp is null");
     else
         DBGf("inverter is: %s", cp);
-    DBGf("WR (FRonius detect solar api): %s , tcp: %d", webSockData.setupData.inverterAsString, webSockData.setupData.ipInverter);
+    DBGf("WR (FRonius detect solar api): %s ", webSockData.setupData.inverter);
     webSockData.setupData.externerSpeicher = false;
     webSockData.states.froniusAPI = false;
     if (soloar_init(webSockData, &akkuAvailable))
@@ -678,9 +678,9 @@ void loop()
                     DBGf("  in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
                     webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
 
-#ifndef TEST_PID_WWWW
+/* #ifndef TEST_PID_WWWW
                     availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
-#endif
+#endif */
 
                     tft_drawInfo(webSockData);
                     influx_write(webSockData);
@@ -836,7 +836,7 @@ void loop()
                 ledHandler_showModbusError(false);
                 webSockData.states.modbusOK = true;
 #ifdef MQTT
-                mqtt_publish_modbus_reconnect(webSockData.setupData.inverterAsString.c_str());
+                mqtt_publish_modbus_reconnect(webSockData.setupData.inverter.c_str());
 #endif
             }
         }

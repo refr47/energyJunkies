@@ -78,8 +78,8 @@ typedef struct
     unsigned int phasen_leistung_in_watt; // heizstab_leistung_in_watt  pre calculation @see: eprom_getSetup
     unsigned int tempMaxAllowedInGrad;
     unsigned int tempMinInGrad;
-    unsigned int ipInverter;
-    char inverterAsString[INET_ADDRSTRLEN];
+    //unsigned int ipInverter;
+    char inverter[INET_ADDRSTRLEN];
 
     bool externerSpeicher;
     char externerSpeicherPriori;
@@ -93,7 +93,7 @@ typedef struct
       */
     unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
     // bool pidChanged;
-    unsigned int ipAmisReaderHost;
+    //unsigned int ipAmisReaderHost;
     char amisKey[AMIS_KEY_LEN];
 
     char amisReaderHost[INET_ADDRSTRLEN];

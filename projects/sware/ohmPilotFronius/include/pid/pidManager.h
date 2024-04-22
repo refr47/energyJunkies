@@ -7,7 +7,7 @@
 #include <iostream>
 #include <algorithm>
 
-#define MAX_LEN_MEASURE 8 // length of array for storing measure
+#define MAX_LEN_MEASURE 12 // length of array for storing measure - @see: PID_CONTROLLER_INTERVALL in main ( currently: 1000 ms)
 
 enum OutputType
 {

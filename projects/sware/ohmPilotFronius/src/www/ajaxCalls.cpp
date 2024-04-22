@@ -27,7 +27,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 
     data[WLAN_ESSID] = setup.ssid;
     data[WLAN_PASSWD] = setup.passwd;
-    data[IP_INVERTER] = setup.inverterAsString;
+    data[IP_INVERTER] = setup.inverter;
 
     sprintf(buff, "%d", setup.heizstab_leistung_in_watt);
     data[HEIZSTABLEISTUNG] = buff;
@@ -101,10 +101,10 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
     DBGf("ajaxCalls_handleGetOverview - begin");
 
     data[WWW_FRONIUS] = webSockD.states.froniusAPI;
-    // sprintf(buff,"%s",webSockD.setupData.inverterAsString);
+    // sprintf(buff,"%s",webSockD.setupData.inverter);
     if (webSockD.states.froniusAPI)
     {
-        data[WWW_FRONIUS_IP] = webSockD.setupData.inverterAsString;
+        data[WWW_FRONIUS_IP] = webSockD.setupData.inverter;
     }
     else
     {
@@ -142,7 +142,7 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 
     if (webSockD.states.modbusOK)
     {
-        data[WWW_MODBUS_IP] = webSockD.setupData.inverterAsString;
+        data[WWW_MODBUS_IP] = webSockD.setupData.inverter;
     }
     else
     {
@@ -226,7 +226,8 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     errorH = util_isFieldFilled(IP_INVERTER, argument, data);
     if (errorH)
     {
-        bool result = true;
+        strncpy(setup.inverter, argument,INET_ADDRSTRLEN);
+        /* bool result = true;
 
         setup.ipInverter = ipv4_string_to_int((char *)argument, &result);
         DBGf("Setup: IP-Transformation: %s - %d", argument, setup.ipInverter);
@@ -236,7 +237,8 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
 
             data["error"] = "IP-Transformation war nicht erfolgreich!";
             return returnFromStoreSetup(false, data, request);
-        }
+        } */
+
     }
     else
         return returnFromStoreSetup(errorH, data, request);

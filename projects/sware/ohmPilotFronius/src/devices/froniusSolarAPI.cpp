@@ -33,7 +33,7 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
     DBGf("solar_init BEGIN ");
     // p_solarValid = &webSockData.states.froniusAPI;
 
-    sprintf(buf, "http://%s%s", webSockData.setupData.inverterAsString, PATH_NAME_FORECAST);
+    sprintf(buf, "http://%s%s", webSockData.setupData.inverter, PATH_NAME_FORECAST);
     uRL = buf;
     DBGf("solar_init() for %s", buf);
     webSockData.setupData.externerSpeicher = false;
@@ -71,9 +71,9 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
     }
     return true;
 #ifdef CCC
-    DBGf("froniusSolarAPI::soloar_init - fronius HOST: %s", webSockData.setupData.inverterAsString);
+    DBGf("froniusSolarAPI::soloar_init - fronius HOST: %s", webSockData.setupData.inverter);
 
-    if (utils_sock_initRestTargets(webSockData.setupData.inverterAsString, FRONIUS_SOLAR_API_INDEX))
+    if (utils_sock_initRestTargets(webSockData.setupData.inverter, FRONIUS_SOLAR_API_INDEX))
     {
         DBGf("solar_init() - init REST API success");
         webSockData.setupData.externerSpeicher = true;

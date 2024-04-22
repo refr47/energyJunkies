@@ -41,7 +41,7 @@
 void eprom_storeSetup(Setup &setup);
 void eprom_getSetup(Setup &setup);
 void eprom_isInit();
-String& eprom_getInverter(Setup &setup, String &inverterAsString);
+//String& eprom_getInverter(Setup &setup, String &inverter);
 
 void eprom_test_write_Eprom(const char *, const char *);
 void eprom_test_read_Eprom();
