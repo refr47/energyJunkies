@@ -271,8 +271,8 @@ void printEprom(Setup &setup)
     char buffer[600];
     memset(buffer, 0, 600);
     DBGf("\nprintEprom ============================================ ");
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Influx: %s ,inverter: %s,  Controller_OUT_ON_DELAY_MS: %d   forceHeating: %d , AdditionalLoad: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s, AmisHost: %s,  \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.influxOrg, setup.inverter, setup.pid_min_time_without_contoller_inMS, setup.forceHeating, setup.additionalLoad, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket, setup.amisReaderHost);
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Influx: %s ,inverter: %s,  Controller_OUT_ON_DELAY_MS: %d   forceHeating: %d , AdditionalLoad: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.influxOrg, setup.inverter, setup.pid_min_time_without_contoller_inMS, setup.forceHeating, setup.additionalLoad, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
     DBGf("%s", buffer);
 
     DBGf("\n==========================(%d)============================== ", strlen(buffer));
