@@ -35,7 +35,7 @@
 #define AMIS_READER_KEY "Amis Reader Key"
 
 #define SIM_ADDITIONAL_LOAD "SIM_Additional_Load"
-#define SIM_BIAS_POWER "SIM_Bias_Powery"
+#define SIM_BIAS_POWER "Force Heizpatrone"
 // getOverview
 #define WWW_FRONIUS "FR"
 #define WWW_FRONIUS_IP "FRIP"

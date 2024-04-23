@@ -18,7 +18,7 @@ function createDataSet() {
     ['Ausgangsregler (I-Anteil)', '0.1', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (D-Anteil)', '0.0', 'PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'], */
     ['Amis Reader Host (TCP/IP)', 'AmisReader-Host', 'Amis Reader Host (TCP/IP) | ---'],
-    ['Amis Reader Key', 'Key', 'Amis Reader kEY | ---' ],
+    ['Amis Reader Key', 'Key', 'Amis Reader kEY | ---'],
     ['MQTT-Server', 'MQTT-Host', 'MQTT-Server | ---'],
     ['MQTT-User', 'User', 'MQTT-User'],
     ['MQTT-Password', 'Password', 'MQTT-Password'],
@@ -27,7 +27,7 @@ function createDataSet() {
     ['Influx-Org', 'Org', 'Influx-Org'],
     ['Influx-Bucket', 'Bucket', 'Influx-Bucket'],
     ['SIM_Additional_Load', '0.0', 'Simulation: zusätzliche Last'],
-    ['SIM_Bias_Powery', '2000', 'Simulation: Bias Watt'],
+    ['Force Heizpatrone', '10', '0: Aus, |1|2|3: Ein, 10: Auto'],
   ];
 
 
@@ -145,7 +145,7 @@ function evalIt(value, index) {
       if (nu < 1)
         return showError("Wertebereich ungültig (>0 )")
       break;
-    case 10: 
+    case 10:
       if (value == "---") // no mqtt server
         break;
       if (!ipaddress.test(value))
@@ -184,8 +184,16 @@ function evalIt(value, index) {
     case 18: if (isNaN(value)) // simulation bias power
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
-      if (fnum < 0)
+      if (nm < 0)
         return showError("Wertebereich ungültig (>=0)")
+      switch (nu) {
+        case 0: break;
+        case 1: break;
+        case 2: break;
+        case 3: break;
+        case 10: break;
+        default: return showError("Wertebereich ungültig - siehe Documenatation)")
+      }
       break;
 
 
@@ -325,7 +333,7 @@ function renewTable() {
         replace(18, data["Influx-Bucket"])
 
         replace(19, data["SIM_Additional_Load"])
-        replace(20, data["SIM_Bias_Powery"])
+        replace(20, data["Force Heizpatrone"])
 
       } else {
         console.log("Some error ")

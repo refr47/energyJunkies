@@ -172,7 +172,7 @@ function createDataSetM() {
     ['Speicher', 'j', "Aus:0, Ein: 1"], // 9
     ['Speicher Zustand (%)', '0.0', "%"], // 10
     ['SIM_Additional_Load', '0.0 kW', "kW"], //11
-    ['SIM_Bias_Powery', '0.0 kW', "kW"], //12
+    ['Force Heizpatrone', '0.0 kW', "kW"], //12
   ];
 
 
