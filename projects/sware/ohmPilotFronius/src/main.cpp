@@ -847,11 +847,12 @@ void loop()
     // SETUP_CHECK_INTERVALL
     if (timeSlice.currentMillis - timeSlice.previousMillisSetup > SETUP_CHECK_INTERVALL)
     {
+          DBGf("main::SETUP_CHECK_INTERVALL %d ",webSockData.setupData.setupChanged);
         if (webSockData.setupData.setupChanged)
         {
-            DBGf("main::SETUP_CHECK_INTERVALL");
+          
             Setup d;
-            webSockData.setupData.setupChanged = false;
+
             eprom_getSetup(d);
             // delay(10000); // wait 10 secs
 
@@ -860,7 +861,11 @@ void loop()
                 DBGf("main::forceHeating changed !! - no reboot");
                 DBGf("Old value: %d, new value: %d", webSockData.setupData.forceHeating, d.forceHeating);
             }
-            esp_restart();
+            else
+            {
+                DBGf("main::setupHandling Restarti");
+                //esp_restart();
+            }
         }
         timeSlice.previousMillisSetup = timeSlice.currentMillis;
     }
