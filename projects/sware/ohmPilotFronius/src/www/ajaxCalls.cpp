@@ -8,11 +8,14 @@
 */
 
 static CALLBACK_GET_DATA webSockData = NULL;
+static CALLBACK_SET_SETUP_CHANGED setupChanged = NULL;
+
 static void returnFromStoreSetup(bool inputCorrect, StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data, AsyncWebServerRequest *request);
 
-void ajaxCalls_init(CALLBACK_GET_DATA getData)
+void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupCh)
 {
     webSockData = getData;
+    setupChanged = setupCh;
 }
 
 static void handleGetSetup(AsyncWebServerRequest *request);
@@ -194,7 +197,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
 {
     const JsonObject &jsonObj = json.as<JsonObject>();
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
-    WEBSOCK_DATA webSockD = webSockData();
+    // WEBSOCK_DATA webSockD = webSockData();
     for (JsonPair keyValue : jsonObj)
     {
         Serial.print(keyValue.key().c_str());
@@ -206,7 +209,8 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     float resultF = 0.0;
     bool errorH = false;
     DBGf("ajaxCalls_handleStoreSetup BEGIN - %s, %s", WLAN_ESSID, argument);
-    webSockD.setupData.setupChanged = false;
+    setupChanged(false);
+    // webSockD.setupData.setupChanged = false;
     errorH = util_isFieldFilled(WLAN_ESSID, argument, data);
     if (errorH)
         strcpy(setup.ssid, jsonObj[WLAN_ESSID]);
@@ -481,7 +485,8 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     errorH = util_checkParamInt(FORCE_HEIZPATRONE, argument, data, &result);
     if (errorH)
         setup.forceHeating = result;
-    webSockD.setupData.setupChanged = true;
+    setupChanged(true);
+    // webSockD.setupData.setupChanged = true;
     DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");
     eprom_storeSetup(setup);
     eprom_test_read_Eprom();

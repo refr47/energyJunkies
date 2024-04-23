@@ -184,6 +184,7 @@ typedef struct _WEBSOCK
 } WEBSOCK_DATA;
 
 typedef WEBSOCK_DATA &(*CALLBACK_GET_DATA)();
+typedef bool &(*CALLBACK_SET_SETUP_CHANGED)(bool);
 
 typedef struct
 {

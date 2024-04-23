@@ -133,7 +133,7 @@ static void handleSetup(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/login.html", "text/html", false);
 }
 
-bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData)
+bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
 {
     // Initialize SPIFFS
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
@@ -251,7 +251,7 @@ bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockDat
     DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Origin"), F("*"));
     DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Headers"), F("content-type"));
 #endif
-    ajaxCalls_init(webSockData);
+    ajaxCalls_init(webSockData, setupChanged);
     server.addHandler(webSockets_init(webSockData));
     server.begin();
     return true;

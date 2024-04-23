@@ -152,6 +152,7 @@ static WEBSOCK_DATA webSockData;
 
 WEBSOCK_DATA &
 getDataForWebSocket();
+bool &setSetupChanged(bool didSetupChanged);
 
 // int sdCardLogOutput(const char *format, va_list args); // LOG-System
 
@@ -232,7 +233,7 @@ void setup()
     {
         networkCredentialsInEEprom = false;
         webSockData.states.networkOK = false;
-        www_init(NULL, NULL, getDataForWebSocket); // act as access point
+        www_init(NULL, NULL, getDataForWebSocket, setSetupChanged); // act as access point
     }
 
     if (networkCredentialsInEEprom)
@@ -247,7 +248,7 @@ void setup()
             // tft_drawNetworkInfo(NULL, webSockData.setupData.ssid);
             tft_clearScreen();
             wifi_scan_network();
-            www_init(NULL, NULL, getDataForWebSocket); // act as access point
+            www_init(NULL, NULL, getDataForWebSocket, setSetupChanged); // act as access point
             webSockData.states.networkOK = false;
             // tft_printInfo("No valid network!");
             return;
@@ -260,7 +261,7 @@ void setup()
             DBGf("Connected with ip: %s", globalStringBuffer);
 
             tft_drawNetworkInfo(globalStringBuffer, webSockData.setupData.ssid);
-            webSockData.states.flashOK = www_init(pBuf, webSockData.setupData.ssid, getDataForWebSocket); // do not act as apoint
+            webSockData.states.flashOK = www_init(pBuf, webSockData.setupData.ssid, getDataForWebSocket, setSetupChanged); // do not act as apoint
             webSockData.states.networkOK = true;
         }
 
@@ -847,10 +848,10 @@ void loop()
     // SETUP_CHECK_INTERVALL
     if (timeSlice.currentMillis - timeSlice.previousMillisSetup > SETUP_CHECK_INTERVALL)
     {
-          DBGf("main::SETUP_CHECK_INTERVALL %d ",webSockData.setupData.setupChanged);
+        DBGf("main::SETUP_CHECK_INTERVALL %d ", webSockData.setupData.setupChanged);
         if (webSockData.setupData.setupChanged)
         {
-          
+
             Setup d;
 
             eprom_getSetup(d);
@@ -864,7 +865,7 @@ void loop()
             else
             {
                 DBGf("main::setupHandling Restarti");
-                //esp_restart();
+                // esp_restart();
             }
         }
         timeSlice.previousMillisSetup = timeSlice.currentMillis;
@@ -880,6 +881,11 @@ WEBSOCK_DATA &getDataForWebSocket()
 {
     // DBGf("getDataForWebSocket, Temp: %.2lf", webSockData.temperature.sensor1);
     return webSockData;
+}
+bool &setSetupChanged(bool didSetupChanged)
+{
+    webSockData.setupData.setupChanged = didSetupChanged;
+    return webSockData.setupData.setupChanged;
 }
 
 #ifdef EJ

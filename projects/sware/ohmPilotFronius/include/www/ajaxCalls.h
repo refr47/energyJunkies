@@ -54,7 +54,7 @@
 #define WWW_TEMP_SENSOR "TEMP"
 #define WWW_TEMP_SENSOR_VAL "TEMPV"
 
-void ajaxCalls_init(CALLBACK_GET_DATA webSockData);
+void ajaxCalls_init(CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupCh);
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request);
 void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus);
