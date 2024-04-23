@@ -238,6 +238,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     /* if (prevAvailableWatt != START_VALUE_FOR_AIVALABLE_WATT)
         availableWatt = prevAvailableWatt; */
 #endif
+
     if (powerIndex < MAX_LEN_MEASURE)
     {
         availablePower.push_back(availableWatt); // availablePower;
