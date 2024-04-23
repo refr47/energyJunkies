@@ -86,7 +86,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     sprintf(buff, "%.2f", setup.additionalLoad);
     data[SIM_ADDITIONAL_LOAD] = buff;
     sprintf(buff, "%d", setup.forceHeating);
-    data[SIM_BIAS_POWER] = buff;
+    data[FORCE_HEIZPATRONE] = buff;
 
     DBGf("ajaxCalls_handleGetSetup - return ");
     return returnFromStoreSetup(true, data, request);
@@ -194,7 +194,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
 {
     const JsonObject &jsonObj = json.as<JsonObject>();
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
-
+    WEBSOCK_DATA webSockD = webSockData();
     for (JsonPair keyValue : jsonObj)
     {
         Serial.print(keyValue.key().c_str());
@@ -206,7 +206,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     float resultF = 0.0;
     bool errorH = false;
     DBGf("ajaxCalls_handleStoreSetup BEGIN - %s, %s", WLAN_ESSID, argument);
-
+    webSockD.setupData.setupChanged = false;
     errorH = util_isFieldFilled(WLAN_ESSID, argument, data);
     if (errorH)
         strcpy(setup.ssid, jsonObj[WLAN_ESSID]);
@@ -226,7 +226,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     errorH = util_isFieldFilled(IP_INVERTER, argument, data);
     if (errorH)
     {
-        strncpy(setup.inverter, argument,INET_ADDRSTRLEN);
+        strncpy(setup.inverter, argument, INET_ADDRSTRLEN);
         /* bool result = true;
 
         setup.ipInverter = ipv4_string_to_int((char *)argument, &result);
@@ -238,7 +238,6 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
             data["error"] = "IP-Transformation war nicht erfolgreich!";
             return returnFromStoreSetup(false, data, request);
         } */
-
     }
     else
         return returnFromStoreSetup(errorH, data, request);
@@ -477,12 +476,12 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     if (errorH)
         setup.additionalLoad = resultF;
 
-    argument = jsonObj[SIM_BIAS_POWER];
-    DBGf("ARG: %s, VAl: %s", SIM_BIAS_POWER, argument);
-    errorH = util_checkParamInt(SIM_BIAS_POWER, argument, data, &result);
+    argument = jsonObj[FORCE_HEIZPATRONE];
+    DBGf("ARG: %s, VAl: %s", FORCE_HEIZPATRONE, argument);
+    errorH = util_checkParamInt(FORCE_HEIZPATRONE, argument, data, &result);
     if (errorH)
         setup.forceHeating = result;
-
+    webSockD.setupData.setupChanged = true;
     DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");
     eprom_storeSetup(setup);
     eprom_test_read_Eprom();

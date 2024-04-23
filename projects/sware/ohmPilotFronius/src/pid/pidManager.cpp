@@ -194,7 +194,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
          return true;
 
      } */
-
+ 
     DBGf("=================PID Start =======================");
     if (webSockData.states.froniusAPI)
     {

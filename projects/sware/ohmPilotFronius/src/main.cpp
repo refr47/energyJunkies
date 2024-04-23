@@ -70,6 +70,7 @@ https://github.com/Xinyuan-LilyGO/T-Display-S3
 #define CONFIG_PARAM_TEST_INTERVALL 6000
 #define AMIS_READER_INTERVALL 10000
 #define RECONNET_INTERVALL 300000
+#define SETUP_CHECK_INTERVALL 10000
 #define FORMAT_CHAR_BUFFER_LEN 50 // @see loop
 
 #ifndef TAG
@@ -121,6 +122,7 @@ typedef struct _TIME_SLICE
     unsigned long previousMillisAkku;
     unsigned long previousMillisAmis;
     unsigned long previousMillisReconnect;
+    unsigned long previousMillisSetup;
     unsigned long currentMillis;
 
     MAX_RECONNECTING maxReconnecting;
@@ -678,9 +680,9 @@ void loop()
                     DBGf("  in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
                     webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
 
-/* #ifndef TEST_PID_WWWW
-                    availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
-#endif */
+                    /* #ifndef TEST_PID_WWWW
+                                        availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
+                    #endif */
 
                     tft_drawInfo(webSockData);
                     influx_write(webSockData);
@@ -841,6 +843,26 @@ void loop()
             }
         }
         timeSlice.previousMillisReconnect = timeSlice.currentMillis;
+    }
+    // SETUP_CHECK_INTERVALL
+    if (timeSlice.currentMillis - timeSlice.previousMillisSetup > SETUP_CHECK_INTERVALL)
+    {
+        if (webSockData.setupData.setupChanged)
+        {
+            DBGf("main::SETUP_CHECK_INTERVALL");
+            Setup d;
+            webSockData.setupData.setupChanged = false;
+            eprom_getSetup(d);
+            // delay(10000); // wait 10 secs
+
+            if (d.forceHeating != webSockData.setupData.forceHeating)
+            {
+                DBGf("main::forceHeating changed !! - no reboot");
+                DBGf("Old value: %d, new value: %d", webSockData.setupData.forceHeating, d.forceHeating);
+            }
+            esp_restart();
+        }
+        timeSlice.previousMillisSetup = timeSlice.currentMillis;
     }
 
     // eM_setSleepTime(20);
