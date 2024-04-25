@@ -851,6 +851,7 @@ void loop()
                 switch (d.forceHeating)
                 {
                 case HEATING_AUTOMATIC:
+                    pidPinManager.reset();
                     webSockData.states.heating = HEATING_AUTOMATIC;
                     break;
                 case HEATING_ON_PHASE_1:
