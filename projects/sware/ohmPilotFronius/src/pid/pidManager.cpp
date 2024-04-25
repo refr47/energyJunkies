@@ -216,11 +216,11 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
             if (webSockData.setupData.externerSpeicherPriori == AKKU_PRIORITY_SUBORDINATED)
             {
                 availableWatt = FRONIUS.p_akku + FRONIUS.p_grid; // gird < 0: einspeisen, > 0 bezug
-                DBGf("PidMnager::froniusAPI, akku priority subordinated (nachrangig)");
+                DBGf("PidManager::froniusAPI, akku priority subordinated (nachrangig), available Watt: %.3f", availableWatt);
             }
             else
             {
-                DBGf("PidMnager::froniusAPI, akku priority primary (vorrangig)");
+                DBGf("PidManager::froniusAPI, akku priority primary (vorrangig)available Watt: %.3f", availableWatt);
                 availableWatt = FRONIUS.p_grid;
             }
         }

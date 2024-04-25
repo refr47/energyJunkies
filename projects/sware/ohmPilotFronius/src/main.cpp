@@ -216,8 +216,8 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    //     eprom_clearLifeData();
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    //      eprom_clearLifeData();
     eprom_isInit();
 
     // ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
@@ -883,6 +883,11 @@ void loop()
 
                 webSockData.setupData.forceHeating = d.forceHeating;
             }
+            if (d.externerSpeicherPriori != webSockData.setupData.externerSpeicherPriori)
+            {
+                DBGf("main::externerSpeicherPriori changed !! - no reboot :: eprom: %d, web: %d", d.externerSpeicherPriori, webSockData.setupData.externerSpeicherPriori);
+                webSockData.setupData.externerSpeicherPriori = d.externerSpeicherPriori;
+            }
             webSockData.setupData.setupChanged = false;
         }
         else
@@ -890,6 +895,7 @@ void loop()
             DBGf("main::setupHandling Restarti");
             // esp_restart();
         }
+
         timeSlice.previousMillisSetup = timeSlice.currentMillis;
     }
 
