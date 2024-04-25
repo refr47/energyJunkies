@@ -236,7 +236,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 
     if (webSockData.states.heating != HEATING_AUTOMATIC) // no pid controller, all is forced
     {
-
+        DBGf("pidManager::task: heating: %d", webSockData.states.heating);
 #ifdef INFLUX
         influx_write_test(storage, availableWatt, webSockData);
 #endif
