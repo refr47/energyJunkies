@@ -840,8 +840,8 @@ void loop()
             Setup d;
 
             eprom_getSetup(d);
-            // delay(10000); // wait 10 secs
-
+            delay(10000); // wait 10 secs
+            DBGf("==::== oldVal: %d, newVal: %d", webSockData.setupData.forceHeating, d.forceHeating);
             if (d.forceHeating != webSockData.setupData.forceHeating)
             {
                 DBGf("main::forceHeating changed !! - no reboot");
