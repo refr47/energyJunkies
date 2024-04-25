@@ -885,7 +885,7 @@ void loop()
             }
             if (d.externerSpeicherPriori != webSockData.setupData.externerSpeicherPriori)
             {
-                DBGf("main::externerSpeicherPriori changed !! - no reboot :: eprom: %d, web: %d", d.externerSpeicherPriori, webSockData.setupData.externerSpeicherPriori);
+                DBGf("main::externerSpeicherPriori changed !! - no reboot :: eprom: %c, web: %c", d.externerSpeicherPriori, webSockData.setupData.externerSpeicherPriori);
                 webSockData.setupData.externerSpeicherPriori = d.externerSpeicherPriori;
             }
             webSockData.setupData.setupChanged = false;
