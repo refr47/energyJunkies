@@ -29,6 +29,9 @@
 #define HEATING_ON_PHASE_1_2_3 3
 #define HEATING_AUTOMATIC 0
 
+#define AKKU_PRIORITY_PRIMARY 1
+#define AKKU_PRIORITY_SUBORDINATED 2
+
 #define JSON_OBJECT_SETUP_LEN 1024 /// www.cpp,
 
 #define INVERTER_DATA webSockData.mbContainer.inverterSumValues.data
