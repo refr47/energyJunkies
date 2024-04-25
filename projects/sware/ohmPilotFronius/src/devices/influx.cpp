@@ -15,7 +15,7 @@ static InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUX
 // Data point
 static Point energy("energy");
 static Point boiler("boiler");
-static Point simulation("simulation");
+static Point simulation("monitor");
 static Point inverter("inverter");
 static Point means("means");
 
@@ -121,6 +121,7 @@ bool influx_write_test(double boilerData, double availableWatt, WEBSOCK_DATA &we
     simulation.addField("relay2", webSockData.pidContainer.PID_PIN2);
     simulation.addField("storage", boilerData);
     simulation.addField("availableWatt", availableWatt);
+    simulation.addField("ForceHeating", webSockData.states.heating);
     String proto = client.pointToLineProtocol(simulation);
     if (!client.writePoint(simulation))
     {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-//#include <PID_v1.h>
+// #include <PID_v1.h>
 #include "defines.h"
 #include <vector>
 #include <iostream>
@@ -77,6 +77,9 @@ public:
     PinManager();
     void config(Setup &setup, int digOut1, int digOut2, int anOut);
     void reset(); //
+    void switchOnL1();
+    void switchOnL2();
+    void switchOnL3();
 
     bool task(WEBSOCK_DATA &webSockData); // > 0: bezug vom Netz, <0 eigene Produktion
 

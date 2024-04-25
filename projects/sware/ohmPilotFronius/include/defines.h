@@ -23,6 +23,12 @@
 #define INFLUX_ORG_LEN 30
 #define INFLUX_BUCKET_LEN 30
 
+#define HEATING_OFF 0
+#define HEATING_ON_PHASE_1 1
+#define HEATING_ON_PHASE_1_2 2
+#define HEATING_ON_PHASE_1_2_3 3
+#define HEATING_AUTOMATIC 10
+
 #define JSON_OBJECT_SETUP_LEN 1024 /// www.cpp,
 
 #define INVERTER_DATA webSockData.mbContainer.inverterSumValues.data
@@ -149,6 +155,7 @@ typedef struct _STATES
     bool amisReader;
     bool influx;
     bool mqtt;
+    unsigned int heating;
 } STATES;
 
 typedef struct _FRONIUS_SOLAR_POWERFLOW

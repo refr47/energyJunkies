@@ -75,6 +75,25 @@ void PinManager::reset()
         }
     }
 }
+void PinManager::switchOnL1()
+{
+
+    mOuts[id_DIG_PIN_1].setValue(1);
+    mAnalogOut = 0.0;
+    mOuts[id_ANA_PWM].setValue(mAnalogOut);
+}
+void PinManager::switchOnL2()
+{
+
+    mOuts[id_DIG_PIN_2].setValue(1);
+    mAnalogOut = 0.0;
+    mOuts[id_ANA_PWM].setValue(mAnalogOut);
+}
+void PinManager::switchOnL3()
+{
+    mAnalogOut = OUTPUT_MAX;
+    mOuts[id_ANA_PWM].setValue(mAnalogOut);
+}
 
 double PinManager::getMeanOfAvailAblePower()
 {
@@ -189,12 +208,6 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     bool result = false;
     static double pwm = 0.0;
 
-    /*  if (METER_DATA.acCurrentPower > 0.0) {
-         DBGf("Energy Import %.3f",METER_DATA.acCurrentPower);
-         return true;
-
-     } */
- 
     DBGf("=================PID Start =======================");
     if (webSockData.states.froniusAPI)
     {
@@ -219,6 +232,16 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 #ifdef INFLUX
         influx_write_production(INVERTER_DATA.acCurrentPower, 0.0, METER_DATA.acCurrentPower);
 #endif
+    }
+
+    if (webSockData.states.heating != HEATING_AUTOMATIC) // no pid controller, all is forced
+    {
+
+#ifdef INFLUX
+        influx_write_test(storage, availableWatt, webSockData);
+#endif
+
+        return true; // nothing must be done due to overruling everything
     }
 
 #ifdef TEST_PID_WWWW

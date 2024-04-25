@@ -756,21 +756,6 @@ void loop()
             webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
             webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
             webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
-
-            /*  if (availablePowerFromWRInWatt < 0.0) // energy export
-             {
-                 // DBGf(" main::Einspeisung %lf, muss übrig bleiben %d", availablePowerFromWRInWatt, webSockData.setupData.pid_powerWhichNeedNotConsumed);
-
-                 //  Einspeisung - Wieviel müss übrig bleiben
-                 pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
-             }
-             else
-             {
-
-                 // DBGf(" main::Bezug  %f", availablePowerFromWRInWatt);
-
-                 pidPinManager.task(webSockData.setupData, &availablePowerFromWRInWatt);
-             } */
         }
         timeSlice.previousMillisController = timeSlice.currentMillis;
         // DBGf("PID_CONTROLLER_INTERVALL");
@@ -861,18 +846,54 @@ void loop()
             {
                 DBGf("main::forceHeating changed !! - no reboot");
                 DBGf("Old value: %d, new value: %d", webSockData.setupData.forceHeating, d.forceHeating);
+                webSockData.states.heating = HEATING_AUTOMATIC;
+
+                switch (d.forceHeating)
+                {
+                case HEATING_OFF:
+                    pidPinManager.reset();
+                    webSockData.states.heating = HEATING_OFF;
+                    break;
+                case HEATING_ON_PHASE_1:
+                    webSockData.states.heating = HEATING_ON_PHASE_1;
+                    pidPinManager.reset();
+                    pidPinManager.switchOnL1();
+                    break;
+                case HEATING_ON_PHASE_1_2:
+                    webSockData.states.heating = HEATING_ON_PHASE_1_2;
+                    pidPinManager.reset();
+                    pidPinManager.switchOnL1();
+                    pidPinManager.switchOnL2();
+                    break;
+                case HEATING_ON_PHASE_1_2_3:
+                    webSockData.states.heating = HEATING_ON_PHASE_1_2_3;
+                    pidPinManager.reset();
+                    pidPinManager.switchOnL1();
+                    pidPinManager.switchOnL2();
+                    pidPinManager.switchOnL3();
+                    break;
+                case HEATING_AUTOMATIC:
+                    webSockData.states.heating = HEATING_AUTOMATIC;
+                    break;
+                default:
+                    webSockData.states.heating = HEATING_AUTOMATIC;
+                    break;
+                }
+
+                webSockData.setupData.forceHeating = d.forceHeating;
             }
-            else
-            {
-                DBGf("main::setupHandling Restarti");
-                // esp_restart();
-            }
+            webSockData.setupData.setupChanged = false;
+        }
+        else
+        {
+            DBGf("main::setupHandling Restarti");
+            // esp_restart();
         }
         timeSlice.previousMillisSetup = timeSlice.currentMillis;
     }
 
-    // eM_setSleepTime(20);
-    // eM_lightSleep();
+// eM_setSleepTime(20);
+// eM_lightSleep();
 #endif
 
 } // loop
