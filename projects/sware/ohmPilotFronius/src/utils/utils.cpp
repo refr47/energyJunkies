@@ -196,7 +196,7 @@ bool util_checkParamInt(const char *key, const char *argument, StaticJsonDocumen
 		return false;
 	}
 
-	if (*result == 0)
+	/* if (*result == 0)
 	{
 		char buf[BUFFER_LEN_FOR_ARG_CHECK];
 		sprintf(buf, "Argument: %s ist kein numerischer Wert.", key);
@@ -204,7 +204,7 @@ bool util_checkParamInt(const char *key, const char *argument, StaticJsonDocumen
 		DBGf("utilCheckParamInt: %s - kein numerischer Wert : %s", key, argument);
 
 		return false;
-	}
+	} */
 	return true;
 }
 
