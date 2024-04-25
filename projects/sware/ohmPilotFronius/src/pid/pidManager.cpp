@@ -82,7 +82,7 @@ void PinManager::switchOnL1()
     mOuts[id_DIG_PIN_1].setValue(1);
     mAnalogOut = 0.0;
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
-    storage = onePhase;
+    storage += onePhase;
 }
 void PinManager::switchOnL2()
 {
@@ -90,13 +90,13 @@ void PinManager::switchOnL2()
     mOuts[id_DIG_PIN_2].setValue(1);
     mAnalogOut = 0.0;
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
-    storage = onePhase;
+    storage += onePhase;
 }
 void PinManager::switchOnL3()
 {
     mAnalogOut = OUTPUT_MAX;
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
-    storage = onePhase;
+    storage += onePhase;
 }
 
 double PinManager::getMeanOfAvailAblePower()
