@@ -215,12 +215,19 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     DBGf("=================PID Start =======================");
     if (webSockData.states.froniusAPI)
     {
-        if (FRONIUS.p_load + storage + mAnalogOut > 0.0)
+        if (storage > 0.0 || mAnalogOut > 0.0)
         {
-            DBGf("pidManager::task - storage > current load (boiler thermostat has switch off) FRONIUS.p_load: %.3f, storage: %.3f, mAnalogOut: %.3f, Temperature: %.3f", FRONIUS.p_load, storage, mAnalogOut, webSockData.temperature.sensor1);
-            reset();
-            return true;
+            // p_load < 0 implies: consumtion of watt and if
+            // storage+mAnalogOut + current consumption > 0: hardware bimetal
+            // temperature of boiler switched off
+            if (FRONIUS.p_load + storage + mAnalogOut > 0.0)
+            {
+                DBGf("pidManager::task - storage > current load (boiler thermostat has switch off) FRONIUS.p_load: %.3f, storage: %.3f, mAnalogOut: %.3f, Temperature: %.3f", FRONIUS.p_load, storage, mAnalogOut, webSockData.temperature.sensor1);
+                reset();
+                return true;
+            }
         }
+
         if (FRONIUS.p_akku < 0.0)
         { // <0: laden, >0 entladen
             if (webSockData.setupData.externerSpeicherPriori == AKKU_PRIORITY_SUBORDINATED)
