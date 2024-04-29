@@ -49,6 +49,8 @@ PinManager::PinManager()
 
     powerIndex = 0;
     storage = 0;
+    boilerSwitchExternalOn = 0;
+    testForBoilerSwitch = 0
 }
 
 void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
@@ -61,7 +63,10 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
 
     mDelayDigOutOn = millis();
     mDelayDigOutOff = millis();
+    boilerSwitchExternalOn = 0;
+    testForBoilerSwitch = 0
 }
+
 void PinManager::reset()
 {
     mAnalogOut = 0.0;
@@ -222,9 +227,30 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
             // temperature of boiler switched off
             if (FRONIUS.p_load + storage + mAnalogOut > 0.0)
             {
-                DBGf("pidManager::task - storage > current load (boiler thermostat has switch off) FRONIUS.p_load: %.3f, storage: %.3f, mAnalogOut: %.3f, Temperature: %.3f", FRONIUS.p_load, storage, mAnalogOut, webSockData.temperature.sensor1);
-                reset();
+                if (testForBoilerSwitch == 0)
+                {
+                    testForBoilerSwitch = millis();
+                    DBGf("pidManager::task - test for external boiler switch started.");
+                    boilerSwitchExternalOn = 1;
+                    DBGf("pidManager::task - storage > current load (boiler thermostat has switch off) FRONIUS.p_load: %.3f, storage: %.3f, mAnalogOut: %.3f, Temperature: %.3f", FRONIUS.p_load, storage, mAnalogOut, webSockData.temperature.sensor1);
+                    reset();
+                }
+                else
+                {
+                    ++boilerSwitchExternalOn;
+                    storage = mAnalogOut = 0;
+                    if (boilerSwitchExternalOn > 100)
+                    {
+                        DBGf("pidManager::task - boiler switch, counter > 100, timeSlot: %d", millis() - testForBoilerSwitch);
+                        boilerSwitchExternalOn = 0;
+                        testForBoilerSwitch = millis();
+                    }
+                }
                 return true;
+            }
+            else
+            {
+                // testForBoilerSwitch = 0;
             }
         }
 

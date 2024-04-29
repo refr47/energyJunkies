@@ -103,6 +103,8 @@ private:
     double availableWatt;
     double gridWatt;
     double storage;
+    unsigned int boilerSwitchExternalOn; // bimetal boiler switched off
+    unsigned long testForBoilerSwitch;
     // double mCurrentPower;
 
     // PID mPid;
