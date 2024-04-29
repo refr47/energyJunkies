@@ -64,7 +64,7 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
     mDelayDigOutOn = millis();
     mDelayDigOutOff = millis();
     boilerSwitchExternalOn = 0;
-    testForBoilerSwitch = 0
+    testForBoilerSwitch = 0;
 }
 
 void PinManager::reset()
