@@ -50,7 +50,7 @@ PinManager::PinManager()
     powerIndex = 0;
     storage = 0;
     boilerSwitchExternalOn = 0;
-    testForBoilerSwitch = 0
+    testForBoilerSwitch = 0;
 }
 
 void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
