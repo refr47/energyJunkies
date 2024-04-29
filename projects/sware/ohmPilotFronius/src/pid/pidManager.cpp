@@ -214,8 +214,8 @@ void PinManager::adustPWM()
 }
 bool PinManager::task(WEBSOCK_DATA &webSockData)
 {
-    bool result = false;
-    static double pwm = 0.0;
+    /* bool result = false;
+    static double pwm = 0.0; */
 
     DBGf("=================PID Start =======================");
     if (webSockData.states.froniusAPI)

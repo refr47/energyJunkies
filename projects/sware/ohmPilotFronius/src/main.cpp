@@ -523,6 +523,8 @@ void loop()
     }
 
     /* ***********************                   FETCH TEMperature           ************************/
+    DBGf("main main === TEMP in Celsius, S1: %f, S2: %f", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+
     if (timeSlice.currentMillis - timeSlice.previousMillTemp > TEMPERATURE_INTERVAL)
     {
         // DBGf("TEMPERATURE_INTERVAL");
