@@ -212,12 +212,67 @@ void PinManager::adustPWM()
         DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX);
     }
 }
-bool PinManager::task(WEBSOCK_DATA &webSockData)
+// true: nothing must be done, because temperature > allowed or temperature < allowed
+// false: loading is not handled by this methode!
+bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
 {
-    /* bool result = false;
-    static double pwm = 0.0; */
-
-    DBGf("=================PID Start =======================");
+    double boilerTemp = webSockData.temperature.sensor1 + webSockData.temperature.sensor2 / 2.0;
+    if (boilerTemp >= webSockData.setupData.tempMaxAllowedInGrad)
+    {
+        DBGf("pidManager::task - no action available, boilerTemp %.3f >= webSockData.setupData.tempMaxAllowedInGrad %.3f", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
+        webSockData.states.boilerHeating = false;
+        if (getStateOfDigPin(0))
+        {
+            DBGf("pidManager::task, Temperature overflow, switchOffL1");
+            reset();
+        }
+        if (getStateOfDigPin(1))
+        {
+            DBGf("pidManager::task, Temperature overflow, switchOffL2");
+            reset();
+        }
+        if (getStateOfAnaPin())
+        {
+            DBGf("pidManager::task, Temperature overflow, switchOffL3");
+            reset();
+        }
+#ifdef INFLUX
+        influx_write_test(storage, availableWatt, webSockData);
+#endif
+        return true;
+    }
+    else if (boilerTemp < webSockData.setupData.tempMinInGrad)
+    {
+        DBGf("pidManager::task - boilerTemp Minimal underflow, start heating %.3f < webSockData.setupData.tempMinInGrad %.3f", boilerTemp, webSockData.setupData.tempMinInGrad);
+        webSockData.states.boilerHeating = true;
+        if (!getStateOfDigPin(0))
+        {
+            DBGf("pidManager::task, Temperature underflow, switchOnL1");
+            switchOnL1();
+        }
+        if (!getStateOfDigPin(1))
+        {
+            DBGf("pidManager::task, Temperature underflow, switchOnL2");
+            switchOnL2();
+        }
+        if (!getStateOfAnaPin())
+        {
+            DBGf("pidManager::task, Temperature underflow, switchOnL3");
+            switchOnL3();
+        }
+#ifdef INFLUX
+        influx_write_test(storage, availableWatt, webSockData);
+#endif
+        return true;
+    }
+    else
+    {
+        webSockData.states.boilerHeating = true;
+    }
+    return false;
+}
+bool PinManager::prologExternalBoilerSwitchHandling(WEBSOCK_DATA &webSockData)
+{
     if (webSockData.states.froniusAPI)
     {
         if (storage > 0.0 || mAnalogOut > 0.0)
@@ -253,7 +308,20 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
                 // testForBoilerSwitch = 0;
             }
         }
+    }
+    return true;
+}
 
+bool PinManager::task(WEBSOCK_DATA &webSockData)
+{
+
+    DBGf("=================PID Start =======================");
+    // fetch temperature
+    if (prologTemperature(webSockData))
+        return true;
+    prologExternalBoilerSwitchHandling(webSockData);
+    if (webSockData.states.froniusAPI)
+    {
         if (FRONIUS.p_akku < 0.0)
         { // <0: laden, >0 entladen
             if (webSockData.setupData.externerSpeicherPriori == AKKU_PRIORITY_SUBORDINATED)
@@ -312,8 +380,8 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     firstAvailableWatt = availableWatt;
     DBGf("Abs: %f,  newAvailableWatt: %f, addLoad: %.3f", ABS(availableWatt), availableWatt, d.additionalLoad);
 
-    /* if (prevAvailableWatt != START_VALUE_FOR_AIVALABLE_WATT)
-        availableWatt = prevAvailableWatt; */
+/* if (prevAvailableWatt != START_VALUE_FOR_AIVALABLE_WATT)
+    availableWatt = prevAvailableWatt; */
 #endif
 
     if (powerIndex < MAX_LEN_MEASURE)

@@ -158,6 +158,7 @@ typedef struct _STATES
     bool amisReader;
     bool influx;
     bool mqtt;
+    bool boilerHeating; // on or off
     unsigned int heating;
 } STATES;
 

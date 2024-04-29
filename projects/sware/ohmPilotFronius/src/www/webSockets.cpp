@@ -35,6 +35,7 @@
 #define STATE_MODBUS 5
 #define STATE_FLASH 6
 #define STATE_TEMPSENSOR 7
+#define STATE_BOILER_HEATING 8
 
 //
 //  using macro to convert float to string
@@ -163,6 +164,9 @@ String getJsonObj()
         bitMaster |= (1 << STATE_MODBUS);
     if (!data.states.tempSensorOK)
         bitMaster |= (1 << STATE_TEMPSENSOR);
+    if (!data.states.boilerHeating)
+        bitMaster |= (1 << STATE_BOILER_HEATING);
+
     readings[FEHLER] = bitMaster;
 
     readings[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;

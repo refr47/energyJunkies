@@ -97,6 +97,10 @@ public:
     void adustPWM();
 
 private:
+    bool prologTemperature(WEBSOCK_DATA &webSockData);
+    bool prologExternalBoilerSwitchHandling(WEBSOCK_DATA &webSockData);
+
+private:
     Pins mOuts[3];
     double mAnalogOut;
     double onePhase;
