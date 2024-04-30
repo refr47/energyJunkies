@@ -899,7 +899,7 @@ void loop()
                 DBGf("main:: tempMaxAllowedInGrad changed !! - no reboot :: eprom: %.3f, web: %d", d.tempMaxAllowedInGrad, webSockData.setupData.tempMaxAllowedInGrad);
                 webSockData.setupData.tempMaxAllowedInGrad = d.tempMaxAllowedInGrad;
             }
-            webSockData.setupData.setupChanged = falseme;
+            webSockData.setupData.setupChanged = false;
         }
         else
         {
