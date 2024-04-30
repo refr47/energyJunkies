@@ -217,6 +217,7 @@ void PinManager::adustPWM()
 bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
 {
     double boilerTemp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
+    DBGf("pidManager::task - prologTemperature, boilerTemp %.3f  webSockData.setupData.tempMaxAllowedInGrad %.3f", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
     if (boilerTemp >= webSockData.setupData.tempMaxAllowedInGrad)
     {
         DBGf("pidManager::task - no action available, boilerTemp %.3f >= webSockData.setupData.tempMaxAllowedInGrad %.3f", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
