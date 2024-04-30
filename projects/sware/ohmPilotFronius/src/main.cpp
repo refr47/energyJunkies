@@ -890,6 +890,11 @@ void loop()
                 DBGf("main::externerSpeicherPriori changed !! - no reboot :: eprom: %c, web: %c", d.externerSpeicherPriori, webSockData.setupData.externerSpeicherPriori);
                 webSockData.setupData.externerSpeicherPriori = d.externerSpeicherPriori;
             }
+            if (d.tempMaxAllowedInGrad != webSockData.setupData.tempMaxAllowedInGrad)
+            {
+                DBGf("main::tempMaxAllowedInGrad changed !! - no reboot");
+                webSockData.setupData.tempMaxAllowedInGrad = d.tempMaxAllowedInGrad;
+            }
             webSockData.setupData.setupChanged = false;
         }
         else
