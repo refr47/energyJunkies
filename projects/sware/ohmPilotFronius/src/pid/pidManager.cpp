@@ -319,7 +319,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     // fetch temperature
     if (prologTemperature(webSockData))
         return true;
-    prologExternalBoilerSwitchHandling(webSockData);
+    // prologExternalBoilerSwitchHandling(webSockData);
     if (webSockData.states.froniusAPI)
     {
         if (FRONIUS.p_akku < 0.0)

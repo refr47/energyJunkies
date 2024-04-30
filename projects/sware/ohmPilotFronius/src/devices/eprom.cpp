@@ -223,8 +223,8 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     DBGf("eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
 
     setup.heizstab_leistung_in_watt = 5000;
-    setup.tempMaxAllowedInGrad = 80;
-    setup.tempMinInGrad = 10;
+    setup.tempMaxAllowedInGrad = 60;
+    setup.tempMinInGrad = 35;
     strcpy(setup.inverter, "10.0.0.2");
 
     bool result = true;
@@ -258,7 +258,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
             DBGf("IP translate did not succeed."); */
     strncpy(setup.amisKey, "ABCDFGASDFGDSAERTQWEREW§EWERQEEE", AMIS_KEY_LEN - 1);
 
-    setup.forceHeating = 10;
+    setup.forceHeating = 0;
     setup.additionalLoad = 0.0;
 
     DBGf("eprom_test_write_Eprom END");
