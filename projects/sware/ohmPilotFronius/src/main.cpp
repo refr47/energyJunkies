@@ -538,7 +538,7 @@ void loop()
                 webSockData.temperature.alarm = true;
                 if (!webSockData.temperature.alarm)
                 {
-                    ESP_LOGE(TAG, "Temperatur Sensorik ausgefallen - Heizpatrone wird abgeschaltet");
+                    ESP_LOGE(TAG, "main::Temperatur Sensorik ausgefallen - Heizpatrone wird abgeschaltet");
                     pidPinManager.reset(); // alles aus
                     alarmContainer.alarmTemp.alarmTemp = true;
                     alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
@@ -553,12 +553,12 @@ void loop()
             /*
             RELAY_L1, RELAY_L2, PWM_FOR_PID
             */
-            DBGf(" TEMP in Celsius, S1: %f, S2: %f", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+            DBGf("main::TEMP in Celsius, S1: %f, S2: %f", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
             if (!alarmContainer.alarmTemp.alarmTemp)
             {
                 if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > webSockData.setupData.tempMaxAllowedInGrad)
                 {
-                    ESP_LOGE(TAG, "Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
+                    ESP_LOGE(TAG, "main::Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
 
                     pidPinManager.reset(); // alles aus
                     alarmContainer.alarmTemp.alarmTemp = true;
@@ -576,7 +576,7 @@ void loop()
                 double diffT = difftime(currT, alarmContainer.alarmTemp.overFlowHappenedAt); // in secs
                 if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
                 {
-                    DBGf("TempLimit over %d °C , wait for next check in secs: %d", webSockData.setupData.tempMaxAllowedInGrad, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
+                    DBGf("main::TempLimit over %d °C , wait for next check in secs: %d", webSockData.setupData.tempMaxAllowedInGrad, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
                     if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > webSockData.setupData.tempMaxAllowedInGrad)
                     {
                         alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
@@ -587,10 +587,10 @@ void loop()
                     }
                     else
                     {
-                        alarmContainer.alarmTemp.alarmTemp = true;
+                        alarmContainer.alarmTemp.alarmTemp = false;
                         alarmContainer.alarmTemp.overFlowHappenedAt = 0;
                         ledHandler_showTemperaturError(false);
-                        DBGf("TempLimit reset");
+                        DBGf("main:: TempLimit reset");
                     }
                 }
             }
@@ -758,6 +758,10 @@ void loop()
             webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
             webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
         }
+        else
+        {
+            DBGf("Temperature alarm container is on (%d)", alarmContainer.alarmTemp.alarmTemp);
+        }
         timeSlice.previousMillisController = timeSlice.currentMillis;
         // DBGf("PID_CONTROLLER_INTERVALL");
     }
@@ -892,10 +896,10 @@ void loop()
             }
             if (d.tempMaxAllowedInGrad != webSockData.setupData.tempMaxAllowedInGrad)
             {
-                DBGf("main:: tempMaxAllowedInGrad changed !! - no reboot :: eprom: %.3f, web: %.3f", d.tempMaxAllowedInGrad, webSockData.setupData.tempMaxAllowedInGrad);
+                DBGf("main:: tempMaxAllowedInGrad changed !! - no reboot :: eprom: %.3f, web: %d", d.tempMaxAllowedInGrad, webSockData.setupData.tempMaxAllowedInGrad);
                 webSockData.setupData.tempMaxAllowedInGrad = d.tempMaxAllowedInGrad;
             }
-            webSockData.setupData.setupChanged = false;
+            webSockData.setupData.setupChanged = falseme;
         }
         else
         {

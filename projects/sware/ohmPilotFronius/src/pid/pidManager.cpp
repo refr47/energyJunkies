@@ -82,7 +82,7 @@ void PinManager::reset()
         }
         else
         {
-            DBGf("PinManager::reset pin %d off", i);
+            DBGf("PinManager::reset pin %d already off", i);
         }
     }
     storage = 0.0;
@@ -226,7 +226,7 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
     DBGf("pidManager::task - prologTemperature, boilerTemp %.3f  webSockData.setupData.tempMaxAllowedInGrad %.3f", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
     if (boilerTemp >= webSockData.setupData.tempMaxAllowedInGrad)
     {
-        DBGf("pidManager::task - no action available, boilerTemp %.3f >= webSockData.setupData.tempMaxAllowedInGrad %.3f", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
+        DBGf("pidManager::task - no action available, boilerTemp %.3f >= webSockData.setupData.tempMaxAllowedInGrad %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
         webSockData.states.boilerHeating = false;
         if (getStateOfDigPin(0))
         {
