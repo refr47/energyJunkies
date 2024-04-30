@@ -221,7 +221,7 @@ void setup()
     eprom_isInit();
 
     // ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
-    eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
     eprom_getSetup(webSockData.setupData);
     // eprom_getLifeData(lifeData);
 
