@@ -70,6 +70,7 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
 void PinManager::reset()
 {
     mAnalogOut = 0.0;
+    DBGf("PinManager::reset");
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
     for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
     {
@@ -77,6 +78,11 @@ void PinManager::reset()
         {
             mOuts[i].setValue(0);
             mDelayDigOutOff = millis();
+            DBGf("PinManager::reset pin %d", i);
+        }
+        else
+        {
+            DBGf("PinManager::reset pin %d off", i);
         }
     }
     storage = 0.0;
