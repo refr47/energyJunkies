@@ -154,7 +154,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
         WiFi.softAP(SSID_FOR_ACCESS_POINT);
 
         IPAddress IP = WiFi.softAPIP();
-        ipAddr = (char *)WiFi.softAPIP().toString().c_str();
+        ipAddr = WiFi.localIP().toString().c_str();
         strcpy(setupData.currentIP, ipAddr);
         DBGf("AP IP address: %s", ipAddr);
 
