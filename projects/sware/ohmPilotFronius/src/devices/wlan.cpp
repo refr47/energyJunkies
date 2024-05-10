@@ -13,7 +13,7 @@
 
 #define WIFI_TRY_DELAY 1000
 #define WIFI_NUMBER_OF_TRIES 15
-#define WIFI_RECONNECT_TRY_IN_INTERVALL 30000
+#define WIFI_RECONNECT_TRY_IN_INTERVALL 10000
 
 static unsigned long previousMillis = 0;
 
@@ -63,7 +63,7 @@ bool wifi_init(Setup &setup)
     wl_status_t statWifi = WiFi.status();
     bool printNewLine = true;
     char buf[200];
-    strcpy(setup.currentIP, "0.0.0.0"); 
+    strcpy(setup.currentIP, "0.0.0.0");
     while (true)
     {
 

@@ -146,16 +146,18 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     tft_printKeyValue("Init Flash File", "OK", TFT_GREEN);
     // listDir("/");
     if (ipAddr == NULL)
-    { 
+    {
         //  Connect to Wi-Fi network with SSID_FOR_ACCESS_POINT
         DBG("Setting AP (Access Point)…");
         isAPModus = true;
         WiFi.mode(WIFI_AP);
         WiFi.softAP(SSID_FOR_ACCESS_POINT);
+
         IPAddress IP = WiFi.softAPIP();
         ipAddr = (char *)IP.toString().c_str();
         strcpy(setupData.currentIP, ipAddr);
         DBGf("AP IP address: %s", ipAddr);
+        Serial.println(IP);
         tft_printKeyValue("ACCESS Point", "OK", TFT_GREEN);
         tft_printKeyValue("SSID", SSID_FOR_ACCESS_POINT, TFT_GREEN);
         tft_printKeyValue("IP", IP.toString().c_str(), TFT_GREEN);
