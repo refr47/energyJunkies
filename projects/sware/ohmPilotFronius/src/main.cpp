@@ -526,11 +526,12 @@ void loop()
             webSockData.states.networkOK = true;
         }
         DBGf("Network does not work - no further task are available, tcp ip: %s, Reconnected? %s", webSockData.setupData.currentIP, cp);
-        if (!webSockData.states.networkOK)
+        return;
+       /*  if (!webSockData.states.networkOK)
         {
             DBGf("main::!webSockData.states.networkOK");
             return;
-        }
+        } */
         // timeSlice.currentMillis = millis();
     }
     /* ***********************                   CLOCK           ************************/
