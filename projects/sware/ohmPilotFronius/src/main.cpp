@@ -443,6 +443,8 @@ if (webSockData.states.networkOK)
     delay(5000);
 
     DBGf(" -------- States ---------------");
+    DBGf("Network: %c", webSockData.states.networkOK == true ? 'y' : 'n');
+    DBGf("IP-Address: %s", webSockData.setupData.currentIP);
     DBGf("Fronius: %c", webSockData.states.froniusAPI == true ? 'y' : 'n');
     DBGf("AmisReader: %c", webSockData.states.amisReader == true ? 'y' : 'n');
     DBGf("CardWrite: %c", webSockData.states.cardWriterOK == true ? 'y' : 'n');
