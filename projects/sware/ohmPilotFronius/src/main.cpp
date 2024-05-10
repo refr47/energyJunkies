@@ -491,11 +491,12 @@ static double currentConsumeInWatt, accumulatedWatt = 0.0;
 #endif
 void loop()
 {
-    DBGf("Wait for 20 secs in loop");
+  /*   DBGf("Wait for 20 secs in loop");
     delay(20000);
-    DBGf("in loop - after waitinger for 20 secs");
+    DBGf("in loop - after waitinger for 20 secs"); */
+    timeSlice.currentMillis = millis();
 #ifndef EJ
-        if (!webSockData.states.networkOK)
+    if (!webSockData.states.networkOK)
     {
 
         delay(10000);
