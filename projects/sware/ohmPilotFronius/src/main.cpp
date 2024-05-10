@@ -68,7 +68,7 @@ https://github.com/Xinyuan-LilyGO/T-Display-S3
 #define CLOCK_INTERVALL 1000           // secs
 #define WEBSOCK_NOTIFY_INTERVALL 10000 // 5 secs
 #define SHOW_IP_ADDR_INTERVALL 5000
-#define CONFIG_PARAM_TEST_INTERVALL 6000
+#define CHECK_HEAP_SIZE_INTERVALL 6000
 #define AMIS_READER_INTERVALL 10000
 #define RECONNET_INTERVALL 300000
 #define SETUP_CHECK_INTERVALL 10000
@@ -110,6 +110,13 @@ typedef struct _MAX_RECONNECTING_
     unsigned int maxModbusCounter;
 
 } MAX_RECONNECTING;
+
+typedef struct _HEAP_SIZE
+{
+    unsigned int heapSize;
+    unsigned int heapSizeMax;
+} HEAP_SIZE;
+
 typedef struct _TIME_SLICE
 {
     unsigned long previousMillTemp;
@@ -119,7 +126,7 @@ typedef struct _TIME_SLICE
     unsigned long previousMillisWebSocks;
     unsigned long previousMillisShowIp;
     unsigned long previousMillisController;
-    unsigned long previousMillisTestConfig;
+    unsigned long previousMillisHeapCheck;
     unsigned long previousMillisAkku;
     unsigned long previousMillisAmis;
     unsigned long previousMillisReconnect;
@@ -144,6 +151,7 @@ static TIME_SLICE timeSlice;
 static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager;
 static WEBSOCK_DATA webSockData;
+static HEAP_SIZE heapSize[2];
 
 // static double availablePowerFromWRInWatt = 0.0;
 
@@ -207,7 +215,9 @@ void setup()
     ledHandler_init();
     tft_init();
     tft_printSetup();
-    DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+    heapSize[0].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    DBGf("Free heap: %d largest block: %d", heapSize[0].heapSize, heapSize[0].heapSizeMax);
 
     /*  int currentState = digitalRead(Iheap_caps_get_largest_free_block()NTERNAL_BUTTON_2_GPIO);
      DBGf("Interal button: %d", currentState); */
@@ -440,8 +450,10 @@ void setup()
 
 if (webSockData.states.networkOK)
 {
-    delay(5000);
 
+    heapSize[1].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    heapSize[1].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    DBGf("Free heap previous: %d largest block previous: %d,Free heap : %d largest block : %d", heapSize[0].heapSize, heapSize[0].heapSizeMax, heapSize[1].heapSize, heapSize[1].heapSizeMax);
     DBGf(" -------- States ---------------");
     DBGf("Network: %c", webSockData.states.networkOK == true ? 'y' : 'n');
     DBGf("IP-Address: %s", webSockData.setupData.currentIP);
@@ -453,7 +465,9 @@ if (webSockData.states.networkOK)
     DBGf("Modbus: %c", webSockData.states.influx == true ? 'y' : 'n');
     DBGf("MqTT: %c", webSockData.states.mqtt == true ? 'y' : 'n');
     DBGf("TempSensor: %c", webSockData.states.tempSensorOK == true ? 'y' : 'n');
+    DBGf("HeapSizeDiff: %d", heapSize[1].heapSize - heapSize[0].heapSize);
     tft_clearScreen();
+    delay(5000);
 }
 DBGf("Setup done - all components are working...");
 ESP_LOGI(TAG, "Setup done - all components are working...");
@@ -491,9 +505,12 @@ static double currentConsumeInWatt, accumulatedWatt = 0.0;
 #endif
 void loop()
 {
-  /*   DBGf("Wait for 20 secs in loop");
-    delay(20000);
-    DBGf("in loop - after waitinger for 20 secs"); */
+    /*   DBGf("Wait for 20 secs in loop");
+      delay(20000);
+      DBGf("in loop - after waitinger for 20 secs"); */
+    heapSize[0].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+
     timeSlice.currentMillis = millis();
 #ifndef EJ
     if (!webSockData.states.networkOK)
@@ -782,11 +799,14 @@ void loop()
     // DBGf(" main:: available watt: %f", availablePowerFromWRInWatt);
 
     /* ***********************                   CONFIG LIVE UPDATE sTAMMdaTEN via WEB           ************************/
-    if (timeSlice.currentMillis - timeSlice.previousMillisTestConfig > CONFIG_PARAM_TEST_INTERVALL)
+    if (timeSlice.currentMillis - timeSlice.previousMillisHeapCheck > CHECK_HEAP_SIZE_INTERVALL)
     {
-        mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer);
-        DBGf("CONFIG_PARAM_TEST_INTERVALL");
-        timeSlice.previousMillisTestConfig = timeSlice.currentMillis;
+        heapSize[1].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+        heapSize[1].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+        DBGf("Free heap: %d largest block: %d", heapSize[1].heapSize - heapSize[0].heapSize, heapSize[1].heapSizeMax);
+
+        DBGf("CHECK_HEAP_SIZE_INTERVALL)");
+        timeSlice.previousMillisHeapCheck = timeSlice.currentMillis;
 #ifdef TEST_PID_WWWW1
         Setup d;
         eprom_getSetup(d);
