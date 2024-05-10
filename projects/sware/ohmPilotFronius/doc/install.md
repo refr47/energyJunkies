@@ -35,24 +35,28 @@ ad b) Flashen des Programm-Images
 Das Programm muss fehlerfrei übersetzen (kleines Häckchen) und kann dann ohne weitere Maßnahmen mit dem Transfersymbol (kleiner Pfeil nach rechts) geflasht werden. Dies kann beliebig oft wiederholt werden, das SPIFF-System ist davon nicht betroffen.
 
 ## Einstellen diversers Flags in ***platformio.ini***
-Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von Bibliotheken und dem Compile-Vorgang, der u.a. durch diverse ***Defines*** gesteuert wird (bedingtes Compile). Im Sourcecode ist dann oftmals die ***ifdef*** Anweisung zu sehen, dass bestimmte Teile vom COmpile-Vorgang ein- bzw. ausschließt. Die wichtigsten Flags wären:
- - DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
-	- DLOGFILE_SYS='"/logSYS.txt"'                    # Name des Logfiles am CardREader
-	- DLOGFILE_INVERTER='"/logInv.txt"'               # Ausgabe für Inverter Daten (z.B. Produktion,...)
-	- DTAG='"EJunkies"'                               # Tag für ESP Logging System
-	- DEJ=1                                           # TestProg für EJ (Schalter) am Board; mit einer nachgestellten 1 wirkt dann das Define nicht
-	- DWEB=1 # Zusätzliche FUnktionalität für REST
-	- DCORS_DEBUG=1   # Debug der REST
-	- DTEST_PID_WWWW1=1  # Test des Reglers, wobei dann die in der RestSchnittstelle unter Stammdaten eingegeben Daten nach dem Speichern übernommen werden
-	- DMQTT='"10.0.0.2"'   # falls man einen mqtt-Server nutzt
-	- DPID_LIB=1                # Verwendung der PID-Lib für den REgler
-   	-DMODBUS_VERBOSE=1 	# Modbus Kommunikation im Debug-Modus
-	-DWEATHER_API=1		# Einbindung des Wetter API (https://api.open-meteo.com) 
-	-DFRONIUS_IV=1		# Bei eineme Fronius WR: Verwendung des Solar API (http Protokoll)
-	-DINFLUX=1		# Verwendung der Influx DB
 
+Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von Bibliotheken und dem Compile-Vorgang, der u.a. durch diverse ***Defines*** gesteuert wird (bedingtes Compile). Im Sourcecode ist dann oftmals die ***ifdef*** Anweisung zu sehen, dass bestimmte Teile vom COmpile-Vorgang ein- bzw. ausschließt. Die wichtigsten Flags wären:
+
+DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
+
+- DLOGFILE_SYS='"/logSYS.txt"'                    # Name des Logfiles am CardREader
+- DLOGFILE_INVERTER='"/logInv.txt"'               # Ausgabe für Inverter Daten (z.B. Produktion,...)
+- DTAG='"EJunkies"'                               # Tag für ESP Logging System
+- DEJ=1                                           # TestProg für EJ (Schalter) am Board; mit einer nachgestellten 1 wirkt dann das Define nicht
+- DWEB=1 # Zusätzliche FUnktionalität für REST
+- DCORS_DEBUG=1   # Debug der REST
+- DTEST_PID_WWWW1=1  # Test des Reglers, wobei dann die in der RestSchnittstelle unter Stammdaten eingegeben Daten nach dem Speichern übernommen werden
+- DMQTT='"10.0.0.2"'   # falls man einen mqtt-Server nutzt
+- -DMODBUS_VERBOSE=1 	# Modbus Kommunikation im Debug-Modus
+
+  -DFRONIUS_IV=1		# Bei eineme Fronius WR: Verwendung des Solar API (http Protokoll)
+- DWEATHER_API='"https://api.open-meteo.com"'
+- -DINFLUX='"http://rantanplan-ethernet:8086"'
+- -DAMIS_READER_DEV=1 # Amis Reader Support; wenn Fronius und Amis-Reader aktiviert ist, hat Fronius den Vorzug; Wenn kein Fronius IV eingesetzt wird, hat man wesentlich weniger Daten zur Verfügung, da der Amis-Reader nur den Im-/Export zur Verfügung stellt.
 
 ***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode
+
 ## Compile/Flash
 
 Zuerst muss das Projekt fehlerfrei übersetzt (kleines Häckchen in der unteren Menüleiste, neben dem kleinen Häuschen) werden können und ein Image für den esp32 erzeugt werden. Es kommen noch einige Warnings, aber die sind eher bedeutungslos und kommen größtenteils von den verwendeten Libs.
@@ -98,16 +102,16 @@ Es gibt da Stammdaten und Mobilitätsdaten und die Logfiles
 * Sämtliche Schritte werden am Display angezeigt und bei einem Fehler wird dies rot gekenntzeichnet.
 
 ## WebInterface
-Wie schon erwähnt, wird die gesamte Konfiguration per WebInterface durchgeführt, wobei die Konfigurationsdaten wiederum in einem separaten Flashbereich abgespeichert werden. Es werden keine gesonderten Einstellung an die Firewall gestellt, sämtlicher Traffic läuft - zumindest dzt - noch über Port 80. 
+
+Wie schon erwähnt, wird die gesamte Konfiguration per WebInterface durchgeführt, wobei die Konfigurationsdaten wiederum in einem separaten Flashbereich abgespeichert werden. Es werden keine gesonderten Einstellung an die Firewall gestellt, sämtlicher Traffic läuft - zumindest dzt - noch über Port 80.
 
 Die Kommunikation des Clients mit dem Server wird per
+
 - Ajax (Stammdaten) und
 - WebSockets (Aktuelle Daten)
-durchgeführt.
+  durchgeführt.
 
 ***Hinweise***
 
-  - Bei der Erst-Inbetriebnahme wird das Flash mit Standard-Werten beschrieben. Das Programm überprüft zu diesem Zweck, ob es gültige Einträge findet. Falls keine vorhanden sind, werden die Default-Werte herangezogen. Diese können natürlich überschrieben werden.
-  - Bei einer Änderung der Stammdaten wird des ESP - wenn dieser im AP-Modus betrieben wird - automatisch neu gestartet. Es wird dann in das konfigurierte WLAN eingewählt und der AP-Modus verlassen.
-
-
+- Bei der Erst-Inbetriebnahme wird das Flash mit Standard-Werten beschrieben. Das Programm überprüft zu diesem Zweck, ob es gültige Einträge findet. Falls keine vorhanden sind, werden die Default-Werte herangezogen. Diese können natürlich überschrieben werden.
+- Bei einer Änderung der Stammdaten wird des ESP - wenn dieser im AP-Modus betrieben wird - automatisch neu gestartet. Es wird dann in das konfigurierte WLAN eingewählt und der AP-Modus verlassen.

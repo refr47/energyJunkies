@@ -133,7 +133,7 @@ static void handleSetup(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/login.html", "text/html", false);
 }
 
-bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
+bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
 {
     // Initialize SPIFFS
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
@@ -146,7 +146,7 @@ bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockDat
     tft_printKeyValue("Init Flash File", "OK", TFT_GREEN);
     // listDir("/");
     if (ipAddr == NULL)
-    {
+    { 
         //  Connect to Wi-Fi network with SSID_FOR_ACCESS_POINT
         DBG("Setting AP (Access Point)…");
         isAPModus = true;
@@ -154,6 +154,7 @@ bool www_init(char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockDat
         WiFi.softAP(SSID_FOR_ACCESS_POINT);
         IPAddress IP = WiFi.softAPIP();
         ipAddr = (char *)IP.toString().c_str();
+        strcpy(setupData.currentIP, ipAddr);
         DBGf("AP IP address: %s", ipAddr);
         tft_printKeyValue("ACCESS Point", "OK", TFT_GREEN);
         tft_printKeyValue("SSID", SSID_FOR_ACCESS_POINT, TFT_GREEN);

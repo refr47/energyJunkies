@@ -235,7 +235,7 @@ void setup()
     {
         networkCredentialsInEEprom = false;
         webSockData.states.networkOK = false;
-        www_init(NULL, NULL, getDataForWebSocket, setSetupChanged); // act as access point
+        www_init(webSockData.setupData, NULL, NULL, getDataForWebSocket, setSetupChanged); // act as access point
     }
 
     if (networkCredentialsInEEprom)
@@ -250,7 +250,7 @@ void setup()
             // tft_drawNetworkInfo(NULL, webSockData.setupData.ssid);
             tft_clearScreen();
             wifi_scan_network();
-            www_init(NULL, NULL, getDataForWebSocket, setSetupChanged); // act as access point
+            www_init(webSockData.setupData, NULL, NULL, getDataForWebSocket, setSetupChanged); // act as access point
             webSockData.states.networkOK = false;
             // tft_printInfo("No valid network!");
             return;
@@ -263,7 +263,7 @@ void setup()
             DBGf("Connected with ip: %s", globalStringBuffer);
 
             tft_drawNetworkInfo(globalStringBuffer, webSockData.setupData.ssid);
-            webSockData.states.flashOK = www_init(pBuf, webSockData.setupData.ssid, getDataForWebSocket, setSetupChanged); // do not act as apoint
+            webSockData.states.flashOK = www_init(webSockData.setupData, pBuf, webSockData.setupData.ssid, getDataForWebSocket, setSetupChanged); // do not act as apoint
             webSockData.states.networkOK = true;
         }
 
@@ -492,12 +492,16 @@ void loop()
 #ifndef EJ
     if (!webSockData.states.networkOK)
     {
-        DBGf("Network does not work - no further task are available...");
-        delay(10000);
-        return;
-    }
 
-    timeSlice.currentMillis = millis();
+        delay(10000);
+        char *cp = formatBuffer;
+        if (wifi_tryToReconnect(&cp))
+        {
+            webSockData.states.networkOK = true;
+        }
+        DBGf("Network does not work - no further task are available, tcp ip: %s, Reconnected? %s", webSockData.setupData.currentIP, cp);
+        timeSlice.currentMillis = millis();
+    }
     /* ***********************                   CLOCK           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisClock > CLOCK_INTERVALL)
     {

@@ -91,7 +91,8 @@ typedef struct
     unsigned int tempMinInGrad;
     // unsigned int ipInverter;
     char inverter[INET_ADDRSTRLEN];
-
+    char currentIP[INET_ADDRSTRLEN];
+ 
     bool externerSpeicher;
     char externerSpeicherPriori;
     unsigned int pid_min_time_without_contoller_inMS;

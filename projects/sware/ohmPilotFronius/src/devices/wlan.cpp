@@ -63,7 +63,7 @@ bool wifi_init(Setup &setup)
     wl_status_t statWifi = WiFi.status();
     bool printNewLine = true;
     char buf[200];
-
+    strcpy(setup.currentIP, "0.0.0.0"); 
     while (true)
     {
 
@@ -105,7 +105,7 @@ bool wifi_init(Setup &setup)
             sprintf(buf, "WiFi connected [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
             tft_printInfo(buf, printNewLine);
             DBGf("[WiFi] IP address: %s", WiFi.localIP().toString().c_str());
-
+            strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
             return true;
             break;
         default:

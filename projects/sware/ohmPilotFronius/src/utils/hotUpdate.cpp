@@ -58,7 +58,7 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
     {
         DBGf("main::externerSpeicherPriori changed !! - no reboot :: eprom: %c, web: %c", d.externerSpeicherPriori, webSockData.setupData.externerSpeicherPriori);
         webSockData.setupData.externerSpeicherPriori = d.externerSpeicherPriori;
-        updated=true;
+        updated = true;
     }
     if (d.tempMaxAllowedInGrad != webSockData.setupData.tempMaxAllowedInGrad)
     {
@@ -68,7 +68,7 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
     }
     if (d.pid_powerWhichNeedNotConsumed != webSockData.setupData.pid_powerWhichNeedNotConsumed)
     {
-        DBGf("main:: pid_powerWhichNeedNotConsumed changed !! - no reboot :: eprom: %.3f, web: %d", d.pid_powerWhichNeedNotConsumed, webSockData.setupData.pid_powerWhichNeedNotConsumed);
+        DBGf("main:: pid_powerWhichNeedNotConsumed changed !! - no reboot :: eprom: %d, web: %d", d.pid_powerWhichNeedNotConsumed, webSockData.setupData.pid_powerWhichNeedNotConsumed);
         webSockData.setupData.pid_powerWhichNeedNotConsumed = d.pid_powerWhichNeedNotConsumed;
         updated = true;
     }
@@ -78,13 +78,19 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
         webSockData.setupData.tempMinInGrad = d.tempMinInGrad;
         updated = true;
     }
+    if (d.additionalLoad != webSockData.setupData.additionalLoad)
+    {
+        DBGf("main:: additionalLoad changed !! - no reboot :: eprom: %.3f, web: %.3f", d.additionalLoad, webSockData.setupData.additionalLoad);
+        webSockData.setupData.additionalLoad = d.additionalLoad;
+        updated = true;
+    }
     if (strcmp(d.inverter, webSockData.setupData.inverter) != 0)
     {
         DBGf("main:: inverter changed !! - no reboot :: eprom: %s, web: %s", d.inverter, webSockData.setupData.inverter);
         strcpy(webSockData.setupData.inverter, d.inverter);
         updated = true;
     }
-   
+
     return updated;
 
     // esp_restart();
