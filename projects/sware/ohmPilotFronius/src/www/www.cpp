@@ -151,16 +151,15 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
         DBG("Setting AP (Access Point) mode");
         isAPModus = true;
         WiFi.mode(WIFI_AP);
-        WiFi.softAP(SSID_FOR_ACCESS_POINT);
+        WiFi.softAP(SSID_FOR_ACCESS_POINT, DEFAULT_IP_ACCESS_POINT);
 
-        IPAddress IP = WiFi.softAPIP();
-        ipAddr = (char *)WiFi.localIP().toString().c_str();
+        ipAddr = DEFAULT_IP_ACCESS_POINT;
         strcpy(setupData.currentIP, ipAddr);
         DBGf("AP IP address: %s", ipAddr);
 
         tft_printKeyValue("ACCESS Point", "OK", TFT_GREEN);
         tft_printKeyValue("SSID", SSID_FOR_ACCESS_POINT, TFT_GREEN);
-        tft_printKeyValue("IP", IP.toString().c_str(), TFT_GREEN);
+        tft_printKeyValue("IP", DEFAULT_IP_ACCESS_POINT, TFT_GREEN);
     }
     else
     {

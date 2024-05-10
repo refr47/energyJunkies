@@ -80,6 +80,9 @@
 
 #endif
 
+#define DEFAULT_IP_ACCESS_POINT "192.168.4.1"
+
+
 typedef struct
 {
     char ssid[LEN_WLAN];
