@@ -75,7 +75,7 @@ https://github.com/Xinyuan-LilyGO/T-Display-S3
 #define FORMAT_CHAR_BUFFER_LEN 50 // @see loop
 
 #define MAX_RECONNECTING_NET 10
-#define DELAY_RECONNECT_NET 10000
+#define DELAY_RECONNECT_NET 200000 // wait 20 secs for next connection
 
 #ifndef TAG
 #define TAG "E-JUNKIES"
@@ -681,7 +681,7 @@ void loop()
 
 #ifdef FRONIUS_IV
 
-        if (webSockData.states.froniusAPI)
+        if (webSockData.states.froniusAPI && webSockData.states.networkOK)
         {
             DBGf("main::webSockData.states.froniusAPI - solarAPI");
             int counter = 0;
@@ -694,7 +694,7 @@ void loop()
 
                 if (!result)
                 {
-                    DBGf("main::webSockData.states.froniusAPI - solarAPI - try to connect: %d, wait for %s secs reconnect .....", counter, DELAY_RECONNECT_NET / 1000);
+                    DBGf("main::webSockData.states.froniusAPI - solarAPI - try to connect: %d, wait for %d secs reconnect .....", counter, DELAY_RECONNECT_NET / 1000);
                 }
                 else
                 {
@@ -713,6 +713,7 @@ void loop()
             else
             {
                 webSockData.states.networkOK = false;
+                return;
             }
         }
 #endif
