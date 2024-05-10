@@ -455,6 +455,7 @@ if (webSockData.states.networkOK)
     DBGf("TempSensor: %c", webSockData.states.tempSensorOK == true ? 'y' : 'n');
     tft_clearScreen();
 }
+DBGf("Setup done - all components are working...");
 ESP_LOGI(TAG, "Setup done - all components are working...");
 #else
         ESP_LOGI(TAG, "Start testing...");
@@ -471,7 +472,7 @@ ESP_LOGI(TAG, "Setup done - all components are working...");
 
 #endif
 // eM_printWakeUpReason();
-}
+} // init
 
 static char formatBuffer[FORMAT_CHAR_BUFFER_LEN];
 
@@ -490,9 +491,11 @@ static double currentConsumeInWatt, accumulatedWatt = 0.0;
 #endif
 void loop()
 {
-
+    DBGf("Wait for 20 secs in loop");
+    delay(20000);
+    DBGf("in loop - after waitinger for 20 secs");
 #ifndef EJ
-    if (!webSockData.states.networkOK)
+        if (!webSockData.states.networkOK)
     {
 
         delay(10000);
