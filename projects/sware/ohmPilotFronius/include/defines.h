@@ -32,6 +32,8 @@
 #define AKKU_PRIORITY_PRIMARY '1'
 #define AKKU_PRIORITY_SUBORDINATED '2'
 
+#define EMPTY_VALUE_IN_SETUP "---"
+
 #define JSON_OBJECT_SETUP_LEN 1024 /// www.cpp,
 
 #define INVERTER_DATA webSockData.mbContainer.inverterSumValues.data

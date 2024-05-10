@@ -329,7 +329,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     // prologExternalBoilerSwitchHandling(webSockData);
     if (webSockData.states.froniusAPI)
     {
-        if (FRONIUS.p_akku < 0.0)
+        if (FRONIUS.p_akku < 20.0)
         { // <0: laden, >0 entladen
             if (webSockData.setupData.externerSpeicherPriori == AKKU_PRIORITY_SUBORDINATED)
             {
@@ -343,7 +343,11 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
             }
         }
         else
+        {
             availableWatt = FRONIUS.p_grid;
+            DBGf("PidManager::froniusAPI, available Watt: %.3f", availableWatt);
+        }
+
         gridWatt = FRONIUS.p_grid;
         /*   DBGf("fronisAPI: availableWatt: %.3f, gridWatt: %.3f, store: %.3f", availableWatt, gridWatt, getWattBoundInRelays());
           DBGf("fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load); */
@@ -362,6 +366,8 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         influx_write_production(INVERTER_DATA.acCurrentPower, 0.0, METER_DATA.acCurrentPower);
 #endif
     }
+    // reduce available watts if energy need not consumed by heating
+    availableWatt -= webSockData.setupData.pid_powerWhichNeedNotConsumed;
 
     if (webSockData.states.heating != HEATING_AUTOMATIC) // no pid controller, all is forced
     {

@@ -39,6 +39,7 @@
 #include "amisReader.h"
 #endif
 #include "energieManager.h"
+#include "hotUpdate.h"
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -229,7 +230,8 @@ void setup()
 
     DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
-    if (strcmp(webSockData.setupData.ssid, "--") == 0)
+    // EMPTY_VALUE_IN_SETUP= "--"
+    if (strcmp(webSockData.setupData.ssid, EMPTY_VALUE_IN_SETUP) == 0)
     {
         networkCredentialsInEEprom = false;
         webSockData.states.networkOK = false;
@@ -841,72 +843,14 @@ void loop()
         DBGf("main::SETUP_CHECK_INTERVALL %d ", webSockData.setupData.setupChanged);
         if (webSockData.setupData.setupChanged)
         {
-
-            Setup d;
-
-            eprom_getSetup(d);
-            delay(10000); // wait 10 secs
-            DBGf("==::== oldVal: %d, newVal: %d", webSockData.setupData.forceHeating, d.forceHeating);
-            if (d.forceHeating != webSockData.setupData.forceHeating)
+            if (!hotUpdate(webSockData, pidPinManager))
             {
-                DBGf("main::forceHeating changed !! - no reboot");
-                DBGf("Old value: %d, new value: %d", webSockData.setupData.forceHeating, d.forceHeating);
-                webSockData.states.heating = HEATING_AUTOMATIC;
-
-                switch (d.forceHeating)
-                {
-                case HEATING_AUTOMATIC:
-                    pidPinManager.reset();
-                    webSockData.states.heating = HEATING_AUTOMATIC;
-                    break;
-                case HEATING_ON_PHASE_1:
-                    webSockData.states.heating = HEATING_ON_PHASE_1;
-                    pidPinManager.reset();
-                    pidPinManager.switchOnL1();
-                    break;
-                case HEATING_ON_PHASE_1_2:
-                    webSockData.states.heating = HEATING_ON_PHASE_1_2;
-                    pidPinManager.reset();
-                    pidPinManager.switchOnL1();
-                    pidPinManager.switchOnL2();
-                    break;
-                case HEATING_ON_PHASE_1_2_3:
-                    webSockData.states.heating = HEATING_ON_PHASE_1_2_3;
-                    pidPinManager.reset();
-                    pidPinManager.switchOnL1();
-                    pidPinManager.switchOnL2();
-                    pidPinManager.switchOnL3();
-                    break;
-                case HEATING_OFF:
-                    pidPinManager.reset();
-                    webSockData.states.heating = HEATING_OFF;
-                    break;
-
-                default:
-                    webSockData.states.heating = HEATING_AUTOMATIC;
-                    break;
-                }
-
-                webSockData.setupData.forceHeating = d.forceHeating;
-            }
-            if (d.externerSpeicherPriori != webSockData.setupData.externerSpeicherPriori)
-            {
-                DBGf("main::externerSpeicherPriori changed !! - no reboot :: eprom: %c, web: %c", d.externerSpeicherPriori, webSockData.setupData.externerSpeicherPriori);
-                webSockData.setupData.externerSpeicherPriori = d.externerSpeicherPriori;
-            }
-            if (d.tempMaxAllowedInGrad != webSockData.setupData.tempMaxAllowedInGrad)
-            {
-                DBGf("main:: tempMaxAllowedInGrad changed !! - no reboot :: eprom: %.3f, web: %d", d.tempMaxAllowedInGrad, webSockData.setupData.tempMaxAllowedInGrad);
-                webSockData.setupData.tempMaxAllowedInGrad = d.tempMaxAllowedInGrad;
+                DBGf("main::SETUP_CHECK_INTERVALL Restarti");
+                delay(5000);
+                esp_restart();
             }
             webSockData.setupData.setupChanged = false;
         }
-        else
-        {
-            DBGf("main::setupHandling Restarti");
-            // esp_restart();
-        }
-
         timeSlice.previousMillisSetup = timeSlice.currentMillis;
     }
 
