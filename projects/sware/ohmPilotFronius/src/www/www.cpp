@@ -148,7 +148,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     if (ipAddr == NULL)
     {
         //  Connect to Wi-Fi network with SSID_FOR_ACCESS_POINT
-        DBG("Setting AP (Access Point)…");
+        DBG("Setting AP (Access Point) mode");
         isAPModus = true;
         WiFi.mode(WIFI_AP);
         WiFi.softAP(SSID_FOR_ACCESS_POINT);
