@@ -75,7 +75,7 @@ https://github.com/Xinyuan-LilyGO/T-Display-S3
 #define FORMAT_CHAR_BUFFER_LEN 50 // @see loop
 
 #define MAX_RECONNECTING_NET 10
-#define DELAY_RECONNECT_NET 200000 // wait 20 secs for next connection
+#define DELAY_RECONNECT_NET 10000 // wait 10 secs for next connection
 
 #ifndef TAG
 #define TAG "E-JUNKIES"
