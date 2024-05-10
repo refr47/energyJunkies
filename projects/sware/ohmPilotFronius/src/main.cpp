@@ -74,6 +74,9 @@ https://github.com/Xinyuan-LilyGO/T-Display-S3
 #define SETUP_CHECK_INTERVALL 10000
 #define FORMAT_CHAR_BUFFER_LEN 50 // @see loop
 
+#define MAX_RECONNECTING_NET 10
+#define DELAY_RECONNECT_NET 10000
+
 #ifndef TAG
 #define TAG "E-JUNKIES"
 #endif
@@ -523,7 +526,12 @@ void loop()
             webSockData.states.networkOK = true;
         }
         DBGf("Network does not work - no further task are available, tcp ip: %s, Reconnected? %s", webSockData.setupData.currentIP, cp);
-        timeSlice.currentMillis = millis();
+        if (!webSockData.states.networkOK)
+        {
+            DBGf("main::!webSockData.states.networkOK");
+            return;
+        }
+        // timeSlice.currentMillis = millis();
     }
     /* ***********************                   CLOCK           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisClock > CLOCK_INTERVALL)
@@ -675,15 +683,36 @@ void loop()
 
         if (webSockData.states.froniusAPI)
         {
+            DBGf("main::webSockData.states.froniusAPI - solarAPI");
+            int counter = 0;
+            bool result = solar_get_powerflow(webSockData);
+            while (!result && counter < MAX_RECONNECTING_NET)
+            {
+                counter++;
+                delay(DELAY_RECONNECT_NET);
+                result = solar_get_powerflow(webSockData);
 
-            DBGf("main::webSockData.states.froniusAPI - modbus");
-            if (solar_get_powerflow(webSockData))
+                if (!result)
+                {
+                    DBGf("main::webSockData.states.froniusAPI - solarAPI - try to connect: %d, wait for %s secs reconnect .....", counter, DELAY_RECONNECT_NET / 1000);
+                }
+                else
+                {
+                    counter = MAX_RECONNECTING_NET + 1;
+                }
+            }
+
+            if (result)
             {
                 webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
                 webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
                 webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
                 INVERTER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_pv;
                 METER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_load;
+            }
+            else
+            {
+                webSockData.states.networkOK = false;
             }
         }
 #endif
@@ -701,7 +730,7 @@ void loop()
                 if (METER_DATA.acCurrentPower < 0.0 && (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower < 0))
 
                 {
-                    DBGf("Wrong meter value from smartmeter - current production: %f !", METER_DATA.acCurrentPower);
+                    DBGf("Wrong meter value from smartmeter - current production: %.3f !", METER_DATA.acCurrentPower);
 #ifdef MQTT
                     mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
 #endif
@@ -725,7 +754,8 @@ void loop()
             }
             else
             { // if readModbus
-                DBGf("MAIN::ModbusTimeSlice::  Error in reading modubs");
+                DBGf("MAIN::ModbusTimeSlice::  Error in reading modubs, network probably not ok, try to reconnect");
+                webSockData.states.networkOK = false;
             }
         }
         if (!webSockData.states.amisReader)
@@ -745,7 +775,8 @@ void loop()
                 }
                 else
                 {
-                    DBGf("main::AmisReader data not available.");
+                    DBGf("main::AmisReader data not available - network error?");
+                    webSockData.states.networkOK = false;
                 }
                 timeSlice.previousMillisAmis = timeSlice.currentMillis;
             }

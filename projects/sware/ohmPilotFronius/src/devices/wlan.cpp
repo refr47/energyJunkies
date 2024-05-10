@@ -118,7 +118,7 @@ bool wifi_init(Setup &setup)
 
         if (numberOfTries <= 0)
         {
-            DBGf("[WiFi] Failed to connect to WiFi! %d", WiFi.status());
+            DBGf("[WiFi] Failed to connect to WiFi!");
 
             // Use disconnect function to force stop trying to connect
             WiFi.disconnect();
