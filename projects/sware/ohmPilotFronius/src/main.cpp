@@ -68,7 +68,7 @@ https://github.com/Xinyuan-LilyGO/T-Display-S3
 #define CLOCK_INTERVALL 1000           // secs
 #define WEBSOCK_NOTIFY_INTERVALL 10000 // 5 secs
 #define SHOW_IP_ADDR_INTERVALL 5000
-#define CHECK_HEAP_SIZE_INTERVALL 6000
+#define CHECK_HEAP_SIZE_INTERVALL 60000 //
 #define AMIS_READER_INTERVALL 10000
 #define RECONNET_INTERVALL 300000
 #define SETUP_CHECK_INTERVALL 10000
@@ -465,7 +465,7 @@ if (webSockData.states.networkOK)
     DBGf("Modbus: %c", webSockData.states.influx == true ? 'y' : 'n');
     DBGf("MqTT: %c", webSockData.states.mqtt == true ? 'y' : 'n');
     DBGf("TempSensor: %c", webSockData.states.tempSensorOK == true ? 'y' : 'n');
-    DBGf("HeapSizeDiff: %d", heapSize[1].heapSize - heapSize[0].heapSize);
+    DBGf("HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
     tft_clearScreen();
     delay(5000);
 }
@@ -801,11 +801,11 @@ void loop()
     /* ***********************                   CONFIG LIVE UPDATE sTAMMdaTEN via WEB           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisHeapCheck > CHECK_HEAP_SIZE_INTERVALL)
     {
+        DBGf("CHECK_HEAP_SIZE_INTERVALL)");
         heapSize[1].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
         heapSize[1].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-        DBGf("Free heap: %d largest block: %d", heapSize[1].heapSize - heapSize[0].heapSize, heapSize[1].heapSizeMax);
+        DBGf("Free heap prev: %d Free heap now: %d, diff: %d largest block: %d", heapSize[0].heapSize, heapSize[1].heapSize, heapSize[1].heapSize - heapSize[0].heapSize, heapSize[1].heapSizeMax);
 
-        DBGf("CHECK_HEAP_SIZE_INTERVALL)");
         timeSlice.previousMillisHeapCheck = timeSlice.currentMillis;
 #ifdef TEST_PID_WWWW1
         Setup d;
