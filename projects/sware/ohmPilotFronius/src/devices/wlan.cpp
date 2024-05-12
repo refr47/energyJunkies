@@ -25,21 +25,20 @@ static int wiFiStatus;
 
 void ConnectedToAP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
-    DBGf("wlan::Connected to AP: %s", WiFi.SSID().c_str());
+    DBGf("wlan::(ConnectedToAP_Handler) Connected to AP, haven't got IP yet, ssid: %s", WiFi.SSID().c_str());
 }
 
 void GotIP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
     // Serial.print("Local ESP32 IP: ");
-    // DBGf("wlan::Local ESP32 IP:: %s", WiFi.localIP().c_str());
+    DBGf("!!!!!wlan::(GotIP_Handler) Connected to AP:: %s", WiFi.localIP().toString().c_str());
 
     Serial.println("wlan::Connected to AP: " + WiFi.localIP());
     // strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
 }
-
 void WiFi_Disconnected_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
-    DBGf("wlan::Disconnected From WiFi Network, attempt to recconnect ssid: %s", WiFi.SSID().c_str());
+    DBGf("wlan::(WiFi_Disconnected_Handler) Disconnected From WiFi Network, attempt to recconnect ssid: %s, ssid: %s, Password: %s", WiFi.SSID().c_str(), ssid, password);
     // Attempt Re-Connection
     WiFi.begin(ssid, password);
     delay(1000);
