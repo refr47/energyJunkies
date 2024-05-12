@@ -520,7 +520,7 @@ void loop()
     {
 
         delay(10000);
-
+        WiFi.disconnect();
         if (wifi_isStillConnected(webSockData.setupData))
         {
             DBGf("Network reconnected - tcp ip: %s", webSockData.setupData.currentIP);
