@@ -39,12 +39,12 @@ void GotIP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 
 void WiFi_Disconnected_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
-    DBGf("Disconnected From WiFi Network, attempt to recconnect ssid: %s", WiFi.SSID().c_str());
+    DBGf("wlan::Disconnected From WiFi Network, attempt to recconnect ssid: %s", WiFi.SSID().c_str());
     // Attempt Re-Connection
     WiFi.begin(ssid, password);
     delay(1000);
     wiFiStatus = WiFi.status();
-    DBGf("wlan reconnect, status: %s", Get_WiFiStatus(wiFiStatus));
+    DBGf("wlan::Reconnect, status: %s", Get_WiFiStatus(wiFiStatus));
 }
 
 static char *Get_WiFiStatus(int status)
@@ -300,9 +300,37 @@ void wifi_getLocalIP(char **pBuffer16)
     localIP.toString().toCharArray(*pBuffer16, 16);
 }
 
-bool wifi_isStillConnected()
+bool wifi_isStillConnected(Setup &setup)
 {
-    return WiFi.isConnected();
+    wiFiStatus = WiFi.status();
+    if (wiFiStatus == WL_CONNECTED)
+    {
+        return true;
+    }
+    int numberOfTries = WIFI_NUMBER_OF_TRIES;
+    while (wiFiStatus != WL_CONNECTED && numberOfTries-- > 0)
+    {
+        delay(1000);
+        wiFiStatus = WiFi.status();
+        Serial.println(Get_WiFiStatus(wiFiStatus));
+        --numberOfTries;
+        DBGf("wlan::reconnect Not connectetd, tries left: %d", numberOfTries);
+    }
+    if (wiFiStatus == WL_CONNECTED)
+    {
+        DBGf("wlan::reconnect - WIFI connected ");
+        strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
+        return true;
+    }
+    else
+    {
+        DBGf("wlan:: Reconnect - Cannot connect to network ssid: %s", setup.ssid);
+        DBG("wlan:: Reconnect Now scanning networks");
+        wifi_scan_network();
+        /* tft_printInfo("", true);
+        tft_printInfo("Scanning WiFi .."); */
+        return false;
+    }
 }
 // inform about current state
 /* bool wifi_tryToReconnect(char **action)

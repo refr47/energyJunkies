@@ -521,13 +521,16 @@ void loop()
 
         delay(10000);
 
-        if (wifi_isStillConnected()) {
+        if (wifi_isStillConnected(webSockData.setupData))
+        {
             DBGf("Network reconnected - tcp ip: %s", webSockData.setupData.currentIP);
             webSockData.states.networkOK = true;
-        } else {
+        }
+        else
+        {
             DBGf("Network does not work - no further task are available, tcp ip: %s", webSockData.setupData.currentIP);
         }
-           
+
         // timeSlice.currentMillis = millis();
     }
     /* ***********************                   CLOCK           ************************/
@@ -869,35 +872,44 @@ void loop()
         notifyClients(getJsonObj());
     }
 
-    /* if (timeSlice.currentMillis - timeSlice.previousMillisReconnect > RECONNET_INTERVALL)
+    if (timeSlice.currentMillis - timeSlice.previousMillisReconnect > RECONNET_INTERVALL)
     {
         DBGf("RECONNET_INTERVALL");
-        bool modbusReconnect = true;
-        timeSlice.maxReconnecting.modbusCounter += 1;
-        if (timeSlice.maxReconnecting.modbusCounter > timeSlice.maxReconnecting.maxModbusCounter)
+        if (!wifi_isStillConnected(webSockData.setupData))
         {
-            timeSlice.maxReconnecting.modbusCounter *= 2;
-            if (timeSlice.maxReconnecting.maxModbusCounter > 86400000)
-            {
-                modbusReconnect = false;
-            }
+            DBG("main::Network down , try reconnecting ....");
+            webSockData.states.networkOK = false;
         }
-        if (!webSockData.states.modbusOK && modbusReconnect)
+        else
         {
+            webSockData.states.networkOK = true;
+        }
+        /*  bool modbusReconnect = true;
+     timeSlice.maxReconnecting.modbusCounter += 1;
+     if (timeSlice.maxReconnecting.modbusCounter > timeSlice.maxReconnecting.maxModbusCounter)
+     {
+         timeSlice.maxReconnecting.modbusCounter *= 2;
+         if (timeSlice.maxReconnecting.maxModbusCounter > 86400000)
+         {
+             modbusReconnect = false;
+         }
+     }
+     if (!webSockData.states.modbusOK && modbusReconnect)
+     {
 
-            eprom_getSetup(webSockData.setupData); // reRead setup data from eprom - maybe changed by web
-            if (mb_init(webSockData.setupData))
-            {
-                DBGf("Reconnected modbus successfully.");
-                ledHandler_showModbusError(false);
-                webSockData.states.modbusOK = true;
+         eprom_getSetup(webSockData.setupData); // reRead setup data from eprom - maybe changed by web
+         if (mb_init(webSockData.setupData))
+         {
+             DBGf("Reconnected modbus successfully.");
+             ledHandler_showModbusError(false);
+             webSockData.states.modbusOK = true;
 #ifdef MQTT
-                mqtt_publish_modbus_reconnect(webSockData.setupData.inverter.c_str());
+             mqtt_publish_modbus_reconnect(webSockData.setupData.inverter.c_str());
 #endif
-            }
-        }
+         }
+     } */
         timeSlice.previousMillisReconnect = timeSlice.currentMillis;
-    } */
+    }
     // SETUP_CHECK_INTERVALL
     if (timeSlice.currentMillis - timeSlice.previousMillisSetup > SETUP_CHECK_INTERVALL)
     {
