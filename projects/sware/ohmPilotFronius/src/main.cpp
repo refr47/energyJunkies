@@ -520,23 +520,14 @@ void loop()
     {
 
         delay(10000);
-        char *cp = formatBuffer;
-        if (wifi_tryToReconnect(&cp))
-        {
-            DBGf("Network reconnected - tcp ip: %s, Reconnected? %s", webSockData.setupData.currentIP, cp);
-            webSockData.states.networkOK = true;
-        }
-        else
-        {
-            DBGf("Network does not work - no further task are available, tcp ip: %s, Reconnected? %s", webSockData.setupData.currentIP, cp);
-            return;
-        }
 
-        /*  if (!webSockData.states.networkOK)
-         {
-             DBGf("main::!webSockData.states.networkOK");
-             return;
-         } */
+        if (wifi_isStillConnected()) {
+            DBGf("Network reconnected - tcp ip: %s", webSockData.setupData.currentIP);
+            webSockData.states.networkOK = true;
+        } else {
+            DBGf("Network does not work - no further task are available, tcp ip: %s", webSockData.setupData.currentIP);
+        }
+           
         // timeSlice.currentMillis = millis();
     }
     /* ***********************                   CLOCK           ************************/
