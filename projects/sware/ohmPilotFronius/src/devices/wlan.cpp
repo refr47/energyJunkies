@@ -34,6 +34,7 @@ void GotIP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
     // DBGf("wlan::Local ESP32 IP:: %s", WiFi.localIP().c_str());
 
     Serial.println("wlan::Connected to AP: " + WiFi.localIP());
+    // strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
 }
 
 void WiFi_Disconnected_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
@@ -92,10 +93,12 @@ bool wifi_init(Setup &setup)
         wiFiStatus = WiFi.status();
         Serial.println(Get_WiFiStatus(wiFiStatus));
         --numberOfTries;
+        DBGf("wlan::Not connectetd, tries left: %d", numberOfTries);
     }
     if (wiFiStatus == WL_CONNECTED)
     {
-        DBGf("WIFI connected ");
+        DBGf("wlan::WIFI connected ");
+        strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
         return true;
     }
     else
