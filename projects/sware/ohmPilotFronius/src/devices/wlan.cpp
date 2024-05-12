@@ -69,6 +69,7 @@ bool wifi_init(Setup &setup)
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
     WiFi.onEvent(ConnectedToAP_Handler, ARDUINO_EVENT_WIFI_STA_CONNECTED);
     WiFi.onEvent(GotIP_Handler, ARDUINO_EVENT_WIFI_STA_GOT_IP);
+    WiFi.onEvent(WiFi_Disconnected_Handler, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     ssid = setup.ssid;
     password = setup.passwd;
     WiFi.begin(ssid, password);
