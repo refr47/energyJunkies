@@ -15,8 +15,9 @@
 #define WIFI_NUMBER_OF_TRIES 15
 #define WIFI_RECONNECT_TRY_IN_INTERVALL 10000
 
-static unsigned long previousMillis = 0;
+// static unsigned long previousMillis = 0;
 static bool helpConnect(Setup &setup);
+static char *Get_WiFiStatus(int status);
 
 static char *ssid = "";
 static char *password = "";
@@ -40,6 +41,9 @@ void WiFi_Disconnected_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info
     DBGf("Disconnected From WiFi Network, attempt to recconnect ssid: %s", WiFi.SSID().c_str());
     // Attempt Re-Connection
     WiFi.begin(ssid, password);
+    delay(1000);
+    wiFiStatus = WiFi.status();
+    DBGf("wlan reconnect, status: %s", Get_WiFiStatus(wiFiStatus));
 }
 
 static char *Get_WiFiStatus(int status)
