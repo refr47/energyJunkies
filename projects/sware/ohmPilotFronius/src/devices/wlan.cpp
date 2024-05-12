@@ -27,6 +27,7 @@ static bool connected = false;
 void ConnectedToAP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
     DBGf("wlan::(ConnectedToAP_Handler) Connected to AP, haven't got IP yet, ssid: %s", WiFi.SSID().c_str());
+    connected = false;
 }
 
 void GotIP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
@@ -305,9 +306,10 @@ void wifi_getLocalIP(char **pBuffer16)
 bool wifi_isStillConnected(Setup &setup)
 {
     DBGf("wlan::wifi_isStillConnected, connected: %d", connected);
+    wiFiStatus = WiFi.status();
     if (connected)
     {
-        wiFiStatus = WiFi.status();
+
         if (wiFiStatus == WL_CONNECTED)
         {
             return true;
