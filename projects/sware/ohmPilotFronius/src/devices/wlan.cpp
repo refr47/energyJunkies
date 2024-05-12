@@ -304,6 +304,7 @@ void wifi_getLocalIP(char **pBuffer16)
 
 bool wifi_isStillConnected(Setup &setup)
 {
+    DBGf("wlan::wifi_isStillConnected, connected: %d", connected);
     if (connected)
     {
         wiFiStatus = WiFi.status();
