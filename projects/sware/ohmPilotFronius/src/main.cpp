@@ -527,11 +527,11 @@ void loop()
         }
         DBGf("Network does not work - no further task are available, tcp ip: %s, Reconnected? %s", webSockData.setupData.currentIP, cp);
         return;
-       /*  if (!webSockData.states.networkOK)
-        {
-            DBGf("main::!webSockData.states.networkOK");
-            return;
-        } */
+        /*  if (!webSockData.states.networkOK)
+         {
+             DBGf("main::!webSockData.states.networkOK");
+             return;
+         } */
         // timeSlice.currentMillis = millis();
     }
     /* ***********************                   CLOCK           ************************/
@@ -638,7 +638,7 @@ void loop()
 
     /* ***********************                   MODBUS           ************************/
 
-    if ((webSockData.states.froniusAPI == true) && (webSockData.setupData.externerSpeicher == true))
+    if ((webSockData.states.froniusAPI == true) && (webSockData.setupData.externerSpeicher == true && webSockData.states.networkOK == true))
     {
 
         if (timeSlice.currentMillis - timeSlice.previousMillisAkku > MODBUS_AKKU_INTERVALL)
@@ -682,7 +682,7 @@ void loop()
 
 #ifdef FRONIUS_IV
 
-        if (webSockData.states.froniusAPI && webSockData.states.networkOK)
+        if (webSockData.states.froniusAPI == true && webSockData.states.networkOK == true)
         {
             DBGf("main::webSockData.states.froniusAPI - solarAPI");
             int counter = 0;
@@ -718,7 +718,7 @@ void loop()
             }
         }
 #endif
-        if (!webSockData.states.froniusAPI && webSockData.states.modbusOK)
+        if (!webSockData.states.froniusAPI == true && webSockData.states.modbusOK == true && webSockData.states.networkOK == true)
         {
             DBGf("main::webSockData.states.modbus - modbus");
             if (mb_readInverter(webSockData.setupData, webSockData.mbContainer))
@@ -769,16 +769,18 @@ void loop()
         {
             if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
             {
-
-                if (amisReader_readRestTarget(webSockData))
+                if (webSockData.states.networkOK == true)
                 {
-                    DBGf("main:: AmisReader: available is: %d, import: %d , export: %d", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
-                    METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
-                }
-                else
-                {
-                    DBGf("main::AmisReader data not available - network error?");
-                    webSockData.states.networkOK = false;
+                    if (amisReader_readRestTarget(webSockData))
+                    {
+                        DBGf("main:: AmisReader: available is: %d, import: %d , export: %d", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
+                        METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
+                    }
+                    else
+                    {
+                        DBGf("main::AmisReader data not available - network error?");
+                        webSockData.states.networkOK = false;
+                    }
                 }
                 timeSlice.previousMillisAmis = timeSlice.currentMillis;
             }
@@ -871,7 +873,7 @@ void loop()
         notifyClients(getJsonObj());
     }
 
-    if (timeSlice.currentMillis - timeSlice.previousMillisReconnect > RECONNET_INTERVALL)
+    /* if (timeSlice.currentMillis - timeSlice.previousMillisReconnect > RECONNET_INTERVALL)
     {
         DBGf("RECONNET_INTERVALL");
         bool modbusReconnect = true;
@@ -899,7 +901,7 @@ void loop()
             }
         }
         timeSlice.previousMillisReconnect = timeSlice.currentMillis;
-    }
+    } */
     // SETUP_CHECK_INTERVALL
     if (timeSlice.currentMillis - timeSlice.previousMillisSetup > SETUP_CHECK_INTERVALL)
     {
