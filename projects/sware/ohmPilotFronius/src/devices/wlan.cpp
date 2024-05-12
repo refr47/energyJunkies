@@ -22,6 +22,7 @@ static char *Get_WiFiStatus(int status);
 static char *ssid = "";
 static char *password = "";
 static int wiFiStatus;
+static bool connected = false;
 
 void ConnectedToAP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
@@ -32,7 +33,7 @@ void GotIP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
     // Serial.print("Local ESP32 IP: ");
     DBGf("!!!!!wlan::(GotIP_Handler) Connected to AP:: %s", WiFi.localIP().toString().c_str());
-
+    connected = true;
     Serial.println("wlan::Connected to AP: " + WiFi.localIP());
     // strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
 }
@@ -40,6 +41,7 @@ void WiFi_Disconnected_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info
 {
     DBGf("wlan::(WiFi_Disconnected_Handler) Disconnected From WiFi Network, attempt to recconnect ssid: %s, ssid: %s, Password: %s", WiFi.SSID().c_str(), ssid, password);
     // Attempt Re-Connection
+    connected = false;
     WiFi.begin(ssid, password);
     delay(1000);
     wiFiStatus = WiFi.status();
@@ -85,6 +87,7 @@ bool wifi_init(Setup &setup)
     DBGf("WIFI: %s, Passwd: %s", setup.ssid, setup.passwd);
     DBGf("Connecting to WiFi ..");
     tft_printInfo("Connecting to WiFi");
+    delay(1000);
     wiFiStatus = WiFi.status();
     while (wiFiStatus != WL_CONNECTED && numberOfTries-- > 0)
     {
@@ -301,13 +304,17 @@ void wifi_getLocalIP(char **pBuffer16)
 
 bool wifi_isStillConnected(Setup &setup)
 {
-    wiFiStatus = WiFi.status();
-    if (wiFiStatus == WL_CONNECTED)
+    if (connected)
     {
-        return true;
+        wiFiStatus = WiFi.status();
+        if (wiFiStatus == WL_CONNECTED)
+        {
+            return true;
+        }
     }
+
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
-    while (wiFiStatus != WL_CONNECTED && numberOfTries-- > 0)
+    while (((wiFiStatus != WL_CONNECTED) || connected == false) && numberOfTries-- > 0)
     {
         delay(1000);
         wiFiStatus = WiFi.status();
@@ -315,7 +322,7 @@ bool wifi_isStillConnected(Setup &setup)
         --numberOfTries;
         DBGf("wlan::reconnect Not connectetd, tries left: %d", numberOfTries);
     }
-    if (wiFiStatus == WL_CONNECTED)
+    if (wiFiStatus == WL_CONNECTED && connected == true)
     {
         DBGf("wlan::reconnect - WIFI connected ");
         strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
