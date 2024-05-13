@@ -58,6 +58,20 @@ DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
 
 ***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode
 
+## PlatformIO als IDE / VsCode / PlugIns
+- PlatformIO
+Das Plugin für VSCode sollte vorinstalliert sein und funktioniert an und für sich ganz gut. Problematisch ist, dass es ab und zu relativ selbstständig irgend etwas unternimmt und dies in einer unverständlichen Fehlermeldung endet.
+- C/C++ Plugin
+- Beautifier für Syntaxhilighting
+- esp-idf 
+- git
+
+## Herunterladen per GIT
+Das VSCode-Plugin ist relativ genau und funktioniert ohne Probleme. Für das erstmalige Herunterladen empfiehlt sich die console-basierte Methode per ````git clone https://github.com/htlWels/energyJunkies.git````
+Sodann kann VSCode gestartet werden im ````energiejunkies````-Ordner. Hier kann es passieren, dass PlatformIO die Initialisierungsdatei nicht auf Anhieb findet. Es gibt hier den Button "Pick Folder" und dieser öffnet einen FileDialog. Dann sucht man unter ````projects/sware/```` den Ordner ````ohmPilotFronius````. Bei der Erstinstallation dauert es - je nach Internetanbindung - schon eine Zeit, bis PlatformIO fertig ist. PlatformIO ist via Python realisiert und braucht daher auch Ressourcen in Form von RAM. 
+
+
+
 ## Compile/Flash
 
 Zuerst muss das Projekt fehlerfrei übersetzt (kleines Häckchen in der unteren Menüleiste, neben dem kleinen Häuschen) werden können und ein Image für den esp32 erzeugt werden. Es kommen noch einige Warnings, aber die sind eher bedeutungslos und kommen größtenteils von den verwendeten Libs.
