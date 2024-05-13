@@ -41,7 +41,7 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
   - IP-Adresse Modbus
   - Heizstableistung (für die rechnerische Festlegung der in das Heizsystem geleiteten Energie)
   - Einspeisebeschränkung (wieviel kW dürfen eingespeist werden)
- <del>-  PI-Regler für den 0-100 % Ausgang (Proportional(P),Integral(I),Differenzial(D)) - Default: P=1, I=0.5, D=0 (FLoat)</del>
+ -  <del>PI-Regler für den 0-100 % Ausgang (Proportional(P),Integral(I),Differenzial(D)) - Default: P=1, I=0.5, D=0 (FLoat)</del>
   - Regelbereich Hysterese für die PWM-Steuerung (z.B. 5.900, 5.800 - Hysterese: 100) - oder von Einspeisebeschränkung 100 Watt abziehen und Hysteresewert 
   - Für die Eingabe ist eine WebSite zu verwenden, wobei der uController (ESP32) als AccessPoint fungiert. Die notwendigen Informationen (SSID,IP-Adresse) sind per Display anzuzeigen.
 * Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
