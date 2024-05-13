@@ -59,7 +59,7 @@ static CALLBACK_GET_DATA webSockData;
 static char formatBuffer[35];
 // Create a WebSocket object static AsyncWebSocket ws("/ws");
 
-AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
+AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData) 
 {
     ws.onEvent(onEvent);
     webSockData = getData;

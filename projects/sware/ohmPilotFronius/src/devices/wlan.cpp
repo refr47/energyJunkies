@@ -16,7 +16,6 @@
 #define WIFI_RECONNECT_TRY_IN_INTERVALL 10000
 
 // static unsigned long previousMillis = 0;
-static bool helpConnect(Setup &setup);
 static char *Get_WiFiStatus(int status);
 
 static char *ssid = "";
@@ -30,13 +29,13 @@ void ConnectedToAP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
     connected = false;
 }
 
+// only called if status == WL_CONNECTED & password is ok & ap has admitted connection
 void GotIP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
     // Serial.print("Local ESP32 IP: ");
-    DBGf("!!!!!wlan::(GotIP_Handler) Connected to AP:: %s", WiFi.localIP().toString().c_str());
+    DBGf("wlan::(GotIP_Handler) Connected to AP:: %s", WiFi.localIP().toString().c_str());
     connected = true;
     Serial.println("wlan::Connected to AP: " + WiFi.localIP());
-    // strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
 }
 void WiFi_Disconnected_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
@@ -80,17 +79,12 @@ bool wifi_init(Setup &setup)
     ssid = setup.ssid;
     password = setup.passwd;
     WiFi.begin(ssid, password);
-    /* strcpy(setup.ssid, "Milchbehaelter");
-    strcpy(setup.passwd, "47754775"); */
-
-    // WiFi.begin("setup.ssid," setup.passwd);
-
     DBGf("WIFI: %s, Passwd: %s", setup.ssid, setup.passwd);
     DBGf("Connecting to WiFi ..");
     tft_printInfo("Connecting to WiFi");
     delay(1000);
     wiFiStatus = WiFi.status();
-    while (wiFiStatus != WL_CONNECTED && numberOfTries-- > 0)
+    while (wiFiStatus != WL_CONNECTED && numberOfTries-- > 0 && !connected)
     {
         delay(1000);
         wiFiStatus = WiFi.status();
@@ -98,7 +92,7 @@ bool wifi_init(Setup &setup)
         --numberOfTries;
         DBGf("wlan::Not connectetd, tries left: %d", numberOfTries);
     }
-    if (wiFiStatus == WL_CONNECTED)
+    if (wiFiStatus == WL_CONNECTED && connected == true)
     {
         DBGf("wlan::WIFI connected ");
         strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
@@ -112,119 +106,8 @@ bool wifi_init(Setup &setup)
         tft_printInfo("Scanning WiFi ..");
         return false;
     }
-    /*  int counter = 0;
-     char buff[50];
-   int WiFiStatus;  memset(buff, 0, strlen(buff));
-     while (WiFi.status() != WL_CONNECTED)
-     {
-         DBG("%c", '.');
-         delay(2000);
-         ++counter;
-         for (int kk = 0; kk < counter; kk++)
-         {
-             buff[kk] = '.';
-         }
-         tft_printInfo(buff, false);
-         if (counter == 5)
-         {
-             tft_printInfo("", true);
-             tft_printInfo("Scanning WiFi ..");
-             break;
-         }
-     }
-
-     WiFi.disconnect();
-     tft_print_txt(2, "Reconnect", setup.ssid);
-     DBGf("[Wifi] Connecting to %s ", setup.ssid);
-     WiFi.mode(WIFI_STA);
-     WiFi.begin(setup.ssid, setup.passwd, true); */
-
-    // Will try for about 10 seconds (20x 500ms)
-    // Wait for the WiFi event
 
     return true;
-}
-
-static bool helpConnect(Setup &setup)
-{
-    int numberOfTries = WIFI_NUMBER_OF_TRIES;
-    wl_status_t stat = WL_IDLE_STATUS;
-    wl_status_t statWifi = WiFi.status();
-
-    bool printNewLine = true;
-    char buf[200];
-    strcpy(setup.currentIP, "0.0.0.0");
-    while (true)
-    {
-
-        switch (statWifi)
-        {
-        case WL_NO_SSID_AVAIL:
-            DBGf("[WiFi] SSID not found: %s", setup.ssid);
-            sprintf(buf, " not found [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
-            tft_printInfo(buf, printNewLine);
-            break;
-        case WL_CONNECT_FAILED:
-            DBGf("[WiFi] Failed - WiFi not connected! Reason: ");
-            sprintf(buf, "No Connection [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
-            tft_printInfo(buf, printNewLine);
-
-            break;
-        case WL_CONNECTION_LOST:
-            DBGf("[WiFi] Connection was lost");
-            sprintf(buf, "Lost Connection [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
-            tft_printInfo(buf, printNewLine);
-
-            break;
-        case WL_SCAN_COMPLETED:
-            DBGf("[WiFi] Scan is ready");
-            sprintf(buf, "Wifi scan: Fertig [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
-            tft_printInfo(buf, printNewLine);
-            break;
-        case WL_DISCONNECTED:
-            DBGf("[WiFi] WiFi is disconnected");
-
-            sprintf(buf, "Disconnected[%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
-
-            tft_printInfo(buf, printNewLine);
-
-            break;
-        case WL_CONNECTED:
-            DBG("[WiFi] WiFi is connected!");
-            sprintf(buf, "WiFi connected [%d]", WIFI_NUMBER_OF_TRIES - numberOfTries);
-            tft_printInfo(buf, printNewLine);
-            DBGf("[WiFi] IP address: %s", WiFi.localIP().toString().c_str());
-            strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
-            return true;
-            break;
-        default:
-            DBG("[WiFi] WiFi Status:");
-            sprintf(buf, "[%d]", /*WiFi.status(),*/ WIFI_NUMBER_OF_TRIES - numberOfTries);
-            tft_printInfo(buf, printNewLine);
-            break;
-        }
-        delay(WIFI_TRY_DELAY);
-
-        if (numberOfTries <= 0)
-        {
-            DBGf("[WiFi] Failed to connect to WiFi!");
-
-            // Use disconnect function to force stop trying to connect
-            WiFi.disconnect();
-            return false;
-        }
-        else
-        {
-            numberOfTries--;
-        }
-        stat = statWifi;
-        if (numberOfTries == 0)
-            printNewLine = true;
-        else
-            printNewLine = stat == statWifi ? false : true;
-        statWifi = WiFi.status();
-    }
-    return strcmp(setup.currentIP, "0.0.0.0") == 0 ? false : true;
 }
 
 void wifi_scan_network()
@@ -235,7 +118,7 @@ void wifi_scan_network()
     delay(500);
     tft_printInfo("Scan for Wlan ...");
     int16_t n = WiFi.scanNetworks();
-    // tft_getRoot().fillScreen(TFT_BLACK);
+
     if (n == 0)
     {
         tft_printInfo("No networks found");
@@ -305,7 +188,7 @@ void wifi_getLocalIP(char **pBuffer16)
 
 bool wifi_isStillConnected(Setup &setup)
 {
-    DBGf("wlan::wifi_isStillConnected, connected: %d", connected);
+    // DBGf("wlan::wifi_isStillConnected, connected: %d", connected);
     wiFiStatus = WiFi.status();
     if (connected)
     {
@@ -333,32 +216,10 @@ bool wifi_isStillConnected(Setup &setup)
     }
     else
     {
+        WiFi.disconnect();
         DBGf("wlan:: Reconnect - Cannot connect to network ssid: %s", setup.ssid);
         DBG("wlan:: Reconnect Now scanning networks");
         wifi_scan_network();
-        /* tft_printInfo("", true);
-        tft_printInfo("Scanning WiFi .."); */
         return false;
     }
 }
-// inform about current state
-/* bool wifi_tryToReconnect(char **action)
-{
-
-    unsigned long currentMillis = millis();
-
-    // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
-    *action = (char *)WIFI_RECONNECT_START;
-
-    if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >= WIFI_RECONNECT_TRY_IN_INTERVALL))
-    {
-
-        DBGf("Reconnecting to WiFi...");
-        WiFi.disconnect();
-        WiFi.reconnect();
-        previousMillis = currentMillis;
-    }
-    bool status = WiFi.isConnected();
-    *action = (status == true) ? (char *)WIFI_RECONNECT_DONE : (char *)WIFI_RECONNECT_FALSE;
-    return status;
-} */

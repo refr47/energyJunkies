@@ -15,7 +15,7 @@
 #endif
 
 // This only works for C
-static const char *currTime()
+/* static const char *currTime()
 {
     time_t rawtime;
     struct tm *timeinfo;
@@ -28,7 +28,7 @@ static const char *currTime()
     return (const char *)(thetime + 10);
 }
 // What is the current time
-#define DATE_STRING currTime()
+#define DATE_STRING currTime() */
 #define FINFO strrchr(__FILE__, '/') + 1
 
 #define DBGbgn(speed) Serial.begin(speed)

@@ -19,14 +19,16 @@ static Point simulation("monitor");
 static Point inverter("inverter");
 static Point means("means");
 
-static bool influxAvailable = false;
-static bool *isInfluxValid = &influxAvailable;
+// static bool influxAvailable = false;
+//  static bool *isInfluxValid = &influxAvailable;
+static CALLBACK_GET_DATA webSockData;
 
-bool influx_init(WEBSOCK_DATA &webSockData)
+bool influx_init(CALLBACK_GET_DATA getData) 
 {
+    webSockData = getData;
     client.setInsecure();
     timeSync(EUROPE_VIENNA_TZ, NtpServer1, NtpServer2);
-    isInfluxValid = &webSockData.states.influx;
+    // isInfluxValid = &webSockData.states.influx;
     DBGf("Init influx");
     // Check server connection
     if (client.validateConnection())
@@ -64,6 +66,9 @@ bool influx_init(WEBSOCK_DATA &webSockData)
 
 bool influx_write(WEBSOCK_DATA &webSockData)
 {
+
+    if (!webSockData.states.influx || !webSockData.states.networkOK)
+        return false;
 
     energy.clearFields();
     boiler.clearFields();
@@ -111,17 +116,20 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     return true;
 }
 
-bool influx_write_test(double boilerData, double availableWatt, WEBSOCK_DATA &webSockData)
+bool influx_write_test(double boilerData, double availableWatt)
 {
-    DBGf("influx_write_test BEGIN, isValid: %d", *isInfluxValid);
+    WEBSOCK_DATA data = webSockData();
+    if (!data.states.influx || !data.states.networkOK)
+        return false;
+    /* DBGf("influx_write_test BEGIN, isValid: %d", *isInfluxValid); */
 
     simulation.clearFields();
-    simulation.addField("pwm", webSockData.pidContainer.mAnalogOut);
-    simulation.addField("relay1", webSockData.pidContainer.PID_PIN1);
-    simulation.addField("relay2", webSockData.pidContainer.PID_PIN2);
+    simulation.addField("pwm", data.pidContainer.mAnalogOut);
+    simulation.addField("relay1", data.pidContainer.PID_PIN1);
+    simulation.addField("relay2", data.pidContainer.PID_PIN2);
     simulation.addField("storage", boilerData);
     simulation.addField("availableWatt", availableWatt);
-    simulation.addField("ForceHeating", webSockData.states.heating);
+    simulation.addField("ForceHeating", data.states.heating);
     String proto = client.pointToLineProtocol(simulation);
     if (!client.writePoint(simulation))
     {
@@ -134,7 +142,11 @@ bool influx_write_test(double boilerData, double availableWatt, WEBSOCK_DATA &we
 
 bool influx_write_production(double pv, double akku, double load)
 {
-    DBGf("influx_write_production BEGIN");
+    // DBGf("influx_write_production BEGIN");
+    WEBSOCK_DATA data = webSockData();
+    if (!data.states.influx || !data.states.networkOK)
+        return false;
+
     inverter.clearFields();
     inverter.addField("pv", pv);
     inverter.addField("akku", akku);
@@ -154,6 +166,10 @@ bool influx_write_production(double pv, double akku, double load)
 
 bool influx_write_mean_val(double watt)
 {
+    WEBSOCK_DATA data = webSockData();
+    if (!data.states.influx || !data.states.networkOK)
+        return false;
+
     means.clearFields();
     means.addField("availableW", watt);
     String proto = client.pointToLineProtocol(means);
@@ -168,6 +184,10 @@ bool influx_write_mean_val(double watt)
 
 bool influx_write_mean(double mean)
 {
+    WEBSOCK_DATA data = webSockData();
+    if (!data.states.influx || !data.states.networkOK)
+        return false;
+
     means.clearFields();
     means.addField("availableW", mean);
     String proto = client.pointToLineProtocol(means);

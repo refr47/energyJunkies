@@ -244,7 +244,7 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
             reset();
         }
 #ifdef INFLUX
-        influx_write_test(storage, availableWatt, webSockData);
+        influx_write_test(storage, availableWatt);
 #endif
         return true;
     }
@@ -268,7 +268,7 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
             switchOnL3();
         }
 #ifdef INFLUX
-        influx_write_test(storage, availableWatt, webSockData);
+        influx_write_test(storage, availableWatt);
 #endif
         return true;
     }
@@ -373,7 +373,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     {
         DBGf("pidManager::task: heating: %d", webSockData.states.heating);
 #ifdef INFLUX
-        influx_write_test(storage, availableWatt, webSockData);
+        influx_write_test(storage, availableWatt);
 #endif
 
         return true; // nothing must be done due to overruling everything
@@ -417,7 +417,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         powerIndex = 0;
     }
 #ifdef INFLUX
-    influx_write_test(storage, availableWatt, webSockData);
+    influx_write_test(storage, availableWatt);
 #endif
 
     if (ABS(availableWatt) < 20.0)

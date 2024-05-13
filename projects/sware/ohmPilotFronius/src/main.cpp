@@ -414,7 +414,7 @@ void setup()
     pidPinManager.config(webSockData.setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
 #ifdef INFLUX
     webSockData.states.influx = false;
-    if (influx_init(webSockData))
+    if (influx_init(getDataForWebSocket))
     {
         webSockData.states.influx = true;
     }
@@ -465,7 +465,7 @@ if (webSockData.states.networkOK)
     DBGf("CardWrite: %c", webSockData.states.cardWriterOK == true ? 'y' : 'n');
     DBGf("FlashFS: %c", webSockData.states.flashOK == true ? 'y' : 'n');
     DBGf("Influx: %c", webSockData.states.influx == true ? 'y' : 'n');
-    DBGf("Modbus: %c", webSockData.states.influx == true ? 'y' : 'n');
+    DBGf("Modbus: %c", webSockData.states.modbusOK == true ? 'y' : 'n');
     DBGf("MqTT: %c", webSockData.states.mqtt == true ? 'y' : 'n');
     DBGf("TempSensor: %c", webSockData.states.tempSensorOK == true ? 'y' : 'n');
     DBGf("HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
@@ -872,44 +872,21 @@ void loop()
         notifyClients(getJsonObj());
     }
 
-    if (timeSlice.currentMillis - timeSlice.previousMillisReconnect > RECONNET_INTERVALL)
-    {
-        DBGf("RECONNET_INTERVALL");
-        if (!wifi_isStillConnected(webSockData.setupData))
-        {
-            DBG("main::Network down , try reconnecting ....");
-            webSockData.states.networkOK = false;
-        }
-        else
-        {
-            webSockData.states.networkOK = true;
-        }
-        /*  bool modbusReconnect = true;
-     timeSlice.maxReconnecting.modbusCounter += 1;
-     if (timeSlice.maxReconnecting.modbusCounter > timeSlice.maxReconnecting.maxModbusCounter)
+    /*  if (timeSlice.currentMillis - timeSlice.previousMillisReconnect > RECONNET_INTERVALL)
      {
-         timeSlice.maxReconnecting.modbusCounter *= 2;
-         if (timeSlice.maxReconnecting.maxModbusCounter > 86400000)
+         DBGf("RECONNET_INTERVALL");
+         if (!wifi_isStillConnected(webSockData.setupData))
          {
-             modbusReconnect = false;
+             DBG("main::Network down , try reconnecting ....");
+             webSockData.states.networkOK = false;
          }
-     }
-     if (!webSockData.states.modbusOK && modbusReconnect)
-     {
+         else
+         {
+             webSockData.states.networkOK = true;
+         }
 
-         eprom_getSetup(webSockData.setupData); // reRead setup data from eprom - maybe changed by web
-         if (mb_init(webSockData.setupData))
-         {
-             DBGf("Reconnected modbus successfully.");
-             ledHandler_showModbusError(false);
-             webSockData.states.modbusOK = true;
-#ifdef MQTT
-             mqtt_publish_modbus_reconnect(webSockData.setupData.inverter.c_str());
-#endif
-         }
+         timeSlice.previousMillisReconnect = timeSlice.currentMillis;
      } */
-        timeSlice.previousMillisReconnect = timeSlice.currentMillis;
-    }
     // SETUP_CHECK_INTERVALL
     if (timeSlice.currentMillis - timeSlice.previousMillisSetup > SETUP_CHECK_INTERVALL)
     {
