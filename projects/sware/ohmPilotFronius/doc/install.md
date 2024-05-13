@@ -2,6 +2,12 @@
 
 Anleitung für das Flashen des Projekts (esp32) mit Hilfe von PlatformIO
 
+## Versionen
+v0.9  Erste Version
+
+## Fehler
+Auftretende Fehler oder seltsames Verhalten soll unter "Fehler" - wie im Readme beschrieben - dokumentiert werden. Dazu ist die Angabe der Version notwendig.
+
 ## Voraussetzungen
 
 Das Projekt via Github clonen; PlattformIO wird die gesamte Toolchain des esp32 installieren; zusätzlich werden die Abhängigkeiten (Libs) aufgelöst und heruntergeladen. Dies kann - je nach Internetverbindung - schon eine Zeit dauern.
@@ -130,3 +136,4 @@ Die Kommunikation des Clients mit dem Server wird per
 
 - Bei der Erst-Inbetriebnahme wird das Flash mit Standard-Werten beschrieben. Das Programm überprüft zu diesem Zweck, ob es gültige Einträge findet. Falls keine vorhanden sind, werden die Default-Werte herangezogen. Diese können natürlich überschrieben werden.
 - Bei einer Änderung der Stammdaten wird des ESP - wenn dieser im AP-Modus betrieben wird - automatisch neu gestartet. Es wird dann in das konfigurierte WLAN eingewählt und der AP-Modus verlassen.
+
