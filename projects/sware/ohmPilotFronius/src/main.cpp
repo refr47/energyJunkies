@@ -528,6 +528,7 @@ void loop()
         }
         else
         {
+            pidPinManager.reset(); // alles aus
             DBGf("Network does not work - no further task are available, tcp ip: %s", webSockData.setupData.currentIP);
         }
 
@@ -812,27 +813,26 @@ void loop()
     if (timeSlice.currentMillis - timeSlice.previousMillisController > PID_CONTROLLER_INTERVALL)
     {
         DBGf("main::PID_CONTROLLER_INTERVALL");
-
-        if (!alarmContainer.alarmTemp.alarmTemp)
+        if (webSockData.states.networkOK)
         {
+            if (!alarmContainer.alarmTemp.alarmTemp)
+            {
 
-            pidPinManager.task(webSockData);
-            webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
-            webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
-            webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+                pidPinManager.task(webSockData);
+                webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
+                webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
+                webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+            }
+            else
+            {
+                DBGf("main::Temperature alarm container is on (%d)", alarmContainer.alarmTemp.alarmTemp);
+            }
         }
-        else
-        {
-            DBGf("main::Temperature alarm container is on (%d)", alarmContainer.alarmTemp.alarmTemp);
-        }
+
         timeSlice.previousMillisController = timeSlice.currentMillis;
         // DBGf("PID_CONTROLLER_INTERVALL");
     }
-
-    // delay(2000);
-    // DBGf(" main:: available watt: %f", availablePowerFromWRInWatt);
-
-    /* ***********************                   CONFIG LIVE UPDATE sTAMMdaTEN via WEB           ************************/
+    
     if (timeSlice.currentMillis - timeSlice.previousMillisHeapCheck > CHECK_HEAP_SIZE_INTERVALL)
     {
         DBGf("CHECK_HEAP_SIZE_INTERVALL)");
