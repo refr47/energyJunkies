@@ -201,16 +201,16 @@ double PinManager::addRelayStorage()
     return storage;
 }
 
-void PinManager::adustPWM()
+void PinManager::adjustPWM()
 {
 
     if (mAnalogOut >= OUTPUT_MAX)
     {
-        DBGf("adustManager, nothing to do, mAnalogOut: %f", mAnalogOut);
+        DBGf("adustManager, nothing to do, mAnalogOut: %.3f", mAnalogOut);
     }
     if (availableWatt < onePhase)
     {
-        DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * availableWatt / onePhase);
+        DBGf(">  0,mCurrentPower <= onePhas: pwm: %d", OUTPUT_MAX * availableWatt / onePhase);
         mAnalogOut = OUTPUT_MAX * availableWatt / onePhase;
         mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
         availableWatt = 0.0;
@@ -219,7 +219,7 @@ void PinManager::adustPWM()
     {
         mAnalogOut = OUTPUT_MAX;
         mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
-        DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX);
+        DBGf(">  0,mCurrentPower <= onePhas: pwm: %d", OUTPUT_MAX);
     }
 }
 // true: nothing must be done, because temperature > allowed or temperature < allowed
@@ -254,7 +254,7 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
     }
     else if (boilerTemp < webSockData.setupData.tempMinInGrad)
     {
-        DBGf("pidManager::task - boilerTemp Minimal underflow, start heating %.3f < webSockData.setupData.tempMinInGrad %.3f", boilerTemp, webSockData.setupData.tempMinInGrad);
+        DBGf("pidManager::task - boilerTemp Minimal underflow, start heating %.3f < webSockData.setupData.tempMinInGrad %d", boilerTemp, webSockData.setupData.tempMinInGrad);
         webSockData.states.boilerHeating = true;
         if (!getStateOfDigPin(0))
         {
@@ -462,7 +462,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
         }
         else if (availableWatt < onePhase)
         {
-            adustPWM();
+            adjustPWM();
             /* mAnalogOut = OUTPUT_MIN;
             mOuts[id_ANA_PWM].setValue(mAnalogOut); */
             DBGf("6 availableWatt < onePhase, mAnalogOut: %.3f", mAnalogOut);
@@ -537,7 +537,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
             DBGf("3 storage - availableWatt - storage > onePhase %.3f > onePhase %.3f", availableWatt, storage);
             storage = addRelayStorage();
         }
-        adustPWM();
+        adjustPWM();
 #ifdef HH
         if (availableWatt <= onePhase)
         {

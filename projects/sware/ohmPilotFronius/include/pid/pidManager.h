@@ -94,7 +94,7 @@ public:
     double getWattBoundInRelays();
     double reduceRelayStorage();
     double addRelayStorage();
-    void adustPWM();
+    void adjustPWM();
 
 private:
     bool prologTemperature(WEBSOCK_DATA &webSockData);
