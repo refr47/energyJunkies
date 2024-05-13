@@ -2,6 +2,8 @@
 
 Es soll ein Produkt (HW, SW) geschaffen werden, welches analog dem [Ohmpilot von Fronius](https://www.fronius.com/de/solarenergie/installateure-partner/technische-daten/alle-produkte/l%C3%B6sungen/fronius-w%C3%A4rmel%C3%B6sung/fronius-ohmpilot/fronius-ohmpilot) funktioniert. Damit soll überschüssiger PV-Strom hausintern verbraucht werden (z.B. Warmwasseraufbereitung). Als Steuerzentrale wird ein uController - [esp32 mit kleinem Display](https://www.lilygo.cc/products/lilygo%C2%AE-ttgo-t-display-1-14-inch-lcd-esp32-control-board) - herangezogen. Dieser ESP ist mit WLAN und Bluetooth ausgestattet. Als ReferenzWR werden Fronius-WR herangezogen, wobei hier der Modbuszugang freizuschalten ist.
 
+## Installation /InBetriebnahme
+Unter 
 ## Anforderungen
 
 Das Produkt wird in einen hardware- und softwareabhängigen Teil aufgespaltet. Es ist ein "Hobby"-Projekt, aber dennoch sollten die wesentlichen Anforderungen erfasst werden. Prinzipiell wird davon ausgegangen, dass die zu betreibenden Heiz/Lade -elemente einen 3-phasigen Anschluß haben, die dann einzeln angesteuert werden.
