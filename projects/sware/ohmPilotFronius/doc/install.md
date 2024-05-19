@@ -103,8 +103,8 @@ Es gibt da Stammdaten und Mobilitätsdaten und die Logfiles
 ### Access-Point Modus
 
 - Falls sich der ESP nicht in das im Setup hinterlegte WLAN einloggen kann, geht er in den AP-Modus und stellt ein eigenes WLAN zur Verfügung; dieses wird auch am Display angezeigt und ist frei (d.h. kein Benuter/Password).
-  - Default-Adresse: 192.168.4.1
-  - Default ESSID: Energy Junkies
+  - Default-Adresse: **192.168.4.1**
+  - Default ESSID: **Energy Junkies**
 - Nun kann man sich in dieses WLAN einwählen und obige IP-Adresse per Browser aufrufen. Man gelangt dann zu einem Login-Dialog, wobei hier der Fallback-Zugang mit **admin** und Password **password** hinterlegt ist.
 - Nach dem Speichern wird der ESP32 kommentarlos neu gestartet.
 
@@ -124,16 +124,31 @@ Es gibt da Stammdaten und Mobilitätsdaten und die Logfiles
 
 ## WebInterface
 
-Wie schon erwähnt, wird die gesamte Konfiguration per WebInterface durchgeführt, wobei die Konfigurationsdaten wiederum in einem separaten Flashbereich abgespeichert werden. Es werden keine gesonderten Einstellung an die Firewall gestellt, sämtlicher Traffic läuft - zumindest dzt - noch über Port 80.
-
 Die Kommunikation des Clients mit dem Server wird per
 
 - Ajax (Stammdaten) und
 - WebSockets (Aktuelle Daten)
   durchgeführt.
 
+### Stammdaten
+Wie schon erwähnt, wird die gesamte Konfiguration per WebInterface durchgeführt, wobei die Konfigurationsdaten wiederum in einem separaten Flashbereich abgespeichert werden. Es werden keine gesonderten Anforderungen an die Firewall gestellt, sämtlicher Traffic läuft - zumindest dzt - noch über Port 80. Die einzelnen Parameter sind selbst erklärend und müssen nach dem Updaten an den Server gesendet werden. Einige Parameter unterstützen ein "HotUpdate" und werden im laufenden Betrieb übernommen, andere wie beispielsweise Netzwerk-SSID bzw. Password führen zu einem Neustart.
+
+## Aktuelle Daten
+Je nach verfügbarem DatenInterface (Fronius oder AMIS-Reader, Akku) werden unterschiedliche Bewegungsdaten angezeigt bzw. auch aktualisiert. 
+
+## Verhalten/Reconnect
+Da relativ viel Kommunikation anfällt, wird immer überprüft, ob eine WLAN-Verbindung noch valide ist und es wird gegebenenfalls ein Reconnect veranlasst. Sobald eine fehlerhafte Netzwerkverbindung auftritt, wird der Regler ausgeschaltet, da ja keine vernünftigen Daten mehr vorliegen. 
+
+## Logfile
+Es wird in der aktuellen Version von VSCode immer ein Logfile angelegt. Dies kann über die ````plattform.ini````gesteuert werden. 
+
+
+
+
 ***Hinweise***
 
 - Bei der Erst-Inbetriebnahme wird das Flash mit Standard-Werten beschrieben. Das Programm überprüft zu diesem Zweck, ob es gültige Einträge findet. Falls keine vorhanden sind, werden die Default-Werte herangezogen. Diese können natürlich überschrieben werden.
 - Bei einer Änderung der Stammdaten wird des ESP - wenn dieser im AP-Modus betrieben wird - automatisch neu gestartet. Es wird dann in das konfigurierte WLAN eingewählt und der AP-Modus verlassen.
+- 
+
 
