@@ -43,8 +43,8 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
   - Heizstableistung (für die rechnerische Festlegung der in das Heizsystem geleiteten Energie)
   - Einspeisebeschränkung (wieviel kW dürfen eingespeist werden)
  -  <del>PI-Regler für den 0-100 % Ausgang (Proportional(P),Integral(I),Differenzial(D)) - Default: P=1, I=0.5, D=0 (FLoat)</del>
-  - Regelbereich Hysterese für die PWM-Steuerung (z.B. 5.900, 5.800 - Hysterese: 100) - oder von Einspeisebeschränkung 100 Watt abziehen und Hysteresewert 
-  - Für die Eingabe ist eine WebSite zu verwenden, wobei der uController (ESP32) als AccessPoint fungiert. Die notwendigen Informationen (SSID,IP-Adresse) sind per Display anzuzeigen.
+  - <del>Regelbereich Hysterese für die PWM-Steuerung (z.B. 5.900, 5.800 - Hysterese: 100) - oder von Einspeisebeschränkung 100 Watt abziehen und Hysteresewert </del>
+  - Für die Eingabe ist eine WebSite zu verwenden, wobei der uController (ESP32) bei der Erst-Inbetriebnahme oder Wechsel des Wlan-Einwählpunktes als AccessPoint fungiert. Die notwendigen Informationen (SSID,IP-Adresse) sind per Display anzuzeigen.
 * Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
   - aktive Netzwerkverbindung
   - IP-Adresse
@@ -55,15 +55,18 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
   - ?
 * Die Kommunikation wird per WLAN durchgeführt, wobei regelmäßig zu prüfen ist, ob die WLAN-Verbindung noch funktioniert
   - ?? hat nur tagsüber Sinn
-  - was passiert, wenn die Kommunikation nicht mehr funktioniert - Fehlermeldung am Display ( ! )
+  - was passiert, wenn die Kommunikation nicht mehr funktioniert - Fehlermeldung am Display ( ! ), Abschalten des Reglers für den Heizstab
 - Der WR wird per Modbus (TCP) angesteuert & setzt eine funktionierende WLAN-Verbindung voraus.
+- Alternativ kann auch der AmisReader verwendet werden, wobei hier weniger Informationen zur Verfügung stehen. 
 - Da Fronius bei der kostenlosen Variante die Verbrauchsdaten nur für 3 Tage loggt, kann der ESP32 diese mitloggen. Dafür ist jedoch ein CardReader notwendig.
 - kleines REST-API, wo die wichtigsten Daten per Web verfügbar sind, die IP-Adresse steht ja auf dem DIsplay.
 - Benachrichtigung per Email, dass irgend etwas passiert ist ( ? )
 
 ## Offene Fragen
-* Initialisierung/sETUP: Wenn Netzwerk nicht funktioniert, kommt man automatisch in den AccessPoint-Modus; Was ist, wenn es ausfällt?
+* Initialisierung/sETUP: Wenn Netzwerk nicht funktioniert, kommt man automatisch in den AccessPoint-Modus;
+* ```Wenn beim Setup kein gültiges WLAN-Netzwerk vorgefunden wird, bootet der ESP32 im AP-Modus mit der Default-Adresse 192.168.4.1 und bietet dazu auch einen offenen Zugang namens "EnergyJunkies" an.```
 * Was macht man bei auftretenden Fehlern?
+* ```Diese werden sowohl am Display als auch am Web-Interface angezeigt.```
 
 ## Was einem sonst noch so einfällt
 
