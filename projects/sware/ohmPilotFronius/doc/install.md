@@ -8,9 +8,20 @@ v0.9  Erste Version
 ## Fehler
 Auftretende Fehler oder seltsames Verhalten soll unter "Fehler" - wie im Readme beschrieben - dokumentiert werden. Dazu ist die Angabe der Version notwendig.
 
-## Voraussetzungen
+## Voraussetzungen /  PlatformIO als IDE / VsCode / PlugIns
+- PlatformIO
+Das Plugin für VSCode sollte vorinstalliert sein und funktioniert an und für sich ganz gut. Problematisch ist, dass es ab und zu relativ selbstständig irgend etwas unternimmt und dies in einer unverständlichen Fehlermeldung endet.
+- C/C++ Plugin
+- Beautifier für Syntaxhilighting
+- esp-idf 
+- git
 
 Das Projekt via Github clonen; PlattformIO wird die gesamte Toolchain des esp32 installieren; zusätzlich werden die Abhängigkeiten (Libs) aufgelöst und heruntergeladen. Dies kann - je nach Internetverbindung - schon eine Zeit dauern.
+
+## Implementierung
+Der ESP32 läuft prinzipiell auf RTOS und kann auch in diesem Modus programmiert werden. Die Anzahl der verfügbaren Bibliotheken ist überschaubar, daher werden die meisten Projekte im "Arduino"-Modus betrieben. Man kann dann alle für Arduino geschriebenen Bibliotheken verwenden und auch die Programmstruktur ist analog aufgebaut (setup() und loop()). Da jeder Arduino-Bibliotheken erzeugen und veröffentlichen kann, gibt es keine Qualitätskontrolle. Prinzipiell kann C bzw. C++ eingesetzt werden, wobei aber bei bestimmten Objekten (z.B. String) Vorsicht geboten ist, da die dynamische Speicherverwaltung teilweise Probleme aufwirft, die dann zum Absturz des Programmes führen und es zu einem Neustart kommt. Im ungünstigen Fall kommt es zu einer Loop (Fehler, booten). Die Bibliotheken weisen teilweise eine geringe Qualität auf und können aufgrund auftretender Seiteneffekte zu Problemen führen. Das Hauptproblem ist jedoch die schleißige Toolchain, sodass beispielsweise ein Debugging fast nicht möglich ist. Die JTAG-Untersützung wird zwar in der Doku erwähnt, aber wie man dann tatsächlich einen JTAG-Debugger anschließt, ist ein gut gehütetes Geheimnis.  Dazu kommt die Vielfalt an esp32-Modellen mit teilweise falschen PIN-Belegungen und einer Minimal-DOkumentation. Grundsätzlich ist der ESP32 ein reichlich ausgestatteter µController, der am besten mit RTOS betrieben wird - aber dann fallen alle Arduino-Libs weg. 
+
+Problematisch ist auch die Programmiersprache C mit der nicht vorhandenen Speicherverwaltung. Da es quasi keinen Debugger gibt, sucht man oft stundenlang einen Fehler, da nur der "Poor Man Debuger" in Form von printf zur Verfügung steht. 
 
 ## Display Configuration
 
@@ -64,13 +75,6 @@ DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
 
 ***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode
 
-## PlatformIO als IDE / VsCode / PlugIns
-- PlatformIO
-Das Plugin für VSCode sollte vorinstalliert sein und funktioniert an und für sich ganz gut. Problematisch ist, dass es ab und zu relativ selbstständig irgend etwas unternimmt und dies in einer unverständlichen Fehlermeldung endet.
-- C/C++ Plugin
-- Beautifier für Syntaxhilighting
-- esp-idf 
-- git
 
 ## Herunterladen per GIT
 Das VSCode-Plugin ist relativ genau und funktioniert ohne Probleme. Für das erstmalige Herunterladen empfiehlt sich die console-basierte Methode per ````git clone https://github.com/htlWels/energyJunkies.git````
