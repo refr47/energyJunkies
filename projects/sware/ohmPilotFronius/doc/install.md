@@ -3,25 +3,29 @@
 Anleitung für das Flashen des Projekts (esp32) mit Hilfe von PlatformIO
 
 ## Versionen
+
 v0.9  Erste Version
 
 ## Fehler
+
 Auftretende Fehler oder seltsames Verhalten soll unter "Fehler" - wie im Readme beschrieben - dokumentiert werden. Dazu ist die Angabe der Version notwendig.
 
 ## Voraussetzungen /  PlatformIO als IDE / VsCode / PlugIns
+
 - PlatformIO
-Das Plugin für VSCode sollte vorinstalliert sein und funktioniert an und für sich ganz gut. Problematisch ist, dass es ab und zu relativ selbstständig irgend etwas unternimmt und dies in einer unverständlichen Fehlermeldung endet.
+  Das Plugin für VSCode sollte vorinstalliert sein und funktioniert an und für sich ganz gut. Problematisch ist, dass es ab und zu relativ selbstständig irgend etwas unternimmt und dies in einer unverständlichen Fehlermeldung endet.
 - C/C++ Plugin
 - Beautifier für Syntaxhilighting
-- esp-idf 
+- esp-idf
 - git
 
 Das Projekt via Github clonen; PlattformIO wird die gesamte Toolchain des esp32 installieren; zusätzlich werden die Abhängigkeiten (Libs) aufgelöst und heruntergeladen. Dies kann - je nach Internetverbindung - schon eine Zeit dauern.
 
 ## Implementierung
-Der ESP32 läuft prinzipiell auf RTOS und kann auch in diesem Modus programmiert werden (https://tutoduino.fr/en/discover-freertos-on-an-esp32-with-platformio/). Die Anzahl der verfügbaren Bibliotheken ist überschaubar, daher werden die meisten Projekte im "Arduino"-Modus betrieben. Man kann dann alle für Arduino geschriebenen Bibliotheken verwenden und auch die Programmstruktur ist analog aufgebaut (setup() und loop()). Da jeder Arduino-Bibliotheken erzeugen und veröffentlichen kann, gibt es keine Qualitätskontrolle. Prinzipiell kann C bzw. C++ eingesetzt werden, wobei aber bei bestimmten Objekten (z.B. String) Vorsicht geboten ist, da die dynamische Speicherverwaltung teilweise Probleme aufwirft, die dann zum Absturz des Programmes führen und es zu einem Neustart kommt. Im ungünstigen Fall kommt es zu einer Loop (Fehler, booten). Die Bibliotheken weisen teilweise eine geringe Qualität auf und können aufgrund auftretender Seiteneffekte zu Problemen führen. Das Hauptproblem ist jedoch die schleißige Toolchain, sodass beispielsweise ein Debugging fast nicht möglich ist. Die JTAG-Untersützung wird zwar in der Doku erwähnt, aber wie man dann tatsächlich einen JTAG-Debugger anschließt, ist ein gut gehütetes Geheimnis.  Dazu kommt die Vielfalt an esp32-Modellen mit teilweise falschen PIN-Belegungen und einer Minimal-DOkumentation. Grundsätzlich ist der ESP32 ein reichlich ausgestatteter µController, der am besten mit RTOS betrieben wird - aber dann fallen alle Arduino-Libs weg. 
 
-Problematisch ist auch die Programmiersprache C mit der nicht vorhandenen Speicherverwaltung. Da es quasi keinen Debugger gibt, sucht man oft stundenlang einen Fehler, da nur der "Poor Man Debuger" in Form von printf zur Verfügung steht. 
+Der ESP32 läuft prinzipiell auf RTOS und kann auch in diesem Modus programmiert werden (https://tutoduino.fr/en/discover-freertos-on-an-esp32-with-platformio/). Die Anzahl der verfügbaren Bibliotheken ist überschaubar, daher werden die meisten Projekte im "Arduino"-Modus betrieben. Man kann dann alle für Arduino geschriebenen Bibliotheken verwenden und auch die Programmstruktur ist analog aufgebaut (setup() und loop()). Da jeder Arduino-Bibliotheken erzeugen und veröffentlichen kann, gibt es keine Qualitätskontrolle. Prinzipiell kann C bzw. C++ eingesetzt werden, wobei aber bei bestimmten Objekten (z.B. String) Vorsicht geboten ist, da die dynamische Speicherverwaltung teilweise Probleme aufwirft, die dann zum Absturz des Programmes führen und es zu einem Neustart kommt. Im ungünstigen Fall kommt es zu einer Loop (Fehler, booten). Die Bibliotheken weisen teilweise eine geringe Qualität auf und können aufgrund auftretender Seiteneffekte zu Problemen führen. Das Hauptproblem ist jedoch die schleißige Toolchain, sodass beispielsweise ein Debugging fast nicht möglich ist. Die JTAG-Untersützung wird zwar in der Doku erwähnt, aber wie man dann tatsächlich einen JTAG-Debugger anschließt, ist ein gut gehütetes Geheimnis.  Dazu kommt die Vielfalt an esp32-Modellen mit teilweise falschen PIN-Belegungen und einer Minimal-DOkumentation. Grundsätzlich ist der ESP32 ein reichlich ausgestatteter µController, der am besten mit RTOS betrieben wird - aber dann fallen alle Arduino-Libs weg.
+
+Problematisch ist auch die Programmiersprache C mit der nicht vorhandenen Speicherverwaltung. Da es quasi keinen Debugger gibt, sucht man oft stundenlang einen Fehler, da nur der "Poor Man Debuger" in Form von printf zur Verfügung steht.
 
 ## Display Configuration
 
@@ -57,7 +61,6 @@ Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von 
 
 ***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode, d.h. dieser Bereich wird dann vom COmpilevorgang automatisch ausgeschlossen.
 
-
 DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
 
 - DLOGFILE_SYS='"/logSYS.txt"'                    # Name des Logfiles am CardREader
@@ -72,16 +75,14 @@ DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
 
   -DFRONIUS_IV=1		# Bei eineme Fronius WR: Verwendung des Solar API (http Protokoll)
 - DWEATHER_API='"https://api.open-meteo.com"' # für künftige Versionen die URL der verwendeten meterologischen Daten
-- -DINFLUX='"http://rantanplan-ethernet:8086"' # Datenaufzeichnung per Influx-DB, Attribute sind in influx.cpp zu finden. 
+- -DINFLUX='"http://rantanplan-ethernet:8086"' # Datenaufzeichnung per Influx-DB, Attribute sind in influx.cpp zu finden.
 - -DAMIS_READER_DEV=1 # Amis Reader Support; wenn Fronius und Amis-Reader aktiviert ist, hat Fronius den Vorzug; Wenn kein Fronius IV eingesetzt wird, hat man wesentlich weniger Daten zur Verfügung, da der Amis-Reader nur den Im-/Export zur Verfügung stellt.
-- -DSHELLY=1  # Shelly Geräte einbinden 
-
+- -DSHELLY=1  # Shelly Geräte einbinden, per REST-API ansteuern
 
 ## Herunterladen per GIT
-Das VSCode-Plugin ist relativ genau und funktioniert ohne Probleme. Für das erstmalige Herunterladen empfiehlt sich die console-basierte Methode per ````git clone https://github.com/htlWels/energyJunkies.git````
-Sodann kann VSCode gestartet werden im ````energiejunkies````-Ordner. Hier kann es passieren, dass PlatformIO die Initialisierungsdatei nicht auf Anhieb findet. Es gibt hier den Button "Pick Folder" und dieser öffnet einen FileDialog. Dann sucht man unter ````projects/sware/```` den Ordner ````ohmPilotFronius````. Bei der Erstinstallation dauert es - je nach Internetanbindung - schon eine Zeit, bis PlatformIO fertig ist. PlatformIO ist via Python realisiert und braucht daher auch Ressourcen in Form von RAM. 
 
-
+Das VSCode-Plugin ist relativ genau und funktioniert ohne Probleme. Für das erstmalige Herunterladen empfiehlt sich die console-basierte Methode per ``git clone https://github.com/htlWels/energyJunkies.git``
+Sodann kann VSCode gestartet werden im ``energiejunkies``-Ordner. Hier kann es passieren, dass PlatformIO die Initialisierungsdatei nicht auf Anhieb findet. Es gibt hier den Button "Pick Folder" und dieser öffnet einen FileDialog. Dann sucht man unter ``projects/sware/`` den Ordner ``ohmPilotFronius``. Bei der Erstinstallation dauert es - je nach Internetanbindung - schon eine Zeit, bis PlatformIO fertig ist. PlatformIO ist via Python realisiert und braucht daher auch Ressourcen in Form von RAM.
 
 ## Compile/Flash
 
@@ -136,24 +137,23 @@ Die Kommunikation des Clients mit dem Server wird per
   durchgeführt.
 
 ### Stammdaten
+
 Wie schon erwähnt, wird die gesamte Konfiguration per WebInterface durchgeführt, wobei die Konfigurationsdaten wiederum in einem separaten Flashbereich abgespeichert werden. Es werden keine gesonderten Anforderungen an die Firewall gestellt, sämtlicher Traffic läuft - zumindest dzt - noch über Port 80. Die einzelnen Parameter sind selbst erklärend und müssen nach dem Updaten an den Server gesendet werden. Einige Parameter unterstützen ein "HotUpdate" und werden im laufenden Betrieb übernommen, andere wie beispielsweise Netzwerk-SSID bzw. Password führen zu einem Neustart.
 
 ## Aktuelle Daten
-Je nach verfügbarem DatenInterface (Fronius oder AMIS-Reader, Akku) werden unterschiedliche Bewegungsdaten angezeigt bzw. auch aktualisiert. 
+
+Je nach verfügbarem DatenInterface (Fronius oder AMIS-Reader, Akku) werden unterschiedliche Bewegungsdaten angezeigt bzw. auch aktualisiert.
 
 ## Verhalten/Reconnect
-Da relativ viel Kommunikation anfällt, wird immer überprüft, ob eine WLAN-Verbindung noch valide ist und es wird gegebenenfalls ein Reconnect veranlasst. Sobald eine fehlerhafte Netzwerkverbindung auftritt, wird der Regler ausgeschaltet, da ja keine vernünftigen Daten mehr vorliegen. 
+
+Da relativ viel Kommunikation anfällt, wird immer überprüft, ob eine WLAN-Verbindung noch valide ist und es wird gegebenenfalls ein Reconnect veranlasst. Sobald eine fehlerhafte Netzwerkverbindung auftritt, wird der Regler ausgeschaltet, da ja keine vernünftigen Daten mehr vorliegen.
 
 ## Logfile
-Es wird in der aktuellen Version von VSCode immer ein Logfile angelegt. Dies kann über die ````plattform.ini````gesteuert werden. 
 
-
-
+Es wird in der aktuellen Version von VSCode immer ein Logfile angelegt. Dies kann über die ``plattform.ini``gesteuert werden.
 
 ***Hinweise***
 
 - Bei der Erst-Inbetriebnahme wird das Flash mit Standard-Werten beschrieben. Das Programm überprüft zu diesem Zweck, ob es gültige Einträge findet. Falls keine vorhanden sind, werden die Default-Werte herangezogen. Diese können natürlich überschrieben werden.
 - Bei einer Änderung der Stammdaten wird des ESP - wenn dieser im AP-Modus betrieben wird - automatisch neu gestartet. Es wird dann in das konfigurierte WLAN eingewählt und der AP-Modus verlassen.
-- 
-
-
+-
