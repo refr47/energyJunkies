@@ -6,7 +6,8 @@ Es soll ein Produkt (HW, SW) geschaffen werden, welches analog dem [Ohmpilot von
 Unter [https://github.com/htlWels/energyJunkies/blob/main/projects/sware/ohmPilotFronius/doc/install.md] ist eine Installationsanleitung zu finden, welche die einzelnen Schritte für eine erfolgreiche Installation Schritt für Schritt erläutert.
 Es können natürlich noch Fehler oder seltsames Verhalten auftreten. Diese könnten unter [https://github.com/htlWels/energyJunkies/blob/main/projects/sware/ohmPilotFronius/doc/error.md] dokumentiert werden und werden dann behoben. 
 
-GIT: Die installierbaren Versionen werden im "main"-Branch verwaltet und die Erweiterungen in einem separaten Branch. Nach einem erfolgreichen Test werden dann die Branches wieder in den Main-Branch integriert und die Version wird dann erhöht. Es wird mit der Version v0.9 bekommen
+## Versionsverwaltung per GIT
+Die installierbaren Versionen werden im "main"-Branch verwaltet und die Erweiterungen in einem separaten Branch. Nach einem erfolgreichen Test werden dann die Branches wieder in den Main-Branch integriert und die Version wird dann erhöht. Es wird mit der Version v0.9 bekommen
 
 v0.9: Basisfunktionalität (Heizstab-Regler mit Untersützung des Fronius-WR und AMIS-Reader (Siemens TD3511 Smartmeter), Temperaturüberwachung
 
