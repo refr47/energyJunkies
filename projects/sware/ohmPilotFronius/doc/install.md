@@ -34,6 +34,10 @@ Der Config-File **_User_Setup_Select.h_** befindet sich im TFT*eSPI-Verzeichnis 
 
 [User_Setup_Select.h](./tft/User_Setup_Select.h)
 
+## Temperatur-Sensorik
+Es werden 2 Temperaturfühler eingesetzt, die beim/am Boiler anzubringen sind. Es wird der Mittelwert der zwei Fühler genommen. Normalerweise stehen extra Einführungslöcher bereit. Die eingesetzten Fühler arbeiten relativ genau und die gemessene Temperatur hängt natürlich vom Standort der Messung ab. Die gemessene Temperatur als Mittelwert wird im WebInterface angezeigt und ist abzugleichen mit der Temperaturanzeige des Boilers. Die Ausschaltwerte sind entsprechend anzupassen. Als "Hardware-Sicherung" wirkt der Temperaturregler am Boiler, der bei Erreichen der Temperatur ausschaltet.
+Der eingesetzte Regler bzw. die Steuerung hat keine Informationen über diesen Temperaturregler und wenn dieser ausschaltet, wird - wenn die eingestellte Temperatur noch nicht erreicht wird - der Boiler trotzdem angesteuert. Im WebInterface werden dann die Phasen dann gegebenfalls als aktiv gekennzeichnet, obwohl die Heizung nicht mehr wirksam ist. 
+
 ## Verschiedene Flash-Bereiche
 
 Der ESP32 stellt intern ein FlashFilesystem (SPIFF) zur Verfügung, welche vom FlashSpeicher für das Programmimage getrennt ist und von diesem quasi "gemounted" werden kann. Das SPIFF-System wird in diesem Projekt für die Speicherung des WebClients (also der html-files und allen dazugehörigen Ressourcen) verwendet. Diese liegen im Projekt im Ordner "data".
