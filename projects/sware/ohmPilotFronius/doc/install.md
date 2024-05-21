@@ -79,6 +79,15 @@ DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
 - -DAMIS_READER_DEV=1 # Amis Reader Support - nur Siemens T0-Geräte ; wenn Fronius und Amis-Reader aktiviert ist, hat Fronius den Vorzug; Wenn kein Fronius IV eingesetzt wird, hat man wesentlich weniger Daten zur Verfügung, da der Amis-Reader nur den Im-/Export zur Verfügung stellt.
 - -DSHELLY=1  # Shelly Geräte einbinden, per REST-API ansteuern
 
+-Logfile
+
+Es wird in der aktuellen Version von VSCode immer ein Logfile angelegt. Dies kann über die ``plattform.ini`` (monitor_filters =  
+	esp32_exception_decoder
+	time
+	log2file) gesteuert werden, wobei beispielsweise auch das Datum automatisch hinzugefügt wird. Der Logfile ist im Order "log" zu finden und es wird bei jedem Restart ein neuer Logfile angelegt. Die Formatierung der Logzeilen erfolgt per Makro im File ```debugConsole.h```.
+
+***Hinweise***
+
 ## Herunterladen per GIT
 
 Das VSCode-Plugin ist relativ genau und funktioniert ohne Probleme. Für das erstmalige Herunterladen empfiehlt sich die console-basierte Methode per ``git clone https://github.com/htlWels/energyJunkies.git``
@@ -147,12 +156,6 @@ Je nach verfügbarem DatenInterface (Fronius oder AMIS-Reader, Akku) werden unte
 ## Verhalten/Reconnect
 
 Da relativ viel Kommunikation anfällt, wird immer überprüft, ob eine WLAN-Verbindung noch valide ist und es wird gegebenenfalls ein Reconnect veranlasst. Sobald eine fehlerhafte Netzwerkverbindung auftritt, wird der Regler ausgeschaltet, da ja keine vernünftigen Daten mehr vorliegen.
-
-## Logfile
-
-Es wird in der aktuellen Version von VSCode immer ein Logfile angelegt. Dies kann über die ``plattform.ini``gesteuert werden.
-
-***Hinweise***
 
 - Bei der Erst-Inbetriebnahme wird das Flash mit Standard-Werten beschrieben. Das Programm überprüft zu diesem Zweck, ob es gültige Einträge findet. Falls keine vorhanden sind, werden die Default-Werte herangezogen. Diese können natürlich überschrieben werden.
 - Bei einer Änderung der Stammdaten wird des ESP - wenn dieser im AP-Modus betrieben wird - automatisch neu gestartet. Es wird dann in das konfigurierte WLAN eingewählt und der AP-Modus verlassen.
