@@ -9,7 +9,7 @@ Es können natürlich noch Fehler oder seltsames Verhalten auftreten. Diese kön
 ## Versionsverwaltung per GIT
 Die installierbaren Versionen werden im "main"-Branch verwaltet und die Erweiterungen in einem separaten Branch. Nach einem erfolgreichen Test werden dann die Branches wieder in den Main-Branch integriert und die Version wird dann erhöht. Es wird mit der Version v0.9 bekommen
 
-v0.9: Basisfunktionalität (Heizstab-Regler mit Untersützung des Fronius-WR und AMIS-Reader (Siemens TD3511 Smartmeter), Temperaturüberwachung
+### v0.9: Basisfunktionalität (Heizstab-Regler mit Untersützung des Fronius-WR und AMIS-Reader (Siemens TD3511 Smartmeter), Temperaturüberwachung
 
 ## Anforderungen
 
