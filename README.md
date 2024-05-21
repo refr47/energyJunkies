@@ -45,6 +45,7 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
  -  <del>PI-Regler für den 0-100 % Ausgang (Proportional(P),Integral(I),Differenzial(D)) - Default: P=1, I=0.5, D=0 (FLoat)</del>
   - <del>Regelbereich Hysterese für die PWM-Steuerung (z.B. 5.900, 5.800 - Hysterese: 100) - oder von Einspeisebeschränkung 100 Watt abziehen und Hysteresewert </del>
   - Für die Eingabe ist eine WebSite zu verwenden, wobei der uController (ESP32) bei der Erst-Inbetriebnahme oder Wechsel des Wlan-Einwählpunktes als AccessPoint fungiert. Die notwendigen Informationen (SSID,IP-Adresse) sind per Display anzuzeigen.
+  - Die Setup-Basisdaten sind per EEProm zu sichern, die bei einem Restart dann herangezogen werden können. 
 * Auf dem Display sollten die wichtigsten Informationen angezeigt werden können:
   - aktive Netzwerkverbindung
   - IP-Adresse
@@ -61,6 +62,8 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 - Da Fronius bei der kostenlosen Variante die Verbrauchsdaten nur für 3 Tage loggt, kann der ESP32 diese mitloggen. Dafür ist jedoch ein CardReader notwendig.
 - kleines REST-API, wo die wichtigsten Daten per Web verfügbar sind, die IP-Adresse steht ja auf dem DIsplay.
 - Benachrichtigung per Email, dass irgend etwas passiert ist ( ? )
+- Der Regler muss bei Erreichen des Temperaturlimits (per Setup-Dialog einstellbar) sämtliche Kanäle abschalten.
+- Sofern ein Akku vorhanden ist, soll die Priorisierung einstellbar sein (d.h. wird zuerst der Boiler oder der Akku geladen).
 
 ## Offene Fragen
 * Initialisierung/sETUP: Wenn Netzwerk nicht funktioniert, kommt man automatisch in den AccessPoint-Modus;
@@ -74,7 +77,7 @@ Der OhmPilot von Fronius kann dzt. um die gut € 1.000,-- erworben werden, d.h.
 * Es wäre für die Optimierung der Energiekosten (welcher Tarif ist für das Aufheizen/Aufladen am günstigsten) günstig, wenn man den Wetterbericht kennt, denn dann weiß man ja, ob genug Solarstrom vorhanden ist, den Task durchzuführen (z.B. Aufladen).
 * Künftig werden wahrscheinlich variable Einspeistarife vorgegeben werden, variable Stromkosten für den Einkauf gibt es ja schon. Hier kann dann optimiert werden in Abstimmung mit einem eventuell vorhandenen Akku, wann wer wie geladen / in das Netz gespeist wird.
 * Poolpumpe bzw. Poolwärmepumpe: Poolpumpe wälzt das Wasser im Becken um, egal welche Qualität das Wasser hat. Hier könnte in Verbindung mit einem Frequenzumformer die Leistung der Pumpe reduziert werden, wenn man weiß, welche Qualität das Wasser dzt. hat. Die Wärmepumpe kann ebenfalls in Abhängigkeit von Überstrom gesteuert werden (Ein- bzw. Ausschalten per TCP?)
-* Setup: Jeder hat ja seine eigen Zugangsdaten - wie sollen diese am Besten berücksichtigt werden. Der geringste Aufwand ist die Erstellung eines eigenen setup.h-Files, in der sämtliche spezifische Daten eingetragen werden. Elegant wäre natürlich das Setup per Handy, wobei der ESP im Setup-Modus bootet und einen eigenen AP zur Verfügung stellt, in der sich eine App einwählt und dann die Zugangsdaten einstellt. Diese Daten werden dann ins Eprom verfrachtet ?
+* Setup: Jeder hat ja seine eigen Zugangsdaten - wie sollen diese am Besten berücksichtigt werden. Der geringste Aufwand ist die Erstellung eines eigenen setup.h-Files, in der sämtliche spezifische Daten eingetragen werden. Elegant wäre natürlich das Setup per Handy, wobei der ESP im Setup-Modus bootet und einen eigenen AP zur Verfügung stellt, in der sich eine App einwählt und dann die Zugangsdaten einstellt. Diese Daten werden dann ins Eprom verfrachtet - ``Ẁird so durchgeführt``
 * Im Prototyp sind ja 4 zusätzliche Taster vorgesehen - es ist hier zu definieren, welche Funktionalität hier hinterlegt wird.
 * Thema WLAN/Setup: ich hab bereits ein Projekt mit einem ESP2866 am Start und genau diese Problematik. Ich hab 2 Bibliotheken im Einsatz: 
   - [WIFI-Manager](https://github.com/tzapu/WiFiManager) Hotspot + Webserver für WLAN Konfiguration + eigenes Setup möglich (ums Speichern des eigenen Setups muss man sich selbst kümmern)
