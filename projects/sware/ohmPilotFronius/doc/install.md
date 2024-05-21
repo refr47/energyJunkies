@@ -55,7 +55,8 @@ Das Programm muss fehlerfrei übersetzen (kleines Häckchen) und kann dann ohne 
 
 Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von Bibliotheken und dem Compile-Vorgang, der u.a. durch diverse ***Defines*** gesteuert wird (bedingtes Compile). Im Sourcecode ist dann oftmals die ***ifdef*** Anweisung zu sehen, dass bestimmte Teile vom COmpile-Vorgang ein- bzw. ausschließt. Die wichtigsten Flags wären:
 
-Hinweis: eine nachgestellte 1 deaktiviert das Define und hat zur Folge,dass der betroffene Bereich nicht compiliert wird. 
+***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode, d.h. dieser Bereich wird dann vom COmpilevorgang automatisch ausgeschlossen.
+
 
 DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
 
@@ -74,8 +75,6 @@ DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
 - -DINFLUX='"http://rantanplan-ethernet:8086"'
 - -DAMIS_READER_DEV=1 # Amis Reader Support; wenn Fronius und Amis-Reader aktiviert ist, hat Fronius den Vorzug; Wenn kein Fronius IV eingesetzt wird, hat man wesentlich weniger Daten zur Verfügung, da der Amis-Reader nur den Im-/Export zur Verfügung stellt.
 - -DSHELLY=1  # Shelly Geräte einbinden 
-
-***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode
 
 
 ## Herunterladen per GIT
