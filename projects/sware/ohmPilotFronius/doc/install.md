@@ -55,12 +55,14 @@ Das Programm muss fehlerfrei übersetzen (kleines Häckchen) und kann dann ohne 
 
 Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von Bibliotheken und dem Compile-Vorgang, der u.a. durch diverse ***Defines*** gesteuert wird (bedingtes Compile). Im Sourcecode ist dann oftmals die ***ifdef*** Anweisung zu sehen, dass bestimmte Teile vom COmpile-Vorgang ein- bzw. ausschließt. Die wichtigsten Flags wären:
 
+Hinweis: eine nachgestellte 1 deaktiviert das Define und hat zur Folge,dass der betroffene Bereich nicht compiliert wird. 
+
 DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
 
 - DLOGFILE_SYS='"/logSYS.txt"'                    # Name des Logfiles am CardREader
 - DLOGFILE_INVERTER='"/logInv.txt"'               # Ausgabe für Inverter Daten (z.B. Produktion,...)
 - DTAG='"EJunkies"'                               # Tag für ESP Logging System
-- DEJ=1                                           # TestProg für EJ (Schalter) am Board; mit einer nachgestellten 1 wirkt dann das Define nicht
+- DEJ=1                                           # TestProg für EJ (Schalter) am Board;
 - DWEB=1 # Zusätzliche FUnktionalität für REST
 - DCORS_DEBUG=1   # Debug der REST
 - DTEST_PID_WWWW1=1  # Test des Reglers, wobei dann die in der RestSchnittstelle unter Stammdaten eingegeben Daten nach dem Speichern übernommen werden
