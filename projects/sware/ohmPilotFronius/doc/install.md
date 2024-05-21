@@ -79,14 +79,14 @@ DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
 - -DAMIS_READER_DEV=1 # Amis Reader Support - nur Siemens T0-Geräte ; wenn Fronius und Amis-Reader aktiviert ist, hat Fronius den Vorzug; Wenn kein Fronius IV eingesetzt wird, hat man wesentlich weniger Daten zur Verfügung, da der Amis-Reader nur den Im-/Export zur Verfügung stellt.
 - -DSHELLY=1  # Shelly Geräte einbinden, per REST-API ansteuern
 
--Logfile
+- Logfile
 
 Es wird in der aktuellen Version von VSCode immer ein Logfile angelegt. Dies kann über die ``plattform.ini`` (monitor_filters =  
 	esp32_exception_decoder
 	time
 	log2file) gesteuert werden, wobei beispielsweise auch das Datum automatisch hinzugefügt wird. Der Logfile ist im Order "log" zu finden und es wird bei jedem Restart ein neuer Logfile angelegt. Die Formatierung der Logzeilen erfolgt per Makro im File ```debugConsole.h```.
 
-***Hinweise***
+
 
 ## Herunterladen per GIT
 
