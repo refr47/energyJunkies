@@ -84,7 +84,7 @@ Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von 
   -DFRONIUS_IV=1		# Bei eineme Fronius WR: zusätzlich Verwendung des Solar API (http Protokoll), da mehr Infos dann zur Verfügung stehen (besonders wenn ein Akku verwendet wird)
 - DWEATHER_API='"https://api.open-meteo.com"' # für künftige Versionen die URL der verwendeten meterologischen Daten
 - -DINFLUX='"http://rantanplan-ethernet:8086"' # Datenaufzeichnung per Influx-DB, Attribute sind in influx.cpp zu finden.
-- -DAMIS_READER_DEV=1 # Amis Reader Support - nur Siemens TD3511 Geräte; wenn Fronius und Amis-Reader aktiviert ist, hat Fronius den Vorzug; Wenn kein Fronius IV eingesetzt wird, hat man wesentlich weniger Daten zur Verfügung, da der Amis-Reader nur den Im-/Export zur Verfügung stellt.
+- -DAMIS_READER_DEV=1 # Amis Reader Support - nur Siemens TD3511 Geräte  <img src="./img/amis-02.jpg"  style="width:200px;"/>; wenn Fronius und Amis-Reader aktiviert ist, hat Fronius den Vorzug; Wenn kein Fronius IV eingesetzt wird, hat man wesentlich weniger Daten zur Verfügung, da der Amis-Reader nur den Im-/Export zur Verfügung stellt.
 - -DSHELLY=1  # Shelly Geräte einbinden, per REST-API ansteuern
 - Logfile: Es wird in der aktuellen Version von VSCode immer ein Logfile angelegt. Dies kann über die ``plattform.ini`` (monitor_filters =
   esp32_exception_decoder
