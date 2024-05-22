@@ -187,8 +187,8 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               { logReader_enDisableRedirect(true);
                 request->send(200, "text/plain", "Redirecting enabled"); });
     server.on("/logOff", HTTP_GET, [](AsyncWebServerRequest *request)
-              { logReader_enDisableRedirect(true);
-                request->send(200, "text/plain", "Redirecting enabled"); });
+              { logReader_enDisableRedirect(false);
+                request->send(200, "text/plain", "Redirecting disabled"); });
 
     server.on("/logs", HTTP_GET, [](AsyncWebServerRequest *request)
               { logReader_enDisableRedirect(true);

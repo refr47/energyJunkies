@@ -36,6 +36,14 @@ void logReader_captureSerialOutput()
 {
     if (!redirect)
         return;
+    if (Serial.available())
+    {
+        DBG("logReader_captureSerialOutput - Serial.available");
+    }
+    else
+    {
+        DBG("logReader_captureSerialOutput - !Serial.available");
+    }
     while (Serial.available())
     {
         char ch = (char)Serial.read();
