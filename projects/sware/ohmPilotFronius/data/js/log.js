@@ -5,7 +5,7 @@ function fetchRunningLogs() {
         url: "/serial", //http://10.0.0.59
         async: true,
         contentType: "text/html; charset=utf-8",
-        dataType: "text"
+        dataType: "text",
         success: function (data) {
             if (data !== null) {
 
