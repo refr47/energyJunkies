@@ -26,6 +26,7 @@
 #include "webSockets.h"
 #include "weather.h"
 #include "ledHandler.h"
+#include "logReader.h"
 #ifdef MQTT
 #include "mqtt.h"
 #endif
@@ -192,15 +193,6 @@ void test_cardReader()
 #endif
 }
 
-#ifdef EJ
-
-static int s1_enter = 1;
-static int s2_up = 1;
-static int s3_down = 1;
-static int s4_esc = 1;
-
-#endif
-
 void setup()
 {
 
@@ -305,208 +297,176 @@ void setup()
         DBGf("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
         // memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
-#ifdef EJ
-
-        delay(3000);
-        tft_clearScreen();
-    }
-#endif
-#ifndef EJ
 
 #ifdef MQTT
-    if (!mqtt_init())
-    {
-        DBGf("Mqtt-Server -- cannot connect (!)");
-    }
-    else
-        DBGf("Mqtt-Server:: connected successfully ...");
-#endif
-    webSockData.states.cardWriterOK = false;
-#ifdef CARD_READER
-    if (cardRW_setup(false, false))
-    {
-        webSockData.states.cardWriterOK = true;
-        tft_printKeyValue("Init CardReader", "OK", TFT_GREEN);
-
-        logging_init();
-        // test_cardReader();
-    }
-    else
-    {
-        DBGf("Logging to file cannot be initiated ...");
-        tft_printKeyValue("Init CardReader", "Error", TFT_RED);
-
-        ledHandler_showCardReaderError(true);
-    }
-#endif
-    /* ESP_ERROR_CHECK(heap_trace_stop());
-    heap_trace_dump(); */
-    DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
-    webSockData.states.tempSensorOK = false;
-    if (temp_init())
-    {
-
-        tft_printKeyValue("Init Sensors", "OK", TFT_GREEN);
-        webSockData.states.tempSensorOK = true;
-    }
-    else
-    {
-
-        tft_printKeyValue("Init Sensors", "Error", TFT_RED);
-    }
-#ifdef WEATHER_API
-    wheater_getForecast();
-    wheater_print();
-#endif
-    if (webSockData.states.modbusOK)
-    {
-        if (!mb_readAll(webSockData.setupData, webSockData.mbContainer))
+        if (!mqtt_init())
         {
-            DBGf("Init::readAllModbusValues did not succeed");
-            tft_printKeyValue("Modbus Read", "Error", TFT_RED);
+            DBGf("Mqtt-Server -- cannot connect (!)");
         }
-    }
+        else
+            DBGf("Mqtt-Server:: connected successfully ...");
+#endif
+        webSockData.states.cardWriterOK = false;
+#ifdef CARD_READER
+        if (cardRW_setup(false, false))
+        {
+            webSockData.states.cardWriterOK = true;
+            tft_printKeyValue("Init CardReader", "OK", TFT_GREEN);
 
-    webSockData.states.froniusAPI = false;
+            logging_init();
+            // test_cardReader();
+        }
+        else
+        {
+            DBGf("Logging to file cannot be initiated ...");
+            tft_printKeyValue("Init CardReader", "Error", TFT_RED);
+
+            ledHandler_showCardReaderError(true);
+        }
+#endif
+        /* ESP_ERROR_CHECK(heap_trace_stop());
+        heap_trace_dump(); */
+        DBGf("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
+        webSockData.states.tempSensorOK = false;
+        if (temp_init())
+        {
+
+            tft_printKeyValue("Init Sensors", "OK", TFT_GREEN);
+            webSockData.states.tempSensorOK = true;
+        }
+        else
+        {
+
+            tft_printKeyValue("Init Sensors", "Error", TFT_RED);
+        }
+#ifdef WEATHER_API
+        wheater_getForecast();
+        wheater_print();
+#endif
+        if (webSockData.states.modbusOK)
+        {
+            if (!mb_readAll(webSockData.setupData, webSockData.mbContainer))
+            {
+                DBGf("Init::readAllModbusValues did not succeed");
+                tft_printKeyValue("Modbus Read", "Error", TFT_RED);
+            }
+        }
+
+        webSockData.states.froniusAPI = false;
 
 #ifdef FRONIUS_IV
-    bool akkuAvailable = false;
+        bool akkuAvailable = false;
 
-    const char *cp = webSockData.setupData.inverter;
-    if (cp == NULL)
-        DBGf("cp is null");
-    else
-        DBGf("inverter is: %s", cp);
-    DBGf("WR (FRonius detect solar api): %s ", webSockData.setupData.inverter);
-    webSockData.setupData.externerSpeicher = false;
-    webSockData.states.froniusAPI = false;
-    if (soloar_init(webSockData, &akkuAvailable))
-    {
-        webSockData.setupData.externerSpeicher = akkuAvailable;
-        DBGf("main - akku: %d", webSockData.setupData.externerSpeicher);
-        memset(&webSockData.fronius_SOLAR_POWERFLOW, 0, sizeof(FRONIUS_SOLAR_POWERFLOW));
-        if (solar_get_powerflow(webSockData))
-        {
-            webSockData.states.froniusAPI = true;
-            DBGf("main1 - akku: %d", webSockData.setupData.externerSpeicher);
-            tft_printKeyValue("Fronius Solar API", "Yes", TFT_GREEN);
-            if (webSockData.setupData.externerSpeicher == true)
-                tft_printKeyValue("AKKU", "Yes", TFT_GREEN);
-            else
-                tft_printKeyValue("AKKU", "No", TFT_GREEN);
-            DBGf("Fronius solar API Support: YES, AKKU: %s", webSockData.setupData.externerSpeicher == true ? "Yes" : "NO");
-        }
+        const char *cp = webSockData.setupData.inverter;
+        if (cp == NULL)
+            DBGf("cp is null");
         else
+            DBGf("inverter is: %s", cp);
+        DBGf("WR (FRonius detect solar api): %s ", webSockData.setupData.inverter);
+        webSockData.setupData.externerSpeicher = false;
+        webSockData.states.froniusAPI = false;
+        if (soloar_init(webSockData, &akkuAvailable))
         {
-            DBGf("setup::solar_init - Cannot access Fronius REST  SOLAR API form converter!");
-            tft_printKeyValue(" Fronius Solar API", "ERROR", TFT_RED);
+            webSockData.setupData.externerSpeicher = akkuAvailable;
+            DBGf("main - akku: %d", webSockData.setupData.externerSpeicher);
+            memset(&webSockData.fronius_SOLAR_POWERFLOW, 0, sizeof(FRONIUS_SOLAR_POWERFLOW));
+            if (solar_get_powerflow(webSockData))
+            {
+                webSockData.states.froniusAPI = true;
+                DBGf("main1 - akku: %d", webSockData.setupData.externerSpeicher);
+                tft_printKeyValue("Fronius Solar API", "Yes", TFT_GREEN);
+                if (webSockData.setupData.externerSpeicher == true)
+                    tft_printKeyValue("AKKU", "Yes", TFT_GREEN);
+                else
+                    tft_printKeyValue("AKKU", "No", TFT_GREEN);
+                DBGf("Fronius solar API Support: YES, AKKU: %s", webSockData.setupData.externerSpeicher == true ? "Yes" : "NO");
+            }
+            else
+            {
+                DBGf("setup::solar_init - Cannot access Fronius REST  SOLAR API form converter!");
+                tft_printKeyValue(" Fronius Solar API", "ERROR", TFT_RED);
+            }
         }
-    }
 
 #endif
 
-    DBGf("Setup PID-Controller");
+        DBGf("Setup PID-Controller");
 #ifdef MQTT
-    mqtt_publish_pidParams(webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
+        mqtt_publish_pidParams(webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
 #endif
-    // DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
-    tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
-    pidPinManager.config(webSockData.setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
+        // DBGf("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
+        tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
+        pidPinManager.config(webSockData.setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
 #ifdef INFLUX
-    webSockData.states.influx = false;
-    if (influx_init(getDataForWebSocket))
-    {
-        webSockData.states.influx = true;
-    }
+        webSockData.states.influx = false;
+        if (influx_init(getDataForWebSocket))
+        {
+            webSockData.states.influx = true;
+        }
 #endif
-    webSockData.states.amisReader = false;
+        webSockData.states.amisReader = false;
 
 #ifdef AMIS_READER_DEV
-    if (webSockData.states.froniusAPI == false && webSockData.states.modbusOK == false)
-    {
-        if (amisReader_initRestTargets(webSockData))
+        if (webSockData.states.froniusAPI == false && webSockData.states.modbusOK == false)
         {
-            webSockData.states.amisReader = true;
-
-            if (amisReader_readRestTarget(webSockData))
+            if (amisReader_initRestTargets(webSockData))
             {
                 webSockData.states.amisReader = true;
-                tft_printKeyValue("Init AMIS-Reader", "ok", TFT_GREEN);
-                DBGf("AMIS-Reader:: connected successfully ...");
+
+                if (amisReader_readRestTarget(webSockData))
+                {
+                    webSockData.states.amisReader = true;
+                    tft_printKeyValue("Init AMIS-Reader", "ok", TFT_GREEN);
+                    DBGf("AMIS-Reader:: connected successfully ...");
+                }
+                else
+                {
+
+                    tft_printKeyValue("Init AMIS-Reader", "Error", TFT_RED);
+                    DBGf("AMIS-Reader:: connection failed ...");
+                }
             }
             else
             {
-
-                tft_printKeyValue("Init AMIS-Reader", "Error", TFT_RED);
-                DBGf("AMIS-Reader:: connection failed ...");
+                tft_printKeyValue("NO AMIS-Reader", "Error", TFT_RED);
+                DBGf("amisReader not found");
             }
         }
-        else
-        {
-            tft_printKeyValue("NO AMIS-Reader", "Error", TFT_RED);
-            DBGf("amisReader not found");
-        }
+
+#endif
     }
+    logReader_init();
 
-#endif
-}
+    if (webSockData.states.networkOK)
+    {
 
-if (webSockData.states.networkOK)
-{
+        heapSize[1].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+        heapSize[1].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+        DBGf("Free heap previous: %d largest block previous: %d,Free heap : %d largest block : %d", heapSize[0].heapSize, heapSize[0].heapSizeMax, heapSize[1].heapSize, heapSize[1].heapSizeMax);
+        DBGf(" -------- States ---------------");
+        DBGf("Network: %c", webSockData.states.networkOK == true ? 'y' : 'n');
+        DBGf("IP-Address: %s", webSockData.setupData.currentIP);
+        DBGf("Fronius: %c", webSockData.states.froniusAPI == true ? 'y' : 'n');
+        DBGf("AmisReader: %c", webSockData.states.amisReader == true ? 'y' : 'n');
+        DBGf("CardWrite: %c", webSockData.states.cardWriterOK == true ? 'y' : 'n');
+        DBGf("FlashFS: %c", webSockData.states.flashOK == true ? 'y' : 'n');
+        DBGf("Influx: %c", webSockData.states.influx == true ? 'y' : 'n');
+        DBGf("Modbus: %c", webSockData.states.modbusOK == true ? 'y' : 'n');
+        DBGf("MqTT: %c", webSockData.states.mqtt == true ? 'y' : 'n');
+        DBGf("TempSensor: %c", webSockData.states.tempSensorOK == true ? 'y' : 'n');
+        DBGf("LogReader: y");
+        DBGf("HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
+        tft_clearScreen();
+        delay(5000);
+    }
+    DBGf("Setup done - all components are working...");
+    ESP_LOGI(TAG, "Setup done - all components are working...");
 
-    heapSize[1].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-    heapSize[1].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    DBGf("Free heap previous: %d largest block previous: %d,Free heap : %d largest block : %d", heapSize[0].heapSize, heapSize[0].heapSizeMax, heapSize[1].heapSize, heapSize[1].heapSizeMax);
-    DBGf(" -------- States ---------------");
-    DBGf("Network: %c", webSockData.states.networkOK == true ? 'y' : 'n');
-    DBGf("IP-Address: %s", webSockData.setupData.currentIP);
-    DBGf("Fronius: %c", webSockData.states.froniusAPI == true ? 'y' : 'n');
-    DBGf("AmisReader: %c", webSockData.states.amisReader == true ? 'y' : 'n');
-    DBGf("CardWrite: %c", webSockData.states.cardWriterOK == true ? 'y' : 'n');
-    DBGf("FlashFS: %c", webSockData.states.flashOK == true ? 'y' : 'n');
-    DBGf("Influx: %c", webSockData.states.influx == true ? 'y' : 'n');
-    DBGf("Modbus: %c", webSockData.states.modbusOK == true ? 'y' : 'n');
-    DBGf("MqTT: %c", webSockData.states.mqtt == true ? 'y' : 'n');
-    DBGf("TempSensor: %c", webSockData.states.tempSensorOK == true ? 'y' : 'n');
-    DBGf("HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
-    tft_clearScreen();
-    delay(5000);
-}
-DBGf("Setup done - all components are working...");
-ESP_LOGI(TAG, "Setup done - all components are working...");
-#else
-        ESP_LOGI(TAG, "Start testing...");
-
-        pinMode(SWITCH_KEY_ENTER, INPUT_PULLUP);
-        /* pinMode(SWITCH_KEY_UP, INPUT_PULLUP);
-        pinMode(SWITCH_KEY_DOWN, INPUT_PULLUP); */
-        pinMode(SWITCH_KEY_ESC, INPUT_PULLUP);
-
-        pinMode(RELAY_L1, OUTPUT);
-        pinMode(RELAY_L2, OUTPUT);
-        pinMode(PWM_FOR_PID, OUTPUT);
-        memset(&timeSlice, 0, sizeof(timeSlice));
-
-#endif
-// eM_printWakeUpReason();
+    // eM_printWakeUpReason();
 } // init
 
 static char formatBuffer[FORMAT_CHAR_BUFFER_LEN];
 
-#ifdef EJ
-static int pwmValue = 0;
-static uint8_t l1 = false, l2 = false;
-static bool pressedEnter = false;
-
-static int s1_esc_prev = 1, s2_enter_prev = 1;
-
-static time_t time1, time2, time3, time4;
-static bool startMe = false, stopMe = false, initMe = true, doneStop = true;
-static double currentConsumeInWatt, accumulatedWatt = 0.0;
-
-#define MAX_VAL 1700.0
-
-#endif
 void loop()
 {
     /*   DBGf("Wait for 20 secs in loop");
@@ -516,7 +476,7 @@ void loop()
     heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
 
     timeSlice.currentMillis = millis();
-#ifndef EJ
+
     if (!webSockData.states.networkOK)
     {
 
@@ -905,179 +865,8 @@ void loop()
         timeSlice.previousMillisSetup = timeSlice.currentMillis;
     }
 
-// eM_setSleepTime(20);
-// eM_lightSleep();
-#else
-
-        s1_enter = digitalRead(SWITCH_KEY_ENTER);
-        /*    s2_up = digitalRead(SWITCH_KEY_UP);
-          s3_down = digitalRead(SWITCH_KEY_DOWN);  */
-        s4_esc = digitalRead(SWITCH_KEY_ESC);
-
-        if ((s4_esc == LOW) && (s1_esc_prev == 1))
-        {
-            delay(40);
-            s4_esc = digitalRead(SWITCH_KEY_ESC);
-            // DBGf("ENER s4, pwm: %d, l1: %x", pwmValue, l1);
-            if (s4_esc == LOW)
-            {
-
-                pwmValue = 0;
-                stopMe = true;
-                startMe = false;
-                initMe = false;
-                doneStop = false;
-                l1 = !l1;
-            }
-            s1_esc_prev = s4_esc;
-            // DBGf("exit s4, pwm: %d, l1: %x", pwmValue, l1);
-        }
-        if ((s1_enter == LOW) && (s2_enter_prev == 1))
-        {
-            delay(40);
-            s1_enter = digitalRead(SWITCH_KEY_ENTER);
-            // DBGf("ENtER s1-ENTER, pwm: %d, l2: %x", pwmValue, l2);
-            if (s1_enter == LOW)
-            {
-
-                pwmValue = 255;
-                accumulatedWatt = 0.0;
-                stopMe = false;
-                doneStop = false;
-                startMe = true;
-                initMe = false;
-                DBGf("enter: startMe: %s, initMe: %s", startMe == true ? "true" : "false", initMe == true ? "true" : "false");
-                // DBGf("Set pwm to %d", pwmValue);
-
-                l2 = !l2;
-            }
-            s2_enter_prev = s1_enter;
-        }
-
-        timeSlice.currentMillis = millis();
-
-        if (timeSlice.currentMillis - timeSlice.previousMillisClock > CLOCK_INTERVALL)
-        {
-
-            s1_esc_prev = 1;
-            s2_enter_prev = 1;
-            sprintf(formatBuffer, "%d", webSockData.setupData.heizstab_leistung_in_watt);
-            tft_print_test(3, 15, 150, TFT_BLUE, "Heizstab", formatBuffer);
-            tft_print_test(4, 15, 150, TFT_BLUE, "Enter -", "ESC +");
-
-            sprintf(formatBuffer, "%d", pwmValue);
-            tft_print_test(5, 15, 130, TFT_GREEN, "PWM", formatBuffer);
-            // DBGf("enter: startMe: %s, initMe: %s", startMe == true ? "true" : "false", initMe == true ? "true" : "false");
-            if (startMe)
-            {
-                if (initMe == false)
-                {
-                    DBGf("Start Messung & init");
-
-                    sprintf(formatBuffer, "0");
-
-                    if (mb_readSmartMeterAndInverterOnly(webSockData.setupData, webSockData.mbContainer))
-                    {
-                        tft_print_test(11, 15, 150, TFT_RED, "Error", "Modbus cannot read");
-                        DBGf("Error reading modbus");
-                        return;
-                    }
-                    else
-                    {
-                        tft_print_test(11, 15, 150, TFT_RED, "Error", "None");
-                        time(&time1);
-                        currentConsumeInWatt = INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower;
-                        sprintf(formatBuffer, "V %+6.1lf |W %+6.1lf |S %+6.1lf", currentConsumeInWatt, INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
-                        DBGf("SMeter (start) %s", formatBuffer);
-                        tft_print_test(6, 15, 110, TFT_GREEN, "Start (W) ", formatBuffer);
-                        if (currentConsumeInWatt == 0.0)
-                        {
-                            DBGf("Smart Meter returns value 0");
-                        }
-                        else
-                        {
-                            initMe = true;
-                            DBGf("Smart Meter returns value !=0");
-                        }
-                        analogWrite(PWM_FOR_PID, pwmValue);
-                    }
-                    tft_print_test(8, 15, 130, TFT_GREEN, "Stop (secs) ", "0");
-                }
-                else
-                {
-                    // DBGf("Start Messung & Modbus read");
-                    time(&time3);
-                    if (mb_readSmartMeterAndInverterOnly(webSockData.setupData, webSockData.mbContainer))
-                    {
-                        tft_print_test(11, 15, 150, TFT_RED, "Error", "Modbus cannot read");
-                        DBGf("Error reading modbus");
-                    }
-                    else
-                    {
-                        time(&time4);
-                        double dTime = difftime(time4, time3);
-                        sprintf(formatBuffer, "%.1f secs", dTime);
-                        tft_print_test(9, 15, 150, TFT_GREEN, "ModB Call (sec)", formatBuffer);
-                        dTime = difftime(time4, time1);
-                        tft_print_test(11, 15, 150, TFT_RED, "Error", "None");
-                        accumulatedWatt += INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower - currentConsumeInWatt;
-                        sprintf(formatBuffer, "%0.1lf V %+6.1f |W %+6.1f |S %+6.1f", dTime, INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower - currentConsumeInWatt, INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
-                        DBGf("Values: %s", formatBuffer);
-                        tft_print_test(7, 15, 80, TFT_GREEN, "Diff (W) ", formatBuffer);
-                        DBGf("Diff  %s", formatBuffer);
-                        if (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower - currentConsumeInWatt >= MAX_VAL)
-                        {
-                            pwmValue = 0;
-                            stopMe = true;
-                            startMe = false;
-                            initMe = false;
-                            doneStop = false;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                if (stopMe && !doneStop)
-                {
-                    DBGf("Stop Messung");
-                    analogWrite(PWM_FOR_PID, pwmValue);
-                    time(&time2);
-                    delay(1000);
-                    mb_readSmartMeterAndInverterOnly(webSockData.setupData, webSockData.mbContainer);
-
-                    double dTime = difftime(time2, time1);
-                    sprintf(formatBuffer, "%.1f secs", dTime - 1.0);
-                    doneStop = true;
-                    DBGf("Stop Messung within %f secs", dTime);
-                    sprintf(formatBuffer, "%0.1lf %+6.1f | %+6.1f | %+6.1f", dTime, INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower - currentConsumeInWatt, INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower);
-
-                    tft_print_test(7, 15, 80, TFT_GREEN, "Diff (W) ", formatBuffer);
-                    DBGf("Stop - last values: %s", formatBuffer);
-                    sprintf(formatBuffer, "Time: %.1f", dTime);
-                    tft_print_test(8, 15, 130, TFT_GREEN, "Stop (secs) ", formatBuffer);
-                    mb_readSmartMeterAndInverterOnly(webSockData.setupData, webSockData.mbContainer);
-                }
-                else
-                {
-                    /* getCurrentTime(formatBuffer, sizeof(formatBuffer));
-                    tft_print_test(9, 15, 130, TFT_GREEN, "Time ", formatBuffer); */
-                }
-            }
-
-            // tft_print_test(6, 15, 130, TFT_GREEN, "TimeS ", formatBuffer);
-
-            /*  digitalWrite(RELAY_L1, l1);
-            tft_print_test(6, 15, 130, TFT_GREEN, "L1", l1 == LOW ? "LOW" : "HIGH");
-            digitalWrite(RELAY_L2, l2);
-            tft_print_test(7, 15, 130, TFT_GREEN, "L2", l2 == LOW ? "LOW" : "HIGH"); */
-            DBGf("L1: %d  L2: %d    PWM: %d", l1, l2, pwmValue);
-
-            // modbus
-            timeSlice.previousMillisClock = timeSlice.currentMillis;
-        }
-
-#endif
+    // eM_setSleepTime(20);
+    // eM_lightSleep();
 
 } // loop
 

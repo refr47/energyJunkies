@@ -1,0 +1,54 @@
+#include "logReader.h"
+
+#define BUFFER_SIZE_READER 1024
+
+static char ringBuffer[BUFFER_SIZE_READER];
+static size_t writeIndex = 0;
+static size_t readIndex = 0;
+static size_t dataLength = 0;
+
+// prototypes
+static void addToBuffer(char data);
+static void captureSerialOutput();
+
+void logReader_init()
+{
+    DBGf("logReader initialized with buffer size: %d", BUFFER_SIZE_READER);
+    memset(ringBuffer, 0, BUFFER_SIZE_READER);
+}
+
+String logReader_getBufferAsString()
+{
+    String result = "";
+    for (size_t i = 0; i < dataLength; i++)
+    {
+        size_t index = (readIndex + i) % BUFFER_SIZE_READER;
+        result += ringBuffer[index];
+    }
+    return result;
+}
+
+static void captureSerialOutput()
+{
+    while (Serial.available())
+    {
+        char ch = (char)Serial.read();
+        addToBuffer(ch);
+        Serial.print(ch); // Sende Zeichen zur PlatformIO-Konsole zurück
+    }
+}
+
+static void addToBuffer(char data)
+{
+    ringBuffer[writeIndex] = data;
+    writeIndex = (writeIndex + 1) % BUFFER_SIZE_READER;
+    if (dataLength < BUFFER_SIZE_READER)
+    {
+        dataLength++;
+    }
+    else
+    {
+        // buffer full, oldest data is overwritten
+        readIndex = (readIndex + 1) % BUFFER_SIZE_READER;
+    }
+}

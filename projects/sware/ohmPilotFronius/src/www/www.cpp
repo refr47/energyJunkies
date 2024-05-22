@@ -10,6 +10,7 @@
 #include "ajaxCalls.h"
 #include "www.h"
 #include "webSockets.h"
+#include "logReader.h"
 
 /* You only need to format SPIFFS the first time you run a
    test or else use the SPIFFS plugin to create a partition
@@ -177,8 +178,14 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               { request->send(SPIFFS, "/headerF.html", "text/html"); });
     server.on("/out", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/output.html", "text/html"); });
-    server.on("/logs", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/logs.html", "text/html"); });
+    server.on("/logging", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(200, "text/html", "<!DOCTYPE html><html><head><title>Serial Monitor</title><script>function fetchData(){fetch('/serial').then(response => response.text()).then(data => {document.getElementById('output').innerText = data;});} setInterval(fetchData, 1000);</script></head><body><h1>ESP32 Serial Monitor</h1><pre id='output'></pre></body></html>"); });
+
+    server.on("/serial", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(200, "text/plain", logReader_getBufferAsString()); });
+    /* server.on("/logs", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/logs.html", "text/html"); }); */
+
     server.on("/setup", HTTP_GET, handleSetup);
     server.on("/", HTTP_GET, handleRoot);
     // Route for serving the login page and handling login requests
