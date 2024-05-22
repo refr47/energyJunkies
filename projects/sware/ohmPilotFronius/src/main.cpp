@@ -864,7 +864,7 @@ void loop()
         }
         timeSlice.previousMillisSetup = timeSlice.currentMillis;
     }
-
+    logReader_captureSerialOutput();
     // eM_setSleepTime(20);
     // eM_lightSleep();
 

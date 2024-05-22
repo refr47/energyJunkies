@@ -183,8 +183,16 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
  */
     server.on("/serial", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(200, "text/plain", logReader_getBufferAsString()); });
+    server.on("/logOn", HTTP_GET, [](AsyncWebServerRequest *request)
+              { logReader_enDisableRedirect(true);
+                request->send(200, "text/plain", "Redirecting enabled"); });
+    server.on("/logOff", HTTP_GET, [](AsyncWebServerRequest *request)
+              { logReader_enDisableRedirect(true);
+                request->send(200, "text/plain", "Redirecting enabled"); });
+
     server.on("/logs", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/logs.html", "text/html"); });
+              { logReader_enDisableRedirect(true);
+                    request->send(SPIFFS, "/logs.html", "text/html"); });
 
     server.on("/setup", HTTP_GET, handleSetup);
     server.on("/", HTTP_GET, handleRoot);

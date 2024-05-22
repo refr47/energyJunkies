@@ -6,17 +6,20 @@ static char ringBuffer[BUFFER_SIZE_READER];
 static size_t writeIndex = 0;
 static size_t readIndex = 0;
 static size_t dataLength = 0;
+static bool redirect = false;
 
 // prototypes
 static void addToBuffer(char data);
-static void captureSerialOutput();
 
 void logReader_init()
 {
     DBGf("logReader initialized with buffer size: %d", BUFFER_SIZE_READER);
     memset(ringBuffer, 0, BUFFER_SIZE_READER);
 }
-
+void logReader_enDisableRedirect(bool enDis)
+{
+    redirect = enDis;
+}
 String logReader_getBufferAsString()
 {
     String result = "";
@@ -25,11 +28,14 @@ String logReader_getBufferAsString()
         size_t index = (readIndex + i) % BUFFER_SIZE_READER;
         result += ringBuffer[index];
     }
+    DBGf("logReader_getBufferAsString: %s", result.c_str());
     return result;
 }
 
-static void captureSerialOutput()
+void logReader_captureSerialOutput()
 {
+    if (!redirect)
+        return;
     while (Serial.available())
     {
         char ch = (char)Serial.read();
