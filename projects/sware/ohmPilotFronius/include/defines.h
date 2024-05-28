@@ -67,7 +67,7 @@
 #define TAG "E-JUNKIES"
 #endif
 #define LOG_LEVEL ESP_LOG_INFO
-#define MY_ESP_LOG_LEVEL ESP_LOG_INFO
+#define MY_ESP_LOG_LEVEL ESP_DEBUG
 
 #include "debugConsole.h"
 

@@ -41,6 +41,7 @@ static void tft_prinBlock(int offsetX1, int offsetX2, u_int16_t txtColor, const 
 
 void tft_init()
 {
+    LOG_DEBUG("tft_init");
     tft.begin();
     tft.setRotation(1);
     tft.setSwapBytes(true);
@@ -56,7 +57,7 @@ void tft_init()
     tft.setSwapBytes(true);
     width = tft.width();
     height = tft.height();
-    DBGf("TFT Width %d,Height: %d", width, height);
+    LOG_DEBUG("TFT Width %d,Height: %d", width, height);
 
     tft.setRotation(1);
     tft.setTextColor(TFT_RED);
@@ -123,24 +124,24 @@ void tft_printSetup()
 #if defined(ESP32) || defined(ARDUINO_ARCH_ESP8266)
     if (user.esp < 0x32F000 || user.esp > 0x32FFFF)
     {
-        DBGf("Frequency    =  %d MHz", ESP.getCpuFreqMHz());
+        LOG_INFO("Frequency    =  %d MHz", ESP.getCpuFreqMHz());
     }
 #endif
 
-    DBGf("Check tft SPI");
+    LOG_DEBUG("Check tft SPI");
     if (user.pin_tft_mosi != -1)
     {
-        DBGf("MOSI    =  %d", getPinName(user.pin_tft_mosi, user));
+        LOG_DEBUG("MOSI    =  %d", getPinName(user.pin_tft_mosi, user));
     }
     if (user.pin_tft_miso != -1)
     {
 
-        DBGf("MISO    =  %d", getPinName(user.pin_tft_miso, user));
+        LOG_DEBUG("MISO    =  %d", getPinName(user.pin_tft_miso, user));
     }
     if (user.pin_tft_clk != -1)
     {
 
-        DBGf("SCK    =  %d", getPinName(user.pin_tft_clk, user));
+        LOG_DEBUG("SCK    =  %d", getPinName(user.pin_tft_clk, user));
     }
 
     String pinNameRef = "GPIO ";
@@ -309,7 +310,7 @@ static void tft_clearScreenFrom(int yFrom)
 
     tft.fillRect(0, yFrom, width, height, TFT_BLACK); // Bild ausschalten
     currentLine = yFrom % FONTSIZE_2;
-    DBGf("tft-clearScreen with currentLine: %d", currentLine);
+    LOG_DEBUG("tft-clearScreen with currentLine: %d", currentLine);
 }
 
 static inline void tft_printTextToPos(int x, int y, int fontsize, const char *txt, u_int16_t colourText)
