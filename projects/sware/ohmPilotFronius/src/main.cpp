@@ -553,7 +553,7 @@ void loop()
             {
                 if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > webSockData.setupData.tempMaxAllowedInGrad)
                 {
-                    LOG_ERROR( "main::Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
+                    LOG_ERROR("main::Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
 
                     pidPinManager.reset(); // alles aus
                     alarmContainer.alarmTemp.alarmTemp = true;
@@ -805,7 +805,7 @@ void loop()
         if (eprom_stammDataUpdate())
         {
             LOG_INFO("main PID-TEST update");
-            availablePowerFromWRInWatt = webSockData.setupData.forceHeating = d.forceHeating;
+            availablePowerFromWRInWatt = webSockData.setupData.forceHeating = d.force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Heating;
 
             webSockData.pidContainer.mCurrentPower = d.forceHeating * 1.00;
             LOG_INFO("PID-TEST (1): available watt: %d", d.forceHeating);

@@ -57,9 +57,9 @@ ESP_LOGV - verbose (highest)
 
 #define LOG_WARNING(M, ...) ESP_LOGW(TAG, "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
-#define LOG_INFO(M, ...) ESP_LOGI(TAG, "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_INFO(M, ...) ESP_LOGI(TAG, "%s:%d > " M, FINFO, __LINE__, ##__VA_ARGS__)
 
-#define LOG_DEBUG(M, ...) ESP_LOGD(TAG, "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_DEBUG(M, ...) ESP_LOGD(TAG, "%s:%d > " M, FINFO, __LINE__, ##__VA_ARGS__)
 
 #define LOG_VERBOSE(M, ...) ESP_LOGV(TAG, "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
