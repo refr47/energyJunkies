@@ -55,15 +55,15 @@ ESP_LOGV - verbose (highest)
 
 // esp_log_write(ESP_LOG_ERROR, "", format, ##__VA_ARGS__)
 
-#define LOG_ERROR(M, ...) esp_log_write(ESP_LOG_ERROR, "", "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_ERROR(M, ...) esp_log_write(ESP_LOG_ERROR, "", "%s:%d |> " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
-#define LOG_WARNING(M, ...) ESP_LOGW(TAG, "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_WARNING(M, ...) esp_log_write(ESP_LOG_WARN, "", "%s:%d |> " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
-#define LOG_INFO(M, ...) esp_log_write(ESP_LOG_INFO, "", "%s:%d > " M, FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_INFO(M, ...) esp_log_write(ESP_LOG_INFO, "", "%s:%d |> " M, FINFO, __LINE__, ##__VA_ARGS__)
 
-#define LOG_DEBUG(M, ...) ESP_LOGD(TAG, "%s:%d > " M, FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_DEBUG(M, ...) esp_log_write(ESP_LOG_DEBUG, "", "%s:%d |> " M, FINFO, __LINE__, ##__VA_ARGS__)
 
-#define LOG_VERBOSE(M, ...) ESP_LOGV(TAG, "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_VERBOSE(M, ...) esp_log_write(ESP_LOG_VERBOSE, "", "%s:%d |> " M, FINFO, __LINE__, ##__VA_ARGS__)
 
 #define DBG(M, ...) DEBUG_PORT.printf("%s:%d | " M, FINFO, __LINE__, ##__VA_ARGS__)
 
