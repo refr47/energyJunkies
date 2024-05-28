@@ -78,12 +78,6 @@ https://github.com/Xinyuan-LilyGO/T-Display-S3
 #define MAX_RECONNECTING_NET 5
 #define DELAY_RECONNECT_NET 10000 // wait 10 secs for next connection
 
-#ifndef TAG
-#define TAG "E-JUNKIES"
-#endif
-#define LOG_LEVEL ESP_LOG_INFO
-#define MY_ESP_LOG_LEVEL ESP_LOG_INFO
-
 #define NUM_RECORDS 100
 // static heap_trace_record_t trace_record[NUM_RECORDS]; // This buffer must be in internal RAM
 static RTC_DATA_ATTR int bootCount = 0;
@@ -176,6 +170,8 @@ void logging_init()
     DBGf("Setting log levels and callback");
     esp_log_level_set("*", MY_ESP_LOG_LEVEL);
     esp_log_level_set(TAG, LOG_LEVEL);
+    esp_log_set_vprintf(debug_LogOutput);
+
 #ifdef CARD_READER
     esp_log_set_vprintf(cardRW_LogOutput);
 
@@ -201,18 +197,18 @@ void setup()
           ; */
     btStop(); // stop bluetoothd
 
-    DBGf("Energie-Junkies -- Harvester ---");
+    LOG_INFO("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
     memset(&timeSlice, 0, sizeof(TIME_SLICE));
     timeSlice.maxReconnecting.maxModbusCounter = 60000; // 1 min hat 60 secs
     bootCount++;
-    Serial.println("Boot number: " + String(bootCount));
+    LOG_INFO("Boot number: %s", String(bootCount));
     ledHandler_init();
     tft_init();
     tft_printSetup();
     heapSize[0].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    DBGf("Free heap: %d largest block: %d", heapSize[0].heapSize, heapSize[0].heapSizeMax);
+    LOG_INFO("Free heap: %d largest block: %d", heapSize[0].heapSize, heapSize[0].heapSizeMax);
 
     /*  int currentState = digitalRead(Iheap_caps_get_largest_free_block()NTERNAL_BUTTON_2_GPIO);
      DBGf("Interal button: %d", currentState); */

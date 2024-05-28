@@ -9,7 +9,7 @@ static size_t dataLength = 0;
 static bool redirect = false;
 
 // prototypes
-static void addToBuffer(char data);
+static void addToBuffer(const char data);
 
 void logReader_init()
 {
@@ -32,27 +32,20 @@ String logReader_getBufferAsString()
     return result;
 }
 
-void logReader_captureSerialOutput()
+void logReader_captureSerialOutput(const char *logM)
 {
     if (!redirect)
         return;
-    if (Serial.available())
+    const char *ch = (char *)logM;
+    while (logM != NULL)
     {
-        DBG("logReader_captureSerialOutput - Serial.available");
-    }
-    else
-    {
-        DBG("logReader_captureSerialOutput - !Serial.available");
-    }
-    while (Serial.available())
-    {
-        char ch = (char)Serial.read();
-        addToBuffer(ch);
-        Serial.print(ch); // Sende Zeichen zur PlatformIO-Konsole zurück
+        addToBuffer(*ch);
+        // Serial.print(*ch); // Sende Zeichen zur PlatformIO-Konsole zurück
+        ch = ++logM;
     }
 }
 
-static void addToBuffer(char data)
+static void addToBuffer(const char data)
 {
     ringBuffer[writeIndex] = data;
     writeIndex = (writeIndex + 1) % BUFFER_SIZE_READER;

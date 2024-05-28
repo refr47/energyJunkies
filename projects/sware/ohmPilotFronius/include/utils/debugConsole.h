@@ -13,7 +13,7 @@
 #ifndef DEBUG_PORT
 #define DEBUG_PORT Serial
 #endif
-
+int debug_LogOutput(const char *format, va_list args);
 // This only works for C
 /* static const char *currTime()
 {
@@ -29,6 +29,7 @@
 }
 // What is the current time
 #define DATE_STRING currTime() */
+
 #define FINFO strrchr(__FILE__, '/') + 1
 
 #define DBGbgn(speed) Serial.begin(speed)
@@ -38,6 +39,29 @@
 #define DBG(format, ...) DEBUG_PORT.printf(format, ##__VA_ARGS__) */
 
 #define DBGf(M, ...) DEBUG_PORT.printf("%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+
+/*
+ESP_LOGE - error (lowest)
+
+ESP_LOGW - warning
+
+ESP_LOGI - info
+
+ESP_LOGD - debug
+
+ESP_LOGV - verbose (highest)
+
+*/
+
+#define LOG_ERROR(M, ...) ESP_LOGE("%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+
+#define LOG_WARNING(M, ...) ESP_LOGW("%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+
+#define LOG_INFO(M, ...) ESP_LOGI(TAG, "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+
+#define LOG_DEBUG(M, ...) ESP_LOGD("%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+
+#define LOG_VERBOSE(M, ...) ESP_LOGV("%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
 #define DBG(M, ...) DEBUG_PORT.printf("%s:%d | " M, FINFO, __LINE__, ##__VA_ARGS__)
 

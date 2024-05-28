@@ -128,7 +128,7 @@ bool cardRW_flushLoggingFile()
     loggingAvailable = true;
     return true;
 }
-
+ 
 bool cardRW_closeLoggingFile()
 {
 

@@ -62,6 +62,13 @@
 #define AMIS_VALUE_COUNT 3
 #define FRONIUS_VALUE_COUNT 6
 
+// esp logging system
+#ifndef TAG
+#define TAG "E-JUNKIES"
+#endif
+#define LOG_LEVEL ESP_LOG_INFO
+#define MY_ESP_LOG_LEVEL ESP_LOG_INFO
+
 #include "debugConsole.h"
 
 #ifdef FRONIUS_IV
@@ -82,7 +89,6 @@
 
 #define DEFAULT_IP_ACCESS_POINT "192.168.4.1"
 
-
 typedef struct
 {
     char ssid[LEN_WLAN];
@@ -95,7 +101,7 @@ typedef struct
     // unsigned int ipInverter;
     char inverter[INET_ADDRSTRLEN];
     char currentIP[INET_ADDRSTRLEN];
- 
+
     bool externerSpeicher;
     char externerSpeicherPriori;
     unsigned int pid_min_time_without_contoller_inMS;
