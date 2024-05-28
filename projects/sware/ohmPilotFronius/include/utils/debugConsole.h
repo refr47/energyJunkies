@@ -55,11 +55,11 @@ ESP_LOGV - verbose (highest)
 
 // esp_log_write(ESP_LOG_ERROR, "", format, ##__VA_ARGS__)
 
-#define LOG_ERROR(M, ...) esp_log_write(ESP_LOG_ERROR, "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_ERROR(M, ...) esp_log_write(ESP_LOG_ERROR, "", "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
 #define LOG_WARNING(M, ...) ESP_LOGW(TAG, "%s:%d | " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
-#define LOG_INFO(M, ...) esp_log_write(ESP_LOG_INFO, "%s:%d > " M, FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_INFO(M, ...) esp_log_write(ESP_LOG_INFO, "", "%s:%d > " M, FINFO, __LINE__, ##__VA_ARGS__)
 
 #define LOG_DEBUG(M, ...) ESP_LOGD(TAG, "%s:%d > " M, FINFO, __LINE__, ##__VA_ARGS__)
 
