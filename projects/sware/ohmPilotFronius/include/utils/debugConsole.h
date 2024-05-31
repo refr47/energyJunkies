@@ -59,7 +59,7 @@ ESP_LOGV - verbose (highest)
 
 #define LOG_WARNING(M, ...) esp_log_write(ESP_LOG_WARN, "(WW)", "%s:%d |> " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
-#define LOG_INFO(M, ...) esp_log_write(ESP_LOG_INFO, "(II)", "%s:%d |> " M, FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_INFO(M, ...) ESP_LOGI(TAG, "%s:%d |> " M, FINFO, __LINE__, ##__VA_ARGS__)
 
 #define LOG_DEBUG(M, ...) esp_log_write(ESP_LOG_DEBUG, "(DD)", "%s:%d |> " M, FINFO, __LINE__, ##__VA_ARGS__)
 
