@@ -168,11 +168,11 @@ void logging_init()
 {
 
     LOG_INFO("Setting log levels and callback");
-    esp_log_level_set("ArduinoJson", ESP_LOG_ERROR);
-    esp_log_level_set("AsyncTCP-esphome", ESP_LOG_ERROR);
-    esp_log_level_set("ESPAsyncWebServer-esphome", ESP_LOG_ERROR);
-    esp_log_level_set("modbus-esp8266", ESP_LOG_ERROR);
-
+    /*  esp_log_level_set("ArduinoJson", ESP_LOG_ERROR);
+     esp_log_level_set("AsyncTCP-esphome", ESP_LOG_ERROR);
+     esp_log_level_set("ESPAsyncWebServer-esphome", ESP_LOG_ERROR);
+     esp_log_level_set("modbus-esp8266", ESP_LOG_ERROR);
+  */
     esp_log_level_set(TAG, ESP_LOG_VERBOSE);
     esp_log_set_vprintf(debug_LogOutput);
 
@@ -313,8 +313,8 @@ void setup()
             webSockData.states.cardWriterOK = true;
             tft_printKeyValue("Init CardReader", "OK", TFT_GREEN);
 
-            logging_init();
-            // test_cardReader();
+            // logging_init();
+            //  test_cardReader();
         }
         else
         {
