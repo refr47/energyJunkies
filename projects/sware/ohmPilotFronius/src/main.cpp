@@ -173,7 +173,7 @@ void logging_init()
     esp_log_level_set("ESPAsyncWebServer-esphome", ESP_LOG_ERROR);
     esp_log_level_set("modbus-esp8266", ESP_LOG_ERROR);
 
-    esp_log_level_set(TAG, ESP_LOG_VERBOSE);
+    esp_log_level_set(TAG, ESP_LOG_INFO);
     esp_log_set_vprintf(debug_LogOutput);
 
 #ifdef CARD_READER
