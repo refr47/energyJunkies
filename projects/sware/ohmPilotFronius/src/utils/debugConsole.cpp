@@ -9,5 +9,6 @@ int debug_LogOutput(const char *format, va_list args)
     int ret = vsnprintf(buf, sizeof(buf), format, args);
     logReader_captureSerialOutput((const char *)buf);
     Serial.printf("%s\n", buf);
+    DBGf("debug_logOutput: %s", buf);
     return ret;
 }
