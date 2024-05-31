@@ -5,7 +5,7 @@ static bool updated = false;
 bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
 {
 
-    DBGf("main::SETUP_CHECK_INTERVALL %d ", webSockData.setupData.setupChanged);
+    LOG_DEBUG("hotUpdate::hotUpdate - did something change %d ", webSockData.setupData.setupChanged);
     updated = false;
     Setup d;
 
@@ -14,8 +14,8 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
     /* DBGf("==::== oldVal: %d, newVal: %d", webSockData.setupData.forceHeating, d.forceHeating); */
     if (d.forceHeating != webSockData.setupData.forceHeating)
     {
-        DBGf("main::forceHeating changed !! - no reboot");
-        DBGf("Old value: %d, new value: %d", webSockData.setupData.forceHeating, d.forceHeating);
+        LOG_INFO("hotUpdate::forceHeating changed !! - no reboot");
+        LOG_DEBUG("Old value: %d, new value: %d", webSockData.setupData.forceHeating, d.forceHeating);
         webSockData.states.heating = HEATING_AUTOMATIC;
         updated = true;
 
@@ -56,43 +56,43 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
     }
     if (d.externerSpeicherPriori != webSockData.setupData.externerSpeicherPriori)
     {
-        DBGf("main::externerSpeicherPriori changed !! - no reboot :: eprom: %c, web: %c", d.externerSpeicherPriori, webSockData.setupData.externerSpeicherPriori);
+        LOG_INFO("hotUpdate::externerSpeicherPriori changed !! - no reboot :: eprom: %c, web: %c", d.externerSpeicherPriori, webSockData.setupData.externerSpeicherPriori);
         webSockData.setupData.externerSpeicherPriori = d.externerSpeicherPriori;
         updated = true;
     }
     if (d.tempMaxAllowedInGrad != webSockData.setupData.tempMaxAllowedInGrad)
     {
-        DBGf("main:: tempMaxAllowedInGrad changed !! - no reboot :: eprom: %d, web: %d", d.tempMaxAllowedInGrad, webSockData.setupData.tempMaxAllowedInGrad);
+        LOG_INFO("hotUpdate:: tempMaxAllowedInGrad changed !! - no reboot :: eprom: %d, web: %d", d.tempMaxAllowedInGrad, webSockData.setupData.tempMaxAllowedInGrad);
         webSockData.setupData.tempMaxAllowedInGrad = d.tempMaxAllowedInGrad;
         updated = true;
     }
     if (d.pid_powerWhichNeedNotConsumed != webSockData.setupData.pid_powerWhichNeedNotConsumed)
     {
-        DBGf("main:: pid_powerWhichNeedNotConsumed changed !! - no reboot :: eprom: %d, web: %d", d.pid_powerWhichNeedNotConsumed, webSockData.setupData.pid_powerWhichNeedNotConsumed);
+        LOG_INFO("hotUpdate:: pid_powerWhichNeedNotConsumed changed !! - no reboot :: eprom: %d, web: %d", d.pid_powerWhichNeedNotConsumed, webSockData.setupData.pid_powerWhichNeedNotConsumed);
         webSockData.setupData.pid_powerWhichNeedNotConsumed = d.pid_powerWhichNeedNotConsumed;
         updated = true;
     }
     if (d.tempMinInGrad != webSockData.setupData.tempMinInGrad)
     {
-        DBGf("main:: tempMinInGrad changed !! - no reboot :: eprom: %.3f, web: %d", d.tempMinInGrad, webSockData.setupData.tempMinInGrad);
+        LOG_INFO("hotUpdate:: tempMinInGrad changed !! - no reboot :: eprom: %.3f, web: %d", d.tempMinInGrad, webSockData.setupData.tempMinInGrad);
         webSockData.setupData.tempMinInGrad = d.tempMinInGrad;
         updated = true;
     }
     if (d.additionalLoad != webSockData.setupData.additionalLoad)
     {
-        DBGf("main:: additionalLoad changed !! - no reboot :: eprom: %.3f, web: %.3f", d.additionalLoad, webSockData.setupData.additionalLoad);
+        LOG_INFO("main:: additionalLoad changed !! - no reboot :: eprom: %.3f, web: %.3f", d.additionalLoad, webSockData.setupData.additionalLoad);
         webSockData.setupData.additionalLoad = d.additionalLoad;
         updated = true;
     }
     if (strcmp(d.passwd, webSockData.setupData.passwd) != 0)
     {
-        DBGf("main:: passwd changed !! - no reboot :: eprom: %s, web: %s", d.passwd, webSockData.setupData.passwd);
+        LOG_INFO("main:: passwd changed !! - no reboot :: eprom: %s, web: %s", d.passwd, webSockData.setupData.passwd);
         strncpy(webSockData.setupData.passwd, d.passwd, LEN_WLAN - 1);
         updated = true;
     }
     if (strcmp(d.inverter, webSockData.setupData.inverter) != 0)
     {
-        DBGf("main:: inverter changed !! - no reboot :: eprom: %s, web: %s", d.inverter, webSockData.setupData.inverter);
+        LOG_INFO("main:: inverter changed !! - no reboot :: eprom: %s, web: %s", d.inverter, webSockData.setupData.inverter);
         strcpy(webSockData.setupData.inverter, d.inverter);
         updated = true;
     }

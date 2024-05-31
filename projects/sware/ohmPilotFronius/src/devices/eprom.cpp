@@ -125,29 +125,30 @@ void eprom_isInit()
     preferences.begin(CREDENTIALS, false);
     if (preferences.getString(_SSID, "") == NULL)
     {
-        DBGf("epeprom_rom_isInit - flash hasn't been used never before ! - reinit ");
+        LOG_INFO("epeprom_rom_isInit - flash hasn't been used never before ! - reinit ");
         eprom_test_write_Eprom("", "");
     }
     else
     {
-        DBGf("eprom_isInit:: Nothing to do");
+        LOG_INFO("eprom_isInit:: Nothing to do");
     }
     preferences.end();
 }
 
 void eprom_getSetup(Setup &setup)
 {
+    LOG_DEBUG("eprom_getSetup");
     memset(&setup, 0, sizeof(Setup));
     preferences.begin(CREDENTIALS, false);
     String ssid, passwd;
-    bool result = true;
+    // bool result = true;
 
     ssid = preferences.getString(_SSID, "");
     passwd = preferences.getString(_PASSWORD, "");
 
     if (ssid == "" || passwd == "")
     {
-        DBGf("No values saved for ssid or password");
+        LOG_INFO("eprom::eprom_getSetup No values saved for ssid or password");
         strcpy(setup.ssid, EMPTY_VALUE_IN_SETUP);
         strcpy(setup.passwd, "");
     }
@@ -167,7 +168,7 @@ void eprom_getSetup(Setup &setup)
     /*  ipv4_int_to_string(setup.amisReaderHost, setup.ipAmisReaderHost, &result);
      if (!result)
          DBGf("ERPROM - Error in converting AmisReader IPAdress!!"); */
-    DBGf("eprom_getSetup() .. AmisReaderHost:  %s", setup.amisReaderHost);
+    // DBGf("eprom_getSetup() .. AmisReaderHost:  %s", setup.amisReaderHost);
 
     // String key = preferences.getString(_AMIS_READER_KEY);
     strncpy(setup.amisKey, preferences.getString(_AMIS_READER_KEY).c_str(), AMIS_KEY_LEN - 1);
@@ -179,7 +180,7 @@ void eprom_getSetup(Setup &setup)
     if (!result)
         DBGf("ERPROM - Error in converting Inverter IPAdress!!"); */
 
-    DBGf("===>IP-Inverter eprom_getSetup: as string: %s ", setup.inverter);
+    // DBGf("===>IP-Inverter eprom_getSetup: as string: %s ", setup.inverter);
 
     // DBGf("EPROM::   IP-Inverter as string: %s", setup.inverter);
     setup.externerSpeicher = preferences.getBool(_EXTERNER_SPEICHER);
@@ -220,14 +221,14 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
  */
     strncpy(setup.ssid, wlanE, LEN_WLAN - 1);
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
-    DBGf("eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
+    LOG_DEBUG("eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
 
     setup.heizstab_leistung_in_watt = 5000;
     setup.tempMaxAllowedInGrad = 60;
     setup.tempMinInGrad = 35;
     strcpy(setup.inverter, "10.0.0.2");
 
-    bool result = true;
+    // bool result = true;
     /*
         setup.ipInverter = ipv4_string_to_int(setup.inverter, &result);
         if (!result)
@@ -261,21 +262,21 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.forceHeating = 0;
     setup.additionalLoad = 0.0;
 
-    DBGf("eprom_test_write_Eprom END");
+    LOG_DEBUG("eprom::eprom_test_write_Eprom END");
 
     eprom_storeSetup(setup);
 }
 
 void printEprom(Setup &setup)
 {
-    char buffer[600];
-    memset(buffer, 0, 600);
-    DBGf("\nprintEprom ============================================ ");
+    char buffer[2000];
+    memset(buffer, 0, 2000);
+    LOG_DEBUG("eprom::printEprom ============================================ ");
     sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Influx: %s ,inverter: %s,  Controller_OUT_ON_DELAY_MS: %d   forceHeating: %d , AdditionalLoad: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
             setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.influxOrg, setup.inverter, setup.pid_min_time_without_contoller_inMS, setup.forceHeating, setup.additionalLoad, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
-    DBGf("%s", buffer);
+    LOG_DEBUG("%s", buffer);
 
-    DBGf("\n==========================(%d)============================== ", strlen(buffer));
+    // DBGf("\n==========================(%d)============================== ", strlen(buffer));
 }
 
 void eprom_test_read_Eprom()

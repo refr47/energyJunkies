@@ -41,27 +41,27 @@ static bool isAPModus = false; // only in APModus a reboot is required
 
 static void listDir(char *dir)
 {
-    DBGf("listdir");
+    LOG_INFO("www::listdir");
     File root = SPIFFS.open(dir);
 
     if (!root)
     {
-        DBGf("- failed to open directory");
+        LOG_ERROR("www::- failed to open directory");
         return;
     }
     if (!root.isDirectory())
     {
-        DBGf(" - not a directory");
+        LOG_ERROR("www:: - not a directory");
         return;
     }
 
-    DBGf("%s", root);
+    LOG_INFO("www::%s", root);
     File file = root.openNextFile();
 
     while (file)
     {
 
-        DBGf("FILE: %s", file.name());
+        LOG_INFO("www::FILE: %s", file.name());
 
         file = root.openNextFile();
     }
@@ -139,7 +139,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     // Initialize SPIFFS
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
-        ESP_LOGE(TAG, "SPIFFS Mount Failed");
+        LOG_ERROR("www_init::SPIFFS Mount Failed");
         tft_printKeyValue("Init Flash File", "Error", TFT_RED);
         tft_printKeyValue("Cannot Start WebServer !!", "Error", TFT_RED);
         return false;
@@ -149,14 +149,14 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     if (ipAddr == NULL)
     {
         //  Connect to Wi-Fi network with SSID_FOR_ACCESS_POINT
-        DBG("Setting AP (Access Point) mode");
+        LOG_INFO("www_init::Setting AP (Access Point) mode");
         isAPModus = true;
         WiFi.mode(WIFI_AP);
         WiFi.softAP(SSID_FOR_ACCESS_POINT, DEFAULT_IP_ACCESS_POINT);
 
         ipAddr = DEFAULT_IP_ACCESS_POINT;
         strcpy(setupData.currentIP, ipAddr);
-        DBGf("AP IP address: %s", ipAddr);
+        LOG_INFO("www_init::AP IP address: %s", ipAddr);
 
         tft_printKeyValue("ACCESS Point", "OK", TFT_GREEN);
         tft_printKeyValue("SSID", SSID_FOR_ACCESS_POINT, TFT_GREEN);
@@ -164,7 +164,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     }
     else
     {
-        DBGf("WWW init server with ip: %s", ipAddr);
+        LOG_INFO("www_init::Start Webserver with ip: %s", ipAddr);
         isAPModus = false;
         // tft_printInfo("Start WWW on:");
 
@@ -247,8 +247,8 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
             request->send(200);
         } else {
             String path = request->url();
-            DBGf("Path  %s !found ",path.c_str());
-        
+            LOG_ERROR("www_init::Path  %s !found ", path.c_str());
+
             if (!isAuthenticated) {
             // Redirect to the login page if not authenticated
             request->redirect("/login");

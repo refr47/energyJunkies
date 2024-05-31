@@ -13,7 +13,7 @@ static void addToBuffer(const char data);
 
 void logReader_init()
 {
-    DBGf("logReader initialized with buffer size: %d", BUFFER_SIZE_READER);
+    LOG_INFO("logReader initialized with buffer size: %d", BUFFER_SIZE_READER);
     memset(ringBuffer, 0, BUFFER_SIZE_READER);
 }
 void logReader_enDisableRedirect(bool enDis)
@@ -28,7 +28,7 @@ String logReader_getBufferAsString()
         size_t index = (readIndex + i) % BUFFER_SIZE_READER;
         result += ringBuffer[index];
     }
-    DBGf("logReader_getBufferAsString: %s", result.c_str());
+    LOG_INFO("logReader_getBufferAsString: %s", result.c_str());
     return result;
 }
 

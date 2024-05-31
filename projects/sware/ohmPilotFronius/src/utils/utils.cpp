@@ -81,19 +81,19 @@ int pingloop = 1;
 
 void printHWInfo()
 {
-	DBGf("MEM: %d", esp_get_free_heap_size());
+	LOG_DEBUG("MEM: %d", esp_get_free_heap_size());
 
 	esp_chip_info_t chip_info;
 	esp_chip_info(&chip_info);
 
-	DBGf("Hardware info: %d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-		 (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
-	DBGf("Silicon revision: %d\n", chip_info.revision);
+	LOG_DEBUG("Hardware info: %d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+			  (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+	LOG_DEBUG("Silicon revision: %d\n", chip_info.revision);
 
 	// get chip id
 	uint32_t chipId = ESP.getEfuseMac();
 
-	DBGf("Chip id: %x\n", chipId);
+	LOG_DEBUG("Chip id: %x\n", chipId);
 }
 bool isNumber(char s[])
 {
@@ -143,7 +143,7 @@ void ipv4_int_to_string(char *ret, uint32_t in, bool *const success)
 	{
 		char buf[BUFFER_LEN_FOR_ARG_CHECK] = {0};
 		strerror_r(errno, buf, sizeof(buf));
-		DBGf("Error inipv4_int_to_string  %s", strerror(errno));
+		LOG_ERROR("utils::ipv4_int_to_string() Error inipv4_int_to_string  %s", strerror(errno));
 
 		// throw std::runtime_error(String("error converting ipv4 int to String ") + to_string(errno) + String(": ") + String(buf));
 		// ret = buf;
@@ -164,7 +164,7 @@ uint32_t ipv4_string_to_int(char *in, bool *const success)
 	{
 		char buf[BUFFER_LEN_FOR_ARG_CHECK] = {0};
 		strerror_r(errno, buf, sizeof(buf));
-		DBGf("Error in ipv4_string_to_int %s", strerror(errno));
+		LOG_ERROR("utils::ipv4_string_to_int() Error in ipv4_string_to_int %s", strerror(errno));
 		ret = -1;
 		strncpy(in, buf, INET_ADDRSTRLEN - 1);
 		// throw std::runtime_error(String("error converting ipv4 String to int ") + to_string(errno) + String(": ") + String(buf));
@@ -178,7 +178,7 @@ bool util_isFieldFilled(const char *key, const char *argument, StaticJsonDocumen
 		char buf[BUFFER_LEN_FOR_ARG_CHECK];
 		sprintf(buf, "Argument: %s kann nicht leer sein.", key);
 		data["error"] = buf;
-		DBGf("util_isFieldFilled: %s - empty!", key);
+		LOG_DEBUG("utils::util_isFieldFilled: %s - empty!", key);
 
 		return false;
 	}
@@ -191,7 +191,7 @@ bool util_checkParamInt(const char *key, const char *argument, StaticJsonDocumen
 		*result = atoi(argument);
 	else
 	{
-		DBGf("utilCheckParamInt:  %s - empty", key);
+		LOG_DEBUG("utils::utilCheckParamInt:  %s - empty", key);
 
 		return false;
 	}
@@ -214,7 +214,7 @@ bool util_checkParamFloat(const char *key, const char *argument, /* const JsonOb
 		*result = atof(argument);
 	else
 	{
-		DBGf("util_checkParamFloat: %s - empty", key);
+		LOG_DEBUG("utils::util_checkParamFloat: %s - empty", key);
 
 		return false;
 	}
@@ -223,7 +223,7 @@ bool util_checkParamFloat(const char *key, const char *argument, /* const JsonOb
 		char buf[BUFFER_LEN_FOR_ARG_CHECK];
 		sprintf(buf, "Argument: %s ist kein FLießkommawert (z.B. 0.0,...)", key);
 		data["error"] = buf;
-		DBGf("util_checkParamFloat: %s - kein numerischer Werte: %s", key, argument);
+		LOG_WARNING("utils::util_checkParamFloat: %s - kein numerischer Werte: %s", key, argument);
 
 		return false;
 	}
@@ -236,18 +236,18 @@ void util_pHW()
 
 	esp_chip_info(&chip_info);
 
-	DBGf("Hardware info");
-	Serial.printf("%d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-				  (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
-	Serial.printf("Silicon revision: %d\n", chip_info.revision);
-	Serial.printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-				  (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embeded" : "external");
+	LOG_DEBUG("Hardware info");
+	LOG_DEBUG("%d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+			  (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+	LOG_DEBUG("Silicon revision: %d\n", chip_info.revision);
+	LOG_DEBUG("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
+			  (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embeded" : "external");
 
 	// get chip id
 	String chipId = String((uint32_t)ESP.getEfuseMac(), HEX);
 	chipId.toUpperCase();
 
-	DBGf("Chip id: %s\n", chipId.c_str());
+	LOG_DEBUG("Chip id: %s\n", chipId.c_str());
 }
 
 char *util_format_Watt_kWatt(double val, char *formatBuf)
@@ -269,12 +269,12 @@ String util_GET_Request(const char *url, int *httpResponseCode)
 
 	if (*httpResponseCode > 0)
 	{
-		DBGf("HTTP Response code: %d", *httpResponseCode);
+		LOG_DEBUG("HTTP Response code: %d", *httpResponseCode);
 		payload = http.getString();
 	}
 	else
 	{
-		DBGf("Error code: %d", *httpResponseCode);
+		LOG_ERROR("util::util_GET_Request() - Error code: %d", *httpResponseCode);
 		payload = "";
 	}
 	http.end();
@@ -284,17 +284,18 @@ String util_GET_Request(const char *url, int *httpResponseCode)
 
 bool utils_sock_initRestTargets(Setup &setupData, int index)
 {
+	LOG_INFO("util::utils_sock_initRestTargets()");
 	strcpy(restTarget[index].hostname, setupData.amisReaderHost);
 	if (!restTarget[index].localClient.connected())
 	{
 		if (restTarget[index].localClient.connect(restTarget[index].hostname, restTarget[index].port))
 		{
-			DBGf("Host  available at IP: %s", restTarget[index].hostname);
+			LOG_DEBUG("Host  available at IP: %s", restTarget[index].hostname);
 			return true;
 		}
 		else
 		{
-			DBGf("Host not available at IP: %s", restTarget[index].hostname);
+			LOG_ERROR("Host not available at IP: %s", restTarget[index].hostname);
 			return false;
 		}
 	}
@@ -357,15 +358,16 @@ bool utils_sock_readRestTarget(WEBSOCK_DATA &webSockData, int index, GET_JSON_DA
 	{
 		if (!restTarget[index].localClient.connect(restTarget[index].hostname, restTarget[index].port))
 		{
-			DBGf("Host  not available at IP: %s", restTarget[index].hostname);
+			LOG_ERROR("util:: inverter changed !! - no reboot, web: %s",  webSockData.setupData.inverter);
+			("Host  not available at IP: %s", restTarget[index].hostname);
 			return false;
 		}
-		DBGf("Host %s is already connected", restTarget[index].hostname);
+		LOG_INFO("utils::Host %s is already connected", restTarget[index].hostname);
 	}
 	restTarget[index].localClient.println(restTarget[index].request);
 	if (!readJsonResponse(&restTarget[index], webSockData, getJson))
 	{
-		DBGf("amisReader_readRestTarget:: Cannot read Response of socket communication with host: %s", restTarget[index].hostname);
+		LOG_ERROR("utils:: Cannot read Response of socket communication with host: %s", restTarget[index].hostname);
 		restTarget[index].localClient.stop();
 		return false;
 	}
@@ -408,10 +410,10 @@ bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData, GET
 		; // wait for response
 
 	String str = target->localClient.readStringUntil('\n'); // read entire response
-	DBGf("readJsonResponse() - str: %s", str.c_str());
+	LOG_INFO("utils::readJsonResponse() - str: %s", str.c_str());
 	strcpy(response, str.c_str());
 	jsonStart = strchr(response, '{');
-	DBGf("readJsonResponse() - payload: %s", response);
+	LOG_INFO("utils::readJsonResponse() - payload: %s", response);
 	if (jsonStart != NULL)
 	{
 		(*getJson)(target, jsonStart, webSockData);

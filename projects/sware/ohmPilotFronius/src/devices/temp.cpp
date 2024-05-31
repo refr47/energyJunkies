@@ -25,20 +25,20 @@ DeviceAddress sensor2 = {0x28, 0xBE, 0x5C, 0x57, 0x4, 0xE1, 0x3C, 0xD2};
 // function to print a device address
 void printAddress(DeviceAddress deviceAddress)
 {
+    LOG_DEBUG("temperature::printAddress");
     char buff[100];
     sprintf(buff, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", deviceAddress[0], deviceAddress[1], deviceAddress[2], deviceAddress[3], deviceAddress[4], deviceAddress[5], deviceAddress[6], deviceAddress[7]);
     /*  for (uint8_t i = 0; i < 8; i++)
      {
          buf[i]=deviceAddress[i];
      } */
-    DBGf(" %s", buff);
-    DBGf("END init temperature ...");
+    LOG_DEBUG(" %s", buff);
 }
 bool temp_init()
 {
     int numberOfDevices = 0;
     DeviceAddress tempDeviceAddress;
-    DBGf("Init Temp Sensor...");
+    LOG_INFO("temperature::Init Temp Sensor...");
     bool result;
     sensors.setResolution(11);
     sensors.begin();
@@ -46,11 +46,11 @@ bool temp_init()
     numberOfDevices = sensors.getDeviceCount();
     if (numberOfDevices == 0)
     {
-        ESP_LOGE(TAG, "temp_init() - keine Temperatursensorik gefunden.");
+        LOG_ERROR("temp_init() - keine Temperatursensorik gefunden.");
         return false;
     }
     // locate devices on the bus
-    DBGf("Locating devices...Found :%d devices", numberOfDevices);
+    LOG_INFO("temperature:Locating devices...Found :%d devices", numberOfDevices);
 
     // Loop through each device, print out address
     for (int i = 0; i < numberOfDevices; i++)
@@ -58,19 +58,18 @@ bool temp_init()
         // Search the wire for address
         if (sensors.getAddress(tempDeviceAddress, i))
         {
-            DBGf("Found device %d with address:", i);
+            LOG_DEBUG("Found device %d with address:", i);
 
             printAddress(tempDeviceAddress);
         }
         else
         {
-            DBGf("Found ghost device at  %d", i);
+            LOG_ERROR("temperature::Init Temp Sensor - but could not detect address. Found ghost device at  %d", i);
 
-            DBG(" but could not detect address. Check power and cabling");
-            ESP_LOGE(TAG, "temp_init() - keine Temperatursensorik gefunden.");
+            LOG_DEBUG("temp_init() - keine Temperatursensorik gefunden.");
         }
     }
-    DBG("\n");
+
     return true;
 }
 

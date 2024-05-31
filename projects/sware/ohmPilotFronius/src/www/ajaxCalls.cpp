@@ -26,7 +26,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     eprom_getSetup(setup);
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
     char buff[50];
-    DBGf("ajaxCalls_handleGetSetup - begin");
+    LOG_INFO("ajaxCalls::ajaxCalls_handleGetSetup - begin");
 
     data[WLAN_ESSID] = setup.ssid;
     data[WLAN_PASSWD] = setup.passwd;
@@ -75,7 +75,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 
     sprintf(buff, "%s", setup.amisReaderHost);
     data[AMIS_READER_HOST] = buff;
-    DBGf("ajaxCalls_handleGetSetup - AMIS_READER_HOST: %s", buff);
+    // LOG_INFO("ajaxCalls::ajaxCalls_handleGetSetup - AMIS_READER_HOST: %s", buff);
     sprintf(buff, "%s", setup.amisKey);
     data[AMIS_READER_KEY] = buff;
 
@@ -91,7 +91,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     sprintf(buff, "%d", setup.forceHeating);
     data[FORCE_HEIZPATRONE] = buff;
 
-    DBGf("ajaxCalls_handleGetSetup - return ");
+    LOG_INFO("ajaxCalls::ajaxCalls_handleGetSetup - return ");
     return returnFromStoreSetup(true, data, request);
 }
 
@@ -101,7 +101,7 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
     WEBSOCK_DATA webSockD = webSockData();
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
     // char buff[50]   ;
-    DBGf("ajaxCalls_handleGetOverview - begin");
+    LOG_INFO("ajaxCalls::ajaxCalls_handleGetOverview - begin");
 
     data[WWW_FRONIUS] = webSockD.states.froniusAPI;
     // sprintf(buff,"%s",webSockD.setupData.inverter);
@@ -179,17 +179,17 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
         sprintf(formatBuffer, "%.2f", (webSockD.temperature.sensor1 + webSockD.temperature.sensor2) / 2.0);
     }
     data[WWW_TEMP_SENSOR_VAL] = formatBuffer;
-    DBGf("ajaxCalls_handleGetOverview - return ");
+    LOG_INFO("ajaxCalls::ajaxCalls_handleGetOverview - return ");
 
     String response;
 
     data["done"] = 1;
     data["error"] = "";
-    DBGf("returnFromStoreSetup - no errors ");
+    LOG_INFO("ajaxCalls::returnFromStoreSetup - no errors ");
     // eprom_storeSetup(setup);
 
     serializeJson(data, response);
-    DBGf("returnFromStoreSetup - return ");
+    LOG_INFO("ajaxCalls::returnFromStoreSetup - return ");
     request->send(200, "application/json", response);
 }
 
@@ -208,7 +208,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     int result = 0;
     float resultF = 0.0;
     bool errorH = false;
-    DBGf("ajaxCalls_handleStoreSetup BEGIN - %s, %s", WLAN_ESSID, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup BEGIN - %s, %s", WLAN_ESSID, argument);
     setupChanged(false);
     // webSockD.setupData.setupChanged = false;
     errorH = util_isFieldFilled(WLAN_ESSID, argument, data);
@@ -217,7 +217,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     else
         return returnFromStoreSetup(errorH, data, request);
     argument = jsonObj[WLAN_PASSWD];
-    DBGf("ARG: %s, VAl: %s", WLAN_PASSWD, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WLAN_PASSWD, argument);
 
     errorH = util_isFieldFilled(WLAN_PASSWD, argument, data);
     if (errorH)
@@ -225,7 +225,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     else
         return returnFromStoreSetup(errorH, data, request);
     argument = jsonObj[IP_INVERTER];
-    DBGf("ARG: %s, VAl: %s", IP_INVERTER, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", IP_INVERTER, argument);
 
     errorH = util_isFieldFilled(IP_INVERTER, argument, data);
     if (errorH)
@@ -248,7 +248,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
 
     argument = jsonObj[HEIZSTABLEISTUNG];
 
-    DBGf("ARG: %s, VAl: %s", HEIZSTABLEISTUNG, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", HEIZSTABLEISTUNG, argument);
     errorH = util_checkParamInt(HEIZSTABLEISTUNG, argument, data, &result);
     if (errorH)
         setup.heizstab_leistung_in_watt = result;
@@ -256,7 +256,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return returnFromStoreSetup(errorH, data, request);
     argument = jsonObj[EINSPEISUNG_MUSS];
 
-    DBGf("ARG: %s, VAl: %s", EINSPEISUNG_MUSS, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", EINSPEISUNG_MUSS, argument);
     errorH = util_checkParamInt(EINSPEISUNG_MUSS, argument, data, &result);
     if (errorH)
         setup.pid_powerWhichNeedNotConsumed = result;
@@ -284,14 +284,14 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
 
     argument = jsonObj[MINDEST_LAUFZEIT_REGLER_KONSTANT];
 
-    DBGf("ARG: %s, VAl: %s", MINDEST_LAUFZEIT_REGLER_KONSTANT, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", MINDEST_LAUFZEIT_REGLER_KONSTANT, argument);
     errorH = util_checkParamInt(MINDEST_LAUFZEIT_REGLER_KONSTANT, argument, data, &result);
     if (errorH)
         setup.pid_min_time_without_contoller_inMS = result;
     else
         return returnFromStoreSetup(errorH, data, request);
     argument = jsonObj[EXTERNER_SPEICHER];
-    DBGf("ARG: %s, VAl: %s", EXTERNER_SPEICHER, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", EXTERNER_SPEICHER, argument);
     if (util_isFieldFilled(EXTERNER_SPEICHER, argument, data))
     {
         setup.externerSpeicher = *argument == 'j' ? true : false;
@@ -300,7 +300,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return returnFromStoreSetup(errorH, data, request);
     argument = jsonObj[EXTERNER_SPEICHER_PRIORI];
 
-    DBGf("ARG: %s, VAl: %s", EXTERNER_SPEICHER_PRIORI, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", EXTERNER_SPEICHER_PRIORI, argument);
     if (util_isFieldFilled(EXTERNER_SPEICHER_PRIORI, argument, data))
     {
         setup.externerSpeicherPriori = *argument; // j1|2|3
@@ -309,7 +309,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return returnFromStoreSetup(errorH, data, request);
 
     argument = jsonObj[TEMP_AUSSCHALTEN];
-    DBGf("ARG: %s, VAl: %s", TEMP_AUSSCHALTEN, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", TEMP_AUSSCHALTEN, argument);
     errorH = util_checkParamInt(TEMP_AUSSCHALTEN, argument, data, &result);
     if (errorH)
         setup.tempMaxAllowedInGrad = result;
@@ -317,7 +317,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return returnFromStoreSetup(errorH, data, request);
 
     argument = jsonObj[TEMP_EINSCHALT];
-    DBGf("ARG: %s, VAl: %s", TEMP_EINSCHALT, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", TEMP_EINSCHALT, argument);
     errorH = util_checkParamInt(TEMP_EINSCHALT, argument, data, &result);
     if (errorH)
         setup.tempMinInGrad = result;
@@ -325,7 +325,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return returnFromStoreSetup(errorH, data, request);
     /*            MQTT */
     argument = jsonObj[WWW_MQTT_HOST];
-    DBGf("ARG: %s, VAl: %s", WWW_MQTT_HOST, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_MQTT_HOST, argument);
     if (strlen(argument) < 3)
         argument = EMPTY_STRING;
     strncpy(setup.mqttHost, jsonObj[WWW_MQTT_HOST], MQTT_HOST_LEN);
@@ -339,7 +339,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
           return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[WWW_MQTT_PASWWD];
-    DBGf("ARG: %s, VAl: %s", WWW_MQTT_PASWWD, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_MQTT_PASWWD, argument);
     if (strlen(argument) < 3)
         argument = EMPTY_STRING;
     strncpy(setup.mqttPass, jsonObj[WWW_MQTT_PASWWD], MQTT_PASS_LEN);
@@ -353,7 +353,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
          return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[WWW_MQTT_USER];
-    DBGf("ARG: %s, VAl: %s", WWW_MQTT_USER, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_MQTT_USER, argument);
 
     if (strlen(argument) < 3)
         argument = EMPTY_STRING;
@@ -370,7 +370,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     /*            influx */
 
     argument = jsonObj[WWW_INFLUX_HOST];
-    DBGf("ARG: %s, VAl: %s", WWW_INFLUX_HOST, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_INFLUX_HOST, argument);
 
     if (strlen(argument) < 3)
         argument = EMPTY_STRING;
@@ -385,7 +385,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[WWW_INFLUX_TOKEN];
-    DBGf("ARG: %s, VAl: %s", WWW_INFLUX_TOKEN, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_INFLUX_TOKEN, argument);
 
     if (strlen(argument) < 3)
         argument = EMPTY_STRING;
@@ -400,7 +400,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
          return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[WWW_INFLUX_ORG];
-    DBGf("ARG: %s, VAl: %s", WWW_INFLUX_ORG, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_INFLUX_ORG, argument);
 
     if (strlen(argument) < 3)
         argument = EMPTY_STRING;
@@ -415,7 +415,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[WWW_INFLUX_BUCKET];
-    DBGf("ARG: %s, VAl: %s", WWW_INFLUX_BUCKET, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_INFLUX_BUCKET, argument);
 
     if (strlen(argument) < 3)
         argument = EMPTY_STRING;
@@ -453,7 +453,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
 */
 
     argument = jsonObj[AMIS_READER_HOST];
-    DBGf("ARG: %s, VAl: %s", AMIS_READER_HOST, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", AMIS_READER_HOST, argument);
     if (strlen(argument) < 3)
         argument = EMPTY_STRING;
     strcpy(setup.amisReaderHost, argument);
@@ -465,7 +465,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return returnFromStoreSetup(errorH, data, request); */
 
     argument = jsonObj[AMIS_READER_KEY];
-    DBGf("ARG: %s, VAl: %s", AMIS_READER_KEY, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", AMIS_READER_KEY, argument);
     errorH = util_isFieldFilled(AMIS_READER_KEY, argument, data);
     if (errorH)
     {
@@ -475,25 +475,25 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return returnFromStoreSetup(errorH, data, request);
 
     argument = jsonObj[SIM_ADDITIONAL_LOAD];
-    DBGf("ARG: %s, VAl: %s", SIM_ADDITIONAL_LOAD, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", SIM_ADDITIONAL_LOAD, argument);
     errorH = util_checkParamFloat(SIM_ADDITIONAL_LOAD, argument, data, &resultF);
     if (errorH)
         setup.additionalLoad = resultF;
 
     argument = jsonObj[FORCE_HEIZPATRONE];
-    DBGf("ARG: %s, VAl: %s", FORCE_HEIZPATRONE, argument);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", FORCE_HEIZPATRONE, argument);
     errorH = util_checkParamInt(FORCE_HEIZPATRONE, argument, data, &result);
     if (errorH)
         setup.forceHeating = result;
     setupChanged(true);
     // webSockD.setupData.setupChanged = true;
-    DBGf("ajaxCalls_handleStoreSetup END - RESTART after 10 s");
+    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ajaxCalls_handleStoreSetup END - RESTART after 10 s");
     eprom_storeSetup(setup);
     eprom_test_read_Eprom();
     returnFromStoreSetup(errorH, data, request);
     if (isAPModus)
     {
-        DBGf("ajaxCalls::store - in AP-Modus a restart is required");
+        LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup  in AP-Modus a restart is required");
         delay(10000); // wait 10 secs
         esp_restart();
     }
@@ -507,16 +507,16 @@ static void returnFromStoreSetup(bool inputCorrect, StaticJsonDocument<JSON_OBJE
     {
         data["done"] = 1;
         data["error"] = "";
-        DBGf("returnFromStoreSetup - no errors ");
+        LOG_INFO("ajaxCalls:: returnFromStoreSetup - no errors ");
         // eprom_storeSetup(setup);
     }
     else
     {
         data["done"] = 0;
-        DBGf("returnFromStoreSetup -  errors ");
+        LOG_ERROR("ajaxCalls::returnFromStoreSetup -  errors ");
     }
 
     serializeJson(data, response);
-    DBGf("returnFromStoreSetup - return ");
+    LOG_INFO("ajaxCalls::returnFromStoreSetup - return ");
     request->send(200, "application/json", response);
 }

@@ -23,21 +23,21 @@ static Point means("means");
 //  static bool *isInfluxValid = &influxAvailable;
 static CALLBACK_GET_DATA webSockData;
 
-bool influx_init(CALLBACK_GET_DATA getData) 
+bool influx_init(CALLBACK_GET_DATA getData)
 {
     webSockData = getData;
     client.setInsecure();
     timeSync(EUROPE_VIENNA_TZ, NtpServer1, NtpServer2);
     // isInfluxValid = &webSockData.states.influx;
-    DBGf("Init influx");
+    LOG_INFO("Init influx");
     // Check server connection
     if (client.validateConnection())
     {
-        DBGf("Connected to InfluxDB: %s", client.getServerUrl().c_str());
+        LOG_INFO("Connected to InfluxDB: %s", client.getServerUrl().c_str());
     }
     else
     {
-        DBGf("InfluxDB connection failed: %s", client.getLastErrorMessage().c_str());
+        LOG_ERROR("InfluxDB connection failed: %s", client.getLastErrorMessage().c_str());
         return false;
     }
     time_t t = time(NULL);
@@ -55,7 +55,7 @@ bool influx_init(CALLBACK_GET_DATA getData)
     // Print what are we exactly writing
 
     client.pointToLineProtocol(environment);
-    DBGf("Write to influx: %s", client.pointToLineProtocol(environment).c_str());
+    LOG_DEBUG("influx::Write to influx: %s", client.pointToLineProtocol(environment).c_str());
     if (!client.writePoint(environment))
     {
         Serial.print("InfluxDB write failed: ");

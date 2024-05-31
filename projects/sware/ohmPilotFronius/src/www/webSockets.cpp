@@ -59,7 +59,7 @@ static CALLBACK_GET_DATA webSockData;
 static char formatBuffer[35];
 // Create a WebSocket object static AsyncWebSocket ws("/ws");
 
-AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData) 
+AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
 {
     ws.onEvent(onEvent);
     webSockData = getData;
@@ -81,7 +81,7 @@ static unsigned int bitMaster = 0;
 String getJsonObj()
 {
     WEBSOCK_DATA data = webSockData();
-    DBGf("webSocks - getJsonOj:  %.2lf", data.temperature.sensor1);
+    // DBGf("webSocks - getJsonOj:  %.2lf", data.temperature.sensor1);
 #ifdef AMIS_READER_DEV
     readings[EINSPEISUNG] = data.amisReader.saldo;
 #endif
@@ -196,7 +196,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         //  Check if the message is "getReadings"
         // if (strcmp((char*)data, "getReadings") == 0) {
         // if it is, send current sensor readings
-        DBGf("handleWebSocketMessage for message: %s", (char *)data);
+        LOG_INFO("webSockets::handleWebSocketMessage for message: %s", (char *)data);
         /*  if (strcmp((char *)data, "getLifeData") == 0)
          { */
         String sensorReadings = getJsonObj();

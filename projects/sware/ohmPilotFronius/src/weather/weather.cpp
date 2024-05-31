@@ -27,7 +27,7 @@ void wheater_getForecast()
     // Serial.println(json_array);
     JSONVar my_obj = JSON.parse(json_array);
     // Serial.println(my_obj);
-    DBGf("wheater_getForecast URL: %s", PARAM);
+    LOG_INFO("wheather:wheater_getForecast URL: %s", PARAM);
     interpretWeather(my_obj);
 }
 
@@ -87,7 +87,7 @@ static time_t wheater_parseDateTime(const char *date_string)
     // Parse the date string
     if (strptime(date_string, "%Y-%m-%dT%H:%M", &tm_time) == NULL)
     {
-        DBGf("wheater_parseDateTime::Error: Unable to parse date string: %s\n", date_string);
+        LOG_ERROR("weather::wheater_parseDateTime::Error: Unable to parse date string: %s\n", date_string);
         return 0;
     }
 
@@ -95,7 +95,7 @@ static time_t wheater_parseDateTime(const char *date_string)
     time_t timestamp = mktime(&tm_time);
     if (timestamp == -1)
     {
-        DBGf("wheater_parseDateTime::Unable to convert time to timestamp");
+        LOG_ERROR("weather::wheater_parseDateTime::Unable to convert time to timestamp");
         return 0;
     }
 
@@ -174,39 +174,39 @@ static void interpretWeather(JSONVar &data)
 
 void wheater_print()
 {
-    DBGf("wheater - print data");
-    DBG("Temperatur");
+    LOG_INFO("wheater::wheater - print data");
+    LOG_INFO("wheater::Temperatur");
     for (int j = 0; j < TEMPERATURE_SIZE; j++)
     {
         if (j != 0 && j % 24 == 0)
         {
-            DBG("Next day");
+            LOG_INFO("wheater::Next day");
         }
-        DBGf("%d:: %f", j % 24, wheater.temperature[j]);
+        LOG_INFO("wheater::%d:: %f", j % 24, wheater.temperature[j]);
     }
-    DBG("Sonnendauer");
+    LOG_INFO("wheater::Sonnendauer");
     for (int j = 0; j < SUNDAY_LIGHT_SIZE; j++)
     {
         if (j != 0 && j % 24 == 0)
         {
-            DBG("Next day");
+            LOG_INFO("wheater::Next day");
         }
-        DBGf("%d:: %f", j % 24, wheater.daylight[j]);
+        LOG_INFO("wheater::%d:: %f", j % 24, wheater.daylight[j]);
     }
-    DBG("Sonnenaufgang");
+    LOG_INFO("wheater::Sonnenaufgang");
     for (int j = 0; j < DAILY_VALUES_SIZE; j++)
     {
-        DBGf("%d:: %f", j, wheater.sunrise[j]);
+        LOG_INFO("wheater::%d:: %f", j, wheater.sunrise[j]);
     }
-    DBG("Sonnenuntergang");
+    LOG_INFO("wheater::Sonnenuntergang");
     for (int j = 0; j < DAILY_VALUES_SIZE; j++)
     {
-        DBGf("%d:: %f", j, wheater.sunset[j]);
+        LOG_INFO("wheater::%d:: %f", j, wheater.sunset[j]);
     }
-    DBG("UV-Index");
+    LOG_INFO("wheater::UV-Index");
     for (int j = 0; j < DAILY_VALUES_SIZE; j++)
     {
-        DBGf("%d:: %f", j, wheater.uvIndex[j]);
+        LOG_INFO("wheater::%d:: %f", j, wheater.uvIndex[j]);
     }
 }
 #endif
