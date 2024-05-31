@@ -168,7 +168,7 @@ void logging_init()
 {
 
     LOG_INFO("Setting log levels and callback");
-    esp_log_level_set("*", ESP_LOG_VERBOSE);
+    esp_log_level_set("*", ESP_LOG_INFO);
     esp_log_level_set(TAG, ESP_LOG_VERBOSE);
     esp_log_set_vprintf(debug_LogOutput);
 
