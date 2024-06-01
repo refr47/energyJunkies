@@ -82,10 +82,10 @@ static void mapJsonValues(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_D
 
     for (int i = 0; i < target->valueCount; i++)
     {
-#ifdef VERBOSE
-        LOG_DEBUG("map, key: %s", target->mapping[i].key);
+
+      /*   LOG_DEBUG("map, key: %s", target->mapping[i].key);
         LOG_DEBUG("map, jsonObj: %d", jsonBuffer[target->mapping[i].key]);
-#endif
+ */
         switch (i)
         {
         case 0:
