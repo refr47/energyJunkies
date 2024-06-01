@@ -173,7 +173,7 @@ void logging_init()
     esp_log_level_set("AsyncTCP-esphome", ESP_LOG_ERROR);
     esp_log_level_set("ESPAsyncWebServer-esphome", ESP_LOG_ERROR);
     esp_log_level_set("modbus-esp8266", ESP_LOG_ERROR);
-    esp_log_level_set("wifi", ESP_LOG_WARN);
+    esp_log_level_set("wifi", ESP_LOG_ERROR);
 #if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 1)
     esp_log_level_set(TAG, ESP_LOG_ERROR);
 #endif
