@@ -1,4 +1,6 @@
 #define __UTILS_CPP__
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+
 #include "utils.h"
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -358,7 +360,7 @@ bool utils_sock_readRestTarget(WEBSOCK_DATA &webSockData, int index, GET_JSON_DA
 	{
 		if (!restTarget[index].localClient.connect(restTarget[index].hostname, restTarget[index].port))
 		{
-			LOG_ERROR("util:: inverter changed !! - no reboot, web: %s",  webSockData.setupData.inverter);
+			LOG_ERROR("util:: inverter changed !! - no reboot, web: %s", webSockData.setupData.inverter);
 			("Host  not available at IP: %s", restTarget[index].hostname);
 			return false;
 		}
