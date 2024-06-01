@@ -1,5 +1,7 @@
 #pragma once
+
 #include <Arduino.h>
+#include <esp_log.h>
 #include <time.h>
 #include <string.h>
 

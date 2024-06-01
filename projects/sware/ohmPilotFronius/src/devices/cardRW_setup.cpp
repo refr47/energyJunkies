@@ -4,7 +4,6 @@
 #include <FS.h>
 #include <time.h>
 #include <string.h>
-#include <esp_log.h>
 
 #include "cardRW.h"
 #include "utils.h"
@@ -128,7 +127,7 @@ bool cardRW_flushLoggingFile()
     loggingAvailable = true;
     return true;
 }
- 
+
 bool cardRW_closeLoggingFile()
 {
 

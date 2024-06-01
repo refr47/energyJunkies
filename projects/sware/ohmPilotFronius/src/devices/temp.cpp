@@ -1,7 +1,6 @@
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include <esp_log.h>
 
 #include "pin_config.h"
 #include "temp.h"
