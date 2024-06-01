@@ -63,14 +63,13 @@ ad a) Vorgehensweise
 ad b) Flashen des Programm-Images
 Das Programm muss fehlerfrei übersetzen (kleines Häckchen) und kann dann ohne weitere Maßnahmen mit dem Transfersymbol (kleiner Pfeil nach rechts) geflasht werden. Dies kann beliebig oft wiederholt werden, das SPIFF-System ist davon nicht betroffen.
 
-## Einstellen diversers Flags in ***platformio.ini***
+## Einstellen diversers Flags (z.B. Log-Level) in ***platformio.ini***
 
 Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von Bibliotheken und dem Compile-Vorgang, der u.a. durch diverse ***Defines*** gesteuert wird (bedingtes Compile). Im Sourcecode ist dann oftmals die ***ifdef*** Anweisung zu sehen, dass bestimmte Teile vom COmpile-Vorgang ein- bzw. ausschließt. Die wichtigsten Flags wären:
 
 ***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode, d.h. dieser Bereich wird dann vom COmpilevorgang automatisch ausgeschlossen.
 
 - DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
-
 - DLOGFILE_SYS='"/logSYS.txt"'                    # Name des Logfiles am CardREader
 - DLOGFILE_INVERTER='"/logInv.txt"'               # Ausgabe für Inverter Daten (z.B. Produktion,...)
 - DTAG='"EJunkies"'                               # Tag für ESP Logging System
@@ -83,8 +82,8 @@ Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von 
 
   -DFRONIUS_IV=1		# Bei eineme Fronius WR: zusätzlich Verwendung des Solar API (http Protokoll), da mehr Infos dann zur Verfügung stehen (besonders wenn ein Akku verwendet wird)
 - DWEATHER_API='"https://api.open-meteo.com"' # für künftige Versionen die URL der verwendeten meterologischen Daten
-- -DINFLUX='"http://rantanplan-ethernet:8086"' # Datenaufzeichnung per Influx-DB, Attribute sind in influx.cpp zu finden. 
-- -DAMIS_READER_DEV=1 # Amis Reader Support - nur Siemens TD3511 Geräte  <img src="./img/amis-02.jpg"  style="width:100px;"/>; wenn Fronius und Amis-Reader aktiviert ist, hat Fronius den Vorzug; Wenn kein Fronius IV eingesetzt wird, hat man wesentlich weniger Daten zur Verfügung, da der Amis-Reader nur den Im-/Export zur Verfügung stellt.
+- -DINFLUX='"http://rantanplan-ethernet:8086"' # Datenaufzeichnung per Influx-DB, Attribute sind in influx.cpp zu finden.
+- -DAMIS_READER_DEV=1 # Amis Reader Support - nur Siemens TD3511 Geräte  `<img src="./img/amis-02.jpg"  style="width:100px;"/>`; wenn Fronius und Amis-Reader aktiviert ist, hat Fronius den Vorzug; Wenn kein Fronius IV eingesetzt wird, hat man wesentlich weniger Daten zur Verfügung, da der Amis-Reader nur den Im-/Export zur Verfügung stellt.
 - -DSHELLY=1  # Shelly Geräte einbinden, per REST-API ansteuern
 - Logfile: Es wird in der aktuellen Version von VSCode immer ein Logfile angelegt. Dies kann über die ``plattform.ini`` (monitor_filters =
   esp32_exception_decoder

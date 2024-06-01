@@ -172,8 +172,22 @@ void logging_init()
     esp_log_level_set("AsyncTCP-esphome", ESP_LOG_ERROR);
     esp_log_level_set("ESPAsyncWebServer-esphome", ESP_LOG_ERROR);
     esp_log_level_set("modbus-esp8266", ESP_LOG_ERROR);
-
+#if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 1)
+    esp_log_level_set(TAG, ESP_LOG_ERROR);
+#endif
+#if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 2)
+    esp_log_level_set(TAG, ESP_LOG_WARNING);
+#endif
+#if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 3)
     esp_log_level_set(TAG, ESP_LOG_INFO);
+#endif
+#if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 4)
+    esp_log_level_set(TAG, ESP_LOG_DEBUG);
+#endif
+#if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 5)
+    esp_log_level_set(TAG, ESP_LOG_VERBOSE);
+#endif
+
     esp_log_set_vprintf(debug_LogOutput);
 
 #ifdef CARD_READER
