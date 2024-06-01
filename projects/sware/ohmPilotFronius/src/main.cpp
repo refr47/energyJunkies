@@ -168,6 +168,7 @@ void logging_init()
 {
 
     LOG_INFO("Setting log levels and callback");
+    esp_log_level_set("*", ESP_LOG_ERROR); // set all components to ERROR level
     esp_log_level_set("ArduinoJson", ESP_LOG_ERROR);
     esp_log_level_set("AsyncTCP-esphome", ESP_LOG_ERROR);
     esp_log_level_set("ESPAsyncWebServer-esphome", ESP_LOG_ERROR);
