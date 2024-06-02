@@ -19,8 +19,10 @@ Relay off:
 http://192.168.xxx.xxx/relay/0?turn=off
 
 
+
 */
 
 void shelly_init();
-
+bool shelly_switchOn(char *ip);
+bool shelly_switchOff(char *ip);
 #endif
