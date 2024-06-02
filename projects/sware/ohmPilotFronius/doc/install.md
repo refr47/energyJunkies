@@ -69,13 +69,11 @@ Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von 
 
 ***Hinweis***: Das Define ist deaktiviert, wenn es einen anderen Namen hat, z.B. -DEJ1; platformIO sorgt sich dann um den Rest im Sourcecode, d.h. dieser Bereich wird dann vom COmpilevorgang automatisch ausgeschlossen.
 
-- DUSE_ESP_IDF_LOG -DCORE_DEBUG_LEVEL=5           # LOG Filter
+- DUSE_ESP_IDF_LOG            # log system des esp nutzen
 - DLOGFILE_SYS='"/logSYS.txt"'                    # Name des Logfiles am CardREader
-- DLOGFILE_INVERTER='"/logInv.txt"'               # Ausgabe für Inverter Daten (z.B. Produktion,...)
 - DTAG='"EJunkies"'                               # Tag für ESP Logging System
-- DEJ=1                                           # TestProg für EJ (Schalter) am Board;
 - DWEB=1 # Zusätzliche FUnktionalität für REST
-- DCORS_DEBUG=1   # Debug der REST
+- DCORS_DEBUG=1   # Debug der REST API
 - DTEST_PID_WWWW1=1  # Test des Reglers, wobei dann die in der RestSchnittstelle unter Stammdaten eingegeben Daten nach dem Speichern übernommen werden
 - DMQTT='"10.0.0.2"'   # falls man einen mqtt-Server nutzt
 - -DMODBUS_VERBOSE=1 	# Modbus Kommunikation im Debug-Modus
@@ -85,6 +83,7 @@ Diese Initialisierung-/Configdatei ist zentraler Bestandteil für das Laden von 
 - -DINFLUX='"http://rantanplan-ethernet:8086"' # Datenaufzeichnung per Influx-DB, Attribute sind in influx.cpp zu finden.
 - -DAMIS_READER_DEV=1 # Amis Reader Support - nur Siemens TD3511 Geräte  `<img src="./img/amis-02.jpg"  style="width:100px;"/>`; wenn Fronius und Amis-Reader aktiviert ist, hat Fronius den Vorzug; Wenn kein Fronius IV eingesetzt wird, hat man wesentlich weniger Daten zur Verfügung, da der Amis-Reader nur den Im-/Export zur Verfügung stellt.
 - -DSHELLY=1  # Shelly Geräte einbinden, per REST-API ansteuern
+- -DLOG_LEVEL_ESP=4 # LOG-Level (5 (LOG_VERBOSE) höchstes, 1 (LOG_DEBUG) niedrigstes
 - Logfile: Es wird in der aktuellen Version von VSCode immer ein Logfile angelegt. Dies kann über die ``plattform.ini`` (monitor_filters =
   esp32_exception_decoder
   time
