@@ -41,6 +41,8 @@
 #endif
 #include "energieManager.h"
 #include "hotUpdate.h"
+#include "shelly.h"
+
 /*
 Input only pins
 GPIOs 34 to 39 are GPIs – input only pins. These pins don’t have internal pull-up or pull-down resistors. They can’t be used as outputs, so use these pins only as inputs:
@@ -216,6 +218,8 @@ void setup()
     /*   while (!Serial)
           ; */
     btStop(); // stop bluetoothd
+    DBG("setup start ...");
+#ifdef RUN_IT
     logging_init();
     LOG_INFO("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
@@ -223,6 +227,7 @@ void setup()
     timeSlice.maxReconnecting.maxModbusCounter = 60000; // 1 min hat 60 secs
     bootCount++;
     LOG_DEBUG("Boot number: %d", bootCount);
+
     ledHandler_init();
     tft_init();
     tft_printSetup();
@@ -238,7 +243,7 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    eprom_test_write_Eprom("Milchbehaelter", "47754775");
     //      eprom_clearLifeData();
     eprom_isInit();
 
@@ -451,6 +456,14 @@ void setup()
         }
 
 #endif
+#ifdef SHELLY
+        if (webSockData.states.networkOK)
+        {
+            LOG_INFO("Init:: Shelly Init");
+            shelly_init(&webSockData.shellyObj[0]);
+        }
+
+#endif
     }
     logReader_init();
 
@@ -477,7 +490,7 @@ void setup()
         delay(5000);
     }
     LOG_INFO("Setup done - all components are working...");
-
+#endif
     // eM_printWakeUpReason();
 } // init
 
@@ -485,9 +498,15 @@ static char formatBuffer[FORMAT_CHAR_BUFFER_LEN];
 
 void loop()
 {
-    /*   LOG_INFO("Wait for 20 secs in loop");
-      delay(20000);
-      LOG_INFO("in loop - after waitinger for 20 secs"); */
+
+    DBG("loop start ...");
+    delay(20000);
+
+#ifdef RUN_IT
+    LOG_INFO("Wait for 20 secs in loop");
+    DBG("loop start ...");
+    delay(20000);
+    LOG_INFO("in loop - after waitinger for 20 secs");
     heapSize[0].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
 
@@ -880,6 +899,7 @@ void loop()
         }
         timeSlice.previousMillisSetup = timeSlice.currentMillis;
     }
+#endif
     // logReader_captureSerialOutput();
     //  eM_setSleepTime(20);
     //  eM_lightSleep();

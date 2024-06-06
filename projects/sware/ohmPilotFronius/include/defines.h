@@ -89,6 +89,23 @@
 
 #define DEFAULT_IP_ACCESS_POINT "192.168.4.1"
 
+#define UDP_LOCAL_PORT 5683
+#define UDP_SHELLY_DEFAULT_PORT 5683
+/* shelly*/
+#ifdef SHELLY
+#define SHELLY_ERROR_CONTAINER_LEN 128
+#define SHELLY_METHODE_LEN 64
+
+#define TROCKNER_shellyIndex 0
+#define POOL_PUMPE_shellyIndex 1
+#define POOL_WPUMPE_shellyIndex 2
+
+#define TROCKNER_SHELLY_ID 10
+#define POOL_PUMPE_SHELLY_ID 11
+#define POOL_WPUMPE_SHELLY_ID 12
+
+#define SHELLY_DEVICES POOL_WPUMPE_shellyIndex + 1
+#endif
 typedef struct
 {
     char ssid[LEN_WLAN];
@@ -191,6 +208,42 @@ typedef struct _AMIS_READER
     long saldo;
 
 } AMIS_READER;
+/* shelly */
+typedef struct
+{
+    bool wasOn;
+} SHELLY_SWITCH;
+typedef struct
+{
+    bool errorHappend;
+    unsigned int id;
+    char usedMethod[SHELLY_METHODE_LEN];
+    char errorMessage[SHELLY_ERROR_CONTAINER_LEN];
+} ERROR_CONTAINER;
+
+typedef struct
+{
+    double currentConsumption;
+    double currentAmpere;
+    double collectedConsumption;
+} SHELLY_STATUS;
+
+typedef union
+{
+    SHELLY_STATUS status;
+    SHELLY_SWITCH switchStatus;
+} SHELLY_RESPONSE;
+
+typedef struct
+{
+    unsigned int id;
+    char ip[INET_ADDRSTRLEN];
+    bool sent, received;
+    long long timestamp64Sent;
+    ERROR_CONTAINER *errorContainer;
+    SHELLY_RESPONSE response;
+} SHELLY_OBJ;
+
 typedef struct _WEBSOCK
 {
     MB_CONTAINER mbContainer;
@@ -203,6 +256,9 @@ typedef struct _WEBSOCK
     FRONIUS_SOLAR_POWERFLOW fronius_SOLAR_POWERFLOW;
 
     AMIS_READER amisReader;
+#ifdef SHELLY
+    SHELLY_OBJ shellyObj[SHELLY_DEVICES];
+#endif
 
 } WEBSOCK_DATA;
 
