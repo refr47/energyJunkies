@@ -44,4 +44,6 @@ void shelly_init(SHELLY_OBJ *shellyObj);
 bool shelly_switchOnOff(bool onFF, unsigned int sIndex);
 bool shelly_getStatus(unsigned int sIndex);
 bool shelly_resetShelly(unsigned int sIndex);
+
+bool shelly_listAllDevices(ALL_SHELLY_DEVICES *allDevices, char *ipRange, unsigned upperLimit);
 #endif

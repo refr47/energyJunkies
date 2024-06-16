@@ -54,6 +54,11 @@
 // length of json object key
 #define KEY_LENGTH 32
 #define TARGET_NAME_LEN 24
+/*  shelly*/
+#define SHELLY_MAC_ADDR_LEN 13
+#define SHELLY_MAX_DEVICE_NAME_LENGTH 40
+#define SHELLY_METHODE_LEN 64
+#define SHELLY_ERROR_CONTAINER_LEN 128
 
 /*    sock*/
 #define REST_TARGET_COUNT 2
@@ -94,7 +99,7 @@
 /* shelly*/
 #ifdef SHELLY
 #define SHELLY_ERROR_CONTAINER_LEN 128
-#define SHELLY_METHODE_LEN 64
+#define SHELLY_SHELLY_METHODE_LEN 64
 
 #define TROCKNER_shellyIndex 0
 #define POOL_PUMPE_shellyIndex 1
@@ -236,14 +241,31 @@ typedef union
 
 typedef struct
 {
+    char ip[INET_ADDRSTRLEN];
+    char mac[SHELLY_MAC_ADDR_LEN];
+    char name[SHELLY_MAX_DEVICE_NAME_LENGTH];
+    unsigned int port;
+} SHELLY_DEVICE;
+
+#define SHELLY_DEVICE_LEN sizeof(SHELLY_DEVICE)
+
+typedef struct
+{
     unsigned int id;
     char ip[INET_ADDRSTRLEN];
     bool sent, received;
     long long timestamp64Sent;
     ERROR_CONTAINER *errorContainer;
+    SHELLY_DEVICE shellyDevice;
     SHELLY_RESPONSE response;
 } SHELLY_OBJ;
 
+typedef struct
+{
+    SHELLY_DEVICE *shellyDevice;
+    ERROR_CONTAINER *errorContainer;
+    bool valid;
+} ALL_SHELLY_DEVICES;
 typedef struct _WEBSOCK
 {
     MB_CONTAINER mbContainer;

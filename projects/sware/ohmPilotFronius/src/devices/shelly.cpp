@@ -13,8 +13,15 @@
 
 #define STACK_SIZE_FOR_UDP_TASK 3196
 #define USE_CORE_FOR_UDP_TASK 0
-
+#define NO_RESPONSE "No response"
 #define MAX_RETRIES_FOR_UDP_RESPONSE 15
+#define MAX_UDP_TASKS 15
+
+#define SHELLY_SWITCH_METHOD "Switch.Set"
+#define SHELLY_STATUS_METHOD "Shelly.GetStatus"
+#define SHELLY_RESET_METHOD "Switch.ResetCounters"
+#define SHELLY_GET_CONFIG "Sys.GetConfig"
+
 /*
 http://10.0.0.31/rpc/Switch.Set?id=0&on=false
 
@@ -31,6 +38,7 @@ static SemaphoreHandle_t package_received_semaphore = NULL;
 static SemaphoreHandle_t doListenSemaphore = NULL;
 static SHELLY_OBJ *pShellyObjArray = NULL;
 static ERROR_CONTAINER errorContainer;
+static unsigned int MAX_COUNTER = MAX_UDP_TASKS;
 
 static bool sendShellyCommandWithParm(const char *method, JsonObject &params);
 static bool sendShellyCommandWithOutParm(const char *method);
@@ -76,6 +84,7 @@ bool shelly_resetShelly(unsigned int sIndex)
     }
     return pShellyObjArray[shellyIndex].received == true;
 }
+
 
 bool shelly_switchOnOff(bool on, unsigned int ind)
 {
@@ -324,6 +333,73 @@ static void taskListenForShellyCommand(void *pvParameters)
         }
         vTaskDelay(500 / portTICK_PERIOD_MS); // Warte 500 ms
     }
+}
+
+bool shelly_listAllDevices(ALL_SHELLY_DEVICES *allDevices, char *ipRange, unsigned upperLimit)
+{
+    shellyIndex = 0;
+    LOG_INFO("shelly::listAllDevices\n");
+    MAX_COUNTER = 5;
+    for (int i = 1; i <= upperLimit; i++)
+    {
+        String ip = ipRange + String(".") + String(i);
+        strcpy(pShellyObjArray[shellyIndex].ip, ip.c_str());
+        // Serial.print("getSysInfo ");
+        // Serial.print(ip);
+        pShellyObjArray[shellyIndex].received = false;
+        pShellyObjArray[shellyIndex].errorContainer = NULL;
+
+        pShellyObjArray[shellyIndex].id = i;
+        sendShellyCommandWithOutParm(SHELLY_GET_CONFIG);
+        allDevices[i].errorContainer = NULL;
+        allDevices[i].shellyDevice = NULL;
+        allDevices[i].valid = true;
+
+        if (!pShellyObjArray[shellyIndex].received)
+        {
+            allDevices[i].valid = false;
+            // NO_RESPONSE is'nt an error here!
+            if (pShellyObjArray[shellyIndex].errorContainer && strcmp(pShellyObjArray[shellyIndex].errorContainer->errorMessage, NO_RESPONSE) != 0)
+            {
+                allDevices[i].errorContainer = (ERROR_CONTAINER *)calloc(1, sizeof(ERROR_CONTAINER));
+                if (allDevices[i].errorContainer)
+                {
+                    memcpy(allDevices[i].errorContainer, pShellyObjArray[shellyIndex].errorContainer, sizeof(ERROR_CONTAINER));
+                }
+                else
+                {
+                    LOG_ERROR("shelly::shelly_listAllDevices:: No memory available for errorContainer");
+                }
+            }
+            else
+            {
+                allDevices[i].errorContainer = NULL;
+
+                // Serial.printf("shelly_listAllDevices :: no device found at : %s\n", pShellyObjArray[shellyIndex].ip);
+                //  Serial.println("Error: " + String(pShellyObjArray[shellyIndex].errorContainer->errorMessage));
+            }
+            // Serial.printf("switchOnOff::Waiting for response from %s did not come\n", pShellyObjArray[shellyIdebug ndex].ip);
+        }
+        else
+        {
+
+            allDevices[i].shellyDevice = (SHELLY_DEVICE *)calloc(1, SHELLY_DEVICE_LEN);
+            if (allDevices[i].shellyDevice != NULL)
+            {
+                memcpy(allDevices[i].shellyDevice, &pShellyObjArray[shellyIndex].shellyDevice, SHELLY_DEVICE_LEN);
+            }
+            else
+            {
+                LOG_ERROR("shelly::shelly_listAllDevices (2) -  No memory available for shelly device object");
+            }
+
+            /*   Serial.printf("Device IP::%s Port: %d Name: %s\n", allDevices[i].shellyDevice->ip, allDevices[i].shellyDevice->port, allDevices[i].shellyDevice->name); */
+
+            // strcpy(allDevices[i].ip, pShellyObjArray[shellyIndex].ip);
+        }
+    }
+    MAX_COUNTER = MAX_UDP_TASKS;
+    return true;
 }
 
 #endif
