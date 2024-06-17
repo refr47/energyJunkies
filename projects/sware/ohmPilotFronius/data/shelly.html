@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <title>Shelly</title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <link rel="stylesheet" type="text/css" href="css/menu.css" />
+    <link rel="stylesheet" type="text/css" href="css/main.css" />
+    <div id="backGr"></div>
+    <link rel="stylesheet" type="text/css" href="css/shelly.css" />
+    <script type="text/javascript" src="js/navigation.js"></script>
+    <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+    <script>
+        document.title = 'Shelly';
+        $(document).ready(function () {
+            $('#navBar').load('headerF.html #navB');
+            $('#backGr').load('headerF.html #backG')
+            document.title = 'Shelly';
+
+        })
+    </script>
+    <style>
+        .center {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            width: 50%;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div id="navBar"></div>
+    </header>
+    <h1>Shelly(s)</h1>
+    <hr>
+    <div id="shellyInit">
+        <div id="shellyFetch">
+            <img src="img/shel.gif" width="120px" />
+        </div>
+        <button id="shellyInitButton" type="button">Finde alle Shelly-Devices</button>
+
+    </div>
+    <hr>
+    <table id="allShellyDevices" style="width:80%">
+    </table>
+
+    <body>
+
+</html>
