@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-#define CREDENTIALS "setup"
+
 #define _SSID "ssid"
 #define _PASSWORD "pw"
 #define _HEIZSTAB_LEISTUNG_IN_WATT "hy"
@@ -41,11 +41,13 @@
 void eprom_storeSetup(Setup &setup);
 void eprom_getSetup(Setup &setup);
 void eprom_isInit();
-//String& eprom_getInverter(Setup &setup, String &inverter);
+// String& eprom_getInverter(Setup &setup, String &inverter);
 
 void eprom_test_write_Eprom(const char *, const char *);
 void eprom_test_read_Eprom();
 void eprom_show(Setup &setup);
+
+void eprom_store_shelly(ALL_SHELLY_DEVICES *allDevices, unsigned upperLimit);
 
 void eprom_clearLifeData();
 void eprom_getLifeData(LIFE_DATA &data);

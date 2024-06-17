@@ -4,6 +4,14 @@
 
 #include "utils.h"
 #include "eprom.h"
+
+#define SETUP_CREDENTIALS "setup"
+#define SHELLY_EPROM "shelly"
+#define SHELLY_DEVICE_NAME "sdn"
+#define SHELLY_MAC "smac"
+#define SHELLY_IP "sip"
+#define SHELLY_PORT "spt"
+
 // #include "tft.h"
 
 // https://randomnerdtutorials.com/esp32-save-data-permanently-preferences/#example2
@@ -25,7 +33,7 @@ void eprom_storeSetup(Setup &setup)
     bool result = true;
     stammDataUpdateWatch = true;
     uint32_t ipAsInt;
-    preferences.begin(CREDENTIALS, false);
+    preferences.begin(SETUP_CREDENTIALS, false);
 
     preferences.clear();
     preferences.putString(_SSID, setup.ssid);
@@ -101,7 +109,7 @@ void eprom_storeSetup(Setup &setup)
 {
 
     delay(5000);
-    preferences.begin(CREDENTIALS, false);
+    preferences.begin(SETUP_CREDENTIALS, false);
     strcpy(setup.inverter,preferences.getString(_INVERTER_IP).c_str());
    setup.inverter = preferences.getString(_INVERTER_IP);
     DBGf("getInverter: %d", setup.ipInverter);
@@ -122,7 +130,7 @@ void eprom_storeSetup(Setup &setup)
  */
 void eprom_isInit()
 {
-    preferences.begin(CREDENTIALS, false);
+    preferences.begin(SETUP_CREDENTIALS, false);
     if (preferences.getString(_SSID, "") == NULL)
     {
         LOG_INFO("epeprom_rom_isInit - flash hasn't been used never before ! - reinit ");
@@ -139,7 +147,7 @@ void eprom_getSetup(Setup &setup)
 {
     LOG_DEBUG("eprom_getSetup");
     memset(&setup, 0, sizeof(Setup));
-    preferences.begin(CREDENTIALS, false);
+    preferences.begin(SETUP_CREDENTIALS, false);
     String ssid, passwd;
     // bool result = true;
 
@@ -289,6 +297,40 @@ void eprom_test_read_Eprom()
 void eprom_show(Setup &setup)
 {
     printEprom(setup);
+}
+/* *************************** SHELLY */
+
+#define SHELLY_DEVICE_NAME "sdn"
+#define SHELLY_MAC "smac"
+#define SHELLY_IP "sip"
+#define SHELLY_PORT "spt"
+
+void eprom_store_shelly(ALL_SHELLY_DEVICES *allDevices, unsigned upperLimit)
+{
+    LOG_INFO("eprom::eprom_store_shelly\n");
+    preferences.begin(SHELLY_EPROM, false);
+    preferences.clear();
+    for (int i = 0; i < upperLimit; i++)
+    {
+        if (allDevices[i].valid == true)
+        {
+            if (allDevices[i].errorContainer == NULL)
+            {
+                LOG_INFO("eprom:: index: %d, device name: %s, mac: %s, ip: %s, port: %d\n", i, allDevices[i].shellyDevice->name, allDevices[i].shellyDevice->mac, allDevices[i].shellyDevice->ip, allDevices[i].shellyDevice->port);
+                preferences.putString(SHELLY_DEVICE_NAME, allDevices[i].shellyDevice->name);
+                preferences.putString(SHELLY_MAC, allDevices[i].shellyDevice->mac);
+                preferences.putString(SHELLY_IP, allDevices[i].shellyDevice->ip);
+                preferences.putUInt(SHELLY_PORT, allDevices[i].shellyDevice->port);
+                free(allDevices[i].shellyDevice);
+            }
+            else
+            {
+                LOG_ERROR("eprom::eprom_store_shelly() - ERROR Msg: %s, Method: %s\n", allDevices[i].errorContainer->errorMessage, allDevices[i].errorContainer->usedMethod);
+                free(allDevices[i].errorContainer);
+            }
+        }
+    }
+    preferences.end();
 }
 
 /* *********************************  life data*/

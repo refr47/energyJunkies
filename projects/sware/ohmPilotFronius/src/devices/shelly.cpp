@@ -85,7 +85,6 @@ bool shelly_resetShelly(unsigned int sIndex)
     return pShellyObjArray[shellyIndex].received == true;
 }
 
-
 bool shelly_switchOnOff(bool on, unsigned int ind)
 {
 
@@ -402,4 +401,31 @@ bool shelly_listAllDevices(ALL_SHELLY_DEVICES *allDevices, char *ipRange, unsign
     return true;
 }
 
+
+/*
+ if (!shelly_listAllDevices(&allDevices[0], range, 254))
+  {
+    Serial.println("Error in listAllDevices");
+  }
+  else
+  {
+    Serial.println("Success in listAllDevices");
+    for (int jj = 0; jj < 10; jj++)
+    {
+      if (allDevices[jj].valid)
+      {
+          Serial.printf("Device IP::%s Port: %d Name: %s\n", allDevices[jj].shellyDevice->ip, allDevices[jj].shellyDevice->port, allDevices[jj].shellyDevice->name);
+free(allDevices[jj].shellyDevice);
+}
+else
+{
+    if (allDevices[jj].errorContainer)
+    {
+        Serial.println(allDevices[jj].errorContainer->errorMessage);
+        free(allDevices[jj].errorContainer);
+    }
+}
+}
+
+*/
 #endif
