@@ -32,11 +32,14 @@ void ConnectedToAP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 // only called if status == WL_CONNECTED & password is ok & ap has admitted connection
 void GotIP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
-    // Serial.print("Local ESP32 IP: ");
-    LOG_INFO("wlan::(GotIP_Handler) Connected to AP:: %s", WiFi.localIP().toString().c_str());
+    String s = WiFi.localIP().toString();
+    Serial.print("Local ESP32 IP: ");
+    Serial.print(s.c_str());
+    LOG_INFO("wlan::(GotIP_Handler) Connected to AP:: %s", s.c_str());
     connected = true;
-    Serial.println("wlan::Connected to AP: " + WiFi.localIP());
+    // Serial.println("wlan::Connected to AP: ");
 }
+
 void WiFi_Disconnected_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
     LOG_INFO("wlan::(WiFi_Disconnected_Handler) Disconnected From WiFi Network, attempt to recconnect ssid: %s, ssid: %s, Password: %s", WiFi.SSID().c_str(), ssid, password);

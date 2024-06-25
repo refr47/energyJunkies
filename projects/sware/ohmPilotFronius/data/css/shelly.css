@@ -11,7 +11,7 @@
         justify-content: center;
 }
 #shellyInitButton {
-    background-color: #04AA6D;
+    background-color: #ce1706;
     /* Green */
     border: none;
     color: white;
@@ -21,3 +21,13 @@
     display: inline-block;
     font-size: 16px;
 } 
+
+.tooltip {
+    display: none;
+    position: absolute;
+    background-color: #333;
+    color: #fff;
+    padding: 5px;
+    border-radius: 5px;
+    font-size: 14px;
+}

@@ -16,6 +16,7 @@
             $('#navBar').load('headerF.html #navB');
             $('#backGr').load('headerF.html #backG')
             document.title = 'Shelly';
+            buildStaticTableShellyDevs();
 
         })
     </script>
@@ -35,17 +36,18 @@
     </header>
     <h1>Shelly(s)</h1>
     <hr>
+    <div id="tooltip" class="tooltip">This is a tooltip!</div>
     <div id="shellyInit">
         <div id="shellyFetch">
             <img src="img/shel.gif" width="120px" />
         </div>
-        <button id="shellyInitButton" type="button">Finde alle Shelly-Devices</button>
+        <button id="shellyInitButton" type="button">Suche/Finde alle Shelly-Devices</button>
 
     </div>
     <hr>
     <table id="allShellyDevices" style="width:80%">
     </table>
 
-    <body>
+</body>
 
 </html>
