@@ -6,10 +6,15 @@
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
     <link rel="stylesheet" type="text/css" href="css/menu.css" />
     <link rel="stylesheet" type="text/css" href="css/main.css" />
-    <div id="backGr"></div>
+    <link rel="stylesheet" type="text/css" href="css/datatables.min.css" />
     <link rel="stylesheet" type="text/css" href="css/shelly.css" />
-    <script type="text/javascript" src="js/navigation.js"></script>
+    <div id="backGr"></div>
+
     <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+    <script src="js/datatables.min.js"></script>
+    <script type="text/javascript" src="js/navigation.js"></script>
+    <script type="text/javascript" src="js/shelly.js"></script>
+
     <script>
         document.title = 'Shelly';
         $(document).ready(function () {
@@ -41,7 +46,8 @@
         <div id="shellyFetch">
             <img src="img/shel.gif" width="120px" />
         </div>
-        <button id="shellyInitButton" type="button">Suche/Finde alle Shelly-Devices</button>
+
+        <button id="shellyInitButton">Finde alle Shelly-Devices</button>
 
     </div>
     <hr>

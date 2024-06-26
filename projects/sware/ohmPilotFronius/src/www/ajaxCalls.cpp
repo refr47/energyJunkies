@@ -1,6 +1,7 @@
 #include "ajaxCalls.h"
 #include "eprom.h"
 #include "utils.h"
+#include "shelly.h"
 
 /*
     *******************  PROTOTYPES
@@ -20,8 +21,86 @@ void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupC
 
 static void handleGetSetup(AsyncWebServerRequest *request);
 
+static void fillJsonObj(ALL_SHELLY_DEVICES &data, JsonArray &array)
+{
+    JsonObject object1 = array.createNestedObject();
+    object1["IP"] = data.shellyDevice->ip;
+    object1["PORT"] = data.shellyDevice->port;
+    object1["NAME"] = data.shellyDevice->name;
+}
+static void fillJsonObjWithErrorMsg(ALL_SHELLY_DEVICES &data, JsonArray &array)
+{
+    JsonObject object1 = array.createNestedObject();
+    object1["ERROR"] = data.errorContainer->errorMessage;
+}
+
+void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request)
+{
+    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> doc;
+    JsonArray array = doc["DATA"].to<JsonArray>();
+
+    ALL_SHELLY_DEVICES *allDevices = (ALL_SHELLY_DEVICES *)calloc(1, sizeof(ALL_SHELLY_DEVICES) * 254);
+    if (allDevices == NULL)
+    {
+        String response;
+        doc["ERROR"] = "No memory left";
+        serializeJson(doc, response);
+        LOG_INFO("ajaxCalls::ajaxCalls_handleBuildAndGetShelly - error in allocating mem ");
+        request->send(200, "application/json", response);
+        return;
+    }
+    else
+    {
+        doc["ERROR"] = "N";
+    }
+    char ipVek[INET_ADDRSTRLEN];
+    String s = WiFi.localIP().toString();
+    strncpy(ipVek, s.c_str(), INET_ADDRSTRLEN);
+    char *cp = strrchr(ipVek, '.');
+    *cp = '\0';
+    char *range = ipVek;
+    DBGf("ajaxCalls_handleBuildAndGetShelly - iprange: %s", range);
+    if (!shelly_listAllDevices(allDevices, range, 254))
+    {
+        DBG("Error in listAllDevices");
+    }
+    else
+    {
+        DBG("Success in listAllDevices");
+        for (int jj = 0; jj < 254; jj++)
+        {
+            if (allDevices[jj].valid)
+            {
+                DBGf("Device IP::%s Port: %d Name: %s\n", allDevices[jj].shellyDevice->ip, allDevices[jj].shellyDevice->port, allDevices[jj].shellyDevice->name);
+                // Create the first JSON object
+                fillJsonObj(allDevices[jj], array);
+                free(allDevices[jj].shellyDevice);
+            }
+            else
+            {
+                if (allDevices[jj].errorContainer)
+                {
+                    fillJsonObj(allDevices[jj], array);
+                    Serial.println(allDevices[jj].errorContainer->errorMessage);
+                    free(allDevices[jj].errorContainer);
+                }
+            }
+        }
+    }
+    if (allDevices != NULL)
+    {
+        free(allDevices);
+    }
+    String response;
+
+    serializeJson(doc, response);
+    LOG_INFO("ajaxCalls::ajaxCalls_handleBuildAndGetShelly - Done successfully ");
+    request->send(200, "application/json", response);
+}
+
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 {
+
     Setup setup;
     eprom_getSetup(setup);
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;

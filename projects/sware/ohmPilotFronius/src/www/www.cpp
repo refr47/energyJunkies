@@ -204,6 +204,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     // Route for serving the root page  request->send(SPIFFS, "/index.html", String(), false, callBack);
 
     server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
+    server.on("/buildAndGetShellyDevicesTree", HTTP_GET, ajaxCalls_handleBuildAndGetShelly);
     server.on("/getOverview", HTTP_GET, ajaxCalls_handleGetOverview);
 
     // Route to load style.css file

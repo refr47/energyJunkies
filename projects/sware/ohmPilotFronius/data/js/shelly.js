@@ -1,11 +1,11 @@
 var dataSetShellyDevices;
 var dataTableShellyDevices;
 
-function showShellyDevices() {
+function fetchShellyDevices() {
 
     $.ajax({
         type: "GET",
-        url: "http://10.0.0.6/getShellyDevicesTree", //http://10.0.0.59
+        url: "/buildAndGetShellyDevicesTree", //http://10.0.0.7
         async: true,
         contentType: "application/json; charset=utf-8",
         dataType: "json",
@@ -25,7 +25,7 @@ function showShellyDevices() {
     });
 }
 function createDataSetDevices() {
-    dataSetOut = [
+    dataSetShellyDevices = [
         ['Produktion', '0', "Watt"],
         ['Verbrauch', '0', "Watt"],
         ['Einspeisung/Bezug', '0', "Watt"],
@@ -45,37 +45,39 @@ function createDataSetDevices() {
 
 function buildStaticTableShellyDevs() {
     createDataSetDevices()
-    showShellyDevices()
+
 
     dataTableShellyDevices = $('#allShellyDevices').DataTable
-        ({
-            "bProcessing": true,
-            "lengthChange": false,
-            "info": false,
-            "bPaginate": true,
-            "ordering": false,
-            "responsive": true,
-            columns: [
-                {
-                    title: 'Name',
-                    width: "40%",
-                },
-                {
-                    title: 'Mac-Adresse'
-                },
-                {
-                    title: 'IP-Adresse'
-                }
-            ],
-            columnDefs: [
-                {
-                    target: 1,
-                    visible: true,
-                    searchable: false
-                },
-            ],
-            data: dataSetShellyDevices
-        });
+        (
+            {
+                "bProcessing": true,
+                "lengthChange": false,
+                "info": false,
+                "bPaginate": true,
+                "ordering": false,
+                "responsive": true,
+                columns: [
+                    {
+                        title: 'Name',
+                        width: "40%",
+                    },
+                    {
+                        title: 'Mac-Adresse'
+                    },
+                    {
+                        title: 'IP-Adresse'
+                    }
+                ],
+                columnDefs: [
+                    {
+                        target: 1,
+                        visible: true,
+                        searchable: false
+                    },
+                ],
+                data: dataSetShellyDevices
+            }
+        );
 
 
 }
@@ -84,6 +86,7 @@ var $tooltip = $('#tooltip');
 
 $("#shellyInitButton").on("click", function () {
     alert("Handler for `click` called.");
+    fetchShellyDevices();
 });
 
 $('#shellyInitButton').hover(
