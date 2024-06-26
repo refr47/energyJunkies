@@ -168,9 +168,10 @@ bool &setSetupChanged(bool didSetupChanged);
 // https://community.platformio.org/t/redirect-esp32-log-messages-to-sd-card/33734/5
 void logging_init()
 {
+    DBGf("main::logging_init() - log level: %d", LOG_LEVEL_ESP);
 
-    LOG_INFO("Setting log levels and callback");
-    esp_log_level_set("*", ESP_LOG_ERROR); // set all components to ERROR level
+    //
+    esp_log_level_set("*", ESP_LOG_VERBOSE); // set all components to ERROR level
     esp_log_level_set("ArduinoJson", ESP_LOG_ERROR);
     esp_log_level_set("AsyncTCP-esphome", ESP_LOG_ERROR);
     esp_log_level_set("ESPAsyncWebServer-esphome", ESP_LOG_ERROR);
@@ -193,6 +194,8 @@ void logging_init()
 #endif
 
     esp_log_set_vprintf(debug_LogOutput);
+
+    LOG_INFO("Setting log levels and callback for log level: %d", LOG_LEVEL_ESP);
 
 #ifdef CARD_READER
     esp_log_set_vprintf(cardRW_LogOutput);
@@ -219,7 +222,7 @@ void setup()
           ; */
     btStop(); // stop bluetoothd
     DBG("setup start ...");
-#ifdef RUN_IT
+
     logging_init();
     LOG_INFO("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
@@ -243,8 +246,8 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    //      eprom_clearLifeData();
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    //       eprom_clearLifeData();
     eprom_isInit();
 
     // ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
@@ -490,7 +493,7 @@ void setup()
         delay(5000);
     }
     LOG_INFO("Setup done - all components are working...");
-#endif
+
     // eM_printWakeUpReason();
 } // init
 

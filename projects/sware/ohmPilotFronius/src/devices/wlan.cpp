@@ -33,8 +33,9 @@ void ConnectedToAP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 void GotIP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
     String s = WiFi.localIP().toString();
-    Serial.print("Local ESP32 IP: ");
+    Serial.print("\nLocal ESP32 IP: ");
     Serial.print(s.c_str());
+    Serial.print("\n");
     LOG_INFO("wlan::(GotIP_Handler) Connected to AP:: %s", s.c_str());
     connected = true;
     // Serial.println("wlan::Connected to AP: ");
@@ -75,8 +76,11 @@ static char *Get_WiFiStatus(int status)
 bool wifi_init(Setup &setup)
 {
     LOG_INFO("wifi_init()");
+    DBG("wlan::wifi_init()");
 
     WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+    delay(1000);
     WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
     WiFi.setHostname(NET_HOSTNAME); // define hostname defines.h
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
@@ -85,12 +89,15 @@ bool wifi_init(Setup &setup)
     WiFi.onEvent(WiFi_Disconnected_Handler, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     ssid = setup.ssid;
     password = setup.passwd;
+    connected = false;
     WiFi.begin(ssid, password);
     LOG_DEBUG("WIFI: %s, Passwd: %s", setup.ssid, setup.passwd);
     LOG_DEBUG("Connecting to WiFi ..");
     tft_printInfo("Connecting to WiFi");
     delay(1000);
     wiFiStatus = WiFi.status();
+    DBGf("wlan::connect - status: %d", wiFiStatus);
+
     while (wiFiStatus != WL_CONNECTED && numberOfTries-- > 0 && !connected)
     {
         delay(1000);
@@ -98,10 +105,15 @@ bool wifi_init(Setup &setup)
         Serial.println(Get_WiFiStatus(wiFiStatus));
         --numberOfTries;
         LOG_DEBUG("wlan::Not connectetd, tries left: %d", numberOfTries);
+        DBGf("wlan::Not connectetd, tries left: %d", numberOfTries);
     }
     if (wiFiStatus == WL_CONNECTED && connected == true)
     {
         LOG_INFO("wlan::WIFI connected ");
+        String s = WiFi.localIP().toString();
+        Serial.print(WiFi.localIP());
+        DBGf("wlan::WIFI connected with IP: %s ", s.c_str());
+
         strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
         return true;
     }
@@ -114,7 +126,7 @@ bool wifi_init(Setup &setup)
         return false;
     }
 
-    return true;
+    return wiFiStatus == WL_CONNECTED;
 }
 
 void wifi_scan_network()

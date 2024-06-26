@@ -24,6 +24,11 @@ void wheater_getForecast()
 
     int httpResponseCode = 0;
     String json_array = util_GET_Request(PARAM, &httpResponseCode);
+    if (httpResponseCode != 200)
+    {
+        LOG_ERROR("wheather:wheater_getForecast URL: %s is not available, ResponseCode: %d", PARAM, httpResponseCode);
+        return;
+    }
     // Serial.println(json_array);
     JSONVar my_obj = JSON.parse(json_array);
     // Serial.println(my_obj);
