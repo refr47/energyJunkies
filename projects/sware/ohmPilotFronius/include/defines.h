@@ -9,6 +9,7 @@
 #define NtpServer1 "pool.ntp.org"
 #define NtpServer2 "time.nist.gov"
 #define EUROPE_VIENNA_TZ "CET-1CEST,M3.5.0,M10.5.0/3" // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
+#define NET_HOSTNAME "E-Junkies.at"
 
 #define LEN_WLAN 30
 #define MODBUS_PORT "502"

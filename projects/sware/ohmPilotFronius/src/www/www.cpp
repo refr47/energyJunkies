@@ -174,6 +174,8 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
 
     server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/about.html", "text/html", false, NULL); });
+    server.on("/shelly", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/shelly.html", "text/html", false, NULL); });
     server.on("/headerF.html", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/headerF.html", "text/html"); });
     server.on("/out", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -211,6 +213,8 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               { request->send(SPIFFS, "/css/menu.css", "text/css"); });
     server.on("/css/stammdaten.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/css/stammdaten.css", "text/css"); });
+    server.on("/css/shelly.css", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/css/shelly.css", "text/css"); });
     server.on("/css/jquery-3.7.1.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/css/jquery-3.7.1.min.css", "text/css"); });
     server.on("/css/datatables.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -222,6 +226,8 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               { request->send(SPIFFS, "/js/stammdaten.js", String()); });
     server.on("/js/navigation.js", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/js/navigation.js", String()); });
+    server.on("/js/shelly.js", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/js/shelly.js", String()); });
     server.on("/js/datatables.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/js/datatables.min.js", String()); });
 

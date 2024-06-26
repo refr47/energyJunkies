@@ -5,7 +5,7 @@ function showShellyDevices() {
 
     $.ajax({
         type: "GET",
-        url: "http://10.0.0.59/getShellyDevicesTree", //http://10.0.0.59
+        url: "http://10.0.0.6/getShellyDevicesTree", //http://10.0.0.59
         async: true,
         contentType: "application/json; charset=utf-8",
         dataType: "json",

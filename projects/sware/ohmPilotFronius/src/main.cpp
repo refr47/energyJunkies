@@ -499,9 +499,6 @@ static char formatBuffer[FORMAT_CHAR_BUFFER_LEN];
 void loop()
 {
 
-    DBG("loop start ...");
-    delay(20000);
-
 #ifdef RUN_IT
     LOG_INFO("Wait for 20 secs in loop");
     DBG("loop start ...");
@@ -899,6 +896,9 @@ void loop()
         }
         timeSlice.previousMillisSetup = timeSlice.currentMillis;
     }
+#else
+    DBG("loop start ...");
+    delay(20000);
 #endif
     // logReader_captureSerialOutput();
     //  eM_setSleepTime(20);

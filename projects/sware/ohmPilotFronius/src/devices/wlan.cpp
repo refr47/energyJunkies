@@ -77,6 +77,8 @@ bool wifi_init(Setup &setup)
     LOG_INFO("wifi_init()");
 
     WiFi.mode(WIFI_STA);
+    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
+    WiFi.setHostname(NET_HOSTNAME); // define hostname defines.h
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
     WiFi.onEvent(ConnectedToAP_Handler, ARDUINO_EVENT_WIFI_STA_CONNECTED);
     WiFi.onEvent(GotIP_Handler, ARDUINO_EVENT_WIFI_STA_GOT_IP);
