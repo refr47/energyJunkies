@@ -1,6 +1,7 @@
 #define _WIFI_CPP
 
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <tft.h>
 #include "wlan.h"
 #include "defines.h"
@@ -22,6 +23,22 @@ static char *ssid = "";
 static char *password = "";
 static int wiFiStatus;
 static bool connected = false;
+
+static void readMacAddress() // 34:85:18:8b:9d:30
+{
+    uint8_t baseMac[6];
+    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
+    if (ret == ESP_OK)
+    {
+        Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+                      baseMac[0], baseMac[1], baseMac[2],
+                      baseMac[3], baseMac[4], baseMac[5]);
+    }
+    else
+    {
+        Serial.println("Failed to read MAC address");
+    }
+}
 
 void ConnectedToAP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
@@ -80,8 +97,9 @@ bool wifi_init(Setup &setup)
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
+    readMacAddress();
     delay(1000);
-    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
+    // WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
     WiFi.setHostname(NET_HOSTNAME); // define hostname defines.h
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
     WiFi.onEvent(ConnectedToAP_Handler, ARDUINO_EVENT_WIFI_STA_CONNECTED);
@@ -110,6 +128,7 @@ bool wifi_init(Setup &setup)
     if (wiFiStatus == WL_CONNECTED && connected == true)
     {
         LOG_INFO("wlan::WIFI connected ");
+
         String s = WiFi.localIP().toString();
         Serial.print(WiFi.localIP());
         DBGf("wlan::WIFI connected with IP: %s ", s.c_str());
