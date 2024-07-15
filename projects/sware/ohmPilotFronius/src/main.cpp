@@ -170,7 +170,7 @@ void logging_init()
 {
     DBGf("main::logging_init() - log level: %d", LOG_LEVEL_ESP);
 
-    //
+    // esp_log_level_set("*", level)
     esp_log_level_set("*", ESP_LOG_VERBOSE); // set all components to ERROR level
     esp_log_level_set("ArduinoJson", ESP_LOG_ERROR);
     esp_log_level_set("AsyncTCP-esphome", ESP_LOG_ERROR);
@@ -503,10 +503,10 @@ void loop()
 {
 
 #ifdef RUN_IT
-    LOG_INFO("Wait for 20 secs in loop");
-    DBG("loop start ...");
-    delay(20000);
-    LOG_INFO("in loop - after waitinger for 20 secs");
+    /*  LOG_INFO("Wait for 20 secs in loop");
+     DBG("loop start ...");
+     delay(5000);
+     LOG_INFO("in loop - after waitinger for 20 secs"); */
     heapSize[0].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
 

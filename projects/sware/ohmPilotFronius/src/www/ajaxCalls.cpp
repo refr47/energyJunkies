@@ -56,7 +56,19 @@ void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request)
     char ipVek[INET_ADDRSTRLEN];
     String s = WiFi.localIP().toString();
     strncpy(ipVek, s.c_str(), INET_ADDRSTRLEN);
+
     char *cp = strrchr(ipVek, '.');
+    if (cp == NULL)
+    {
+        DBGf("ajaxCalls_handleBuildAndGetShelly - ERROR in strrchr, cp=NULL!, vek: %s", ipVek);
+        String response;
+        doc["ERROR"] = "Internal Error";
+        serializeJson(doc, response);
+        LOG_INFO("ajaxCalls::ajaxCalls_handleBuildAndGetShelly - error in find iprange ");
+        request->send(200, "application/json", response);
+        return;
+    }
+    DBGf("ajaxCalls_handleBuildAndGetShelly, ipRange: %s strrchr: %c ", ipVek, *cp);
     *cp = '\0';
     char *range = ipVek;
     DBGf("ajaxCalls_handleBuildAndGetShelly - iprange: %s", range);

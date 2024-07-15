@@ -338,6 +338,7 @@ bool shelly_listAllDevices(ALL_SHELLY_DEVICES *allDevices, char *ipRange, unsign
 {
     shellyIndex = 0;
     LOG_INFO("shelly::listAllDevices\n");
+    DBG("shelly::listAllDevices\n");
     MAX_COUNTER = 5;
     for (int i = 1; i <= upperLimit; i++)
     {
@@ -345,6 +346,7 @@ bool shelly_listAllDevices(ALL_SHELLY_DEVICES *allDevices, char *ipRange, unsign
         strcpy(pShellyObjArray[shellyIndex].ip, ip.c_str());
         // Serial.print("getSysInfo ");
         // Serial.print(ip);
+        DBGf("shelly::listAllDevices for ip: %s\n", ip.c_str());
         pShellyObjArray[shellyIndex].received = false;
         pShellyObjArray[shellyIndex].errorContainer = NULL;
 

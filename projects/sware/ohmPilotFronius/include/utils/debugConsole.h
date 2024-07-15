@@ -57,7 +57,7 @@ ESP_LOGV - verbose (highest)
 
 // esp_log_write(ESP_LOG_ERROR, "", format, ##__VA_ARGS__)
 
-#define LOG_ERROR(M, ...) ESP_LOGE(TAG, "%s:%d |> " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
+/* #define LOG_ERROR(M, ...) ESP_LOGE(TAG, "%s:%d |> " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
 #define LOG_WARNING(M, ...) ESP_LOGW(TAG, "%s:%d |> " M "\n", FINFO, __LINE__, ##__VA_ARGS__)
 
@@ -65,7 +65,27 @@ ESP_LOGV - verbose (highest)
 
 #define LOG_DEBUG(M, ...) ESP_LOGD(TAG, "%s:%d |> " M, FINFO, __LINE__, ##__VA_ARGS__)
 
-#define LOG_VERBOSE(M, ...) ESP_LOGV(TAG, "%s:%d |> " M, FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_VERBOSE(M, ...) ESP_LOGV(TAG, "%s:%d |> " M, FINFO, __LINE__, ##__VA_ARGS__) */
+
+/* #define _ESP_LOG_ENABLED(log_level) (LOG_LOCAL_LEVEL >= (log_level) && esp_log_default_level >= (log_level)) */
+
+#define LOG_ERROR(M, ...) DEBUG_PORT.printf("%s:%d | \n" M, FINFO, __LINE__, ##__VA_ARGS__)
+
+#define LOG_WARNING(M, ...)   \
+    if ((LOG_LEVEL_ESP) >= 2) \
+    DEBUG_PORT.printf("%s:%d | \n" M, FINFO, __LINE__, ##__VA_ARGS__)
+
+#define LOG_INFO(M, ...)      \
+    if ((LOG_LEVEL_ESP) >= 3) \
+    DEBUG_PORT.printf("%s:%d | \n" M, FINFO, __LINE__, ##__VA_ARGS__)
+
+#define LOG_DEBUG(M, ...)     \
+    if ((LOG_LEVEL_ESP) >= 4) \
+    DEBUG_PORT.printf("%s:%d | \n" M, FINFO, __LINE__, ##__VA_ARGS__)
+
+#define LOG_VERBOSE(M, ...)   \
+    if ((LOG_LEVEL_ESP) >= 5) \
+    DEBUG_PORT.printf("%s:%d | " M, FINFO, __LINE__, ##__VA_ARGS__)
 
 #define DBG(M, ...) DEBUG_PORT.printf("%s:%d | " M, FINFO, __LINE__, ##__VA_ARGS__)
 

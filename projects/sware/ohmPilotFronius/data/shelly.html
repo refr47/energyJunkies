@@ -4,16 +4,19 @@
 <head>
     <title>Shelly</title>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
+    <script src="js/datatables.min.js"></script>
+    <script type="text/javascript" src="js/navigation.js"></script>
+    <script type="text/javascript" src="js/shelly.js"></script>
+
+
     <link rel="stylesheet" type="text/css" href="css/menu.css" />
     <link rel="stylesheet" type="text/css" href="css/main.css" />
     <link rel="stylesheet" type="text/css" href="css/datatables.min.css" />
     <link rel="stylesheet" type="text/css" href="css/shelly.css" />
     <div id="backGr"></div>
 
-    <script type="text/javascript" src="js/jquery-3.7.1.min.js"></script>
-    <script src="js/datatables.min.js"></script>
-    <script type="text/javascript" src="js/navigation.js"></script>
-    <script type="text/javascript" src="js/shelly.js"></script>
+
 
     <script>
         document.title = 'Shelly';
@@ -21,6 +24,7 @@
             $('#navBar').load('headerF.html #navB');
             $('#backGr').load('headerF.html #backG')
             document.title = 'Shelly';
+            shelly_init();
             buildStaticTableShellyDevs();
 
         })
@@ -41,7 +45,8 @@
     </header>
     <h1>Shelly(s)</h1>
     <hr>
-    <div id="tooltip" class="tooltip">This is a tooltip!</div>
+    <div id="tooltip" class="tooltip">Es wird das Netzwerk nach Shelly-Devices durchsucht und die gefundenen Geraete
+        persistent gespeichert.</div>
     <div id="shellyInit">
         <div id="shellyFetch">
             <img src="img/shel.gif" width="120px" />

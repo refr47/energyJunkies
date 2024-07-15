@@ -82,30 +82,31 @@ function buildStaticTableShellyDevs() {
 
 }
 
-var $tooltip = $('#tooltip');
+function shelly_init() {
 
-$("#shellyInitButton").on("click", function () {
-    alert("Handler for `click` called.");
-    fetchShellyDevices();
-});
+    let $tooltip = $('#tooltip');
 
-$('#shellyInitButton').hover(
-    function (e) { // Mouse enter
+    $("#shellyInitButton").on("click", function () {
+        fetchShellyDevices();
+    });
+
+    $('#shellyInitButton').hover(
+        function (e) { // Mouse enter
+            $tooltip.css({
+                display: 'block',
+                top: e.pageY + 10,
+                left: e.pageX + 10
+            });
+        },
+        function () { // Mouse leave
+            $tooltip.hide();
+        }
+    ).mousemove(function (e) {
         $tooltip.css({
-            display: 'block',
             top: e.pageY + 10,
             left: e.pageX + 10
         });
-    },
-    function () { // Mouse leave
-        $tooltip.hide();
-    }
-).mousemove(function (e) {
-    $tooltip.css({
-        top: e.pageY + 10,
-        left: e.pageX + 10
     });
-});
 
-
+}
 
