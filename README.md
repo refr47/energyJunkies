@@ -9,7 +9,9 @@ Es können natürlich noch Fehler oder seltsames Verhalten auftreten. Diese kön
 ## Versionsverwaltung per GIT
 Die installierbaren Versionen werden im "main"-Branch verwaltet und die Erweiterungen in einem separaten Branch. Nach einem erfolgreichen Test werden dann die Branches wieder in den Main-Branch integriert und die Version wird dann erhöht. Es wird mit der Version v0.9 bekommen
 
-- v1.0: Basisfunktionalität (Heizstab-Regler mit Untersützung des Fronius-WR und AMIS-Reader (Siemens TD3511 Smartmeter), Temperaturüberwachung
+- Branch main: Basisfunktionalität (Heizstab-Regler mit Untersützung des Fronius-WR und AMIS-Reader (Siemens TD3511 Smartmeter), Temperaturüberwachung, minimaler Shelly-Support
+- Branch shelly: Experimentielles im Umgang  mit Shelly-Produkten
+- Branch loxone: Erweiterung des REST-Interfaces für Einbindung Loxone-Verwaltung, Reduzierung des Codes auf die Ansteuerung der Platine, kein Modbus/Fronius/amisReader-Support
 
 ## Anforderungen
 
