@@ -11,6 +11,8 @@ Die installierbaren Versionen werden im "main"-Branch verwaltet und die Erweiter
 
 - Branch main: Basisfunktionalität (Heizstab-Regler mit Untersützung des Fronius-WR und AMIS-Reader (Siemens TD3511 Smartmeter), Temperaturüberwachung, minimaler Shelly-Support
 - Branch shelly: Experimentielles im Umgang  mit Shelly-Produkten
+- Branch enj: Testumgebung für ENJ für das Austesten der 4 Buttons
+- Branch Powerregulation: kl. Beispiel von Bernhard für pid-Regler
 - Branch loxone: Erweiterung des REST-Interfaces für Einbindung Loxone-Verwaltung, Reduzierung des Codes auf die Ansteuerung der Platine, kein Modbus/Fronius/amisReader-Support
 
 ## Anforderungen
