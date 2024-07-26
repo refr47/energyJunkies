@@ -49,7 +49,7 @@ https://github.com/lostcontrol/wattpilot
 #define DC_POWER 40101 */
 
 #define MODBUS_STATIC_LEN (MODBUS_INVERTER_MANUFACTURER_LEN + MODBUS_INVERTER_DEVICE_LEN + MODBUS_INVERTER_OPTIONS + MODBUS_INVERTER_SW_VERS)
-
+ 
 // value name length
 #define VALUE_NAME_LEN 24
 

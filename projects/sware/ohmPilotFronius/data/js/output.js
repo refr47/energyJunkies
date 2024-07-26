@@ -37,9 +37,9 @@ function interpretError(errorBitVektor) {
   if ((errorBitVektor & (1 << STATE_FLASH)) != 0)
     errVek.push("Flashspeicher funktioniert nicht.")
   if ((errorBitVektor & (1 << STATE_TEMPSENSOR)) != 0)
-    errVek.push("Probleme mit der Temperatursensorik.")
+    errVek.push("Probleme mit der Temperatursensorik oder MaxWert erreicht.")
   if ((errorBitVektor & (1 << STATE_HEATING)) != 0)
-    errVek.push("Probleme mit der Temperatursensorik.")
+    errVek.push("Probleme mit der Temperatursensorik oder MaxWert erreicht.")
   if (errVek.length > 0)
     addErrors(errVek);
 }

@@ -228,10 +228,10 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
 {
     double boilerTemp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
     LOG_DEBUG("pidManager::task - prologTemperature, boilerTemp %.3f  webSockData.setupData.tempMaxAllowedInGrad %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
-    if (boilerTemp >= webSockData.setupData.tempMaxAllowedInGrad)
+    if (boilerTemp > webSockData.setupData.tempMaxAllowedInGrad)
     {
         LOG_DEBUG("pidManager::task - no action available, boilerTemp %.3f >= webSockData.setupData.tempMaxAllowedInGrad %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
-        webSockData.states.boilerHeating = false;
+
         if (getStateOfDigPin(0))
         {
             LOG_DEBUG("pidManager::task, Temperature overflow, switchOffL1");
@@ -247,6 +247,8 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
             LOG_DEBUG("pidManager::task, Temperature overflow, switchOffL3");
             reset();
         }
+        webSockData.states.boilerHeating = false;
+
 #ifdef INFLUX
         influx_write_test(storage, availableWatt);
 #endif
@@ -279,6 +281,7 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
     else
     {
         webSockData.states.boilerHeating = true;
+        LOG_DEBUG("pidManager::task - (else, webSockData.states.boilerHeating) boilerTemp  %.3f < webSockData.setupData.tempMaxAllowedInGrad %d, heat!! ", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
     }
     return false;
 }
@@ -362,10 +365,9 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     else
     {
         // METER_DATA.acCurrentPower < 0: export: else import
-        availableWatt = INVERTER_DATA.acCurrentPower - METER_DATA.acCurrentPower;
-        gridWatt = METER_DATA.acCurrentPower; //  <0:  einspeisen, >0: Bezug
-                                              /* DBGf("modbus: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
-                                              DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower); */
+        availableWatt = gridWatt = METER_DATA.acCurrentPower; //  <0:  einspeisen, >0: Bezug
+        DBGf("pinManager, no froniusAPI: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
+        /*   DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower); */
 #ifdef INFLUX
         influx_write_production(INVERTER_DATA.acCurrentPower, 0.0, METER_DATA.acCurrentPower);
 #endif
