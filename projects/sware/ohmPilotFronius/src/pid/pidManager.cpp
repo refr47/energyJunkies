@@ -210,7 +210,7 @@ void PinManager::adjustPWM()
     }
     if (availableWatt < onePhase)
     {
-        LOG_DEBUG(">  0,mCurrentPower <= onePhas: pwm: %d", OUTPUT_MAX * availableWatt / onePhase);
+        LOG_DEBUG("adjustPWM:: >  0,mCurrentPower <= onePhas: pwm: %d, availableWatt: %f", (int)(OUTPUT_MAX * availableWatt / onePhase), availableWatt);
         mAnalogOut = OUTPUT_MAX * availableWatt / onePhase;
         mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
         availableWatt = 0.0;
@@ -219,11 +219,12 @@ void PinManager::adjustPWM()
     {
         mAnalogOut = OUTPUT_MAX;
         mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
-        LOG_DEBUG(">  0,mCurrentPower <= onePhas: pwm: %d", OUTPUT_MAX);
+        LOG_DEBUG("adjustPWM - else mCurrentPower <= onePhas: pwm: %d", OUTPUT_MAX);
     }
 }
 // true: nothing must be done, because temperature > allowed or temperature < allowed
 // false: loading is not handled by this methode!
+
 bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
 {
     double boilerTemp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;

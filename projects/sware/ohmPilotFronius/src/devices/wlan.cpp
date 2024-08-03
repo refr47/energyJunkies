@@ -240,10 +240,15 @@ bool wifi_isStillConnected(Setup &setup)
     int numberOfTries = WIFI_NUMBER_OF_TRIES;
     while (((wiFiStatus != WL_CONNECTED) || connected == false) && numberOfTries-- > 0)
     {
-        delay(1000);
-        wiFiStatus = WiFi.status();
+
+        WiFi.disconnect();
+        delay(3000);
+        connected = false;
+        WiFi.begin(ssid, password);
         Serial.println(Get_WiFiStatus(wiFiStatus));
         --numberOfTries;
+        delay(7000);
+        wiFiStatus = WiFi.status();
         LOG_INFO("wlan::reconnect Not connectetd, tries left: %d", numberOfTries);
     }
     if (wiFiStatus == WL_CONNECTED && connected == true)
