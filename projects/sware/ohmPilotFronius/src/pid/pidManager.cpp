@@ -91,6 +91,7 @@ void PinManager::reset()
     }
     storage = 0.0;
 }
+
 void PinManager::switchOnL1()
 {
 
@@ -99,6 +100,7 @@ void PinManager::switchOnL1()
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
     storage += onePhase;
 }
+
 void PinManager::switchOnL2()
 {
 
@@ -107,6 +109,7 @@ void PinManager::switchOnL2()
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
     storage += onePhase;
 }
+
 void PinManager::switchOnL3()
 {
     mAnalogOut = OUTPUT_MAX;

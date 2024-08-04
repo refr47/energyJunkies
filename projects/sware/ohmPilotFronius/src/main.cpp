@@ -822,6 +822,7 @@ void loop()
             else
             {
                 LOG_WARNING("main::Temperature alarm container is on (%d)", alarmContainer.alarmTemp.alarmTemp);
+                pidPinManager.reset();
             }
         }
 
