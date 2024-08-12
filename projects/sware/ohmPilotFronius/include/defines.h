@@ -42,7 +42,7 @@
 #define AKKU_STATE webSockData.mbContainer.akkuState.data
 #define AKKU_STRG webSockData.mbContainer.akkuStr.data
 #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
-
+ 
 /* ****************** SOCKETS *****************/
 // length of ip address string
 #define IP_LENGTH 64

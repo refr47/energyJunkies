@@ -321,14 +321,18 @@ void setup()
         LOG_DEBUG("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
         // memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
-
+        webSockData.states.mqtt = false;
 #ifdef MQTT
         if (!mqtt_init())
         {
             LOG_ERROR("Mqtt-Server -- cannot connect (!)");
         }
         else
+        {
             LOG_INFO("Mqtt-Server:: connected successfully ...");
+            webSockData.states.mqtt = true;
+        }
+
 #endif
         webSockData.states.cardWriterOK = false;
 #ifdef CARD_READER
@@ -416,9 +420,7 @@ void setup()
 #endif
 
         LOG_INFO("Setup PID-Controller");
-#ifdef MQTT
-        mqtt_publish_pidParams(webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
-#endif
+
         // LOG_INFO("Mqtt - PID params:  p: %.2lf  i: %.2lf    d: %.2lf", webSockData.setupData.pid_p, webSockData.setupData.pid_i, webSockData.setupData.pid_d);
         tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
         pidPinManager.config(webSockData.setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
@@ -704,6 +706,7 @@ void loop()
                 webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
                 webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
                 webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+
                 INVERTER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_pv;
                 METER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_load;
             }
@@ -746,7 +749,7 @@ void loop()
                     influx_write(webSockData);
 #ifdef MQTT
 
-                    mqtt_publish_modbus_current_state(webSockData.mbContainer);
+                    /*mqtt_publish_modbus_current_state(webSockData.mbContainer);*/
 #endif
                 }
             }

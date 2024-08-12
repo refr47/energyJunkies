@@ -14,9 +14,11 @@ static PubSubClient client(espClient);
 unsigned long lastMsg = 0;
 
 #define TOPIC_MESSAGE_GREETING "message/greetings"
-#define TOPIC_PID_P "pid/p"
-#define TOPIC_PID_I "pid/i"
-#define TOPIC_PID_D "pid/d"
+#define TOPIC_LOG_W "log/logw"
+#define TOPIC_LOG_I "log/logi"
+#define TOPIC_LOG_D "log/logd"
+#define TOPIC_LOG_E "log/loge"
+
 #define TOPIC_PWM "energy/pwm"
 #define TOPIC_ENERGY_AVAIL "energy/available"
 #define TOPIC_MODBUS_RECONNECT "modbus/connection/reconnect"
@@ -56,19 +58,6 @@ void mqtt_loop()
     client.loop();
 }
 
-void mqtt_publish_pidParams(double kP, double kI, double kD)
-{
-    char buf[50];
-    sprintf(buf, "%f", kP);
-    client.publish(TOPIC_PID_P, buf);
-
-    sprintf(buf, "%f", kI);
-    client.publish(TOPIC_PID_I, buf);
-
-    sprintf(buf, "%f ", kD);
-    client.publish(TOPIC_PID_D, buf);
-}
-
 void mqtt_publish_en(int pwm, double availableWatt)
 {
     char buf[50];
@@ -93,6 +82,18 @@ void mqtt_publish_modbus_reconnect(const char *ipInverter)
     client.publish(TOPIC_MODBUS_RECONNECT, ipInverter);
 }
 
+void mqtt_publish_log( char token,const char *logM)
+{
+    if (token == 'W')
+        client.publish(TOPIC_LOG_W, logM);
+    if (token=='I')
+        client.publish(TOPIC_LOG_I, logM);
+    if (token == 'D')
+        client.publish(TOPIC_LOG_D, logM);
+    if (token == 'E')
+        client.publish(TOPIC_LOG_E, logM);
+}
+
 void mqtt_publish_modbus_wrong_production_val(double readVal)
 {
     char buf[30];
@@ -100,6 +101,7 @@ void mqtt_publish_modbus_wrong_production_val(double readVal)
     sprintf(buf, "%.2lf", readVal);
     client.publish(TOPIC_MODBUS_WRONG_PRODUCTION_VAL, buf);
 }
+/*
 void mqtt_publish_modbus_current_state(MB_CONTAINER &modb)
 {
     char buf[30];
@@ -110,6 +112,8 @@ void mqtt_publish_modbus_current_state(MB_CONTAINER &modb)
     sprintf(buf, "%.2lf", modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower);
     client.publish(TOPIC_MODBUS_VERBRAUCH, buf);
 }
+
+*/
 /* ****************************/
 
 static void reconnect()

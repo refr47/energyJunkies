@@ -4,7 +4,7 @@
 #include <esp_log.h>
 #include <time.h>
 #include <string.h>
-
+#include "mqtt.h"
 #define TEXTIFY(A) #A
 #define ESCAPEQUOTE(A) TEXTIFY(A)
 
@@ -15,11 +15,12 @@
 #ifndef DEBUG_PORT
 #define DEBUG_PORT Serial
 #endif
+
 int debug_LogOutput(const char *format, va_list args);
 // This only works for C
 /* static const char *currTime()
 {
-    time_t rawtime;
+    time_t rawtime;do
     struct tm *timeinfo;
 
     time(&rawtime);
@@ -69,19 +70,41 @@ ESP_LOGV - verbose (highest)
 
 /* #define _ESP_LOG_ENABLED(log_level) (LOG_LOCAL_LEVEL >= (log_level) && esp_log_default_level >= (log_level)) */
 
-#define LOG_ERROR(M, ...) DEBUG_PORT.printf("%s:%d | \n" M, FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_ERROR(M, ...)                                                                 \
+    if ((LOG_LEVEL_ESP) == 1)                                                             \
+    {                                                                                     \
+        char log_msg[512];                                                                \
+        snprintf(log_msg, sizeof(log_msg), "%s:%d | " M, FINFO, __LINE__, ##__VA_ARGS__); \
+        DEBUG_PORT.printf("%s\n", log_msg);                                               \
+        mqtt_publish_log('E', log_msg);                                                   \
+    }
 
-#define LOG_WARNING(M, ...)   \
-    if ((LOG_LEVEL_ESP) >= 2) \
-    DEBUG_PORT.printf("%s:%d | \n" M, FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_WARNING(M, ...)                                                               \
+    if ((LOG_LEVEL_ESP) >= 2)                                                             \
+    {                                                                                     \
+        char log_msg[512];                                                                \
+        snprintf(log_msg, sizeof(log_msg), "%s:%d | " M, FINFO, __LINE__, ##__VA_ARGS__); \
+        DEBUG_PORT.printf("%s\n", log_msg);                                               \
+        mqtt_publish_log('W', log_msg);                                                   \
+    }
 
-#define LOG_INFO(M, ...)      \
-    if ((LOG_LEVEL_ESP) >= 3) \
-    DEBUG_PORT.printf("%s:%d | \n" M, FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_INFO(M, ...)                                                                  \
+    if ((LOG_LEVEL_ESP) >= 3)                                                             \
+    {                                                                                     \
+        char log_msg[512];                                                                \
+        snprintf(log_msg, sizeof(log_msg), "%s:%d | " M, FINFO, __LINE__, ##__VA_ARGS__); \
+        DEBUG_PORT.printf("%s\n", log_msg);                                               \
+        mqtt_publish_log('I', log_msg);                                                   \
+    }
 
-#define LOG_DEBUG(M, ...)     \
-    if ((LOG_LEVEL_ESP) >= 4) \
-    DEBUG_PORT.printf("%s:%d | \n" M, FINFO, __LINE__, ##__VA_ARGS__)
+#define LOG_DEBUG(M, ...)                                                                 \
+    if ((LOG_LEVEL_ESP) >= 4)                                                             \
+    {                                                                                     \
+        char log_msg[512];                                                                \
+        snprintf(log_msg, sizeof(log_msg), "%s:%d | " M, FINFO, __LINE__, ##__VA_ARGS__); \
+        DEBUG_PORT.printf("%s\n", log_msg);                                               \
+        mqtt_publish_log('D', log_msg);                                                   \
+    }
 
 #define LOG_VERBOSE(M, ...)   \
     if ((LOG_LEVEL_ESP) >= 5) \
