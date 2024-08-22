@@ -53,7 +53,11 @@ void mqtt_loop()
 {
     if (!client.connected())
     {
-        reconnect();
+         if (WiFi.status() == WL_CONNECTED ) {
+            LOG_INFO("mqtt_loop::mqtt_loop, reconnect, wifi ok, mqtt-server failed.");
+             reconnect();
+         }
+        
     }
     client.loop();
 }

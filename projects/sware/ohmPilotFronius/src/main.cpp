@@ -3,6 +3,7 @@
 #include <SPI.h>
 
 #include "esp_heap_trace.h"
+#include "esp_wifi.h"
 
 #include "debugConsole.h"
 #include "wlan.h"
@@ -83,6 +84,8 @@ https://github.com/Xinyuan-LilyGO/T-Display-S3
 #define NUM_RECORDS 100
 // static heap_trace_record_t trace_record[NUM_RECORDS]; // This buffer must be in internal RAM
 static RTC_DATA_ATTR int bootCount = 0;
+#define SECONDS_PER_DAY 86400
+
 typedef struct _ALARM_TEMPERATURE
 {
     bool alarmTemp;
@@ -121,7 +124,7 @@ typedef struct _TIME_SLICE
 {
     unsigned long previousMillTemp;
     unsigned long previousMillModbus;
-    unsigned long previousMillFlush;
+    unsigned long previousMillSecCounter;
     unsigned long previousMillisClock;
     unsigned long previousMillisWebSocks;
     unsigned long previousMillisShowIp;
@@ -152,6 +155,7 @@ static ALARM_CONTAINER alarmContainer;
 static PinManager pidPinManager;
 static WEBSOCK_DATA webSockData;
 static HEAP_SIZE heapSize[2];
+static unsigned long secondsCounter = 0l;
 
 // static double availablePowerFromWRInWatt = 0.0;
 
@@ -299,7 +303,16 @@ void setup()
         LOG_DEBUG("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
         tft_printKeyValue("Init Time", "OK", TFT_GREEN);
-        time_init(); // init time
+        webSockData.states.timeServer = true;
+        if (!time_init())
+        {
+            webSockData.states.timeServer = false;
+        } // init time
+        else
+        {
+            secondsCounter = time_getOffset();
+            LOG_INFO("main::setup time - offset: %d", secondsCounter);
+        }
         time_currentTimeStamp();
 
         LOG_DEBUG("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
@@ -489,6 +502,7 @@ void setup()
         LOG_INFO("Modbus: %c", webSockData.states.modbusOK == true ? 'y' : 'n');
         LOG_INFO("MqTT: %c", webSockData.states.mqtt == true ? 'y' : 'n');
         LOG_INFO("TempSensor: %c", webSockData.states.tempSensorOK == true ? 'y' : 'n');
+        LOG_INFO("TimeServer(NTP): %c", webSockData.states.timeServer == true ? 'y' : 'n');
         LOG_INFO("LogReader: y");
         LOG_INFO("HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
         tft_clearScreen();
@@ -514,10 +528,14 @@ void loop()
 
     timeSlice.currentMillis = millis();
 
+    // secondsCounter = 0l;
+
     if (!webSockData.states.networkOK)
     {
 
         delay(10000);
+        LOG_DEBUG("main::network failure !!");
+        webSockData.states.mqtt = false;
         WiFi.disconnect();
         if (wifi_isStillConnected(webSockData.setupData))
         {
@@ -526,12 +544,23 @@ void loop()
         }
         else
         {
-            pidPinManager.reset(); // alles aus
+            if (webSockData.states.tempUnderflow == false) // boiler temp > min boiler temp
+                pidPinManager.reset();                     // alles aus
+            else
+            {
+                pidPinManager.allOn(); // heat
+            }
+
             LOG_ERROR("Network does not work - no further task are available, tcp ip: %s", webSockData.setupData.currentIP);
         }
 
         // timeSlice.currentMillis = millis();
     }
+    else
+    {
+        webSockData.states.mqtt = true;
+    }
+
     /* ***********************                   CLOCK           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisClock > CLOCK_INTERVALL)
     {
@@ -545,8 +574,14 @@ void loop()
         {
             tft_updateTime("00:00:00");
         }
+        secondsCounter++;
+        secondsCounter %= SECONDS_PER_DAY;
+        esp_sleep_enable_timer_wakeup(1000);
+        LOG_INFO("main::CLOCK_INTERVALL current hour: %d", (secondsCounter / 3600) % 24);
+
 #ifdef MQTT
-        mqtt_loop();
+        if (webSockData.states.mqtt == true)
+            mqtt_loop();
 #endif
         timeSlice.previousMillisClock = timeSlice.currentMillis;
     }
@@ -563,13 +598,16 @@ void loop()
     if (timeSlice.currentMillis - timeSlice.previousMillTemp > TEMPERATURE_INTERVAL)
     {
         // LOG_INFO("TEMPERATURE_INTERVAL");
+
         if (!temp_getTemperature(webSockData.temperature))
         {
 
+            webSockData.states.tempUnderflow = false;
             if (webSockData.temperature.sensor1 < 0.0 && webSockData.temperature.sensor2 < 0.0)
             {
 #ifdef MQTT
-                mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+                if (webSockData.states.mqtt = true)
+                    mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
 #endif
                 webSockData.temperature.alarm = true;
                 if (!webSockData.temperature.alarm)
@@ -585,52 +623,66 @@ void loop()
         else
         {
 
-            webSockData.temperature.alarm = false;
-            /*
-            RELAY_L1, RELAY_L2, PWM_FOR_PID
-            */
-            LOG_INFO("main::TEMP in Celsius, S1: %f, S2: %f", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
-            if (!alarmContainer.alarmTemp.alarmTemp)
+            if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) < webSockData.setupData.tempMinInGrad)
             {
-                if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > webSockData.setupData.tempMaxAllowedInGrad)
-                {
-                    LOG_ERROR("main::Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
-
-                    pidPinManager.reset(); // alles aus
-                    alarmContainer.alarmTemp.alarmTemp = true;
-                    alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
-                    webSockData.temperature.alarm = true;
-                    ledHandler_showTemperaturError(true);
-#ifdef MQTT
-                    mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
-#endif
-                }
+                webSockData.states.tempUnderflow = true;
+                pidPinManager.allOn();
+                LOG_INFO("main::TEMPERATURE_INTERVAL - TempUnderflow heat as much as possible!!")
             }
             else
             {
-                time_t currT = time_getTimeStamp();
-                double diffT = difftime(currT, alarmContainer.alarmTemp.overFlowHappenedAt); // in secs
-                if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
+                webSockData.temperature.alarm = false;
+                webSockData.states.tempUnderflow = false;
+                /*
+                RELAY_L1, RELAY_L2, PWM_FOR_PID
+                */
+                LOG_INFO("main::TEMP in Celsius, S1: %f, S2: %f", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+                if (!alarmContainer.alarmTemp.alarmTemp)
                 {
-                    LOG_INFO("main::TempLimit over %d °C , wait for next check in secs: %d", webSockData.setupData.tempMaxAllowedInGrad, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
                     if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > webSockData.setupData.tempMaxAllowedInGrad)
                     {
+                        LOG_ERROR("main::Temperaturlimit erreicht - Heizpatrone wird abgeschaltet");
+
+                        pidPinManager.reset(); // alles aus
+                        alarmContainer.alarmTemp.alarmTemp = true;
                         alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+                        webSockData.temperature.alarm = true;
                         ledHandler_showTemperaturError(true);
 #ifdef MQTT
-                        mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+                        if (webSockData.states.mqtt = true)
+                            mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
 #endif
                     }
-                    else
+                }
+                else
+                {
+                    time_t currT = time_getTimeStamp();
+                    double diffT = difftime(currT, alarmContainer.alarmTemp.overFlowHappenedAt); // in secs
+                    if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
                     {
-                        alarmContainer.alarmTemp.alarmTemp = false;
-                        alarmContainer.alarmTemp.overFlowHappenedAt = 0;
-                        ledHandler_showTemperaturError(false);
-                        LOG_INFO("main:: TempLimit reset");
+                        LOG_INFO("main::TempLimit over %d °C , wait for next check in secs: %d", webSockData.setupData.tempMaxAllowedInGrad, TEMPERATURE_OVERHEATED_WAIT_IN_SECS);
+                        if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) > webSockData.setupData.tempMaxAllowedInGrad)
+                        {
+                            alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+                            ledHandler_showTemperaturError(true);
+#ifdef MQTT
+                            if (webSockData.states.mqtt = true)
+                                mqtt_publish_alarm_temp(webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+#endif
+                        }
+                        else
+                        {
+                            alarmContainer.alarmTemp.alarmTemp = false;
+                            alarmContainer.alarmTemp.overFlowHappenedAt = 0;
+                            ledHandler_showTemperaturError(false);
+                            LOG_INFO("main:: TempLimit reset");
+                        }
                     }
                 }
-            }
+            } // temp underflow test
+
         } // !getTemperature()
+
         timeSlice.previousMillTemp = timeSlice.currentMillis;
     }
 
@@ -733,7 +785,8 @@ void loop()
                 {
                     LOG_DEBUG("Wrong meter value from smartmeter - current production: %.3f !", METER_DATA.acCurrentPower);
 #ifdef MQTT
-                    mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
+                    if (webSockData.states.mqtt = true)
+                        mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
 #endif
                 }
                 else
@@ -789,7 +842,7 @@ void loop()
         timeSlice.previousMillModbus = timeSlice.currentMillis;
     }
 
-    /* ***********************                   FLUSH LOGGING FILE           ************************/
+/* ***********************                   FLUSH LOGGING FILE           ************************/
 #ifdef CARD_READER
     if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
     {
@@ -872,25 +925,36 @@ void loop()
         notifyClients(getJsonObj());
     }
 
-    /*  if (timeSlice.currentMillis - timeSlice.previousMillisReconnect > RECONNET_INTERVALL)
-     {
-         LOG_INFO("RECONNET_INTERVALL");
-         if (!wifi_isStillConnected(webSockData.setupData))
-         {
-             DBG("main::Network down , try reconnecting ....");
-             webSockData.states.networkOK = false;
-         }
-         else
-         {
-             webSockData.states.networkOK = true;
-         }
+    if (timeSlice.currentMillis - timeSlice.previousMillisReconnect > RECONNET_INTERVALL)
+    {
 
-         timeSlice.previousMillisReconnect = timeSlice.currentMillis;
-     } */
+        if (!wifi_isStillConnected(webSockData.setupData))
+        {
+            LOG_ERROR("main::RECONNET_INTERVALL:: Network down , try reconnecting ....");
+            webSockData.states.networkOK = false;
+        }
+        else
+        {
+            int rssi = 0;
+            esp_err_t result = esp_wifi_sta_get_rssi(&rssi);
+            if (result == ESP_OK)
+            {
+                LOG_INFO("main::RECONNET_INTERVALL:: Checking NETWORK, SSID: %s, IP: %s, Signal strength: %d", webSockData.setupData.ssid, webSockData.setupData.currentIP, rssi);
+            }
+            else
+            {
+                LOG_ERROR("main::RECONNET_INTERVALL::Error in getting RSSI Strength! for ssid: %s and IP: %s", webSockData.setupData.ssid, webSockData.setupData.currentIP);
+            }
+
+            webSockData.states.networkOK = true;
+        }
+
+        timeSlice.previousMillisReconnect = timeSlice.currentMillis;
+    }
     // SETUP_CHECK_INTERVALL
     if (timeSlice.currentMillis - timeSlice.previousMillisSetup > SETUP_CHECK_INTERVALL)
     {
-        LOG_INFO("main::SETUP_CHECK_INTERVALL %d ", webSockData.setupData.setupChanged);
+        LOG_INFO("main::SETUP_HOT_UPDATE_INTERVALL %d ", webSockData.setupData.setupChanged);
         if (webSockData.setupData.setupChanged)
         {
             if (!hotUpdate(webSockData, pidPinManager))

@@ -42,7 +42,7 @@
 #define AKKU_STATE webSockData.mbContainer.akkuState.data
 #define AKKU_STRG webSockData.mbContainer.akkuStr.data
 #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
- 
+
 /* ****************** SOCKETS *****************/
 // length of ip address string
 #define IP_LENGTH 64
@@ -189,8 +189,10 @@ typedef struct _STATES
     bool modbusOK;
     bool flashOK;
     bool tempSensorOK;
+    bool tempUnderflow;
     bool froniusAPI;
     bool amisReader;
+    bool timeServer;
     bool influx;
     bool mqtt;
     bool boilerHeating; // on or off

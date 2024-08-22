@@ -12,17 +12,20 @@
 #define WIFI_RECONNECT_DONE "Connected"
 #define WIFI_RECONNECT_FALSE "Not Connected"
 
-#define WIFI_TRY_DELAY 1000
+// #define WIFI_TRY_DELAY 1000
 #define WIFI_NUMBER_OF_TRIES 15
-#define WIFI_RECONNECT_TRY_IN_INTERVALL 10000
+// #define WIFI_RECONNECT_TRY_IN_INTERVALL 10000
 
 // static unsigned long previousMillis = 0;
 static char *Get_WiFiStatus(int status);
+static void WiFiEvent(WiFiEvent_t event);
+static void handleWiFiReconnect();
 
 static char *ssid = "";
 static char *password = "";
 static int wiFiStatus;
 static bool connected = false;
+static int reconnectAttempts = 0;
 
 static void readMacAddress() // 34:85:18:8b:9d:30
 {
@@ -39,7 +42,7 @@ static void readMacAddress() // 34:85:18:8b:9d:30
         Serial.println("wlan::readMacAddress() Failed to read MAC address");
     }
 }
-
+/*
 void ConnectedToAP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
 {
     LOG_INFO("wlan::(ConnectedToAP_Handler) Connected to AP, haven't got IP yet, ssid: %s", WiFi.SSID().c_str());
@@ -63,10 +66,142 @@ void WiFi_Disconnected_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info
     LOG_INFO("wlan::(WiFi_Disconnected_Handler) Disconnected From WiFi Network, attempt to recconnect ssid: %s, ssid: %s, Password: %s", WiFi.SSID().c_str(), ssid, password);
     // Attempt Re-Connection
     connected = false;
+    WiFi.disconnect();
+    delay(10000);
     WiFi.begin(ssid, password);
     delay(1000);
     wiFiStatus = WiFi.status();
-    LOG_INFO("wlan::Reconnect, status: %s", Get_WiFiStatus(wiFiStatus));
+    LOG_INFO("wlan::WiFi_Disconnected_Handler, status: %s", Get_WiFiStatus(wiFiStatus));
+}
+ */
+
+void WiFiEvent(WiFiEvent_t event)
+{
+    switch (event)
+    {
+    case SYSTEM_EVENT_STA_CONNECTED:
+        LOG_INFO("wlan::WiFiEvent(SYSTEM_EVENT_STA_CONNECTED) - Connected to WiFi");
+        connected = false;
+        break;
+
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+
+        if (WiFi.status() != WL_CONNECTED)
+        {
+
+            LOG_INFO("wlan::WiFiEvent(SYSTEM_EVENT_STA_DISCONNECTED)- WiFi.status() != WL_CONNECTED - status: %s", Get_WiFiStatus((int)WiFi.status()));
+            connected = false;
+        }
+        else
+        {
+            LOG_INFO("wlan::WiFiEvent(SYSTEM_EVENT_STA_DISCONNECTED)- event Disconnected from WiFi, but wiFi.status is wl_connected");
+        }
+
+        // wifi_scan_network();
+
+        // handleWiFiReconnect();
+        break;
+    case SYSTEM_EVENT_STA_GOT_IP:
+    {
+        String s = WiFi.localIP().toString();
+        LOG_INFO("wlan::WiFiEvent(SYSTEM_EVENT_STA_GOT_IP) - IP address: %s", s.c_str());
+        reconnectAttempts = 0; // Reset attempts on successful connection
+        connected = true;
+    }
+    break;
+
+    default:
+        break;
+    }
+}
+
+void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+    LOG_INFO("Connected to AP successfully!");
+}
+
+void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+    LOG_INFO("WiFi connected, IP address: %s ", WiFi.localIP().toString().c_str());
+    connected = true;
+}
+
+void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+    LOG_ERROR("Disconnected from WiFi access point");
+    LOG_ERROR("WiFi lost connection. Reason: %d", info.wifi_sta_disconnected.reason);
+    // Handle the disconnection based on the reason code
+    switch (info.wifi_sta_disconnected.reason)
+    {
+    case WIFI_REASON_UNSPECIFIED:
+        LOG_ERROR("Unspecified reason.");
+        break;
+    case WIFI_REASON_AUTH_EXPIRE:
+        LOG_ERROR("Authentication expired.");
+        break;
+    case WIFI_REASON_AUTH_LEAVE:
+        LOG_ERROR("Station left the authentication.");
+        break;
+    case WIFI_REASON_ASSOC_EXPIRE:
+        LOG_ERROR("Association expired.");
+        break;
+    case WIFI_REASON_ASSOC_LEAVE:
+        LOG_ERROR("ESP32 left the association with the AP. Attempting to reconnect...");
+        break;
+    case WIFI_REASON_NO_AP_FOUND:
+        LOG_ERROR("No Access Point found.");
+        break;
+    case WIFI_REASON_AUTH_FAIL:
+        LOG_ERROR("Authentication failure.");
+        break;
+    case WIFI_REASON_HANDSHAKE_TIMEOUT:
+        LOG_ERROR("Handshake timeout.");
+        break;
+    // Add more cases as needed
+    default:
+        LOG_ERROR("Other reason.");
+        break;
+    }
+
+    LOG_ERROR("Trying to Reconnect");
+    connected = false;
+    // WiFi.begin(ssid, password);
+}
+
+static long lastReconnectAttempt = 0;
+
+void handleWiFiReconnect()
+{
+    unsigned long currentMillis = millis();
+
+    if (reconnectAttempts < WIFI_NUMBER_OF_TRIES)
+    {
+        int delayTime = min((int)5000 * reconnectAttempts, 60000); // Exponential backoff with a maximum delay of 60 seconds
+        if (currentMillis - lastReconnectAttempt >= delayTime)
+        {
+            reconnectAttempts++;
+            LOG_ERROR("WLAN::handleWiFiReconnect - Reconnecting in %d seconds", delayTime / 1000);
+
+            // delay(delayvTime);
+
+            LOG_ERROR("WLAN::handleWiFiReconnect Reconnecting to WiFi...");
+            WiFi.begin(ssid, password);
+            lastReconnectAttempt = currentMillis;
+            LOG_ERROR("WLAN::handleWiFiReconnect - result of reconnecting.. ");
+        }
+        else
+        {
+            LOG_DEBUG("WLAN::handleWiFiReconnect , reconnect attemps: %d  ", reconnectAttempts);
+        }
+    }
+
+    else
+    {
+        LOG_INFO("Max reconnect attempts reached. Can not reconnect to WiFi. (restart)");
+        reconnectAttempts = 0;
+        // Optionally, reset the ESP32 to attempt a fresh connection
+        ESP.restart();
+    }
 }
 
 static char *Get_WiFiStatus(int status)
@@ -98,32 +233,34 @@ bool wifi_init(Setup &setup)
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
     readMacAddress();
+    wifi_scan_network();
     delay(1000);
+
     // WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
     WiFi.setHostname(NET_HOSTNAME); // define hostname defines.h
-    int numberOfTries = WIFI_NUMBER_OF_TRIES;
-    WiFi.onEvent(ConnectedToAP_Handler, ARDUINO_EVENT_WIFI_STA_CONNECTED);
-    WiFi.onEvent(GotIP_Handler, ARDUINO_EVENT_WIFI_STA_GOT_IP);
-    WiFi.onEvent(WiFi_Disconnected_Handler, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+
     ssid = setup.ssid;
     password = setup.passwd;
     connected = false;
-    WiFi.begin(ssid, password);
-    LOG_DEBUG("WIFI: %s, Passwd: %s", setup.ssid, setup.passwd);
-    LOG_DEBUG("Connecting to WiFi ..");
-    tft_printInfo("Connecting to WiFi");
-    delay(1000);
-    wiFiStatus = WiFi.status();
-    DBGf("wlan::connect - status: %d", wiFiStatus);
+    WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
+    WiFi.onEvent(WiFiGotIP, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
+    WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
-    while (wiFiStatus != WL_CONNECTED && numberOfTries-- > 0 && !connected)
+    // WiFi.onEvent(WiFiEvent);
+    WiFi.begin(ssid, password);
+
+    // LOG_DEBUG("WIFI: %s, Passwd: %s", setup.ssid, setup.passwd);
+    LOG_DEBUG("wlan::wifi_init - Connecting to WiFi ..");
+    tft_printInfo("Connecting to WiFi :: delay: 10 secs!!");
+    delay(10000);
+    wiFiStatus = WiFi.status();
+    DBGf("wlan::wifi_init() connect - status: %d", wiFiStatus);
+
+    if (WiFi.status() != WL_CONNECTED && reconnectAttempts >= WIFI_NUMBER_OF_TRIES)
     {
-        delay(1000);
-        wiFiStatus = WiFi.status();
-        Serial.println(Get_WiFiStatus(wiFiStatus));
-        --numberOfTries;
-        LOG_DEBUG("wlan::Not connectetd, tries left: %d", numberOfTries);
-        DBGf("wlan::Not connectetd, tries left: %d", numberOfTries);
+        LOG_INFO("Trying to reconnect...");
+        reconnectAttempts = 0;
+        handleWiFiReconnect();
     }
     if (wiFiStatus == WL_CONNECTED && connected == true)
     {
@@ -236,8 +373,12 @@ bool wifi_isStillConnected(Setup &setup)
             return true;
         }
     }
+    handleWiFiReconnect();
+    if (connected)
+        return true;
+    return false;
 
-    int numberOfTries = WIFI_NUMBER_OF_TRIES;
+/*     int numberOfTries = WIFI_NUMBER_OF_TRIES;
     while (((wiFiStatus != WL_CONNECTED) || connected == false) && numberOfTries-- > 0)
     {
 
@@ -265,4 +406,4 @@ bool wifi_isStillConnected(Setup &setup)
         wifi_scan_network();
         return false;
     }
-}
+ */}

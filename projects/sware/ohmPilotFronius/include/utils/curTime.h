@@ -1,6 +1,7 @@
 #pragma once
 
-void time_init();
+bool time_init();
+unsigned int time_getOffset();
 bool time_print();
 bool time_storeCurrentTime();
 bool getCurrentTime(char *buffer, const unsigned len);

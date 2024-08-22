@@ -1,5 +1,8 @@
 #include <Arduino.h>
 #include <vector>
+
+#include <WiFiUdp.h>
+
 #include "time.h"
 #include "esp_sntp.h"
 #include "curTime.h"
@@ -17,11 +20,14 @@ typedef struct
 
 const long gmtOffset_sec = 3600;
 const int daylightOffset_sec = 3600;
+static unsigned int currentMonth = 0;
+// Define NTP Client to get time
 
 static struct tm currentTime;
+static long currentSecs = 0;
 static vector<DATE_TIME> table;
 
-void time_init()
+bool time_init()
 {
     // esp_sntp_servermode_dhcp(1); // (optional)
     LOG_INFO("time_init()");
@@ -81,7 +87,25 @@ void time_init()
     LOG_DEBUG("time_init()");
 
     delay(2000);
+    struct tm timeinfo;
+
+    // Warten, bis die Zeit erfolgreich abgerufen wurde
+    if (!getLocalTime(&timeinfo))
+    {
+        LOG_DEBUG("curTime::time_init() - Zeit konnte nicht abgerufen werden");
+        return false;
+    }
+    currentMonth = timeinfo.tm_mon + 1;
+    currentSecs = timeinfo.tm_hour * 3600 + timeinfo.tm_min * 60 + timeinfo.tm_sec;
+
+    LOG_INFO("curTime::time_init() current month: %d, currSecs: %d", currentMonth, currentSecs);
     time_print();
+    return true;
+}
+
+unsigned int time_getOffset()
+{
+    return currentSecs;
 }
 
 bool time_print()

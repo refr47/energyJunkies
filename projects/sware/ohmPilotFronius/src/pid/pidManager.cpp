@@ -11,8 +11,8 @@
 #endif
 
 // pid settings and gains
-#define OUTPUT_MIN 0
-#define OUTPUT_MAX 255
+#define OUTPUT_MIN 0.0
+#define OUTPUT_MAX 255.0
 
 #define ABS(N) ((N < 0) ? (-N) : (N))
 
@@ -67,13 +67,30 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
     testForBoilerSwitch = 0;
 }
 
+void PinManager::allOn()
+{
+    LOG_DEBUG("PinManager::allOn");
+    storage = 0.0;
+    if (mAnalogOut != OUTPUT_MAX)
+    {
+        switchOnL3();
+    }
+    for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
+    {
+        if (!mOuts[i].isDigOn())
+        {
+            mOuts[i].setValue(1);
+        }
+    }
+    storage += onePhase * 3;
+}
+
 void PinManager::reset()
 {
     LOG_DEBUG("PinManager::reset");
-    if (mAnalogOut != 0.0)
+    if (mAnalogOut != OUTPUT_MAX)
     {
-        mAnalogOut = 0.0;
-        mOuts[id_ANA_PWM].setValue(mAnalogOut);
+        switchOnL3();
     }
 
     for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
@@ -285,7 +302,7 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
     else
     {
         webSockData.states.boilerHeating = true;
-        LOG_DEBUG("pidManager::task - (else, webSockData.states.boilerHeating) boilerTemp  %.3f < webSockData.setupData.tempMaxAllowedInGrad %d, heat!! ", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
+        LOG_DEBUG("pidManager::task - (else,  boilerTemp  %.3f < tempMaxAllowedInGrad %d, heat!! ", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
     }
     return false;
 }

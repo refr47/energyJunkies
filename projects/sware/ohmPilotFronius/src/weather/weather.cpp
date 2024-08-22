@@ -141,7 +141,7 @@ static void interpretWeather(JSONVar &data)
             Serial.println(sunRise[i]); */
             wheater.sunrise[i] = wheater_parseDateTime(sunRise[i]);
         }
-    }
+    } 
     JSONVar sunSet = data["daily"]["sunset"];
     Serial.println("Type of uvIndex: " + JSON.typeof(sunSet[0]));
     if (JSON.typeof(sunSet) == "array") // temperatureArray is an array

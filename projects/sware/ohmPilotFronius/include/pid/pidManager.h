@@ -77,6 +77,7 @@ public:
     PinManager();
     void config(Setup &setup, int digOut1, int digOut2, int anOut);
     void reset(); //
+    void allOn(); 
     void switchOnL1();
     void switchOnL2();
     void switchOnL3();
