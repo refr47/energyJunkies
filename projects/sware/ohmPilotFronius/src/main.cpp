@@ -826,7 +826,12 @@ void loop()
                     if (amisReader_readRestTarget(webSockData))
                     {
                         LOG_INFO("main:: AmisReader: available is: %d, import: %d , export: %ld", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
+                        INVERTER_DATA.acCurrentPower = 0.0;
+                        INVERTER_DATA.acTotalEnergy = 0.0;
+                        INVERTER_DATA.dcCurrentPower = 0.0;
+                        METER_DATA.acTotalEnergyExp = 0.0;
                         METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
+                        tft_drawInfo(webSockData);
                     }
                     else
                     {

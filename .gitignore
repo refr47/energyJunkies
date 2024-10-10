@@ -34,3 +34,4 @@
 
 .vscode
 .node-module
+build/
