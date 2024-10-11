@@ -10,11 +10,11 @@
 // SENSOR 1: 28 9A 2C 57 4 E1 3C D5
 
 // Setup a oneWire instance to communicate with any OneWire devices
-OneWire oneWire(ONE_WIRE_TEMP_GPIO);
+static OneWire oneWire(ONE_WIRE_TEMP_GPIO);
 
 // Pass our oneWire reference to Dallas Temperature sensor
-DallasTemperature sensors(&oneWire);
-estatic int numberOfDevices = 0;
+static DallasTemperature sensors(&oneWire);
+static int numberOfDevices = 0;
 static DeviceAddress tempDeviceAddress;
 /*c
 Found device 0 with address:  28 9A 2C 570 4 E1 3C D5   -- lila pickerl
