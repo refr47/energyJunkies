@@ -206,7 +206,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
     server.on("/buildAndGetShellyDevicesTree", HTTP_GET, ajaxCalls_handleBuildAndGetShelly);
     server.on("/getOverview", HTTP_GET, ajaxCalls_handleGetOverview);
-
+    server.on("/amisReaderKW", HTTP_GET, ajaxCalls_handleGetAvailablekW);
     // Route to load style.css file
     server.on("/css/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/css/main.css", "text/css"); });

@@ -19,7 +19,7 @@ void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupC
     setupChanged = setupCh;
 }
 
-static void handleGetSetup(AsyncWebServerRequest *request);
+// static void handleGetSetup(AsyncWebServerRequest *request);
 
 static void fillJsonObj(ALL_SHELLY_DEVICES &data, JsonArray &array)
 {
@@ -28,11 +28,11 @@ static void fillJsonObj(ALL_SHELLY_DEVICES &data, JsonArray &array)
     object1["PORT"] = data.shellyDevice->port;
     object1["NAME"] = data.shellyDevice->name;
 }
-static void fillJsonObjWithErrorMsg(ALL_SHELLY_DEVICES &data, JsonArray &array)
+/* static void fillJsonObjWithErrorMsg(ALL_SHELLY_DEVICES &data, JsonArray &array)
 {
     JsonObject object1 = array.createNestedObject();
     object1["ERROR"] = data.errorContainer->errorMessage;
-}
+} */
 
 void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request)
 {
@@ -606,6 +606,24 @@ static void returnFromStoreSetup(bool inputCorrect, StaticJsonDocument<JSON_OBJE
         data["done"] = 0;
         LOG_ERROR("ajaxCalls::returnFromStoreSetup -  errors ");
     }
+
+    serializeJson(data, response);
+    LOG_INFO("ajaxCalls::returnFromStoreSetup - return ");
+    request->send(200, "application/json", response);
+}
+
+void ajaxCalls_handleGetAvailablekW(AsyncWebServerRequest *request)
+{
+    WEBSOCK_DATA webSockD = webSockData();
+    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+    // char buff[50]   ;
+    LOG_INFO("ajaxCalls::handleGetAvailablekW - begin");
+
+    data[AMIS_READER_KW] = webSockD.mbContainer.meterValues.data.acCurrentPower;
+    String response;
+
+    LOG_INFO("ajaxCalls::handleGetAvailablekW - no errors ");
+    // eprom_storeSetup(setup);
 
     serializeJson(data, response);
     LOG_INFO("ajaxCalls::returnFromStoreSetup - return ");
