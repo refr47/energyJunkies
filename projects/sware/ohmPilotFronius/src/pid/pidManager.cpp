@@ -240,7 +240,7 @@ void PinManager::adjustPWM()
         mAnalogOut = OUTPUT_MAX;
         mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
         LOG_DEBUG("adjustPWM - else mCurrentPower <= onePhas: pwm: %d", OUTPUT_MAX);
-    }
+    } 
 }
 // true: nothing must be done, because temperature > allowed or temperature < allowed
 // false: loading is not handled by this methode!
@@ -277,7 +277,7 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
     }
     else if (boilerTemp < webSockData.setupData.tempMinInGrad)
     {
-        LOG_DEBUG("pidManager::task - boilerTemp Minimal underflow, start heating %.3f < webSockData.setupData.tempMinInGrad %d", boilerTemp, webSockData.setupData.tempMinInGrad);
+        LOG_DEBUG("pidManager::task - boilerTemp underflow,  %.3f < tempMinInGrad %d", boilerTemp, webSockData.setupData.tempMinInGrad);
         webSockData.states.boilerHeating = true;
         if (!getStateOfDigPin(0))
         {
