@@ -87,10 +87,13 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     }
 
 #else
+#ifndef LOXONE
     energy.addField("grid", METER_DATA.acCurrentPower);
     energy.addField("load", (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower));
+
     energy.addField("pv", INVERTER_DATA.acCurrentPower);
     energy.addField("availableWatt", INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower);
+#endif
 #endif
     energy.addField("pwm", webSockData.pidContainer.mAnalogOut);
     energy.addField("relay1", webSockData.pidContainer.PID_PIN1);

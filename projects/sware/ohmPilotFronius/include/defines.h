@@ -39,6 +39,7 @@
 
 #define INVERTER_DATA webSockData.mbContainer.inverterSumValues.data
 #define METER_DATA webSockData.mbContainer.meterValues.data
+
 #define AKKU_STATE webSockData.mbContainer.akkuState.data
 #define AKKU_STRG webSockData.mbContainer.akkuStr.data
 #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
@@ -158,6 +159,7 @@ typedef struct
 } TEMPERATURE;
 typedef struct mbContainer
 {
+
     INVERTER_SUM_VALUE_t inverterSumValues;
     METER_VALUE_t meterValues;
     AKKU_STATE_VALUE_t akkuState;
