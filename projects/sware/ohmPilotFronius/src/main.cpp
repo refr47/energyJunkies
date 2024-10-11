@@ -817,6 +817,7 @@ void loop()
             webSockData.amisReader.saldo = 0;
         }
 #ifdef AMIS_READER_DEV
+
         else
         {
             if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
