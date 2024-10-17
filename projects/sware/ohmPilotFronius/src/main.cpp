@@ -382,7 +382,7 @@ void setup()
         {
 
             tft_printKeyValue("Init Sensors", "OK", TFT_GREEN);
-            
+
             webSockData.states.tempSensorOK = true;
         }
         else
@@ -522,11 +522,12 @@ void setup()
         tft_clearScreen();
         delay(5000);
     }
-    if (webSockData.states.tempSensorOK) {
+    if (webSockData.states.tempSensorOK)
+    {
         temp_getTemperature(webSockData.temperature);
         LOG_DEBUG("Temperature: %.2f %.2f", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
     }
-        LOG_INFO("Setup done - all components are working...");
+    LOG_INFO("Setup done - all components are working...");
 
     // eM_printWakeUpReason();
 } // init

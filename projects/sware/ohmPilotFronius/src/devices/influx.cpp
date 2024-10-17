@@ -5,8 +5,11 @@
 #include "influx.h"
 
 #include "debugConsole.h"
-
+#ifdef INFLUX
 #define INFLUXDB_URL INFLUX
+#else
+#define INFLUXDB_URL "http://localhost:8086"
+#endif
 #define INFLUXDB_TOKEN "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="
 #define INFLUXDB_ORG "d727c1fb692f26f9"
 #define INFLUXDB_BUCKET "energieJunkies"

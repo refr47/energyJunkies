@@ -222,12 +222,12 @@ bool util_checkParamFloat(const char *key, const char *argument, /* const JsonOb
 	}
 	if (*result == 0.0)
 	{
-		char buf[BUFFER_LEN_FOR_ARG_CHECK];
+		/* char buf[BUFFER_LEN_FOR_ARG_CHECK];
 		sprintf(buf, "Argument: %s ist kein FLießkommawert (z.B. 0.0,...)", key);
-		data["error"] = buf;
-		LOG_WARNING("utils::util_checkParamFloat: %s - kein numerischer Werte: %s", key, argument);
+		data["error"] = buf; */
+		LOG_WARNING("utils::util_checkParamFloat: %s - Wert: %s", key, argument);
 
-		return false;
+		// return false;
 	}
 	return true;
 }

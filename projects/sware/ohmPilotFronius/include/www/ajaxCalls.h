@@ -54,8 +54,7 @@
 #define WWW_TEMP_SENSOR "TEMP"
 #define WWW_TEMP_SENSOR_VAL "TEMPV"
 
-#define AMIS_READER_KW "AMIS_KW"
-
+#define AMIS_READER_WATT "AMIS_WATT"
 void ajaxCalls_init(CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupCh);
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request);

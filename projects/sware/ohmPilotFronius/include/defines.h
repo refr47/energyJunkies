@@ -115,8 +115,8 @@
 #endif
 typedef struct
 {
-    char ssid[LEN_WLAN];
-    char passwd[LEN_WLAN];
+    char ssid[LEN_WLAN + 1];
+    char passwd[LEN_WLAN + 1];
 
     unsigned int heizstab_leistung_in_watt;
     unsigned int phasen_leistung_in_watt; // heizstab_leistung_in_watt  pre calculation @see: eprom_getSetup
@@ -133,17 +133,17 @@ typedef struct
     unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
     // bool pidChanged;
     // unsigned int ipAmisReaderHost;
-    char amisKey[AMIS_KEY_LEN];
+    char amisKey[AMIS_KEY_LEN + 1];
 
     char amisReaderHost[INET_ADDRSTRLEN];
-    char mqttHost[MQTT_HOST_LEN];
-    char mqttUser[MQTT_USER_LEN];
-    char mqttPass[MQTT_PASS_LEN];
+    char mqttHost[MQTT_HOST_LEN + 1];
+    char mqttUser[MQTT_USER_LEN + 1];
+    char mqttPass[MQTT_PASS_LEN + 1];
 
-    char influxHost[INFLUX_HOST_LEN];
-    char influxToken[INFLUX_TOKEN_LEN];
-    char influxOrg[INFLUX_ORG_LEN];
-    char influxBucket[INFLUX_BUCKET_LEN];
+    char influxHost[INFLUX_HOST_LEN + 1];
+    char influxToken[INFLUX_TOKEN_LEN + 1];
+    char influxOrg[INFLUX_ORG_LEN + 1];
+    char influxBucket[INFLUX_BUCKET_LEN + 1];
 
     double additionalLoad;
     int forceHeating;
