@@ -24,6 +24,8 @@ Found device 1 with address:  28 BE 5C 570 4 E1 3C D2
 /* DeviceAddress sensor1 = {0x28, 0x9A, 0x2C, 0x57, 0x4, 0xE1, 0x3C, 0xD5};
 DeviceAddress sensor2 = {0x28, 0xBE, 0x5C, 0x57, 0x4, 0xE1, 0x3C, 0xD2}; */
 // function to print a device address
+static void hardware_reset();
+
 void printAddress(DeviceAddress deviceAddress)
 {
     LOG_DEBUG("temperature::printAddress");
@@ -100,8 +102,11 @@ bool temp_init()
 
 bool temp_getTemperature(TEMPERATURE &container)
 {
-    if (numberOfDevices==0) {
-        if (!temp_init() ) {
+    if (numberOfDevices == 0)
+    {
+        hardware_reset(); // Reset the OneWire bus
+        if (!temp_init())
+        {
             DBG("Sensorik ausser Betrieb oder fehlerhaft !!");
             container.sensor1 = container.sensor2 = -1.0;
             return false;
@@ -140,11 +145,31 @@ bool temp_getTemperature(TEMPERATURE &container)
     {
         ESP_LOGE(TAG, "temp_getTemperature - Temperatur Sensor 2 (%.2f) kann nicht negativ sein.", container.sensor1);
     }
-    
-    return container.sensor1 > 0 || container.sensor2 > 0 ;
+    if (container.sensor1 < 0 && container.sensor2 < 0)
+    {
+        LOG_ERROR("temp_getTemperature -Reinit OneWire Bus ....");
+        hardware_reset();
+        temp_init(); // Reinitialize the sensors
+        container.sensor1 = container.sensor2 = -1.0;
+        return false;
+    }
+    return container.sensor1 > 0 || container.sensor2 > 0;
 }
 
 int temp_getNumberOfDevices()
 {
     return numberOfDevices;
+}
+
+static void hardware_reset()
+{
+    LOG_DEBUG("temperature::hardware_reset - Resetting OneWire Bus");
+    pinMode(ONE_WIRE_TEMP_GPIO, OUTPUT);
+    digitalWrite(ONE_WIRE_TEMP_GPIO, LOW); // Kurzschluss gegen GND
+    delayMicroseconds(480);                // Mind. 480µs (Reset-Zeit)
+    pinMode(ONE_WIRE_TEMP_GPIO, INPUT);    // Wieder auf Eingang schalten
+    // Reset the OneWire bus
+    oneWire.reset();
+    oneWire.reset_search(); // Suchstatus zurücksetzen
+    // Reinitialize the sensors
 }
