@@ -241,7 +241,7 @@ void PinManager::adjustPWM()
         mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
         LOG_DEBUG("adjustPWM - else mCurrentPower <= onePhas: pwm: %d", OUTPUT_MAX);
     }
-}
+} 
 // true: nothing must be done, because temperature > allowed or temperature < allowed
 // false: loading is not handled by this methode!
 

@@ -382,7 +382,7 @@ void setup()
         }
 #ifdef WEATHER_API
         wheater_getForecast();
-        wheater_print();
+        //wheater_print();
 #endif
         if (webSockData.states.modbusOK)
         {
@@ -603,6 +603,7 @@ void loop()
         {
 
             webSockData.states.tempUnderflow = false;
+            webSockData.states.tempSensorOK = false;
             if (webSockData.temperature.sensor1 < 0.0 && webSockData.temperature.sensor2 < 0.0)
             {
 #ifdef MQTT
@@ -622,7 +623,7 @@ void loop()
         }
         else
         {
-
+            webSockData.states.tempSensorOK = true;
             if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) < webSockData.setupData.tempMinInGrad)
             {
                 webSockData.states.tempUnderflow = true;
@@ -630,7 +631,7 @@ void loop()
                 LOG_INFO("main::TEMPERATURE_INTERVAL - TempUnderflow heat as much as possible!!")
             }
             else
-            {
+            { 
                 webSockData.temperature.alarm = false;
                 webSockData.states.tempUnderflow = false;
                 /*
@@ -687,211 +688,212 @@ void loop()
     }
 
     /* ***********************                   MODBUS           ************************/
-
-    if ((webSockData.states.froniusAPI == true) && (webSockData.setupData.externerSpeicher == true && webSockData.states.networkOK == true))
+    if (webSockData.states.tempSensorOK == true)
     {
-
-        if (timeSlice.currentMillis - timeSlice.previousMillisAkku > MODBUS_AKKU_INTERVALL)
+        if ((webSockData.states.froniusAPI == true) && (webSockData.setupData.externerSpeicher == true && webSockData.states.networkOK == true))
         {
 
-            if (webSockData.states.modbusOK)
+            if (timeSlice.currentMillis - timeSlice.previousMillisAkku > MODBUS_AKKU_INTERVALL)
             {
-                if (!mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer))
+
+                if (webSockData.states.modbusOK)
                 {
-                    webSockData.states.modbusOK = false;
+                    if (!mb_readAkkuOnly(webSockData.setupData, webSockData.mbContainer))
+                    {
+                        webSockData.states.modbusOK = false;
+                        memset(&webSockData.mbContainer.akkuState, 0, sizeof(AKKU_STATE_VALUE_t));
+                        memset(&webSockData.mbContainer.akkuStr, 0, sizeof(AKKU_STRG_VALUE_t));
+                        ledHandler_showModbusError(true);
+                    }
+                }
+                else
+                {
+                    LOG_INFO("main::webSockData.states.froniusAP:!mb_readAkkuOnl");
                     memset(&webSockData.mbContainer.akkuState, 0, sizeof(AKKU_STATE_VALUE_t));
                     memset(&webSockData.mbContainer.akkuStr, 0, sizeof(AKKU_STRG_VALUE_t));
-                    ledHandler_showModbusError(true);
                 }
-            }
-            else
-            {
-                LOG_INFO("main::webSockData.states.froniusAP:!mb_readAkkuOnl");
-                memset(&webSockData.mbContainer.akkuState, 0, sizeof(AKKU_STATE_VALUE_t));
-                memset(&webSockData.mbContainer.akkuStr, 0, sizeof(AKKU_STRG_VALUE_t));
-            }
 
-            /*      if (webSockData.states.froniusAPI)
-                 {
-                     // !!!!!!!! OVERRIDE MODBUS values with REST API values
-                     if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
+                /*      if (webSockData.states.froniusAPI)
                      {
-                         webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
-                         webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
-                         webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
-                     }
-                 } */
-            tft_drawInfo(webSockData);
-            timeSlice.previousMillisAkku = timeSlice.currentMillis;
+                         // !!!!!!!! OVERRIDE MODBUS values with REST API values
+                         if (solar_get_powerflow(webSockData.fronius_SOLAR_POWERFLOW))
+                         {
+                             webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
+                             webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
+                             webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+                         }
+                     } */
+                tft_drawInfo(webSockData);
+                timeSlice.previousMillisAkku = timeSlice.currentMillis;
+            }
         }
-    }
 
-    if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
-    {
-        // LOG_INFO("MODBUS_INTERVALL");
+        if (timeSlice.currentMillis - timeSlice.previousMillModbus > MODBUS_INTERVALL)
+        {
+            // LOG_INFO("MODBUS_INTERVALL");
 
 #ifdef FRONIUS_IV
 
-        if (webSockData.states.froniusAPI == true && webSockData.states.networkOK == true)
-        {
-            LOG_INFO("main::webSockData.states.froniusAPI - solarAPI");
-            int counter = 0;
-            bool result = solar_get_powerflow(webSockData);
-            while (!result && counter < MAX_RECONNECTING_NET)
+            if (webSockData.states.froniusAPI == true && webSockData.states.networkOK == true)
             {
-                counter++;
-                delay(DELAY_RECONNECT_NET);
-                result = solar_get_powerflow(webSockData);
-
-                if (!result)
+                LOG_INFO("main::webSockData.states.froniusAPI - solarAPI");
+                int counter = 0;
+                bool result = solar_get_powerflow(webSockData);
+                while (!result && counter < MAX_RECONNECTING_NET)
                 {
-                    LOG_ERROR("main::webSockData.states.froniusAPI - solarAPI - try to connect: %d, wait for %d secs reconnect .....", counter, DELAY_RECONNECT_NET / 1000);
-                }
-                else
-                {
-                    counter = MAX_RECONNECTING_NET + 1;
-                }
-            }
+                    counter++;
+                    delay(DELAY_RECONNECT_NET);
+                    result = solar_get_powerflow(webSockData);
 
-            if (result)
-            {
-                webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
-                webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
-                webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
-
-                INVERTER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_pv;
-                METER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_load;
-            }
-            else
-            {
-                webSockData.states.networkOK = false;
-                return;
-            }
-        }
-#endif
-        if (!webSockData.states.froniusAPI == true && webSockData.states.modbusOK == true && webSockData.states.networkOK == true)
-        {
-            LOG_INFO("main::webSockData.states.modbus - modbus");
-            if (mb_readInverter(webSockData.setupData, webSockData.mbContainer))
-            {
-                memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
-                util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer); //  Produktion
-                LOG_DEBUG("Produktion %s", formatBuffer);
-
-                LOG_DEBUG("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer)); // Grid Bezug positiv, ansonst -
-
-                if (METER_DATA.acCurrentPower < 0.0 && (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower < 0))
-
-                {
-                    LOG_DEBUG("Wrong meter value from smartmeter - current production: %.3f !", METER_DATA.acCurrentPower);
-#ifdef MQTT
-                    if (webSockData.states.mqtt = true)
-                        mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
-#endif
-                }
-                else
-                {
-                    LOG_DEBUG("  in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
-                    webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
-
-                    /* #ifndef TEST_PID_WWWW
-                                        availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
-                    #endif */
-
-                    tft_drawInfo(webSockData);
-                    influx_write(webSockData);
-#ifdef MQTT
-
-                    /*mqtt_publish_modbus_current_state(webSockData.mbContainer);*/
-#endif
-                }
-            }
-            else
-            { // if readModbus
-                LOG_INFO("MAIN::ModbusTimeSlice::  Error in reading modubs, network probably not ok, try to reconnect");
-                webSockData.states.networkOK = false;
-            }
-        }
-        if (!webSockData.states.amisReader)
-        {
-            webSockData.amisReader.saldo = 0;
-        }
-#ifdef AMIS_READER_DEV
-
-        else
-        {
-            if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
-            {
-                if (webSockData.states.networkOK == true)
-                {
-                    if (amisReader_readRestTarget(webSockData))
+                    if (!result)
                     {
-                        LOG_INFO("main:: AmisReader: available is: %d, import: %d , export: %ld", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
-                        INVERTER_DATA.acCurrentPower = 0.0;
-                        INVERTER_DATA.acTotalEnergy = 0.0;
-                        INVERTER_DATA.dcCurrentPower = 0.0;
-                        METER_DATA.acTotalEnergyExp = 0.0;
-                        METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
-                        tft_drawInfo(webSockData);
+                        LOG_ERROR("main::webSockData.states.froniusAPI - solarAPI - try to connect: %d, wait for %d secs reconnect .....", counter, DELAY_RECONNECT_NET / 1000);
                     }
                     else
                     {
-                        LOG_ERROR("main::AmisReader data not available - network error?");
-                        webSockData.states.networkOK = false;
+                        counter = MAX_RECONNECTING_NET + 1;
                     }
                 }
-                timeSlice.previousMillisAmis = timeSlice.currentMillis;
+
+                if (result)
+                {
+                    webSockData.mbContainer.akkuStr.data.chargeRate = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
+                    webSockData.mbContainer.akkuStr.data.dischargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
+                    webSockData.mbContainer.akkuStr.data.maxChargeRate = webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+
+                    INVERTER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_pv;
+                    METER_DATA.acCurrentPower = webSockData.fronius_SOLAR_POWERFLOW.p_load;
+                }
+                else
+                {
+                    webSockData.states.networkOK = false;
+                    return;
+                }
             }
-        }
+#endif
+            if (!webSockData.states.froniusAPI == true && webSockData.states.modbusOK == true && webSockData.states.networkOK == true)
+            {
+                LOG_INFO("main::webSockData.states.modbus - modbus");
+                if (mb_readInverter(webSockData.setupData, webSockData.mbContainer))
+                {
+                    memset(formatBuffer, 0, FORMAT_CHAR_BUFFER_LEN);
+                    util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower, formatBuffer); //  Produktion
+                    LOG_DEBUG("Produktion %s", formatBuffer);
+
+                    LOG_DEBUG("EXport %s", util_format_Watt_kWatt(METER_DATA.acCurrentPower, formatBuffer)); // Grid Bezug positiv, ansonst -
+
+                    if (METER_DATA.acCurrentPower < 0.0 && (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower < 0))
+
+                    {
+                        LOG_DEBUG("Wrong meter value from smartmeter - current production: %.3f !", METER_DATA.acCurrentPower);
+#ifdef MQTT
+                        if (webSockData.states.mqtt = true)
+                            mqtt_publish_modbus_wrong_production_val(METER_DATA.acCurrentPower);
+#endif
+                    }
+                    else
+                    {
+                        LOG_DEBUG("  in W: %s", util_format_Watt_kWatt(INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower, formatBuffer));
+                        webSockData.pidContainer.mCurrentPower = METER_DATA.acCurrentPower; // export energy
+
+                        /* #ifndef TEST_PID_WWWW
+                                            availablePowerFromWRInWatt = webSockData.pidContainer.mCurrentPower;
+                        #endif */
+
+                        tft_drawInfo(webSockData);
+                        influx_write(webSockData);
+#ifdef MQTT
+
+                        /*mqtt_publish_modbus_current_state(webSockData.mbContainer);*/
+#endif
+                    }
+                }
+                else
+                { // if readModbus
+                    LOG_INFO("MAIN::ModbusTimeSlice::  Error in reading modubs, network probably not ok, try to reconnect");
+                    webSockData.states.networkOK = false;
+                }
+            }
+            if (!webSockData.states.amisReader)
+            {
+                webSockData.amisReader.saldo = 0;
+            }
+#ifdef AMIS_READER_DEV
+
+            else
+            {
+                if (timeSlice.currentMillis - timeSlice.previousMillisAmis > AMIS_READER_INTERVALL)
+                {
+                    if (webSockData.states.networkOK == true)
+                    {
+                        if (amisReader_readRestTarget(webSockData))
+                        {
+                            LOG_INFO("main:: AmisReader: available is: %d, import: %d , export: %ld", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
+                            INVERTER_DATA.acCurrentPower = 0.0;
+                            INVERTER_DATA.acTotalEnergy = 0.0;
+                            INVERTER_DATA.dcCurrentPower = 0.0;
+                            METER_DATA.acTotalEnergyExp = 0.0;
+                            METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
+                            tft_drawInfo(webSockData);
+                        }
+                        else
+                        {
+                            LOG_ERROR("main::AmisReader data not available - network error?");
+                            webSockData.states.networkOK = false;
+                        }
+                    }
+                    timeSlice.previousMillisAmis = timeSlice.currentMillis;
+                }
+            }
 #endif
 
-        timeSlice.previousMillModbus = timeSlice.currentMillis;
-    }
+            timeSlice.previousMillModbus = timeSlice.currentMillis;
+        }
 
 /* ***********************                   FLUSH LOGGING FILE           ************************/
 #ifdef CARD_READER
-    if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
-    {
-        LOG_INFO("LOGGING_FLUSH_INTERVALL");
-        if (webSockData.states.cardWriterOK)
+        if (timeSlice.currentMillis - timeSlice.previousMillModbus > LOGGING_FLUSH_INTERVALL)
         {
-
-            cardRW_flushLoggingFile();
-            timeSlice.previousMillModbus = timeSlice.currentMillis;
-            cardRW_closeLoggingFile();
-        }
-        else
-        {
-            DBG("main:: flush logging - cannot flush!");
-        }
-    }
-#endif
-    /* ***********************                   PID CONTROLLER           ************************/
-
-    if (timeSlice.currentMillis - timeSlice.previousMillisController > PID_CONTROLLER_INTERVALL)
-    {
-        LOG_DEBUG("main::PID_CONTROLLER_INTERVALL");
-        if (webSockData.states.networkOK)
-        {
-            if (!alarmContainer.alarmTemp.alarmTemp)
+            LOG_INFO("LOGGING_FLUSH_INTERVALL");
+            if (webSockData.states.cardWriterOK)
             {
 
-                pidPinManager.task(webSockData);
-                webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
-                webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
-                webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+                cardRW_flushLoggingFile();
+                timeSlice.previousMillModbus = timeSlice.currentMillis;
+                cardRW_closeLoggingFile();
             }
             else
             {
-                LOG_WARNING("main::Temperature alarm container is on (%d)", alarmContainer.alarmTemp.alarmTemp);
-                pidPinManager.reset();
+                DBG("main:: flush logging - cannot flush!");
             }
         }
+#endif
+        /* ***********************                   PID CONTROLLER           ************************/
 
-        timeSlice.previousMillisController = timeSlice.currentMillis;
-        // LOG_INFO("PID_CONTROLLER_INTERVALL");
-    }
+        if (timeSlice.currentMillis - timeSlice.previousMillisController > PID_CONTROLLER_INTERVALL)
+        {
+            LOG_DEBUG("main::PID_CONTROLLER_INTERVALL");
+            if (webSockData.states.networkOK)
+            {
+                if (!alarmContainer.alarmTemp.alarmTemp)
+                {
 
+                    pidPinManager.task(webSockData);
+                    webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
+                    webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
+                    webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+                }
+                else
+                {
+                    LOG_WARNING("main::Temperature alarm container is on (%d)", alarmContainer.alarmTemp.alarmTemp);
+                    pidPinManager.reset();
+                }
+            }
+
+            timeSlice.previousMillisController = timeSlice.currentMillis;
+            // LOG_INFO("PID_CONTROLLER_INTERVALL");
+        }
+    } // temperatur sensor ok
     if (timeSlice.currentMillis - timeSlice.previousMillisHeapCheck > CHECK_HEAP_SIZE_INTERVALL)
     {
         LOG_DEBUG("CHECK_HEAP_SIZE_INTERVALL)");

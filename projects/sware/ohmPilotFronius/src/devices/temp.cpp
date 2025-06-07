@@ -71,6 +71,7 @@ bool temp_init()
     if (numberOfDevices == 0)
     {
         LOG_ERROR("temp_init() - keine Temperatursensorik gefunden.");
+        printf("temp-init:: keine Sensorik gefunden\n");
         return false;
     }
     // locate devices on the bus
@@ -99,6 +100,14 @@ bool temp_init()
 
 bool temp_getTemperature(TEMPERATURE &container)
 {
+    if (numberOfDevices==0) {
+        if (!temp_init() ) {
+            DBG("Sensorik ausser Betrieb oder fehlerhaft !!");
+            container.sensor1 = container.sensor2 = -1.0;
+            return false;
+        }
+    }
+    container.sensor1 = container.sensor2 = -1;
     sensors.requestTemperatures(); // Send the command to get temperatures
     // DBGln("DONE");
 
@@ -127,35 +136,15 @@ bool temp_getTemperature(TEMPERATURE &container)
     {
         ESP_LOGE(TAG, "temp_getTemperature - Temperatur Sensor 1 (%.2f) kann nicht negativ sein.", container.sensor1);
     }
-    if (container.sensor2 < 0)
+    if (container.sensor2 < 0 && numberOfDevices)
     {
         ESP_LOGE(TAG, "temp_getTemperature - Temperatur Sensor 2 (%.2f) kann nicht negativ sein.", container.sensor1);
     }
-    /*  if (container.sensor1 < 0 && container.sensor2 < 0)
-         return false;
-     if (container.sensor1 > 0)
-     {
-         container.sensor2 = container.sensor1;
-     }
-     else
-
-     {
-         container.sensor1 = container.sensor2;
-     } */
-
-    /* float tempC = sensors.getTempCByIndex(0);
-    float tempC1 = sensors.getTempCByIndex(1);
-    DBG("Sensor 1: ");
-    DBG(tempC);
-    DBG(", Sensor 2: ");
-    DBGln(tempC1); */
-    /* DBG(temperatureF);
-    DBG(" Sensor 1(*F): ");
-    DBGln(sensors.getTempF(sensor1)); */
-    return true;
+    
+    return container.sensor1 > 0 || container.sensor2 > 0 ;
 }
 
 int temp_getNumberOfDevices()
 {
-    return 2;
+    return numberOfDevices;
 }

@@ -30,9 +30,13 @@ unsigned long lastMsg = 0;
 #define TOPIC_ALARM_TEMP_S1 "alarm/sensor/s1"
 #define TOPIC_ALARM_TEMP_S2 "alarm/sensor/s2"
 
+#define MAX_RECONNECT 5
+#define WAIT_FOR_ANOTHER_RECONNECT 10
+
 #define MSG_BUFFER_SIZE (50)
 char msg[MSG_BUFFER_SIZE];
 int value = 0;
+static int reconnectTries = 0;
 
 static void callback(char *topic, byte *payload, unsigned int length);
 static void reconnect();
@@ -51,13 +55,17 @@ bool mqtt_init()
 
 void mqtt_loop()
 {
+    if (reconnectTries > MAX_RECONNECT)
+        return;
     if (!client.connected())
     {
-         if (WiFi.status() == WL_CONNECTED ) {
+        ++reconnectTries;
+
+        if (WiFi.status() == WL_CONNECTED)
+        {
             LOG_INFO("mqtt_loop::mqtt_loop, reconnect, wifi ok, mqtt-server failed.");
-             reconnect();
-         }
-        
+            reconnect();
+        }
     }
     client.loop();
 }
@@ -65,6 +73,8 @@ void mqtt_loop()
 void mqtt_publish_en(int pwm, double availableWatt)
 {
     char buf[50];
+    if (reconnectTries > MAX_RECONNECT)
+        return;
 
     sprintf(buf, "%d", pwm);
     client.publish(TOPIC_PWM, buf);
@@ -75,7 +85,8 @@ void mqtt_publish_en(int pwm, double availableWatt)
 void mqtt_publish_alarm_temp(int tempS1, int tempS2)
 {
     char buf[30];
-
+    if (reconnectTries > MAX_RECONNECT)
+        return;
     sprintf(buf, "%d", tempS1);
     client.publish(TOPIC_ALARM_TEMP_S1, buf);
     sprintf(buf, "%d", tempS2);
@@ -83,14 +94,18 @@ void mqtt_publish_alarm_temp(int tempS1, int tempS2)
 }
 void mqtt_publish_modbus_reconnect(const char *ipInverter)
 {
+    if (reconnectTries > MAX_RECONNECT)
+        return;
     client.publish(TOPIC_MODBUS_RECONNECT, ipInverter);
 }
 
-void mqtt_publish_log( char token,const char *logM)
+void mqtt_publish_log(char token, const char *logM)
 {
+    if (reconnectTries > MAX_RECONNECT)
+        return;
     if (token == 'W')
         client.publish(TOPIC_LOG_W, logM);
-    if (token=='I')
+    if (token == 'I')
         client.publish(TOPIC_LOG_I, logM);
     if (token == 'D')
         client.publish(TOPIC_LOG_D, logM);
@@ -101,7 +116,8 @@ void mqtt_publish_log( char token,const char *logM)
 void mqtt_publish_modbus_wrong_production_val(double readVal)
 {
     char buf[30];
-
+    if (reconnectTries > MAX_RECONNECT)
+        return;
     sprintf(buf, "%.2lf", readVal);
     client.publish(TOPIC_MODBUS_WRONG_PRODUCTION_VAL, buf);
 }
@@ -123,6 +139,8 @@ void mqtt_publish_modbus_current_state(MB_CONTAINER &modb)
 static void reconnect()
 {
     // Loop until we're reconnected
+    if (reconnectTries > MAX_RECONNECT)
+        return;
     while (!client.connected())
     {
         Serial.print("Attempting MQTT connection...");
@@ -135,12 +153,16 @@ static void reconnect()
             Serial.println("connected");
             // Once connected, publish an announcement...
             client.publish("message/greetings", "Hi!");
+            reconnectTries=0;
         }
         else
         {
             Serial.print("failed, rc=");
             Serial.print(client.state());
             Serial.println(" try again in 5 seconds");
+            ++reconnectTries;
+             if (reconnectTries > MAX_RECONNECT)
+                return;
             // Wait 5 seconds before retrying
             delay(5000);
         }
