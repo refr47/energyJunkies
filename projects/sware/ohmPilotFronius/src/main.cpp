@@ -382,7 +382,7 @@ void setup()
         }
 #ifdef WEATHER_API
         wheater_getForecast();
-        //wheater_print();
+        // wheater_print();
 #endif
         if (webSockData.states.modbusOK)
         {
@@ -589,7 +589,10 @@ void loop()
     /* ***********************                   SHOW IP ADDR           ************************/
     if (timeSlice.currentMillis - timeSlice.previousMillisShowIp > SHOW_IP_ADDR_INTERVALL)
     {
-        tft_showIP(WiFi.localIP().toString().c_str());
+        char *ipAddr = webSockData.setupData.currentIP;
+        LOG_INFO("main::current IP  <%s>", ipAddr);
+        //DBGf("main::current IP  <%s>", ipAddr);
+        tft_showIP(ipAddr);
         timeSlice.previousMillisShowIp = timeSlice.currentMillis;
     }
 
@@ -597,11 +600,8 @@ void loop()
 
     if (timeSlice.currentMillis - timeSlice.previousMillTemp > TEMPERATURE_INTERVAL)
     {
-        // LOG_INFO("TEMPERATURE_INTERVAL");
-
         if (!temp_getTemperature(webSockData.temperature))
         {
-
             webSockData.states.tempUnderflow = false;
             webSockData.states.tempSensorOK = false;
             if (webSockData.temperature.sensor1 < 0.0 && webSockData.temperature.sensor2 < 0.0)
@@ -631,7 +631,7 @@ void loop()
                 LOG_INFO("main::TEMPERATURE_INTERVAL - TempUnderflow heat as much as possible!!")
             }
             else
-            { 
+            {
                 webSockData.temperature.alarm = false;
                 webSockData.states.tempUnderflow = false;
                 /*
@@ -885,7 +885,8 @@ void loop()
                 }
                 else
                 {
-                    LOG_WARNING("main::Temperature alarm container is on (%d)", alarmContainer.alarmTemp.alarmTemp);
+                    float temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
+                    LOG_WARNING("main::Temperature alarm container is on - boiler temp is (%.3f)", temp);
                     pidPinManager.reset();
                 }
             }

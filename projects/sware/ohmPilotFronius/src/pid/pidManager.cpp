@@ -241,7 +241,7 @@ void PinManager::adjustPWM()
         mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
         LOG_DEBUG("adjustPWM - else mCurrentPower <= onePhas: pwm: %d", OUTPUT_MAX);
     }
-} 
+}
 // true: nothing must be done, because temperature > allowed or temperature < allowed
 // false: loading is not handled by this methode!
 
@@ -249,23 +249,24 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
 {
     double boilerTemp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
     LOG_DEBUG("pidManager::task - prologTemperature, boilerTemp %.3f  webSockData.setupData.tempMaxAllowedInGrad %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
+    
     if (boilerTemp > webSockData.setupData.tempMaxAllowedInGrad)
     {
         LOG_DEBUG("pidManager::task - no action available, boilerTemp %.3f >= webSockData.setupData.tempMaxAllowedInGrad %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
 
         if (getStateOfDigPin(0))
         {
-            LOG_DEBUG("pidManager::task, Temperature overflow, switchOffL1");
+            LOG_DEBUG("pidManager::task, Temperature overflow, switchOff L1");
             reset();
         }
         if (getStateOfDigPin(1))
         {
-            LOG_DEBUG("pidManager::task, Temperature overflow, switchOffL2");
+            LOG_DEBUG("pidManager::task, Temperature overflow, switchOff L2");
             reset();
         }
         if (getStateOfAnaPin())
         {
-            LOG_DEBUG("pidManager::task, Temperature overflow, switchOffL3");
+            LOG_DEBUG("pidManager::task, Temperature overflow, switchOff L3");
             reset();
         }
         webSockData.states.boilerHeating = false;
@@ -302,7 +303,7 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
     else
     {
         webSockData.states.boilerHeating = true;
-        LOG_DEBUG("pidManager::task - (else,  boilerTemp  %.3f < tempMaxAllowedInGrad %d, heat!! ", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
+        LOG_DEBUG("pidManager::task - (else,  boilerTemp  %.3f < tempMaxAllowedInGrad %d, !!heat!! - if energy is available", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
     }
     return false;
 }
