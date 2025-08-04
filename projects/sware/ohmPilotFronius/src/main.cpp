@@ -1,8 +1,9 @@
 #include <Arduino.h>
 #include "esp_clk.h"
 #include <SPI.h>
-
+#include "esp32-hal-log.h"
 #include "esp_heap_trace.h"
+
 #include "esp_wifi.h"
 
 #include "debugConsole.h"
@@ -226,7 +227,7 @@ void setup()
           ; */
     btStop(); // stop bluetoothd
     DBG("setup start ...");
-
+    //esp_gdbstub_init(); // GDB Stub aktivieren
     logging_init();
     LOG_INFO("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
@@ -591,7 +592,7 @@ void loop()
     {
         char *ipAddr = webSockData.setupData.currentIP;
         LOG_INFO("main::current IP  <%s>", ipAddr);
-        //DBGf("main::current IP  <%s>", ipAddr);
+        // DBGf("main::current IP  <%s>", ipAddr);
         tft_showIP(ipAddr);
         timeSlice.previousMillisShowIp = timeSlice.currentMillis;
     }
@@ -886,7 +887,7 @@ void loop()
                 else
                 {
                     float temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
-                    LOG_WARNING("main::Temperature alarm container is on - boiler temp is (%.3f)", temp);
+                    LOG_WARNING("main::Temperature alarm container is on - current boiler temp is (%.3f), allowed to setup is (%d)", temp, webSockData.setupData.tempMaxAllowedInGrad);
                     pidPinManager.reset();
                 }
             }

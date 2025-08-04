@@ -248,8 +248,8 @@ void PinManager::adjustPWM()
 bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
 {
     double boilerTemp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
-    LOG_DEBUG("pidManager::task - prologTemperature, boilerTemp %.3f  webSockData.setupData.tempMaxAllowedInGrad %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
-    
+    LOG_DEBUG("pidManager::prologTemperature - prologTemperature, boilerTemp %.3f  webSockData.setupData.tempMaxAllowedInGrad %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
+
     if (boilerTemp > webSockData.setupData.tempMaxAllowedInGrad)
     {
         LOG_DEBUG("pidManager::task - no action available, boilerTemp %.3f >= webSockData.setupData.tempMaxAllowedInGrad %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
@@ -278,21 +278,21 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
     }
     else if (boilerTemp < webSockData.setupData.tempMinInGrad)
     {
-        LOG_DEBUG("pidManager::task - boilerTemp Minimal underflow, start heating %.3f < webSockData.setupData.tempMinInGrad %d", boilerTemp, webSockData.setupData.tempMinInGrad);
+        LOG_DEBUG("pidManager::prologTemperature - current boilerTemp Minimal underflow, start heating %.3f < setup min temperature is: %d", boilerTemp, webSockData.setupData.tempMinInGrad);
         webSockData.states.boilerHeating = true;
         if (!getStateOfDigPin(0))
         {
-            LOG_DEBUG("pidManager::task, Temperature underflow, switchOnL1");
+            LOG_DEBUG("pidManager::prologTemperature, Temperature underflow, switchOnL1");
             switchOnL1();
         }
         if (!getStateOfDigPin(1))
         {
-            LOG_DEBUG("pidManager::task, Temperature underflow, switchOnL2");
+            LOG_DEBUG("pidManager::prologTemperature, Temperature underflow, switchOnL2");
             switchOnL2();
         }
         if (!getStateOfAnaPin())
         {
-            LOG_DEBUG("pidManager::task, Temperature underflow, switchOnL3");
+            LOG_DEBUG("pidManager::prologTemperature, Temperature underflow, switchOnAnalogOut");
             switchOnL3();
         }
 #ifdef INFLUX
@@ -303,7 +303,7 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
     else
     {
         webSockData.states.boilerHeating = true;
-        LOG_DEBUG("pidManager::task - (else,  boilerTemp  %.3f < tempMaxAllowedInGrad %d, !!heat!! - if energy is available", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
+        LOG_DEBUG("pidManager::prologTemperature - (else,  boilerTemp  %.3f < tempMaxAllowedInGrad %d, !!heat!! - if energy is available", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
     }
     return false;
 }
