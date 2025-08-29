@@ -227,7 +227,7 @@ void setup()
           ; */
     btStop(); // stop bluetoothd
     DBG("setup start ...");
-    //esp_gdbstub_init(); // GDB Stub aktivieren
+    // esp_gdbstub_init(); // GDB Stub aktivieren
     logging_init();
     LOG_INFO("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
@@ -891,7 +891,6 @@ void loop()
                     pidPinManager.reset();
                 }
             }
-
             timeSlice.previousMillisController = timeSlice.currentMillis;
             // LOG_INFO("PID_CONTROLLER_INTERVALL");
         }
