@@ -219,6 +219,18 @@ void test_cardReader()
 #endif
 }
 
+void myTask(void *pvParameters)
+{
+    for (;;)
+    {
+        // Mach irgendwas
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+// Task-Handle speichern, damit wir Infos abfragen können
+TaskHandle_t myTaskHandle = NULL;
+
 void setup()
 {
 
@@ -257,7 +269,7 @@ void setup()
 
     // ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
     // eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    eprom_getSetup(webSockData.setupData);
+    eprom_getSetup(webSockData.setupData); //
     // eprom_getLifeData(lifeData);
 
     // printEprom(webSockData.setupData);

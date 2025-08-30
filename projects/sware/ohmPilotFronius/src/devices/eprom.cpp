@@ -231,10 +231,10 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
     LOG_DEBUG("eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
 
-    setup.heizstab_leistung_in_watt = 5000;
+    setup.heizstab_leistung_in_watt = 2000;
     setup.tempMaxAllowedInGrad = 60;
-    setup.tempMinInGrad = 35;
-    strcpy(setup.inverter, "10.0.0.2");
+    setup.tempMinInGrad = 15;
+    strcpy(setup.inverter, "10.0.0.22");
 
     // bool result = true;
     /*
@@ -248,17 +248,19 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
      setup.pid_i = 0.5;
      setup.pid_d = 0.01; */
 
-    setup.pid_min_time_without_contoller_inMS = 5000;
+    setup.pid_min_time_without_contoller_inMS = 2000;
     /*  setup.pid_min_time_before_switch_off_channel_inMS = 2000;
      setup.pid_min_time_for_dig_output_inMS = 10000; */
     setup.pid_powerWhichNeedNotConsumed = 10;
     strcpy(setup.mqttHost, EMPTY_VALUE_IN_SETUP);
     strcpy(setup.mqttPass, "MQTT_PASS");
     strcpy(setup.mqttUser, "MQTT_USER");
-    strcpy(setup.influxHost, "http://rantanplan-ethernet:8086");
+    //strcpy(setup.influxHost, "http://rantanplan-ethernet:8086");
+    strcpy(setup.influxHost, "---");
     strcpy(setup.influxBucket, "energieJunkies");
     strcpy(setup.influxOrg, "d727c1fb692f26f9");
-    strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q==");
+    /* strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="); */
+    strcpy(setup.influxToken, "---");
 
     strcpy(setup.amisReaderHost, "10.0.0.21");
     /*

@@ -78,18 +78,18 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
         webSockData.setupData.tempMinInGrad = d.tempMinInGrad;
         updated = true;
     }
-    if (d.additionalLoad != webSockData.setupData.additionalLoad)
+   /*  if (d.additionalLoad != webSockData.setupData.additionalLoad)
     {
         LOG_INFO("main:: additionalLoad changed !! - no reboot :: eprom: %.3f, web: %.3f", d.additionalLoad, webSockData.setupData.additionalLoad);
         webSockData.setupData.additionalLoad = d.additionalLoad;
         updated = true;
-    }
+    } */
     if (strcmp(d.passwd, webSockData.setupData.passwd) != 0)
     {
         LOG_INFO("main:: passwd changed !! - no reboot :: eprom: %s, web: %s", d.passwd, webSockData.setupData.passwd);
         strncpy(webSockData.setupData.passwd, d.passwd, LEN_WLAN - 1);
         updated = true;
-    }
+    } 
     if (strcmp(d.inverter, webSockData.setupData.inverter) != 0)
     {
         LOG_INFO("main:: inverter changed !! - no reboot :: eprom: %s, web: %s", d.inverter, webSockData.setupData.inverter);
