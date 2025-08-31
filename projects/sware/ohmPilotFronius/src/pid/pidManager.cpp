@@ -88,11 +88,12 @@ void PinManager::allOn()
 void PinManager::reset()
 {
     LOG_DEBUG("PinManager::reset");
-    if (mAnalogOut != OUTPUT_MAX)
+    if (mAnalogOut != 0.0)
     {
-        switchOnL3();
+        mAnalogOut = 0.0;
+        mOuts[id_ANA_PWM].setValue(mAnalogOut);
     }
-
+ 
     for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
     {
         if (mOuts[i].isDigOn())
@@ -133,6 +134,7 @@ void PinManager::switchOnL3()
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
     storage += onePhase;
 }
+
 
 double PinManager::getMeanOfAvailAblePower()
 {

@@ -232,7 +232,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     LOG_DEBUG("eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
 
     setup.heizstab_leistung_in_watt = 2000;
-    setup.tempMaxAllowedInGrad = 60;
+    setup.tempMaxAllowedInGrad = 23;
     setup.tempMinInGrad = 15;
     strcpy(setup.inverter, "10.0.0.22");
 
@@ -255,7 +255,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strcpy(setup.mqttHost, EMPTY_VALUE_IN_SETUP);
     strcpy(setup.mqttPass, "MQTT_PASS");
     strcpy(setup.mqttUser, "MQTT_USER");
-    //strcpy(setup.influxHost, "http://rantanplan-ethernet:8086");
+    // strcpy(setup.influxHost, "http://rantanplan-ethernet:8086");
     strcpy(setup.influxHost, "---");
     strcpy(setup.influxBucket, "energieJunkies");
     strcpy(setup.influxOrg, "d727c1fb692f26f9");
