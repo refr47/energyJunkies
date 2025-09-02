@@ -304,11 +304,11 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     memset(&setup, 0, sizeof(Setup));
     stackRemaining = uxTaskGetStackHighWaterMark(NULL);
     LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup,Freier Stack (Wörter): %d", stackRemaining);
+    bool errorH = false;
 
     const char *argument = jsonObj[WLAN_ESSID];
     int result = 0;
     // float resultF = 0.0;
-    bool errorH = false;
     LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup BEGIN - %s, %s", WLAN_ESSID, argument);
     setupChanged(false);
 
@@ -334,17 +334,6 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     if (errorH)
     {
         strncpy(setup.inverter, argument, INET_ADDRSTRLEN);
-        /* bool result = true;
-
-        setup.ipInverter = ipv4_string_to_int((char *)argument, &result);
-        DBGf("Setup: IP-Transformation: %s - %d", argument, setup.ipInverter);
-        if (!result)
-        {
-            DBGf("handleStoreSetup IP translate did not succeed for IP: %s ", argument);
-
-            data["error"] = "IP-Transformation war nicht erfolgreich!";
-            return returnFromStoreSetup(false, data, request);
-        } */
     }
     else
         return returnFromStoreSetup(errorH, data, request);
@@ -357,6 +346,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         setup.heizstab_leistung_in_watt = result;
     else
         return returnFromStoreSetup(errorH, data, request);
+
     argument = jsonObj[EINSPEISUNG_MUSS];
 
     LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", EINSPEISUNG_MUSS, argument);
@@ -365,26 +355,6 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         setup.pid_powerWhichNeedNotConsumed = result;
     else
         return returnFromStoreSetup(errorH, data, request);
-
-    /*  argument = jsonObj[MINDEST_LAUFZEIT_DIGITALER_OUT];
-
-
-        DBGf("ARG: %s, VAl: %s", MINDEST_LAUFZEIT_DIGITALER_OUT, argument);
-        errorH = util_checkParamInt(MINDEST_LAUFZEIT_DIGITALER_OUT, argument, data, &result);
-        if (errorH)
-            setup.pid_min_time_before_switch_off_channel_inMS = result;
-        else
-            return returnFromStoreSetup(errorH, data, request);
-        argument = jsonObj[MINDEST_LAUFZEIT_PORT_ON];
-
-        DBGf("ARG: %s, VAl: %s", MINDEST_LAUFZEIT_PORT_ON, argument);
-        errorH = util_checkParamInt(MINDEST_LAUFZEIT_PORT_ON, argument, data, &result);
-        if (errorH)
-            setup.pid_min_time_for_dig_output_inMS = result;
-        else
-            return returnFromStoreSetup(errorH, data, request);
-    */
-
     argument = jsonObj[MINDEST_LAUFZEIT_REGLER_KONSTANT];
 
     LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", MINDEST_LAUFZEIT_REGLER_KONSTANT, argument);
@@ -520,13 +490,24 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     }
     else
         return returnFromStoreSetup(errorH, data, request);
-
-    argument = jsonObj[FORCE_HEIZPATRONE];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", FORCE_HEIZPATRONE, argument);
-    errorH = util_checkParamInt(FORCE_HEIZPATRONE, argument, data, &result);
-    if (errorH)
-        setup.forceHeating = result;
-    setupChanged(true);
+#ifdef FORCE -
+    // wir nicht generiert -> label for FORCE_HEIZPATRONE
+    /*
+        argument = jsonObj[FORCE_HEIZPATRONE];
+        if (argument != NULL)
+        {
+            LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup  force_heizpatrone is null!");
+        }
+        else
+        {
+            LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", FORCE_HEIZPATRONE, argument);
+            errorH = util_checkParamInt(FORCE_HEIZPATRONE, argument, data, &result);
+            if (errorH)
+                setup.forceHeating = result;
+        }
+                */
+#endif
+    setupChanged(true);o
 
     // webSockD.setupData.setupChanged = true;
     LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ajaxCalls_handleStoreSetup END - RESTART after 10 s");
@@ -539,6 +520,8 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         delay(10000); // wait 10 secs
         esp_restart();
     }
+
+    returnFromStoreSetup(errorH, data, request);
 }
 /* private functions */
 
