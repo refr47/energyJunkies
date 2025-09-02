@@ -268,7 +268,7 @@ void setup()
     eprom_isInit();
 
     // ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
-     eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
     eprom_getSetup(webSockData.setupData); //
     // eprom_getLifeData(lifeData);
 
@@ -645,7 +645,8 @@ void loop()
             }
             else
             {
-                webSockData.temperature.alarm = false;
+                if (((int)(webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0) < webSockData.setupData.tempMaxAllowedInGrad)
+                    webSockData.temperature.alarm = false;
                 webSockData.states.tempUnderflow = false;
                 /*
                 RELAY_L1, RELAY_L2, PWM_FOR_PID
@@ -842,10 +843,10 @@ void loop()
                         if (amisReader_readRestTarget(webSockData))
                         {
                             LOG_INFO("main:: AmisReader: available is: %d, import: %d , export: %ld", webSockData.amisReader.saldo, webSockData.amisReader.absolutImportInkWh, webSockData.amisReader.absolutExportInkWh);
-                            INVERTER_DATA.acCurrentPower = 0.0;
+                            INVERTER_DATA.acCurrentPower = webSockData.amisReader.exportInWatt;
                             INVERTER_DATA.acTotalEnergy = 0.0;
                             INVERTER_DATA.dcCurrentPower = 0.0;
-                            METER_DATA.acTotalEnergyExp = 0.0;
+                            METER_DATA.acTotalEnergyExp = webSockData.amisReader.absolutExportInkWh;
                             METER_DATA.acCurrentPower = webSockData.amisReader.saldo; // grid bezug
                             tft_drawInfo(webSockData);
                         }
@@ -892,9 +893,9 @@ void loop()
                 {
 
                     pidPinManager.task(webSockData);
-                    webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin();
-                    webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0); // PIN 1
-                    webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1); // PIN 2
+                    webSockData.pidContainer.mAnalogOut = pidPinManager.getStateOfAnaPin(); // PWM
+                    webSockData.pidContainer.PID_PIN1 = pidPinManager.getStateOfDigPin(0);  // PIN 1
+                    webSockData.pidContainer.PID_PIN2 = pidPinManager.getStateOfDigPin(1);  // PIN 2
                 }
                 else
                 {

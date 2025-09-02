@@ -82,9 +82,6 @@ String getJsonObj()
 {
     WEBSOCK_DATA data = webSockData();
     // DBGf("webSocks - getJsonOj:  %.2lf", data.temperature.sensor1);
-#ifdef AMIS_READER_DEV
-    readings[EINSPEISUNG] = data.amisReader.saldo;
-#endif
 
     if (data.states.froniusAPI)
     {
@@ -111,22 +108,12 @@ String getJsonObj()
             readings[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter;
         }
     }
-    else
+    else // amis reader
     {
-        if (data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
-        {
-            readings[EIGENVERBRAUCH] = data.mbContainer.meterValues.data.acCurrentPower;
-            readings[EINSPEISUNG] = 0.0;
-        }
 
-        else
-        {
-            readings[EINSPEISUNG] = data.mbContainer.meterValues.data.acCurrentPower;
-            readings[EIGENVERBRAUCH] = 0.0;
-        }
-
-        readings[PRODUKTION] = 0.0;
-
+        readings[EINSPEISUNG] = data.amisReader.saldo;
+        readings[EIGENVERBRAUCH] = data.amisReader.consumptionInWatt;
+        readings[PRODUKTION] = data.amisReader.exportInWatt;
         readings[AKKU_AKKU] = 0;
     }
 
@@ -134,12 +121,11 @@ String getJsonObj()
     {
         if (data.temperature.sensor1 > 0.0 && data.temperature.sensor2 > 0.0)
         {
-            sprintf(formatBuffer, "!!%.2f!!", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
-            // readings[TEMP_PUFFERSPEICHER] = (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+            sprintf(formatBuffer, "!! %.2f !! ", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
         }
         else
         {
-            sprintf(formatBuffer, "!!%.2f %.2f", data.temperature.sensor1, data.temperature.sensor2);
+            sprintf(formatBuffer, "!! %.2f !! ", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
         }
     }
     else

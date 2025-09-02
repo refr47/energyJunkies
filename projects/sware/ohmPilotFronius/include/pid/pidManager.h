@@ -73,7 +73,7 @@ private:
 
 class PinManager
 {
-public:
+public: 
     PinManager();
     void config(Setup &setup, int digOut1, int digOut2, int anOut);
     void reset(); //
@@ -90,7 +90,7 @@ public:
     }
     int getStateOfAnaPin()
     {
-        return mOuts[2].mValue;
+        return (int)mAnalogOut;
     }
     double getWattBoundInRelays();
     double reduceRelayStorage();
@@ -109,7 +109,7 @@ private:
     double gridWatt;
     double storage;
     unsigned int boilerSwitchExternalOn; // bimetal boiler switched off
-    unsigned long testForBoilerSwitch;
+    //unsigned long testForBoilerSwitch;
     // double mCurrentPower;
 
     // PID mPid;

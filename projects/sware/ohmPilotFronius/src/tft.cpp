@@ -424,7 +424,7 @@ void tft_drawInfo(WEBSOCK_DATA &webSockData)
             tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Bezug", displayBuffer);
         }
         else
-        {
+        { 
             txtColor = TFT_GREEN;
             // more energy is produced then consumend - negative values - for display: remove "-"
             sprintf(displayBuffer, "%s", util_format_Watt_kWatt(METER_DATA.acCurrentPower * -1.0, formatBuffer));

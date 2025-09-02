@@ -50,7 +50,6 @@ PinManager::PinManager()
     powerIndex = 0;
     storage = 0;
     boilerSwitchExternalOn = 0;
-    testForBoilerSwitch = 0;
 }
 
 void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
@@ -64,7 +63,6 @@ void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
     mDelayDigOutOn = millis();
     mDelayDigOutOff = millis();
     boilerSwitchExternalOn = 0;
-    testForBoilerSwitch = 0;
 }
 
 void PinManager::allOn()
@@ -92,8 +90,9 @@ void PinManager::reset()
     {
         mAnalogOut = 0.0;
         mOuts[id_ANA_PWM].setValue(mAnalogOut);
+        mAnalogOut = 0.0;
+        LOG_DEBUG("PinManager::reset analog out %.2f", mAnalogOut);
     }
- 
     for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
     {
         if (mOuts[i].isDigOn())
@@ -134,7 +133,6 @@ void PinManager::switchOnL3()
     mOuts[id_ANA_PWM].setValue(mAnalogOut);
     storage += onePhase;
 }
-
 
 double PinManager::getMeanOfAvailAblePower()
 {
@@ -311,7 +309,7 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
 }
 bool PinManager::prologExternalBoilerSwitchHandling(WEBSOCK_DATA &webSockData)
 {
-    if (webSockData.states.froniusAPI)
+    /* if (webSockData.states.froniusAPI)
     {
         if (storage > 0.0 || mAnalogOut > 0.0)
         {
@@ -320,16 +318,8 @@ bool PinManager::prologExternalBoilerSwitchHandling(WEBSOCK_DATA &webSockData)
             // temperature of boiler switched off
             if (FRONIUS.p_load + storage + mAnalogOut > 0.0)
             {
-                if (testForBoilerSwitch == 0)
-                {
-                    testForBoilerSwitch = millis();
-                    LOG_DEBUG("pidManager::task - test for external boiler switch started.");
-                    boilerSwitchExternalOn = 1;
-                    LOG_DEBUG("pidManager::task - storage > current load (boiler thermostat has switch off) FRONIUS.p_load: %.3f, storage: %.3f, mAnalogOut: %.3f, Temperature: %.3f", FRONIUS.p_load, storage, mAnalogOut, webSockData.temperature.sensor1);
-                    reset();
-                }
-                else
-                {
+
+
                     ++boilerSwitchExternalOn;
                     storage = mAnalogOut = 0;
                     if (boilerSwitchExternalOn > 100)
@@ -338,7 +328,7 @@ bool PinManager::prologExternalBoilerSwitchHandling(WEBSOCK_DATA &webSockData)
                         boilerSwitchExternalOn = 0;
                         testForBoilerSwitch = millis();
                     }
-                }
+
                 return true;
             }
             else
@@ -346,7 +336,7 @@ bool PinManager::prologExternalBoilerSwitchHandling(WEBSOCK_DATA &webSockData)
                 // testForBoilerSwitch = 0;
             }
         }
-    }
+    } */
     return true;
 }
 

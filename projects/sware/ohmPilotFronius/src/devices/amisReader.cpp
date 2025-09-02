@@ -66,11 +66,15 @@ bool amisReader_readRestTarget(WEBSOCK_DATA &webSockData)
     webSockData.amisReader.saldo = my_obj["saldo"];
     webSockData.amisReader.absolutExportInkWh = my_obj["2.8.0"];
     webSockData.amisReader.absolutImportInkWh = my_obj["1.8.0"];
+    webSockData.amisReader.exportInWatt = my_obj["2.7.0"];
+    webSockData.amisReader.consumptionInWatt = my_obj["1.7.0"];
     return true;
 
     /* return utils_sock_readRestTarget(webSockData, AMIS_READER_INDEX, mapJsonValues); */
 }
 
+#ifdef NNNN
+/*
 static void mapJsonValues(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_DATA &webSockData)
 {
     StaticJsonDocument<512> jsonBuffer;
@@ -86,23 +90,24 @@ static void mapJsonValues(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_D
       /*   LOG_DEBUG("map, key: %s", target->mapping[i].key);
         LOG_DEBUG("map, jsonObj: %d", jsonBuffer[target->mapping[i].key]);
  */
-        switch (i)
-        {
-        case 0:
-            webSockData.amisReader.absolutImportInkWh = jsonBuffer[target->mapping[i].key];
-            break;
-        case 1:
-            webSockData.amisReader.absolutExportInkWh = jsonBuffer[target->mapping[i].key];
-            break;
-        case 2:
-            webSockData.amisReader.saldo = jsonBuffer[target->mapping[i].key];
-            break;
-        default:
-            LOG_ERROR("amisReader::mapJsonValues() no mapping found for index: %d", i);
-        }
-    }
-
-    LOG_DEBUG("mapJsonValues: Wirkleistung P+ %.3f", webSockData.amisReader.absolutImportInkWh);
+switch (i)
+{
+case 0:
+    webSockData.amisReader.absolutImportInkWh = jsonBuffer[target->mapping[i].key];
+    break;
+case 1:
+    webSockData.amisReader.absolutExportInkWh = jsonBuffer[target->mapping[i].key];
+    break;
+case 2:
+    webSockData.amisReader.saldo = jsonBuffer[target->mapping[i].key];
+    break;
+default:
+    LOG_ERROR("amisReader::mapJsonValues() no mapping found for index: %d", i);
+}
 }
 
+LOG_DEBUG("mapJsonValues: Wirkleistung P+ %.3f", webSockData.amisReader.absolutImportInkWh);
+}
+*/
+#endif
 #endif

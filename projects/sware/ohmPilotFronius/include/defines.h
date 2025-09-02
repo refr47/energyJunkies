@@ -213,6 +213,8 @@ typedef struct _AMIS_READER
 {
     long absolutImportInkWh;
     long absolutExportInkWh;
+    long consumptionInWatt;
+    long exportInWatt;
     long saldo;
 
 } AMIS_READER;
