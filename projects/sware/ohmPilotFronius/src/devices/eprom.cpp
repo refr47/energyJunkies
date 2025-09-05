@@ -231,17 +231,11 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
     LOG_DEBUG("eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
 
-    setup.heizstab_leistung_in_watt = 2000;
-    setup.tempMaxAllowedInGrad = 23;
-    setup.tempMinInGrad = 15;
+    setup.heizstab_leistung_in_watt = 5000;
+    setup.tempMaxAllowedInGrad = 60;
+    setup.tempMinInGrad = 30;
     strcpy(setup.inverter, "10.0.0.22");
 
-    // bool result = true;
-    /*
-        setup.ipInverter = ipv4_string_to_int(setup.inverter, &result);
-        if (!result)
-            DBGf("IP translate did not succeed.");
-     */
     setup.externerSpeicher = true;
     setup.externerSpeicherPriori = '1';
     /*  setup.pid_p = 1.0;
@@ -256,7 +250,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strcpy(setup.mqttPass, "MQTT_PASS");
     strcpy(setup.mqttUser, "MQTT_USER");
     // strcpy(setup.influxHost, "http://rantanplan-ethernet:8086");
-    strcpy(setup.influxHost, "---");
+    strcpy(setup.influxHost, EMPTY_VALUE_IN_SETUP);
     strcpy(setup.influxBucket, "energieJunkies");
     strcpy(setup.influxOrg, "d727c1fb692f26f9");
     /* strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="); */
@@ -270,7 +264,6 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strncpy(setup.amisKey, "ABCDFGASDFGDSAERTQWEREW§EWERQEEE", AMIS_KEY_LEN - 1);
 
     setup.forceHeating = 0;
-    setup.additionalLoad = 0.0;
 
     LOG_DEBUG("eprom::eprom_test_write_Eprom END");
 

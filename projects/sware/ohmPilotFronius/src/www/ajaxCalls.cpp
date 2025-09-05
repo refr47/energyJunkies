@@ -490,7 +490,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     }
     else
         return returnFromStoreSetup(errorH, data, request);
-#ifdef FORCE -
+#ifdef FORCE 
     // wir nicht generiert -> label for FORCE_HEIZPATRONE
     /*
         argument = jsonObj[FORCE_HEIZPATRONE];
@@ -507,7 +507,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         }
                 */
 #endif
-    setupChanged(true);o
+    setupChanged(true);
 
     // webSockD.setupData.setupChanged = true;
     LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ajaxCalls_handleStoreSetup END - RESTART after 10 s");

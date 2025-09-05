@@ -263,12 +263,12 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    //       eprom_clearLifeData();
+    eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    //        eprom_clearLifeData();
     eprom_isInit();
 
     // ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
-    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    eprom_test_write_Eprom("Milchbehaelter", "47754775");
     eprom_getSetup(webSockData.setupData); //
     // eprom_getLifeData(lifeData);
 
