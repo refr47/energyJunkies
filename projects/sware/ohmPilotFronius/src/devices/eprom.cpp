@@ -249,19 +249,22 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strcpy(setup.mqttHost, EMPTY_VALUE_IN_SETUP);
     strcpy(setup.mqttPass, "MQTT_PASS");
     strcpy(setup.mqttUser, "MQTT_USER");
-    // strcpy(setup.influxHost, "http://rantanplan-ethernet:8086");
-    strcpy(setup.influxHost, EMPTY_VALUE_IN_SETUP);
+    strcpy(setup.influxHost, "http://rantanplan-ethernet:8086");
+    //strcpy(setup.influxHost, EMPTY_VALUE_IN_SETUP);
     strcpy(setup.influxBucket, "energieJunkies");
     strcpy(setup.influxOrg, "d727c1fb692f26f9");
-    /* strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="); */
-    strcpy(setup.influxToken, "---");
-
-    strcpy(setup.amisReaderHost, "192.168.178.45");
+    strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="); 
+    //strcpy(setup.influxToken, "---");
+    strcpy(setup.amisReaderHost, "10.0.0.21");
+    //strcpy(setup.amisReaderHost, "192.168.178.45");
     /*
         setup.ipAmisReaderHost = ipv4_string_to_int(setup.amisReaderHost, &result);
         if (!result)
-            DBGf("IP translate did not succeed."); */
-    strncpy(setup.amisKey, "9865888B5CC739E9F575053E7868BC34", AMIS_KEY_LEN - 1);
+            DBGf("IP translate did not succeed.");
+            
+            9865888B5CC739E9F575053E7868BC34 w
+            */
+    strncpy(setup.amisKey, "956DCC48ECECCE9A83538819923F6069", AMIS_KEY_LEN - 1);
 
     setup.forceHeating = 0;
 

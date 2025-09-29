@@ -67,15 +67,15 @@ const float temp_coeff = -0.0035; // -0.35%/K = -0.0035
 const float system_loss = 0.88;   // Gesamtverluste (Soiling, Kabel, MPPT etc.)
 const float inv_max_AC = 10000.0; // Wechselrichter AC-Nennleistung [W]
 const float tilt = 30.0;          // Modulneigung [°]
-const float azimut = 230.0;       // Azimut (0 = Süd, -90 = Ost, +90 = West); südwest mit 159
+const float azimut = 159.0;       // Azimut (0 = Süd, -90 = Ost, +90 = West); südwest mit 159
 const float tz_lon = 15.0;        // Standardmeridian (z.B. 15°E für MEZ)
 // Risikoparameter
 const float k_risk = 0.5;
 
 // Score-Gewichte
-const float w_E = 1.0;
-const float w_sigma = 0.5;
-const float w_T = 0.3;
+const float w_E = 1.0;     // Gewicht Energiebeitrag (z. B. 1.0)
+const float w_sigma = 0.5; // Gewicht Unsicherheit (z. B. 0.5)
+const float w_T = 0.3;     // Gewicht Mittagsbonus (z. B. 0.3)
 const float sigma_T = 2.0; // Breite der Mittagsglocke
 
 static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, String &json_array, PROGNOSE &prognose);
