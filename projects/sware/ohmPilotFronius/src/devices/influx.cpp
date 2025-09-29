@@ -5,7 +5,9 @@
 #include "influx.h"
 
 #include "debugConsole.h"
-
+#ifndef INFLUX
+#define INFLUX "NON"
+#endif
 #define INFLUXDB_URL INFLUX
 #define INFLUXDB_TOKEN "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="
 #define INFLUXDB_ORG "d727c1fb692f26f9"

@@ -35,7 +35,7 @@ bool time_init()
     setenv("TZ", EUROPE_VIENNA_TZ, 1);
     tzset();
 
-    DATE_TIME cell;
+    /* DATE_TIME cell;
     cell.month = 1;
     cell.hourFrom = 16;
     cell.hourTo = 8;
@@ -83,7 +83,7 @@ bool time_init()
     cell.month = 12;
     cell.hourFrom = 17;
     cell.hourTo = 8;
-    table.push_back(cell);
+    table.push_back(cell); */
     LOG_DEBUG("time_init()");
 
     delay(2000);
@@ -106,6 +106,25 @@ bool time_init()
 unsigned int time_getOffset()
 {
     return currentSecs;
+}
+
+int time_currentHourLocal()
+{
+    time_t now;
+    time(&now);
+    struct tm tinfo;
+    localtime_r(&now, &tinfo);
+    return tinfo.tm_hour;
+}
+
+// Local minute
+int time_currentMinuteLocal()
+{
+    time_t now;
+    time(&now);
+    struct tm tinfo;
+    localtime_r(&now, &tinfo);
+    return tinfo.tm_min;
 }
 
 bool time_print()
@@ -160,4 +179,13 @@ char *time_currentTimeStamp()
 
     // Serial.println(buf);
     return buf;
+}
+
+int time_GetDayOfYear()
+{
+    time_t now;
+    time(&now);
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+    return timeinfo.tm_yday + 1;
 }

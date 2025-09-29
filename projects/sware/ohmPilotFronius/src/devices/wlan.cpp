@@ -147,7 +147,7 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
         break;
     case WIFI_REASON_ASSOC_LEAVE:
         LOG_ERROR("ESP32 left the association with the AP. Attempting to reconnect...");
-        break;
+        break; 
     case WIFI_REASON_NO_AP_FOUND:
         LOG_ERROR("No Access Point found.");
         break;
@@ -173,7 +173,7 @@ static long lastReconnectAttempt = 0;
 void handleWiFiReconnect()
 {
     unsigned long currentMillis = millis();
-
+ 
     if (reconnectAttempts < WIFI_NUMBER_OF_TRIES)
     {
         int delayTime = min((int)5000 * reconnectAttempts, 60000); // Exponential backoff with a maximum delay of 60 seconds

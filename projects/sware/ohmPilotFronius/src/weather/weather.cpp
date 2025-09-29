@@ -2,507 +2,253 @@
 
 #include "weather.h"
 #include "utils.h"
+#include "curTime.h"
+
 #include <Arduino_JSON.h>
-#include <time.h>
 
 #ifdef WEATHER_API
 
 #define HOST_NAME WEATHER_API
 #define PATH_NAME_FORECAST "/v1/forecast"
 
-#define PARAM HOST_NAME PATH_NAME_FORECAST "?latitude=" LATITUDE "&longitude=" LONGITUDE "&hourly=temperature_2m,sunshine_duration&daily=sunrise,sunset,sunshine_duration,uv_index_max&timezone=Europe%2FVienna&forecast_days=" FORCAST_DAYS_STRING
+#define PARAM HOST_NAME PATH_NAME_FORECAST "?latitude=" LATITUDE "&longitude=" LONGITUDE "&hourly=cloudcover,shortwave_radiation,precipitation,sunshine_duration,temperature_2m&timezone=Europe%2FVienna&forecast_days=" FORCAST_DAYS_STRING
 
-static WHEATER_DATA wheater;
+#define JSON_ARRAY_SIZE 25000
 
-static void
-interpretWeather(JSONVar &data);
-static time_t wheater_parseDateTime(const char *date_string);
-static void wheater_timestampToDate(time_t timestamp, char *buffer);
+/* "https://api.open-meteo.com/v1/forecast?"
+    "latitude=48.21&longitude=16.37"
+    "&hourly=cloudcover,shortwave_radiation,precipitation,sunshine_duration,temperature_2m"
+    "&timezone=Europe%2FBerlin&forecast_days=1";
+ */
+/*
+Nutzer-Parameter (einmalig zu konfigurieren)
 
-void wheater_getForecast()
+Standortdaten
+
+latitude (Breitengrad)
+
+longitude (Längengrad)
+
+tz_lon (Standardmeridian der Zeitzone, z. B. 15°E für MEZ, 0° für UTC)
+
+PV-Anlage
+
+--- PV-Anlage (Nutzer-Parameter) ---
+const float P_stc       = 380.0;    // W pro Modul bei STC
+const int   N_mod       = 6;        // Anzahl Module
+const float NOCT        = 45.0;     // °C, nominal operating cell temp
+const float temp_coeff  = -0.0035;  // -0.35%/K = -0.0035
+const float system_loss = 0.88;     // Gesamtverluste (Soiling, Kabel, MPPT etc.)
+const float inv_max_AC  = 2000.0;   // Wechselrichter AC-Nennleistung [W]
+const float tilt        = 30.0;     // Modulneigung [°]
+const float azimut      = 0.0;      // Azimut (0 = Süd, -90 = Ost, +90 = West)
+
+Score-Gewichte
+
+w_E – Gewicht Energiebeitrag (z. B. 1.0)
+
+w_σ – Gewicht Unsicherheit (z. B. 0.5)
+
+w_T – Gewicht Mittagsbonus (z. B. 0.3)
+
+
+*/
+
+// static WHEATER_DATA wheaterData;
+
+// PV
+const float area_m2 = 2.0;
+const float eff = 0.18;
+// --- PV-Anlage (Nutzer-Parameter) ---
+const float P_stc = 405.0;        // W pro Modul bei STC
+const int N_mod = 36;             // Anzahl Module
+const float NOCT = 45.0;          // °C, nominal operating cell temp
+const float temp_coeff = -0.0035; // -0.35%/K = -0.0035
+const float system_loss = 0.88;   // Gesamtverluste (Soiling, Kabel, MPPT etc.)
+const float inv_max_AC = 10000.0; // Wechselrichter AC-Nennleistung [W]
+const float tilt = 30.0;          // Modulneigung [°]
+const float azimut = 230.0;       // Azimut (0 = Süd, -90 = Ost, +90 = West); südwest mit 159
+const float tz_lon = 15.0;        // Standardmeridian (z.B. 15°E für MEZ)
+// Risikoparameter
+const float k_risk = 0.5;
+
+// Score-Gewichte
+const float w_E = 1.0;
+const float w_sigma = 0.5;
+const float w_T = 0.3;
+const float sigma_T = 2.0; // Breite der Mittagsglocke
+
+static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, String &json_array, PROGNOSE &prognose);
+
+//-- -Hilfsfunktionen-- -
+float deg2rad(float d) { return d * PI / 180.0; }
+float rad2deg(float r) { return r * 180.0 / PI; }
+
+bool wheater_fetch(PROGNOSE &prognose)
 {
 
     int httpResponseCode = 0;
     String json_array = util_GET_Request(PARAM, &httpResponseCode);
+    LOG_INFO("wheather:wheater_getForecast URL: %s", PARAM);
+
     if (httpResponseCode != 200)
     {
         LOG_ERROR("wheather:wheater_getForecast URL: %s is not available, ResponseCode: %d", PARAM, httpResponseCode);
-        return;
+        return false;
     }
-    // Serial.println(json_array);
-    JSONVar my_obj = JSON.parse(json_array);
-    // Serial.println(my_obj);
-    LOG_INFO("wheather:wheater_getForecast URL: %s", PARAM);
-    interpretWeather(my_obj);
+    Serial.println(json_array);
+    // JSON Puffer (ca. 20k reicht für 2 Tage Daten)
+    StaticJsonDocument<JSON_ARRAY_SIZE> doc;
+    DeserializationError error = deserializeJson(doc, json_array);
+
+    if (error == DeserializationError::Ok)
+    {
+        wheater_ladestrategie(doc, json_array, prognose);
+    }
+    else
+    {
+        Serial.print("JSON Fehler: ");
+        Serial.println(error.c_str());
+        LOG_ERROR("wheather:wheater_getForecast JSON Fehler: %s", error.c_str());
+        return false;
+    }
+    return true;
 }
 
-/*
+float equationOfTime(int n)
 {
-time: [
-"2024-03-18",
-"2024-03-19",
-"2024-03-20"
-],
-sunrise: [
-"2024-03-18T06:12",
-"2024-03-19T06:09",
-"2024-03-20T06:07"
-],
-sunset: [
-"2024-03-18T18:16",
-"2024-03-19T18:18",
-"2024-03-20T18:19"
-],
-daylight_duration: [
-43435.11,
-43683.6,
-43932.5
-],
-sunshine_duration: [
-36203.57,
-34819.75,
-12636.17
-],
-uv_index_max: [
-3.4,
-3.7,
-3.15
-],
-
-*/
-// char buffer[20]; // Adjust buffer size as needed
-static void wheater_timestampToDate(time_t timestamp, char *buffer)
-{
-    struct tm *tm_info;
-
-    // Convert timestamp to broken-down time (local time)
-    tm_info = localtime(&timestamp);
-
-    // Format the time into a string
-    // char buffer[20]; // Adjust buffer size as needed
-    strftime(buffer, 20, "%Y-%m-%d %H:%M:%S", tm_info);
-
-    // Print the formatted date string
+    float B = deg2rad((360.0 / 365.0) * (n - 81));
+    return 9.87 * sin(2 * B) - 7.53 * cos(B) - 1.5 * sin(B);
 }
 
-static time_t wheater_parseDateTime(const char *date_string)
+float solarTime(float localHour, int dayOfYear, float longitude, float tz_lon)
 {
-    struct tm tm_time = {0};
-
-    // Parse the date string
-    if (strptime(date_string, "%Y-%m-%dT%H:%M", &tm_time) == NULL)
-    {
-        LOG_ERROR("weather::wheater_parseDateTime::Error: Unable to parse date string: %s\n", date_string);
-        return 0;
-    }
-
-    // Convert the parsed time to a timestamp
-    time_t timestamp = mktime(&tm_time);
-    if (timestamp == -1)
-    {
-        LOG_ERROR("weather::wheater_parseDateTime::Unable to convert time to timestamp");
-        return 0;
-    }
-
-    return timestamp;
+    float eot = equationOfTime(dayOfYear);
+    float corr = (4 * (tz_lon - longitude) + eot) / 60.0;
+    return localHour + corr;
 }
 
-static void interpretWeather(JSONVar &data)
+void solarPosition(int dayOfYear, float solarHour, float latitude, float &alpha, float &gamma_s)
 {
+    float phi = deg2rad(latitude);
+    float delta = deg2rad(23.45 * sin(deg2rad(360.0 * (284 + dayOfYear) / 365.0)));
+    float omega = deg2rad(15.0 * (solarHour - 12));
 
-    JSONVar temperatureArray = data["hourly"]["temperature_2m"];
-    Serial.print("interpretWeather ");
-    Serial.println(JSON.typeof(temperatureArray));
-    if (JSON.typeof(temperatureArray) == "array") // temperatureArray is an array
-    {
-        for (int i = 0; i < temperatureArray.length(); i++)
-        {
-            /*  Serial.print("time: ");
-             Serial.println(temperatureArray[i]); */
-            wheater.temperature[i] = temperatureArray[i];
-        }
-    }
-    JSONVar sunnArray = data["hourly"]["sunshine_duration"];
-    if (JSON.typeof(sunnArray) == "array") // temperatureArray is an array
-    {
-        for (int i = 0; i < sunnArray.length(); i++)
-        {
-            /*  Serial.print("sunDaylight: ");
-             Serial.println(sunnArray[i]); */
-            wheater.daylight[i] = sunnArray[i];
-        }
-    }
-    JSONVar sunRise = data["daily"]["sunrise"];
-    if (JSON.typeof(sunRise) == "array") // temperatureArray is an array
-    {
-        for (int i = 0; i < sunRise.length(); i++)
-        {
-            /* Serial.print("sunRise: ");
-            Serial.println(sunRise[i]); */
-            wheater.sunrise[i] = wheater_parseDateTime(sunRise[i]);
-        }
-    } 
-    JSONVar sunSet = data["daily"]["sunset"];
-    Serial.println("Type of uvIndex: " + JSON.typeof(sunSet[0]));
-    if (JSON.typeof(sunSet) == "array") // temperatureArray is an array
-    {
-        for (int i = 0; i < sunSet.length(); i++)
-        {
-            /*   Serial.print("sunSet: ");
-              Serial.println(sunSet[i]); */
-            wheater.sunset[i] = wheater_parseDateTime(sunSet[i]);
-        }
-    }
-    /*  JSONVar sunDur = data["daily"]["sunshine_duration"];
-     if (JSON.typeof(sunDur) == "array") // temperatureArray is an array
-     {
-
-         for (int i = 0; i < sunDur.length(); i++)
-         {
-
-             Serial.println(sunDur[i]);
-         }
-     }  */
-    // uv_index_max
-    JSONVar uvIndex = data["daily"]["uv_index_max"];
-    Serial.println("Type of uvIndex: " + JSON.typeof(uvIndex[0]));
-    if (JSON.typeof(uvIndex) == "array") // temperatureArray is an array
-    {
-        for (int i = 0; i < uvIndex.length(); i++)
-        {
-            /*   Serial.print("uvIndex: ");
-              Serial.println(uvIndex[i]); */
-            wheater.uvIndex[i] = uvIndex[i];
-        }
-    }
+    alpha = asin(sin(phi) * sin(delta) + cos(phi) * cos(delta) * cos(omega));
+    gamma_s = atan2(cos(delta) * sin(omega),
+                    cos(phi) * sin(delta) - sin(phi) * cos(delta) * cos(omega));
 }
 
-void wheater_print()
+float incidenceFactor(float alpha, float gamma_s, float tilt, float azimut)
 {
-    LOG_INFO("wheater::wheater - print data");
-    LOG_INFO("wheater::Temperatur");
-    for (int j = 0; j < TEMPERATURE_SIZE; j++)
-    {
-        if (j != 0 && j % 24 == 0)
-        {
-            LOG_INFO("wheater::Next day");
-        }
-        LOG_INFO("wheater::%d:: %f", j % 24, wheater.temperature[j]);
-    }
-    LOG_INFO("wheater::Sonnendauer");
-    for (int j = 0; j < SUNDAY_LIGHT_SIZE; j++)
-    {
-        if (j != 0 && j % 24 == 0)
-        {
-            LOG_INFO("wheater::Next day");
-        }
-        LOG_INFO("wheater::%d:: %f", j % 24, wheater.daylight[j]);
-    }
-    LOG_INFO("wheater::Sonnenaufgang");
-    for (int j = 0; j < DAILY_VALUES_SIZE; j++)
-    {
-        LOG_INFO("wheater::%d:: %f", j, wheater.sunrise[j]);
-    }
-    LOG_INFO("wheater::Sonnenuntergang");
-    for (int j = 0; j < DAILY_VALUES_SIZE; j++)
-    {
-        LOG_INFO("wheater::%d:: %f", j, wheater.sunset[j]);
-    }
-    LOG_INFO("wheater::UV-Index");
-    for (int j = 0; j < DAILY_VALUES_SIZE; j++)
-    {
-        LOG_INFO("wheater::%d:: %f", j, wheater.uvIndex[j]);
-    }
+    float beta = deg2rad(tilt);
+    float gamma_m = deg2rad(azimut);
+    float ctheta = sin(alpha) * cos(beta) + cos(alpha) * sin(beta) * cos(gamma_s - gamma_m);
+    return max(0.0f, ctheta);
 }
-#endif
 
-#ifdef EX
-
+float middayBonus(int h)
 {
-latitude:
-    52.52,
-        longitude : 13.419998,
-        generationtime_ms : 0.1289844512939453,
-        utc_offset_seconds : 3600,
-        timezone : "Europe/Berlin",
-                   timezone_abbreviation : "CET",
-                                           elevation : 38,
-                                           hourly_units : {
-                                               time : "iso8601",
-                                               temperature_2m : "°C",
-                                               precipitation_probability : "%",
-                                               precipitation : "mm",
-                                               cloud_cover : "%",
-                                               cloud_cover_low : "%",
-                                               cloud_cover_mid : "%",
-                                               cloud_cover_high : "%",
-                                               sunshine_duration : "s"
-                                           },
-                                                          hourly : {
-                                                              time : [
-                                                                  "2024-03-18T00:00",
-                                                                  "2024-03-18T01:00",
-                                                                  "2024-03-18T02:00",
-                                                                  "2024-03-18T03:00",
-                                                                  "2024-03-18T04:00",
-                                                                  "2024-03-18T05:00",
-                                                                  "2024-03-18T06:00",
-                                                                  "2024-03-18T07:00",
-                                                                  "2024-03-18T08:00",
-                                                                  "2024-03-18T09:00",
-                                                                  "2024-03-18T10:00",
-                                                                  "2024-03-18T11:00",
-                                                                  "2024-03-18T12:00",
-                                                                  "2024-03-18T13:00",
-                                                                  "2024-03-18T14:00",
-                                                                  "2024-03-18T15:00",
-                                                                  "2024-03-18T16:00",
-                                                                  "2024-03-18T17:00",
-                                                                  "2024-03-18T18:00",
-                                                                  "2024-03-18T19:00",
-                                                                  "2024-03-18T20:00",
-                                                                  "2024-03-18T21:00",
-                                                                  "2024-03-18T22:00",
-                                                                  "2024-03-18T23:00"
-                                                              ],
-                                                              temperature_2m : [
-                                                                  0.8,
-                                                                  0.2,
-                                                                  -0.2,
-                                                                  -0.4,
-                                                                  -1.2,
-                                                                  -1.4,
-                                                                  -1.5,
-                                                                  -1.6,
-                                                                  -1.1,
-                                                                  0.2,
-                                                                  2.8,
-                                                                  4.2,
-                                                                  5.4,
-                                                                  6.2,
-                                                                  6.7,
-                                                                  6.9,
-                                                                  6.7,
-                                                                  6,
-                                                                  5.2,
-                                                                  3.8,
-                                                                  2.8,
-                                                                  2,
-                                                                  1.3,
-                                                                  0.8
-                                                              ],
-                                                              precipitation_probability : [
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0
-                                                              ],
-                                                              precipitation : [
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0
-                                                              ],
-                                                              cloud_cover : [
-                                                                  30,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  100,
-                                                                  100,
-                                                                  100,
-                                                                  97,
-                                                                  29,
-                                                                  100,
-                                                                  100,
-                                                                  81,
-                                                                  100,
-                                                                  100,
-                                                                  97,
-                                                                  100,
-                                                                  100,
-                                                                  95,
-                                                                  58,
-                                                                  73,
-                                                                  3,
-                                                                  60,
-                                                                  0,
-                                                                  0
-                                                              ],
-                                                              cloud_cover_low : [
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  6,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0
-                                                              ],
-                                                              cloud_cover_mid : [
-                                                                  30,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  52,
-                                                                  7,
-                                                                  100,
-                                                                  86,
-                                                                  100,
-                                                                  100,
-                                                                  95,
-                                                                  58,
-                                                                  73,
-                                                                  0,
-                                                                  60,
-                                                                  0,
-                                                                  0
-                                                              ],
-                                                              cloud_cover_high : [
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  100,
-                                                                  100,
-                                                                  100,
-                                                                  97,
-                                                                  29,
-                                                                  100,
-                                                                  100,
-                                                                  71,
-                                                                  100,
-                                                                  100,
-                                                                  90,
-                                                                  100,
-                                                                  100,
-                                                                  5,
-                                                                  0,
-                                                                  0,
-                                                                  3,
-                                                                  0,
-                                                                  0,
-                                                                  0
-                                                              ],
-                                                              sunshine_duration : [
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  0,
-                                                                  3600,
-                                                                  3600,
-                                                                  3600,
-                                                                  3600,
-                                                                  sunshine_duration:3600,
-                                                                                    3600,
-                                                                                    3600,
-                                                                                    3600,
-                                                                                    3600,
-                                                                                    2498.15,
-                                                                                    0,
-                                                                                    0,
-                                                                  sunshine_duration:0,
-                                                                                    0,
-                                                                                    0,
-                                                                                    0
-                                                              ]
-                                                          },
-                                                                   daily_units : {
-                                                                       time : "iso8601",
-                                                                       sunrise : "iso8601",
-                                                                       sunset : "iso8601",
-                                                                       daylight_duration : "s",
-                                                                       sunshine_duration : "s",
-                                                                       uv_index_max : "",
-                                                                       precipitation_sum : "mm",
-                                                                       rain_sum : "mm",
-                                                                       showers_sum : "mm",
-                                                                       snowfall_sum : "cm",
-                                                                       precipitation_hours : "h",
-                                                                       precipitation_probability_max : "%"
-                                                                   },
-                                                                                 daily:
+    float diff = h - 12;
+    return exp(-(diff * diff) / (2 * sigma_T * sigma_T));
+}
+
+float computeScore(float E_adj, float Emax, float sigma, int h)
+{
+    float Bh = middayBonus(h);
+    float sE = (Emax > 0) ? (E_adj / Emax) : 0.0;
+    return w_E * sE - w_sigma * sigma + w_T * Bh;
+}
+
+// --- PV-Modell mit P_stc, Temperatur, Clipping ---
+float pvEnergyPerHour(float G_tilt, float T_amb)
+{
+    // 1) Roh-Leistung pro Modul
+    float P_mod_raw = P_stc * (G_tilt / 1000.0f);
+
+    // 2) Zelltemperatur (°C)
+    float T_cell = T_amb + (G_tilt / 800.0f) * (NOCT - 20.0f);
+
+    // 3) Temperaturkorrektur
+    float P_mod_temp = P_mod_raw * (1.0f + temp_coeff * (T_cell - 25.0f));
+
+    // 4) Array-DC
+    float P_array_DC = N_mod * P_mod_temp;
+
+    // 5) Systemverluste
+    float P_usable = P_array_DC * system_loss;
+
+    // 6) Clipping am Inverter
+    float P_final_AC = min(P_usable, inv_max_AC);
+
+    // 7) Energie pro Stunde [kWh]
+    return P_final_AC / 1000.0f;
+}
+
+static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, String &payload, PROGNOSE &prognose)
+{
+    if (deserializeJson(doc, payload) == DeserializationError::Ok)
     {
-    time:
-        ["2024-03-18"],
-            sunrise : ["2024-03-18T06:12"],
-                      sunset : ["2024-03-18T18:16"],
-                               daylight_duration : [43435.11],
-                                                   sunshine_duration : [34898.16],
-                                                                       uv_index_max : [3.4],
-                                                                                      precipitation_sum : [0],
-                                                                                                          rain_sum : [0],
-                                                                                                                     showers_sum : [0],
-                                                                                                                                   snowfall_sum : [0],
-                                                                                                                                                  precipitation_hours : [0],
-                                                                                                                                                                        precipitation_probability_max : [0]
+        JsonObject hourly = doc["hourly"];
+        JsonArray G_arr = hourly["shortwave_radiation"];
+        JsonArray cloud = hourly["cloudcover"];
+        JsonArray precip = hourly["precipitation"];
+        JsonArray sunsec = hourly["sunshine_duration"];
+        JsonArray Tamb = hourly["temperature_2m"];
+
+        int n = time_GetDayOfYear();
+
+        float E_adj_hour[24] = {0};
+        float sigma_hour[24] = {0};
+        float Emax = 0;
+
+        for (int h = 0; h < 24; h++)
+        {
+            float G = G_arr[h] | 0;
+            float cc = cloud[h] | 0;
+            float pr = precip[h] | 0;
+            float sdur = sunsec[h] | 0;
+            float T_amb = Tamb[h] | 20; // falls fehlt, default 20°C
+
+            float G_eff = G * (sdur / 3600.0f);
+
+            float solarT = solarTime(h, n, LONGITUDE_f, tz_lon);
+            float alpha, gamma_s;
+            solarPosition(n, solarT, LATITUDE_f, alpha, gamma_s);
+
+            float ctheta = incidenceFactor(alpha, gamma_s, tilt, azimut);
+            float G_tilt = G_eff * ctheta;
+
+            float E_h = pvEnergyPerHour(G_tilt, T_amb);
+
+            float sigma = 0.9 * (cc / 100.0) + (pr > 0.1 ? 0.3 : 0.0);
+            float E_adj = E_h * (1 - k_risk * sigma);
+
+            E_adj_hour[h] = E_adj;
+            sigma_hour[h] = sigma;
+            if (E_adj > Emax)
+                Emax = E_adj;
+
+            Serial.printf("Stunde %02d: G=%.1f, cc=%.0f%%, rain=%.2f, T=%.1f°C, "
+                          "E_h=%.3f kWh (adj=%.3f)\n",
+                          h, G, cc, pr, T_amb, E_h, E_adj);
+        }
+
+        Serial.println("\n--- Score-Bewertung ---");
+        for (int h = 0; h < 24; h++)
+        {
+            float Sh = computeScore(E_adj_hour[h], Emax, sigma_hour[h], h);
+            Serial.printf("Stunde %02d: E_adj=%.3f kWh, σ=%.2f, Score=%.2f",
+                          h, E_adj_hour[h], sigma_hour[h], Sh);
+            if (Sh > 0.5)
+                Serial.print(" -> Laden empfohlen!");
+            Serial.println();
+        }
+    }
+    else
+    {
+        Serial.println("JSON Fehler in wheater_ladestrategie");
+        LOG_ERROR("wheather:wheater_ladestrategie JSON Fehler");
     }
 }
 

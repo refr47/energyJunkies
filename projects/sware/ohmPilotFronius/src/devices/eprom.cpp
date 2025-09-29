@@ -231,9 +231,9 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
     LOG_DEBUG("eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
 
-    setup.heizstab_leistung_in_watt = 5000;
+    setup.heizstab_leistung_in_watt = 4500;
     setup.tempMaxAllowedInGrad = 60;
-    setup.tempMinInGrad = 30;
+    setup.tempMinInGrad = 20;
     strcpy(setup.inverter, "10.0.0.22");
 
     setup.externerSpeicher = true;
@@ -256,12 +256,12 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     /* strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="); */
     strcpy(setup.influxToken, "---");
 
-    strcpy(setup.amisReaderHost, "10.0.0.21");
+    strcpy(setup.amisReaderHost, "192.168.178.45");
     /*
         setup.ipAmisReaderHost = ipv4_string_to_int(setup.amisReaderHost, &result);
         if (!result)
             DBGf("IP translate did not succeed."); */
-    strncpy(setup.amisKey, "ABCDFGASDFGDSAERTQWEREW§EWERQEEE", AMIS_KEY_LEN - 1);
+    strncpy(setup.amisKey, "9865888B5CC739E9F575053E7868BC34", AMIS_KEY_LEN - 1);
 
     setup.forceHeating = 0;
 

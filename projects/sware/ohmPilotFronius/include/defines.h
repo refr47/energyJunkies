@@ -83,16 +83,6 @@
 #include "huaweiDefines.h"
 #endif
 
-#ifdef WEATHER_API
-#define FORCAST_DAYS_STRING "3"
-#define FORCAST_DAYS 3
-#define HOURS_PER_DAY 24
-#define TEMPERATURE_SIZE FORCAST_DAYS *HOURS_PER_DAY
-#define SUNDAY_LIGHT_SIZE FORCAST_DAYS *HOURS_PER_DAY
-#define DAILY_VALUES_SIZE 3
-
-#endif
-
 #define DEFAULT_IP_ACCESS_POINT "192.168.4.1"
 
 #define UDP_LOCAL_PORT 5683
@@ -112,6 +102,11 @@
 
 #define SHELLY_DEVICES POOL_WPUMPE_shellyIndex + 1
 #endif
+#define TEMPERATURE_SIZE 100
+#define SUNDAY_LIGHT_SIZE 100
+#define DAILY_VALUES_SIZE 100
+// #defin
+
 typedef struct
 {
     char ssid[LEN_WLAN + 1];

@@ -44,6 +44,9 @@
 #include "energieManager.h"
 #include "hotUpdate.h"
 #include "shelly.h"
+#ifdef WEATHER_API
+#include "weather.h" // weather
+#endif               // WEATHER_API
 
 /*
 Input only pins
@@ -140,6 +143,10 @@ typedef struct _TIME_SLICE
     MAX_RECONNECTING maxReconnecting;
 
 } TIME_SLICE;
+
+#ifdef WEATHER_API
+PROGNOSE prognose;
+#endif
 
 /* ****************************************************************************
   GLOBAL VARS https://randomnerdtutorials.com/esp32-websocket-server-sensor/
@@ -263,19 +270,20 @@ void setup()
     DBGln(cpu_freq);
     uint32_t PRESCALE = 240; // for 240MHZ */
 
-    eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    //        eprom_clearLifeData();
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    //         eprom_clearLifeData();
     eprom_isInit();
 
     // ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
-    eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    eprom_test_write_Eprom("FRITZ!Box 7530 YK", "reitinger");
     eprom_getSetup(webSockData.setupData); //
     // eprom_getLifeData(lifeData);
 
     // printEprom(webSockData.setupData);
 
-    LOG_DEBUG("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-
+    /*     LOG_DEBUG("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BpIT));
+     */
     // EMPTY_VALUE_IN_SETUP= "--"
     if (strcmp(webSockData.setupData.ssid, EMPTY_VALUE_IN_SETUP) == 0)
     {
@@ -394,7 +402,8 @@ void setup()
             tft_printKeyValue("Init Sensors", "Error", TFT_RED);
         }
 #ifdef WEATHER_API
-        wheater_getForecast();
+
+        wheater_fetch(prognose);
         // wheater_print();
 #endif
         if (webSockData.states.modbusOK)
@@ -815,7 +824,9 @@ void loop()
                         #endif */
 
                         tft_drawInfo(webSockData);
+#ifdef INFLUX
                         influx_write(webSockData);
+#endif
 #ifdef MQTT
 
                         /*mqtt_publish_modbus_current_state(webSockData.mbContainer);*/

@@ -7,3 +7,4 @@ bool time_storeCurrentTime();
 bool getCurrentTime(char *buffer, const unsigned len);
 time_t time_getTimeStamp();
 char *time_currentTimeStamp();
+int time_GetDayOfYear();
