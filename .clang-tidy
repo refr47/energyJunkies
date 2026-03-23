@@ -1,0 +1,22 @@
+ Checks: >
+  4   -*,
+  5   bugprone-*,
+  6   cert-*,
+  7   clang-analyzer-*,
+  8   misc-*,
+  9   performance-*,
+ 10   portability-*,
+ 11   readability-identifier-naming,
+ 12   -readability-braces-around-statements
+ 13 
+ 14 # Detaillierte Einstellungen
+ 15 CheckOptions:
+ 16   - key:             readability-identifier-naming.VariableCase
+ 17     value:           lower_case
+ 18   - key:             readability-identifier-naming.FunctionCase
+ 19     value:           camelBack
+ 20   - key:             bugprone-sizeof-expression.WarnOnSizeOfConstant
+ 21     value:           true
+ 22 
+ 23 # Behandle Warnungen als Fehler, um den Build zu stoppen (optional)
+ 24 WarningsAsErrors: 'bugprone-*,cert-*,clang-analyzer-*'
