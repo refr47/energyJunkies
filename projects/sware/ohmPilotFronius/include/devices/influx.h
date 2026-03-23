@@ -1,6 +1,6 @@
 #pragma once
-#ifdef INFLUX
 #include "defines.h"
+#ifdef INFLUX
 
 bool influx_init(CALLBACK_GET_DATA getData);
 bool influx_write(WEBSOCK_DATA &);

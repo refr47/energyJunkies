@@ -271,7 +271,7 @@ String util_GET_Request(const char *url, int *httpResponseCode)
 
 	if (*httpResponseCode > 0)
 	{
-		LOG_DEBUG("HTTP Response code: %d", *httpResponseCode);
+		LOG_DEBUG("util::util_GET_Request() - HTTP Response code: %d", *httpResponseCode);
 		payload = http.getString();
 	}
 	else
@@ -660,9 +660,8 @@ void send_ping(int ping_sockfd,
 				else
 				{
 					printf(" % d bytes from
-							   % s(h
-								   : % s)(% s) msg_seq = % d ttl = % d rtt =
-																	   % Lf ms.\n & quot;
+							   % s(h : % s)(% s) msg_seq = % d ttl = % d rtt =
+																		 % Lf ms.\n & quot;
 						   , PING_PKT_S, ping_dom, rev_host,
 						   ping_ip, msg_count, ttl_val,
 						   rtt_msec);
@@ -681,8 +680,8 @@ void send_ping(int ping_sockfd,
 																 =\n & quot;
 																 , ping_ip);
 	printf("\n % d packets sent, % d packets received,
-			   % f percent packet loss.Total time
-		   : % Lf ms.\n\n & quot;
+				   % f percent packet loss.Total time : % Lf ms.\n\n &
+			   quot;
 		   , msg_count, msg_received_count,
 		   ((msg_count - msg_received_count) / msg_count) * 100.0,
 		   total_msec);
@@ -718,15 +717,19 @@ int main(int argc, char *argv[])
 
 	reverse_hostname = reverse_dns_lookup(ip_addr);
 	printf("\nTrying to connect to '%s' IP
-		   : % s\n & quot;
+				   : %
+				   s\n &
+			   quot;
 		   , argv[1], ip_addr);
 	printf("\nReverse Lookup domain
-		   : % s & quot;
+				   : %
+				   s &
+			   quot;
 		   , reverse_hostname);
 
 	// socket()
 	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-	if (sockfd & lt; 0)
+	if (sockfd &lt; 0)
 	{
 		printf(
 			"\nSocket file descriptor not received !!\n

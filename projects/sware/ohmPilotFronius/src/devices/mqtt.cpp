@@ -1,9 +1,10 @@
+#include "mqtt.h"
 
 #ifdef MQTT
 
 #include <PubSubClient.h>
 #include <WiFi.h>
-#include "mqtt.h"
+
 #include "debugConsole.h"
 
 // Add your MQTT Broker IP address, example:
@@ -153,7 +154,7 @@ static void reconnect()
             Serial.println("connected");
             // Once connected, publish an announcement...
             client.publish("message/greetings", "Hi!");
-            reconnectTries=0;
+            reconnectTries = 0;
         }
         else
         {
@@ -161,7 +162,7 @@ static void reconnect()
             Serial.print(client.state());
             Serial.println(" try again in 5 seconds");
             ++reconnectTries;
-             if (reconnectTries > MAX_RECONNECT)
+            if (reconnectTries > MAX_RECONNECT)
                 return;
             // Wait 5 seconds before retrying
             delay(5000);
@@ -193,4 +194,8 @@ void callback(char *topic, byte *payload, unsigned int length)
     }
 }
 
+#else
+void mqtt_publish_log(char token, const char *logM)
+{
+}
 #endif

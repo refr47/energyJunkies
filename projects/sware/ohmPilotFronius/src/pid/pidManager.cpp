@@ -247,26 +247,27 @@ void PinManager::adjustPWM()
 
 bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
 {
+    LOG_INFO("prologTemperature BEGIN");
     double boilerTemp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
-    LOG_DEBUG("pidManager::prologTemperature - prologTemperature, boilerTemp %.3f  webSockData.setupData.tempMaxAllowedInGrad %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
+    LOG_DEBUG("boilerTemp %.3f  allowed degs: %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
 
     if (boilerTemp > webSockData.setupData.tempMaxAllowedInGrad)
     {
-        LOG_DEBUG("pidManager::task - no action available, boilerTemp %.3f >= webSockData.setupData.tempMaxAllowedInGrad %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
+        LOG_DEBUG("Nothing to do, boilerTemp %.3f >= allowed degs: %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
 
         if (getStateOfDigPin(0))
         {
-            LOG_DEBUG("pidManager::task, Temperature overflow, switchOff L1");
+            LOG_DEBUG("SwitchOff L1");
             reset();
         }
         if (getStateOfDigPin(1))
         {
-            LOG_DEBUG("pidManager::task, Temperature overflow, switchOff L2");
+            LOG_DEBUG("SwitchOff L2");
             reset();
         }
         if (getStateOfAnaPin())
         {
-            LOG_DEBUG("pidManager::task, Temperature overflow, switchOff L3");
+            LOG_DEBUG("SwitchOff L3");
             reset();
         }
         webSockData.states.boilerHeating = false;
@@ -274,37 +275,40 @@ bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
 #ifdef INFLUX
         influx_write_test(storage, availableWatt);
 #endif
+        LOG_INFO("prologTemperature eXIT true");
         return true;
     }
     else if (boilerTemp < webSockData.setupData.tempMinInGrad)
     {
-        LOG_DEBUG("pidManager::prologTemperature - current boilerTemp Minimal underflow, start heating %.3f < setup min temperature is: %d", boilerTemp, webSockData.setupData.tempMinInGrad);
+        LOG_DEBUG("Current boilerTemp Minimal underflow (%d), start heating %.3f < setup min temperature is: %d", webSockData.setupData.tempMinInGrad, boilerTemp);
         webSockData.states.boilerHeating = true;
         if (!getStateOfDigPin(0))
         {
-            LOG_DEBUG("pidManager::prologTemperature, Temperature underflow, switchOnL1");
+            LOG_DEBUG("SwitchOnL1");
             switchOnL1();
         }
         if (!getStateOfDigPin(1))
         {
-            LOG_DEBUG("pidManager::prologTemperature, Temperature underflow, switchOnL2");
+            LOG_DEBUG("SwitchOnL2");
             switchOnL2();
         }
         if (!getStateOfAnaPin())
         {
-            LOG_DEBUG("pidManager::prologTemperature, Temperature underflow, switchOnAnalogOut");
+            LOG_DEBUG("SwitchOn AnalogOut");
             switchOnL3();
         }
 #ifdef INFLUX
         influx_write_test(storage, availableWatt);
 #endif
+        LOG_INFO("prologTemperature eXIT true");
         return true;
     }
     else
     {
         webSockData.states.boilerHeating = true;
-        LOG_DEBUG("pidManager::prologTemperature - (else,  boilerTemp  %.3f < tempMaxAllowedInGrad %d, !!heat!! - if energy is available", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
+        LOG_DEBUG("BoilerTemp  %.3f < tempMaxAllowedInGrad %d, !!heat!!", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
     }
+    LOG_INFO("prologTemperature eXIT false");
     return false;
 }
 bool PinManager::prologExternalBoilerSwitchHandling(WEBSOCK_DATA &webSockData)
@@ -343,7 +347,7 @@ bool PinManager::prologExternalBoilerSwitchHandling(WEBSOCK_DATA &webSockData)
 bool PinManager::task(WEBSOCK_DATA &webSockData)
 {
 
-    LOG_DEBUG("=================PID Start =======================");
+    LOG_DEBUG("PinManager::task BEGIN");
     // fetch temperature
     if (prologTemperature(webSockData))
         return true;
@@ -355,18 +359,18 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
             if (webSockData.setupData.externerSpeicherPriori == AKKU_PRIORITY_SUBORDINATED)
             {
                 availableWatt = FRONIUS.p_akku + FRONIUS.p_grid; // gird < 0: einspeisen, > 0 bezug
-                LOG_DEBUG("PidManager::froniusAPI, akku priority subordinated (nachrangig), available Watt: %.3f", availableWatt);
+                LOG_DEBUG("(Fronius) Akku priority subordinated (nachrangig), available Watt: %.3f", availableWatt);
             }
             else
             {
-                LOG_DEBUG("PidManager::froniusAPI, akku priority primary (vorrangig)available Watt: %.3f", availableWatt);
+                LOG_DEBUG("(Fronius) Akku priority primary (vorrangig)available Watt: %.3f", availableWatt);
                 availableWatt = FRONIUS.p_grid;
             }
         }
         else
         {
             availableWatt = FRONIUS.p_grid;
-            LOG_DEBUG("PidManager::froniusAPI, available Watt: %.3f", availableWatt);
+            LOG_DEBUG("(Fronius) Available Watt: %.3f", availableWatt);
         }
 
         gridWatt = FRONIUS.p_grid;
@@ -380,7 +384,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     {
         // METER_DATA.acCurrentPower < 0: export: else import
         availableWatt = gridWatt = METER_DATA.acCurrentPower; //  <0:  einspeisen, >0: Bezug
-        DBGf("pinManager, no froniusAPI: availableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
+        DBGf("No froniusAPI) AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
         /*   DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower); */
 #ifdef INFLUX
         influx_write_production(INVERTER_DATA.acCurrentPower, 0.0, METER_DATA.acCurrentPower);
@@ -391,11 +395,11 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 
     if (webSockData.states.heating != HEATING_AUTOMATIC) // no pid controller, all is forced
     {
-        LOG_DEBUG("pidManager::task: heating: %d", webSockData.states.heating);
+        LOG_DEBUG("Heating: %d", webSockData.states.heating);
 #ifdef INFLUX
         influx_write_test(storage, availableWatt);
 #endif
-
+        LOG_INFO("PinManager::task eXIT true, heating not automatic");
         return true; // nothing must be done due to overruling everything
     }
 
@@ -433,7 +437,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     else
     {
         availableWatt = getMeanOfAvailAblePower();
-        LOG_INFO("PidManager::task - Means of MAX_LEN_MEASURE-2 measures  %f", availableWatt);
+        LOG_INFO("Means of MAX_LEN_MEASURE-2 measures  %f", availableWatt);
         powerIndex = 0;
     }
 #ifdef INFLUX
@@ -445,7 +449,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 #ifdef TEST_PID_WWWW
         DBGf("ABS<20, PWM: %.3f", mAnalogOut);
 #endif
-
+        LOG_INFO("PinManager::task eXIT true, AvailableWatt < 20.0");
         return true;
     }
 
@@ -550,7 +554,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
           } */
         if (availableWatt > onePhase)
         {
-            LOG_DEBUG("3 storage - availableWatt - storage > onePhase %.3f > onePhase %.3f", availableWatt, storage);
+            LOG_DEBUG("3 Available storage (%.3f) > onePhase (%.3f)", availableWatt, storage);
             storage = addRelayStorage();
         }
         adjustPWM();
@@ -599,7 +603,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     /* if (isNegative)
         availableWatt *= -1.0; */
 
-    LOG_DEBUG("Eexit  mCurrPower (W): %.3f, storage: %.3f PWM: %.3f, Storage: %f, Dig1: %d, Dig2: %d", availableWatt, storage, mAnalogOut, getWattBoundInRelays(), this->getStateOfDigPin(0), this->getStateOfDigPin(1));
+    LOG_DEBUG("Exit task::  mCurrPower (W): %.3f, storage: %.3f PWM: %.3f, Storage: %f, Dig1: %d, Dig2: %d", availableWatt, storage, mAnalogOut, getWattBoundInRelays(), this->getStateOfDigPin(0), this->getStateOfDigPin(1));
 
 #ifdef TEST_PID_WWWW
 #ifdef INFLUX

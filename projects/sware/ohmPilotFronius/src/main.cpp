@@ -47,6 +47,7 @@
 #ifdef WEATHER_API
 #include "weather.h" // weather
 #endif               // WEATHER_API
+#include "system.h"
 
 /*
 Input only pins
@@ -248,13 +249,23 @@ void setup()
     DBG("setup start ...");
     // esp_gdbstub_init(); // GDB Stub aktivieren
     logging_init();
+#ifdef INCREASE_STACK
+    xTaskCreatePinnedToCore(
+        loopTask,   // Task-Funktion
+        "loopTask", // Name
+        8192,       // Stack-Größe erhöhen (statt 4096)
+        NULL,
+        1, // Priority
+        NULL,
+        CONFIG_ARDUINO_RUNNING_CORE);
+#endif
     LOG_INFO("Energie-Junkies -- Harvester ---");
     memset(&webSockData, 0, sizeof(WEBSOCK_DATA));
     memset(&timeSlice, 0, sizeof(TIME_SLICE));
     timeSlice.maxReconnecting.maxModbusCounter = 60000; // 1 min hat 60 secs
     bootCount++;
     LOG_DEBUG("Boot number: %d", bootCount);
-
+    system_checkStack("Setup 1 start");
     ledHandler_init();
     tft_init();
     tft_printSetup();
@@ -275,8 +286,8 @@ void setup()
     eprom_isInit();
 
     // ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
-    eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    //eprom_test_write_Eprom("FRITZ!Box 7530 YK", "reitinger");
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    // eprom_test_write_Eprom("FRITZ!Box 7530 YK", "reitinger");
     eprom_getSetup(webSockData.setupData); //
     // eprom_getLifeData(lifeData);
 
@@ -285,18 +296,21 @@ void setup()
     /*     LOG_DEBUG("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BpIT));
      */
     // EMPTY_VALUE_IN_SETUP= "--"
+
     if (strcmp(webSockData.setupData.ssid, EMPTY_VALUE_IN_SETUP) == 0)
     {
         networkCredentialsInEEprom = false;
         webSockData.states.networkOK = false;
         www_init(webSockData.setupData, NULL, NULL, getDataForWebSocket, setSetupChanged); // act as access point
     }
-
+    system_checkStack("Setup 2 wlan init");
     if (networkCredentialsInEEprom)
     {
 
         /*       char buff[130];
               memset(buff, 0, strlen(buff)); */
+        system_checkHeap("Setup 2a network init");
+        system_checkStack("Setup 2a network init");
 
         if (!wifi_init(webSockData.setupData))
         {
@@ -313,6 +327,8 @@ void setup()
         {
 
             char *pBuf = globalStringBuffer;
+            system_checkHeap("Setup 2b network init");
+            system_checkStack("Setup 2b network init");
             wifi_getLocalIP(&pBuf);
             LOG_INFO("Connected with ip: %s", globalStringBuffer);
 
@@ -320,8 +336,8 @@ void setup()
             webSockData.states.flashOK = www_init(webSockData.setupData, pBuf, webSockData.setupData.ssid, getDataForWebSocket, setSetupChanged); // do not act as apoint
             webSockData.states.networkOK = true;
         }
-
-        LOG_DEBUG("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+        system_checkHeap("Setup 3 time init");
+        system_checkStack("Setup 3 time init");
 
         tft_printKeyValue("Init Time", "OK", TFT_GREEN);
         webSockData.states.timeServer = true;
@@ -336,7 +352,9 @@ void setup()
         }
         time_currentTimeStamp();
 
-        LOG_DEBUG("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
+        system_checkHeap("Setup 4 modbus init");
+        system_checkStack("Setup 4 modbus init");
+
         LOG_INFO("Setup Modbus ...");
         webSockData.states.modbusOK = false;
         if (!mb_init(webSockData.setupData))
@@ -352,7 +370,8 @@ void setup()
             tft_printKeyValue("Init Modbus", "ok", TFT_GREEN);
         }
 
-        LOG_DEBUG("Free heap: %d largest block: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+        system_checkHeap("Setup 5 modbus init");
+        system_checkStack("Setup 5 modbus init");
 
         // memset(&webSockData.mbContainer, 0, sizeof(MB_CONTAINER));
         webSockData.states.mqtt = false;
@@ -388,8 +407,12 @@ void setup()
 #endif
         /* ESP_ERROR_CHECK(heap_trace_stop());
         heap_trace_dump(); */
-        LOG_DEBUG("Free heap: %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
+
+        system_checkHeap("Setup 6 temperature init");
+        system_checkStack("Setup 6 temperature init");
+
         webSockData.states.tempSensorOK = false;
+
         if (temp_init())
         {
 
@@ -401,8 +424,11 @@ void setup()
 
             tft_printKeyValue("Init Sensors", "Error", TFT_RED);
         }
+
 #ifdef WEATHER_API
 
+        system_checkHeap("Setup 7 weather init");
+        system_checkStack("Setup 7 weather init");
         wheater_fetch(prognose);
         // wheater_print();
 #endif
@@ -419,7 +445,8 @@ void setup()
 
 #ifdef FRONIUS_IV
         bool akkuAvailable = false;
-
+        system_checkHeap("Setup 8 fronius init");
+        system_checkStack("Setup 8 fronius init");
         /* const char *cp = webSockData.setupData.inverter;
          if (cp == NULL)
              LOG_INFO("cp is null");
@@ -460,6 +487,8 @@ void setup()
         tft_printKeyValue("Init PID-Manager", "ok", TFT_GREEN);
         pidPinManager.config(webSockData.setupData, RELAY_L1, RELAY_L2, PWM_FOR_PID);
 #ifdef INFLUX
+        system_checkHeap("Setup 9 influx init");
+        system_checkStack("Setup 9 influx init");
         webSockData.states.influx = false;
         if (influx_init(getDataForWebSocket))
         {
@@ -471,6 +500,9 @@ void setup()
 #ifdef AMIS_READER_DEV
         if (webSockData.states.froniusAPI == false && webSockData.states.modbusOK == false)
         {
+            system_checkHeap("Setup 10 amis reader init");
+            system_checkStack("Setup 10 amis reader init");
+
             if (amisReader_initRestTargets(webSockData))
             {
                 webSockData.states.amisReader = true;

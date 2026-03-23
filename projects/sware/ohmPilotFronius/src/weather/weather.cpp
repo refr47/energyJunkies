@@ -11,9 +11,11 @@
 #define HOST_NAME WEATHER_API
 #define PATH_NAME_FORECAST "/v1/forecast"
 
-#define PARAM HOST_NAME PATH_NAME_FORECAST "?latitude=" LATITUDE "&longitude=" LONGITUDE "&hourly=cloudcover,shortwave_radiation,precipitation,sunshine_duration,temperature_2m&timezone=Europe%2FVienna&forecast_days=" FORCAST_DAYS_STRING
+/* #define PARAM HOST_NAME PATH_NAME_FORECAST "?latitude=" LATITUDE "&longitude=" LONGITUDE "&hourly=cloudcover,shortwave_radiation,precipitation,sunshine_duration,temperature_2m&timezone=Europe%2FVienna&forecast_days=" FORCAST_DAYS_STRING */
 
-#define JSON_ARRAY_SIZE 25000
+const char *PARAM = "https://api.open-meteo.com/v1/forecast?latitude=48.24&longitude=13.3208&hourly=cloudcover,shortwave_radiation,precipitation,sunshine_duration,temperature_2m&timezone=Europe%2FBerlin&forecast_days=1";
+
+#define JSON_ARRAY_SIZE 8500
 
 /* "https://api.open-meteo.com/v1/forecast?"
     "latitude=48.21&longitude=16.37"
@@ -84,21 +86,27 @@ static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, Stri
 float deg2rad(float d) { return d * PI / 180.0; }
 float rad2deg(float r) { return r * 180.0 / PI; }
 
+static StaticJsonDocument<JSON_ARRAY_SIZE> doc;
+
 bool wheater_fetch(PROGNOSE &prognose)
 {
 
     int httpResponseCode = 0;
+
+    LOG_INFO("wheater::wheater_fetch BEGIN")
+
     String json_array = util_GET_Request(PARAM, &httpResponseCode);
-    LOG_INFO("wheather:wheater_getForecast URL: %s", PARAM);
+    // LOG_INFO("URL: %s", PARAM);
 
     if (httpResponseCode != 200)
     {
-        LOG_ERROR("wheather:wheater_getForecast URL: %s is not available, ResponseCode: %d", PARAM, httpResponseCode);
+        LOG_ERROR("URL: %s is not available, ResponseCode: %d", PARAM, httpResponseCode);
+        LOG_INFO("wheater_fetch eXIT false");
         return false;
     }
     Serial.println(json_array);
     // JSON Puffer (ca. 20k reicht für 2 Tage Daten)
-    StaticJsonDocument<JSON_ARRAY_SIZE> doc;
+
     DeserializationError error = deserializeJson(doc, json_array);
 
     if (error == DeserializationError::Ok)
@@ -107,11 +115,12 @@ bool wheater_fetch(PROGNOSE &prognose)
     }
     else
     {
-        Serial.print("JSON Fehler: ");
-        Serial.println(error.c_str());
-        LOG_ERROR("wheather:wheater_getForecast JSON Fehler: %s", error.c_str());
+        LOG_DEBUG("wheater_fetch::JSON Fehler: %s", error.c_str());
+        LOG_INFO("wheater_fetch eXIT false");
+
         return false;
     }
+    LOG_INFO("wheater_fetch eXIT true");
     return true;
 }
 
@@ -229,9 +238,9 @@ static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, Stri
             if (E_adj > Emax)
                 Emax = E_adj;
 
-            Serial.printf("Stunde %02d: G=%.1f, cc=%.0f%%, rain=%.2f, T=%.1f°C, "
+            /* Serial.printf("Stunde %02d: G=%.1f, cc=%.0f%%, rain=%.2f, T=%.1f°C, "
                           "E_h=%.3f kWh (adj=%.3f)\n",
-                          h, G, cc, pr, T_amb, E_h, E_adj);
+                          h, G, cc, pr, T_amb, E_h, E_adj); */
         }
 
         Serial.println("\n--- Score-Bewertung ---");
@@ -247,7 +256,7 @@ static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, Stri
     }
     else
     {
-        Serial.println("JSON Fehler in wheater_ladestrategie");
+        //Serial.println("JSON Fehler in wheater_ladestrategie");
         LOG_ERROR("wheather:wheater_ladestrategie JSON Fehler");
     }
 }

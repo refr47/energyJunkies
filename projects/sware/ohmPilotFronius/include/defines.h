@@ -266,6 +266,7 @@ typedef struct
     ERROR_CONTAINER *errorContainer;
     bool valid;
 } ALL_SHELLY_DEVICES;
+
 typedef struct _WEBSOCK
 {
     MB_CONTAINER mbContainer;
