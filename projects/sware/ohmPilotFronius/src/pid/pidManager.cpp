@@ -449,7 +449,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
 #ifdef TEST_PID_WWWW
         DBGf("ABS<20, PWM: %.3f", mAnalogOut);
 #endif
-        LOG_INFO("PinManager::task eXIT true, AvailableWatt < 20.0");
+        LOG_INFO("PinManager::task eXIT true, AvailableWatt: %.3f < 20.0", availableWatt);
         return true;
     }
 
@@ -547,12 +547,12 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
           {
               DBGf("1 availableWatt < storage: %.3f", storage);
               if (storage > 0.0)
-              {
+              { 
                   storage = reduceRelayStorage(storage);
                   DBGf("2 storage - availableWatt %.3f > onePhase %.3f", availableWatt, storage);
               }
           } */
-        if (availableWatt > onePhase)
+        if (availableWatt > onePhase) 
         {
             LOG_DEBUG("3 Available storage (%.3f) > onePhase (%.3f)", availableWatt, storage);
             storage = addRelayStorage();
@@ -581,7 +581,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
                     DBGf("PidManager:: >  0,mCurrentPower >= onePhase: L %d active", i);
                 }
             }
-            
+
             if (availableWatt < onePhase && mAnalogOut < 254)
             {
                 DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * availableWatt / onePhase);

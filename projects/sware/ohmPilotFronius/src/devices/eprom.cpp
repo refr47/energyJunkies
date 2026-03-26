@@ -134,7 +134,7 @@ void eprom_isInit()
     if (preferences.getString(_SSID, "") == NULL)
     {
         LOG_INFO("epeprom_rom_isInit - flash hasn't been used never before ! - reinit ");
-        eprom_test_write_Eprom("", "");
+        eprom_test_write_Eprom("Milchbehaelter", "47754775");
     }
     else
     {

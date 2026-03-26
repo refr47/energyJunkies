@@ -98,10 +98,21 @@ void serviceNetworkSupervisor()
         esp_err_t result = esp_wifi_sta_get_rssi(&rssi);
         if (result == ESP_OK)
         {
-            LOG_INFO("Network OK, SSID: %s, IP: %s, RSSI: %d",
+            long saldo = 0;
+            char *amisReaderHost = NULL;
+            if (g_app.webSockData.states.amisReader) {
+                amisReaderHost = g_app.webSockData.setupData.amisReaderHost;
+                saldo = g_app.webSockData.amisReader.saldo;
+            } else {
+                amisReaderHost = "0.0.0.0";
+            }
+
+            LOG_INFO("Network OK, SSID: %s, IP: %s, RSSI: %d, AmisReader: %s Saldo: %ld",
                      g_app.webSockData.setupData.ssid,
                      g_app.webSockData.setupData.currentIP,
-                     rssi);
+                     rssi,
+                     amisReaderHost,
+                     saldo);
         }
         g_app.webSockData.states.networkOK = true;
 #ifdef MQTT
@@ -279,6 +290,7 @@ void serviceEnergy()
             g_app.webSockData.mbContainer.inverterSumValues.data.dcCurrentPower = 0.0;
             g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyExp = g_app.webSockData.amisReader.absolutExportInkWh;
             g_app.webSockData.mbContainer.meterValues.data.acCurrentPower = g_app.webSockData.amisReader.saldo;
+            LOG_INFO("AMIS reader OK, Saldo: %ld, ", g_app.webSockData.amisReader.saldo);
         }
         else
         {
