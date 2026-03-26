@@ -207,7 +207,7 @@ void setup()
     logReader_init();
     createAppTasks();
     LOG_INFO("Setup done - RTOS tasks started");
-}
+}  
 
 void loop()
 {

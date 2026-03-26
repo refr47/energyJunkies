@@ -581,6 +581,7 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
                     DBGf("PidManager:: >  0,mCurrentPower >= onePhase: L %d active", i);
                 }
             }
+            
             if (availableWatt < onePhase && mAnalogOut < 254)
             {
                 DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * availableWatt / onePhase);
