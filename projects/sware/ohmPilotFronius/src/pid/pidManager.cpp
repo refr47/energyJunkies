@@ -320,7 +320,7 @@ bool PinManager::prologExternalBoilerSwitchHandling(WEBSOCK_DATA &webSockData)
             // p_load < 0 implies: consumtion of watt and if
             // storage+mAnalogOut + current consumption > 0: hardware bimetal
             // temperature of boiler switched off
-            if (FRONIUS.p_load + storage + mAnalogOut > 0.0)
+            if (webSockData.fronius_SOLAR_POWERFLOW.p_load + storage + mAnalogOut > 0.0)
             {
 
 
@@ -354,40 +354,40 @@ bool PinManager::task(WEBSOCK_DATA &webSockData)
     // prologExternalBoilerSwitchHandling(webSockData);
     if (webSockData.states.froniusAPI)
     {
-        if (FRONIUS.p_akku < 20.0)
+        if (webSockData.fronius_SOLAR_POWERFLOW.p_akku < 20.0)
         { // <0: laden, >0 entladen
             if (webSockData.setupData.externerSpeicherPriori == AKKU_PRIORITY_SUBORDINATED)
             {
-                availableWatt = FRONIUS.p_akku + FRONIUS.p_grid; // gird < 0: einspeisen, > 0 bezug
+                availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_grid; // gird < 0: einspeisen, > 0 bezug
                 LOG_DEBUG("(Fronius) Akku priority subordinated (nachrangig), available Watt: %.3f", availableWatt);
             }
             else
             {
                 LOG_DEBUG("(Fronius) Akku priority primary (vorrangig)available Watt: %.3f", availableWatt);
-                availableWatt = FRONIUS.p_grid;
+                availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
             }
         }
         else
         {
-            availableWatt = FRONIUS.p_grid;
+            availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
             LOG_DEBUG("(Fronius) Available Watt: %.3f", availableWatt);
         }
 
-        gridWatt = FRONIUS.p_grid;
+        gridWatt = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
         /*   DBGf("fronisAPI: availableWatt: %.3f, gridWatt: %.3f, store: %.3f", availableWatt, gridWatt, getWattBoundInRelays());
-          DBGf("fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load); */
+          DBGf("fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", webSockData.fronius_SOLAR_POWERFLOW.p_pv, webSockData.fronius_SOLAR_POWERFLOW.p_akku, webSockData.fronius_SOLAR_POWERFLOW.p_load); */
 #ifdef INFLUX
-        influx_write_production(FRONIUS.p_pv, FRONIUS.p_akku, FRONIUS.p_load);
+        influx_write_production(webSockData.fronius_SOLAR_POWERFLOW.p_pv, webSockData.fronius_SOLAR_POWERFLOW.p_akku, webSockData.fronius_SOLAR_POWERFLOW.p_load);
 #endif
     }
     else
     {
-        // METER_DATA.acCurrentPower < 0: export: else import
-        availableWatt = gridWatt = METER_DATA.acCurrentPower; //  <0:  einspeisen, >0: Bezug
+        // gwebSockData.mbContainer.meterValues.data.acCurrentPower < 0: export: else import
+        availableWatt = gridWatt = webSockData.mbContainer.meterValues.data.acCurrentPower; //  <0:  einspeisen, >0: Bezug
         DBGf("No froniusAPI) AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
-        /*   DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", INVERTER_DATA.acCurrentPower, METER_DATA.acCurrentPower); */
+        /*   DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", webSockData.mbContainer.inverterSumValues.data.acCurrentPower, webSockData.mbContainer.meterValues.data.acCurrentPower); */
 #ifdef INFLUX
-        influx_write_production(INVERTER_DATA.acCurrentPower, 0.0, METER_DATA.acCurrentPower);
+        influx_write_production(webSockData.mbContainer.inverterSumValues.data.acCurrentPower, 0.0, webSockData.mbContainer.meterValues.data.acCurrentPower);
 #endif
     }
     // reduce available watts if energy need not consumed by heating

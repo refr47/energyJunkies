@@ -1,547 +1,751 @@
 #include "ajaxCalls.h"
+
+#include <Arduino.h>
+#include <WiFi.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
+
 #include "eprom.h"
 #include "utils.h"
 #include "shelly.h"
 
-/*
-    *******************  PROTOTYPES
+#ifndef SHELLY_SCAN_MAX_DEVICES
+#define SHELLY_SCAN_MAX_DEVICES 254
+#endif
 
-*/
+#ifndef SHELLY_JSON_BUFFER_LEN
+#define SHELLY_JSON_BUFFER_LEN 8192
+#endif
 
-static CALLBACK_GET_DATA webSockData = NULL;
-static CALLBACK_SET_SETUP_CHANGED setupChanged = NULL;
+#ifndef AJAX_MUTEX_TIMEOUT_MS
+#define AJAX_MUTEX_TIMEOUT_MS 2000
+#endif
 
-static void returnFromStoreSetup(bool inputCorrect, StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data, AsyncWebServerRequest *request);
+static CALLBACK_GET_DATA g_getDataCallback = nullptr;
+static CALLBACK_SET_SETUP_CHANGED g_setSetupChangedCallback = nullptr;
+
+static SemaphoreHandle_t g_ajaxMutex = nullptr;
+static SemaphoreHandle_t g_shellyMutex = nullptr;
+
+static TaskHandle_t g_shellyTaskHandle = nullptr;
+static volatile bool g_shellyScanRunning = false;
+static volatile bool g_shellyScanDone = false;
+
+/* letzter Snapshot des Shelly-Scans */
+static char g_shellyJsonCache[SHELLY_JSON_BUFFER_LEN] = {0};
+
+/* ---------- private helpers ---------- */
+
+static void ajaxCalls_ensureInitPrimitives();
+static bool ajaxCalls_lock(SemaphoreHandle_t mutex, TickType_t timeoutTicks);
+static void ajaxCalls_unlock(SemaphoreHandle_t mutex);
+
+static void returnFromStoreSetup(bool inputCorrect,
+                                 StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data,
+                                 AsyncWebServerRequest *request);
+
+static const char *safeJsonString(const JsonObject &obj, const char *key);
+static void safeCopy(char *dest, size_t destSize, const char *src);
+
+static void delayedRestartTask(void *parameter);
+static void shellyScanTask(void *parameter);
+
+static void fillShellyJsonObj(const ALL_SHELLY_DEVICES &data, JsonArray &array);
+static void fillShellyJsonObjWithErrorMsg(const ALL_SHELLY_DEVICES &data, JsonArray &array);
+
+/* ---------- init ---------- */
 
 void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupCh)
 {
-    webSockData = getData;
-    setupChanged = setupCh;
+    ajaxCalls_ensureInitPrimitives();
+
+    if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
+    {
+        LOG_ERROR("ajaxCalls_init - mutex lock failed");
+        return;
+    }
+
+    g_getDataCallback = getData;
+    g_setSetupChangedCallback = setupCh;
+
+    ajaxCalls_unlock(g_ajaxMutex);
 }
 
-static void handleGetSetup(AsyncWebServerRequest *request);
-
-static void fillJsonObj(ALL_SHELLY_DEVICES &data, JsonArray &array)
+static void ajaxCalls_ensureInitPrimitives()
 {
+    if (g_ajaxMutex == nullptr)
+    {
+        g_ajaxMutex = xSemaphoreCreateMutex();
+    }
+
+    if (g_shellyMutex == nullptr)
+    {
+        g_shellyMutex = xSemaphoreCreateMutex();
+    }
+
+    if (g_shellyJsonCache[0] == '\0')
+    {
+        strncpy(g_shellyJsonCache,
+                "{\"done\":0,\"error\":\"scan not started\",\"DATA\":[]}",
+                sizeof(g_shellyJsonCache) - 1);
+        g_shellyJsonCache[sizeof(g_shellyJsonCache) - 1] = '\0';
+    }
+}
+
+static bool ajaxCalls_lock(SemaphoreHandle_t mutex, TickType_t timeoutTicks)
+{
+    if (mutex == nullptr)
+    {
+        return false;
+    }
+    return xSemaphoreTake(mutex, timeoutTicks) == pdTRUE;
+}
+
+static void ajaxCalls_unlock(SemaphoreHandle_t mutex)
+{
+    if (mutex != nullptr)
+    {
+        xSemaphoreGive(mutex);
+    }
+}
+
+/* ---------- helpers ---------- */
+
+static const char *safeJsonString(const JsonObject &obj, const char *key)
+{
+    return obj[key] | "";
+}
+
+static void safeCopy(char *dest, size_t destSize, const char *src)
+{
+    if (dest == nullptr || destSize == 0)
+    {
+        return;
+    }
+
+    if (src == nullptr)
+    {
+        dest[0] = '\0';
+        return;
+    }
+
+    strncpy(dest, src, destSize - 1);
+    dest[destSize - 1] = '\0';
+}
+
+static void fillShellyJsonObj(const ALL_SHELLY_DEVICES &data, JsonArray &array)
+{
+    if (data.shellyDevice == nullptr)
+    {
+        return;
+    }
+
     JsonObject object1 = array.createNestedObject();
     object1["IP"] = data.shellyDevice->ip;
     object1["PORT"] = data.shellyDevice->port;
     object1["NAME"] = data.shellyDevice->name;
 }
-static void fillJsonObjWithErrorMsg(ALL_SHELLY_DEVICES &data, JsonArray &array)
+
+static void fillShellyJsonObjWithErrorMsg(const ALL_SHELLY_DEVICES &data, JsonArray &array)
 {
+    if (data.errorContainer == nullptr)
+    {
+        return;
+    }
+
     JsonObject object1 = array.createNestedObject();
     object1["ERROR"] = data.errorContainer->errorMessage;
 }
 
-void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request)
-{
-    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> doc;
-    JsonArray array = doc["DATA"].to<JsonArray>();
+/* ---------- restart task ---------- */
 
-    ALL_SHELLY_DEVICES *allDevices = (ALL_SHELLY_DEVICES *)calloc(1, sizeof(ALL_SHELLY_DEVICES) * 254);
-    if (allDevices == NULL)
+static void delayedRestartTask(void *parameter)
+{
+    const uint32_t delayMs = parameter == nullptr ? 1000U : *((uint32_t *)parameter);
+    if (parameter != nullptr)
     {
+        free(parameter);
+    }
+
+    LOG_INFO("delayedRestartTask - restart in %lu ms", static_cast<unsigned long>(delayMs));
+    vTaskDelay(pdMS_TO_TICKS(delayMs));
+    esp_restart();
+}
+
+/* ---------- shelly scan ---------- */
+
+bool ajaxCalls_triggerShellyScan(void)
+{
+    ajaxCalls_ensureInitPrimitives();
+
+    if (!ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
+    {
+        LOG_ERROR("ajaxCalls_triggerShellyScan - mutex lock failed");
+        return false;
+    }
+
+    if (g_shellyScanRunning)
+    {
+        ajaxCalls_unlock(g_shellyMutex);
+        LOG_INFO("ajaxCalls_triggerShellyScan - scan already running");
+        return false;
+    }
+
+    g_shellyScanRunning = true;
+    g_shellyScanDone = false;
+
+    bool created =
+        xTaskCreatePinnedToCore(
+            shellyScanTask,
+            "shellyScanTask",
+            8192,
+            nullptr,
+            1,
+            &g_shellyTaskHandle,
+            tskNO_AFFINITY) == pdPASS;
+
+    if (!created)
+    {
+        g_shellyScanRunning = false;
+        strncpy(g_shellyJsonCache,
+                "{\"done\":0,\"error\":\"cannot create shelly task\",\"DATA\":[]}",
+                sizeof(g_shellyJsonCache) - 1);
+        g_shellyJsonCache[sizeof(g_shellyJsonCache) - 1] = '\0';
+        LOG_ERROR("ajaxCalls_triggerShellyScan - task creation failed");
+    }
+
+    ajaxCalls_unlock(g_shellyMutex);
+    return created;
+}
+
+static void shellyScanTask(void *parameter)
+{
+    (void)parameter;
+    ajaxCalls_ensureInitPrimitives();
+
+    StaticJsonDocument<SHELLY_JSON_BUFFER_LEN> doc;
+    JsonArray array = doc["DATA"].to<JsonArray>();
+    doc["done"] = 0;
+    doc["error"] = "";
+
+    ALL_SHELLY_DEVICES *allDevices =
+        static_cast<ALL_SHELLY_DEVICES *>(calloc(SHELLY_SCAN_MAX_DEVICES, sizeof(ALL_SHELLY_DEVICES)));
+
+    if (allDevices == nullptr)
+    {
+        doc["done"] = 0;
+        doc["error"] = "No memory left";
+
         String response;
-        doc["ERROR"] = "No memory left";
         serializeJson(doc, response);
-        LOG_INFO("ajaxCalls::ajaxCalls_handleBuildAndGetShelly - error in allocating mem ");
-        request->send(200, "application/json", response);
+
+        if (ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
+        {
+            safeCopy(g_shellyJsonCache, sizeof(g_shellyJsonCache), response.c_str());
+            g_shellyScanRunning = false;
+            g_shellyScanDone = true;
+            g_shellyTaskHandle = nullptr;
+            ajaxCalls_unlock(g_shellyMutex);
+        }
+
+        vTaskDelete(nullptr);
         return;
     }
-    else
-    {
-        doc["ERROR"] = "N";
-    }
-    char ipVek[INET_ADDRSTRLEN];
+
+    char ipVek[INET_ADDRSTRLEN] = {0};
     String s = WiFi.localIP().toString();
-    strncpy(ipVek, s.c_str(), INET_ADDRSTRLEN);
+    safeCopy(ipVek, sizeof(ipVek), s.c_str());
 
     char *cp = strrchr(ipVek, '.');
-    if (cp == NULL)
+    if (cp == nullptr)
     {
-        DBGf("ajaxCalls_handleBuildAndGetShelly - ERROR in strrchr, cp=NULL!, vek: %s", ipVek);
+        doc["done"] = 0;
+        doc["error"] = "Internal Error";
+
         String response;
-        doc["ERROR"] = "Internal Error";
         serializeJson(doc, response);
-        LOG_INFO("ajaxCalls::ajaxCalls_handleBuildAndGetShelly - error in find iprange ");
-        request->send(200, "application/json", response);
+
+        free(allDevices);
+
+        if (ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
+        {
+            safeCopy(g_shellyJsonCache, sizeof(g_shellyJsonCache), response.c_str());
+            g_shellyScanRunning = false;
+            g_shellyScanDone = true;
+            g_shellyTaskHandle = nullptr;
+            ajaxCalls_unlock(g_shellyMutex);
+        }
+
+        vTaskDelete(nullptr);
         return;
     }
-    DBGf("ajaxCalls_handleBuildAndGetShelly, ipRange: %s strrchr: %c ", ipVek, *cp);
+
     *cp = '\0';
     char *range = ipVek;
-    DBGf("ajaxCalls_handleBuildAndGetShelly - iprange: %s", range);
-    if (!shelly_listAllDevices(allDevices, range, 254))
+
+    bool listResult = shelly_listAllDevices(allDevices, range, SHELLY_SCAN_MAX_DEVICES);
+    if (!listResult)
     {
-        DBG("Error in listAllDevices");
+        LOG_WARNING("shellyScanTask - shelly_listAllDevices returned false");
     }
-    else
+
+    for (int jj = 0; jj < SHELLY_SCAN_MAX_DEVICES; ++jj)
     {
-        DBG("Success in listAllDevices");
-        for (int jj = 0; jj < 254; jj++)
+        if (allDevices[jj].valid)
         {
-            if (allDevices[jj].valid)
+            fillShellyJsonObj(allDevices[jj], array);
+
+            if (allDevices[jj].shellyDevice != nullptr)
             {
-                DBGf("Device IP::%s Port: %d Name: %s\n", allDevices[jj].shellyDevice->ip, allDevices[jj].shellyDevice->port, allDevices[jj].shellyDevice->name);
-                // Create the first JSON object
-                fillJsonObj(allDevices[jj], array);
                 free(allDevices[jj].shellyDevice);
-            }
-            else
-            {
-                if (allDevices[jj].errorContainer)
-                {
-                    fillJsonObj(allDevices[jj], array);
-                    Serial.println(allDevices[jj].errorContainer->errorMessage);
-                    free(allDevices[jj].errorContainer);
-                }
+                allDevices[jj].shellyDevice = nullptr;
             }
         }
+        else if (allDevices[jj].errorContainer != nullptr)
+        {
+            fillShellyJsonObjWithErrorMsg(allDevices[jj], array);
+            free(allDevices[jj].errorContainer);
+            allDevices[jj].errorContainer = nullptr;
+        }
     }
-    if (allDevices != NULL)
-    {
-        free(allDevices);
-    }
-    String response;
 
+    free(allDevices);
+
+    doc["done"] = 1;
+    if (!listResult)
+    {
+        doc["error"] = "scan finished with warnings";
+    }
+
+    String response;
     serializeJson(doc, response);
-    LOG_INFO("ajaxCalls::ajaxCalls_handleBuildAndGetShelly - Done successfully ");
+
+    if (ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
+    {
+        safeCopy(g_shellyJsonCache, sizeof(g_shellyJsonCache), response.c_str());
+        g_shellyScanRunning = false;
+        g_shellyScanDone = true;
+        g_shellyTaskHandle = nullptr;
+        ajaxCalls_unlock(g_shellyMutex);
+    }
+
+    LOG_INFO("shellyScanTask - finished");
+    vTaskDelete(nullptr);
+}
+
+void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request)
+{
+    ajaxCalls_ensureInitPrimitives();
+
+    char response[SHELLY_JSON_BUFFER_LEN];
+
+    if (!ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
+    {
+        request->send(500, "application/json", "{\"done\":0,\"error\":\"mutex lock failed\",\"DATA\":[]}");
+        return;
+    }
+
+    safeCopy(response, sizeof(response), g_shellyJsonCache);
+
+    if (g_shellyScanRunning)
+    {
+        ajaxCalls_unlock(g_shellyMutex);
+        request->send(200, "application/json",
+                      "{\"done\":0,\"error\":\"scan running\",\"DATA\":[]}");
+        return;
+    }
+
+    ajaxCalls_unlock(g_shellyMutex);
     request->send(200, "application/json", response);
 }
 
+/* ---------- get setup ---------- */
+
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 {
-
     Setup setup;
     eprom_getSetup(setup);
+
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
-    char buff[50];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleGetSetup - begin");
+    LOG_INFO("ajaxCalls_handleGetSetup - begin");
 
     data[WLAN_ESSID] = setup.ssid;
     data[WLAN_PASSWD] = setup.passwd;
     data[IP_INVERTER] = setup.inverter;
 
-    sprintf(buff, "%d", setup.heizstab_leistung_in_watt);
-    data[HEIZSTABLEISTUNG] = buff;
-    sprintf(buff, "%d", setup.pid_powerWhichNeedNotConsumed);
-    data[EINSPEISUNG_MUSS] = buff;
+    data[HEIZSTABLEISTUNG] = setup.heizstab_leistung_in_watt;
+    data[EINSPEISUNG_MUSS] = setup.pid_powerWhichNeedNotConsumed;
+    data[MINDEST_LAUFZEIT_REGLER_KONSTANT] = setup.pid_min_time_without_contoller_inMS;
 
-    /*  sprintf(buff, "%d", setup.pid_min_time_before_switch_off_channel_inMS);
-     data[MINDEST_LAUFZEIT_DIGITALER_OUT] = buff;
-     */
-    sprintf(buff, "%d", setup.pid_min_time_without_contoller_inMS);
-    data[MINDEST_LAUFZEIT_REGLER_KONSTANT] = buff;
+    data[EXTERNER_SPEICHER] = setup.externerSpeicher ? "j" : "n";
 
-    /*   sprintf(buff, "%d", setup.pid_min_time_for_dig_output_inMS);
-      data[MINDEST_LAUFZEIT_REGLER_KONSTANT] = buff;
-    */
-    data[EXTERNER_SPEICHER] = setup.externerSpeicher ? "j'" : "n";
-    sprintf(buff, "%c", setup.externerSpeicherPriori);
-    data[EXTERNER_SPEICHER_PRIORI] = buff;
-    sprintf(buff, "%d", setup.tempMaxAllowedInGrad);
-    data[TEMP_AUSSCHALTEN] = buff;
-    sprintf(buff, "%d", setup.tempMinInGrad);
-    data[TEMP_EINSCHALT] = buff;
-    /*   mqtt*/
-    sprintf(buff, "%s", setup.mqttHost);
-    data[WWW_MQTT_HOST] = buff;
-    sprintf(buff, "%s", setup.mqttUser);
-    data[WWW_MQTT_USER] = buff;
-    sprintf(buff, "%s", setup.mqttPass);
-    data[WWW_MQTT_PASWWD] = buff;
+    char speicherPriori[2] = {setup.externerSpeicherPriori, '\0'};
+    data[EXTERNER_SPEICHER_PRIORI] = speicherPriori;
 
-    /* INflux*/
+    data[TEMP_AUSSCHALTEN] = setup.tempMaxAllowedInGrad;
+    data[TEMP_EINSCHALT] = setup.tempMinInGrad;
 
-    sprintf(buff, "%s", setup.influxHost);
-    data[WWW_INFLUX_HOST] = buff;
-    sprintf(buff, "%s", setup.influxToken);
-    data[WWW_INFLUX_TOKEN] = buff;
-    sprintf(buff, "%s", setup.influxOrg);
-    data[WWW_INFLUX_ORG] = buff;
-    sprintf(buff, "%s", setup.influxBucket);
-    data[WWW_INFLUX_BUCKET] = buff;
-    /*  amis*/
+    data[WWW_MQTT_HOST] = setup.mqttHost;
+    data[WWW_MQTT_USER] = setup.mqttUser;
+    data[WWW_MQTT_PASWWD] = setup.mqttPass;
 
-    sprintf(buff, "%s", setup.amisReaderHost);
-    data[AMIS_READER_HOST] = buff;
-    // LOG_INFO("ajaxCalls::ajaxCalls_handleGetSetup - AMIS_READER_HOST: %s", buff);
-    sprintf(buff, "%s", setup.amisKey);
-    data[AMIS_READER_KEY] = buff;
+    data[WWW_INFLUX_HOST] = setup.influxHost;
+    data[WWW_INFLUX_TOKEN] = setup.influxToken;
+    data[WWW_INFLUX_ORG] = setup.influxOrg;
+    data[WWW_INFLUX_BUCKET] = setup.influxBucket;
 
-    /*     sprintf(buff, "%.2f", setup.pid_p);
-        data[PID_P] = buff;
-        sprintf(buff, "%.2f", setup.pid_i);
-        data[PID_I] = buff;
-        sprintf(buff, "%.2f", setup.pid_d);
-        data[PID_D] = buff; */
+    data[AMIS_READER_HOST] = setup.amisReaderHost;
+    data[AMIS_READER_KEY] = setup.amisKey;
+    data[FORCE_HEIZPATRONE] = setup.forceHeating;
 
-    /*  sprintf(buff, "%.2f", setup.additionalLoad);
-     data[SIM_ADDITIONAL_LOAD] = buff; */
-    sprintf(buff, "%d", setup.forceHeating);
-    data[FORCE_HEIZPATRONE] = buff;
-
-    LOG_INFO("ajaxCalls::ajaxCalls_handleGetSetup - return ");
-    return returnFromStoreSetup(true, data, request);
+    returnFromStoreSetup(true, data, request);
 }
+
+/* ---------- overview ---------- */
 
 void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 {
-    char formatBuffer[100] = "";
-    WEBSOCK_DATA webSockD = webSockData();
+    ajaxCalls_ensureInitPrimitives();
+
+    if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
+    {
+        request->send(500, "application/json", "{\"done\":0,\"error\":\"mutex lock failed\"}");
+        return;
+    }
+
+    CALLBACK_GET_DATA localGetData = g_getDataCallback;
+    ajaxCalls_unlock(g_ajaxMutex);
+
+    if (localGetData == nullptr)
+    {
+        request->send(500, "application/json", "{\"done\":0,\"error\":\"callback not initialized\"}");
+        return;
+    }
+
+    WEBSOCK_DATA webSockD = localGetData();
+
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
-    // char buff[50]   ;
-    LOG_INFO("ajaxCalls::ajaxCalls_handleGetOverview - begin");
+    char formatBuffer[100] = {0};
 
     data[WWW_FRONIUS] = webSockD.states.froniusAPI;
-    // sprintf(buff,"%s",webSockD.setupData.inverter);
-    if (webSockD.states.froniusAPI)
-    {
-        data[WWW_FRONIUS_IP] = webSockD.setupData.inverter;
-    }
-    else
-    {
-        data[WWW_FRONIUS_IP] = "";
-    }
+    data[WWW_FRONIUS_IP] = webSockD.states.froniusAPI ? webSockD.setupData.inverter : "";
+
     data[WWW_AMIS] = webSockD.states.amisReader;
-    if (webSockD.states.amisReader)
-    {
-        data[WWW_AMIS_IP] = webSockD.setupData.amisReaderHost;
-    }
-    else
-    {
-        data[WWW_AMIS_IP] = "";
-    }
+    data[WWW_AMIS_IP] = webSockD.states.amisReader ? webSockD.setupData.amisReaderHost : "";
+
     data[WWW_CARDREADER] = webSockD.states.cardWriterOK;
     data[WWW_AKKU] = webSockD.setupData.externerSpeicher;
-    if (webSockD.setupData.externerSpeicher)
-        data[WWW_AKKU_KAPA] = webSockD.fronius_SOLAR_POWERFLOW.p_akku;
-    else
-    {
-        data[WWW_AKKU_KAPA] = 0.0;
-    }
+    data[WWW_AKKU_KAPA] = webSockD.setupData.externerSpeicher ? webSockD.fronius_SOLAR_POWERFLOW.p_akku : 0.0;
 
     data[WWW_FLASH] = webSockD.states.flashOK;
     data[WWW_INFLUX] = webSockD.states.influx;
-    if (webSockD.states.influx)
-    {
-        data[WWW_INFLUX_IP] = webSockD.setupData.influxHost;
-    }
-    else
-    {
-        data[WWW_INFLUX_IP] = "";
-    }
-    data[WWW_MODBUS] = webSockD.states.modbusOK;
+    data[WWW_INFLUX_IP] = webSockD.states.influx ? webSockD.setupData.influxHost : "";
 
-    if (webSockD.states.modbusOK)
-    {
-        data[WWW_MODBUS_IP] = webSockD.setupData.inverter;
-    }
-    else
-    {
-        data[WWW_MODBUS_IP] = "";
-    }
+    data[WWW_MODBUS] = webSockD.states.modbusOK;
+    data[WWW_MODBUS_IP] = webSockD.states.modbusOK ? webSockD.setupData.inverter : "";
 
     data[WWW_MQTT] = webSockD.states.mqtt;
-    if (webSockD.states.mqtt)
-    {
-        data[WWW_MQTT_IP] = webSockD.setupData.mqttHost;
-    }
-    else
-    {
-        data[WWW_MQTT_IP] = "";
-    }
+    data[WWW_MQTT_IP] = webSockD.states.mqtt ? webSockD.setupData.mqttHost : "";
+
     data[WWW_TEMP_SENSOR] = webSockD.states.tempSensorOK;
+
     if (webSockD.temperature.alarm)
     {
         if (webSockD.temperature.sensor1 > 0.0 && webSockD.temperature.sensor2 > 0.0)
         {
-            sprintf(formatBuffer, "!!%.2f!!", (webSockD.temperature.sensor1 + webSockD.temperature.sensor2) / 2.0);
-            // readings[TEMP_PUFFERSPEICHER] = (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+            snprintf(formatBuffer,
+                     sizeof(formatBuffer),
+                     "!!%.2f!!",
+                     (webSockD.temperature.sensor1 + webSockD.temperature.sensor2) / 2.0);
         }
         else
         {
-            sprintf(formatBuffer, "!!%.2f %.2f", webSockD.temperature.sensor1, webSockD.temperature.sensor2);
+            snprintf(formatBuffer,
+                     sizeof(formatBuffer),
+                     "!!%.2f %.2f!!",
+                     webSockD.temperature.sensor1,
+                     webSockD.temperature.sensor2);
         }
     }
     else
     {
-        sprintf(formatBuffer, "%.2f", (webSockD.temperature.sensor1 + webSockD.temperature.sensor2) / 2.0);
+        snprintf(formatBuffer,
+                 sizeof(formatBuffer),
+                 "%.2f",
+                 (webSockD.temperature.sensor1 + webSockD.temperature.sensor2) / 2.0);
     }
+
     data[WWW_TEMP_SENSOR_VAL] = formatBuffer;
-    LOG_INFO("ajaxCalls::ajaxCalls_handleGetOverview - return ");
-
-    String response;
-
     data["done"] = 1;
     data["error"] = "";
-    LOG_INFO("ajaxCalls::returnFromStoreSetup - no errors ");
-    // eprom_storeSetup(setup);
 
+    String response;
     serializeJson(data, response);
-    LOG_INFO("ajaxCalls::returnFromStoreSetup - return ");
     request->send(200, "application/json", response);
 }
 
+/* ---------- store setup ---------- */
+
 void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus)
 {
+    ajaxCalls_ensureInitPrimitives();
 
-    UBaseType_t stackRemaining = uxTaskGetStackHighWaterMark(NULL);
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup,Freier Stack (Wörter): %d", stackRemaining);
+    UBaseType_t stackRemaining = uxTaskGetStackHighWaterMark(nullptr);
+    LOG_INFO("ajaxCalls_handleStoreSetup - free stack words: %u",
+             static_cast<unsigned>(stackRemaining));
 
-    const JsonObject &jsonObj = json.as<JsonObject>();
+    JsonObject jsonObj = json.as<JsonObject>();
     StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
-    // WEBSOCK_DATA webSockD = webSockData();
-    /* for (JsonPair keyValue : jsonObj)
-    {
-        Serial.print(keyValue.key().c_str());
-        Serial.print(", ");
-    } */
-    // char *cP = NULL;
-    Setup setup; // eprom write
 
+    Setup setup;
     memset(&setup, 0, sizeof(Setup));
-    stackRemaining = uxTaskGetStackHighWaterMark(NULL);
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup,Freier Stack (Wörter): %d", stackRemaining);
-    bool errorH = false;
 
-    const char *argument = jsonObj[WLAN_ESSID];
     int result = 0;
-    // float resultF = 0.0;
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup BEGIN - %s, %s", WLAN_ESSID, argument);
-    setupChanged(false);
+    bool ok = false;
+    const char *argument = nullptr;
 
-    // webSockD.setupData.setupChanged = false;
-    errorH = util_isFieldFilled(WLAN_ESSID, argument, data);
-    if (errorH)
-        strncpy(setup.ssid, jsonObj[WLAN_ESSID], LEN_WLAN);
-    else
-        return returnFromStoreSetup(errorH, data, request);
-    argument = jsonObj[WLAN_PASSWD];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WLAN_PASSWD, argument);
+    CALLBACK_SET_SETUP_CHANGED localSetSetupChanged = nullptr;
 
-    errorH = util_isFieldFilled(WLAN_PASSWD, argument, data);
-    if (errorH)
-        strncpy(setup.passwd, jsonObj[WLAN_PASSWD], LEN_WLAN);
-    else
-        return returnFromStoreSetup(errorH, data, request);
-
-    argument = jsonObj[IP_INVERTER];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", IP_INVERTER, argument);
-
-    errorH = util_isFieldFilled(IP_INVERTER, argument, data);
-    if (errorH)
+    if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
-        strncpy(setup.inverter, argument, INET_ADDRSTRLEN);
+        request->send(500, "application/json", "{\"done\":0,\"error\":\"mutex lock failed\"}");
+        return;
     }
-    else
-        return returnFromStoreSetup(errorH, data, request);
 
-    argument = jsonObj[HEIZSTABLEISTUNG];
+    localSetSetupChanged = g_setSetupChangedCallback;
+    ajaxCalls_unlock(g_ajaxMutex);
 
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", HEIZSTABLEISTUNG, argument);
-    errorH = util_checkParamInt(HEIZSTABLEISTUNG, argument, data, &result);
-    if (errorH)
-        setup.heizstab_leistung_in_watt = result;
-    else
-        return returnFromStoreSetup(errorH, data, request);
-
-    argument = jsonObj[EINSPEISUNG_MUSS];
-
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", EINSPEISUNG_MUSS, argument);
-    errorH = util_checkParamInt(EINSPEISUNG_MUSS, argument, data, &result);
-    if (errorH)
-        setup.pid_powerWhichNeedNotConsumed = result;
-    else
-        return returnFromStoreSetup(errorH, data, request);
-    argument = jsonObj[MINDEST_LAUFZEIT_REGLER_KONSTANT];
-
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", MINDEST_LAUFZEIT_REGLER_KONSTANT, argument);
-    errorH = util_checkParamInt(MINDEST_LAUFZEIT_REGLER_KONSTANT, argument, data, &result);
-    if (errorH)
-        setup.pid_min_time_without_contoller_inMS = result;
-    else
-        return returnFromStoreSetup(errorH, data, request);
-    argument = jsonObj[EXTERNER_SPEICHER];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", EXTERNER_SPEICHER, argument);
-    if (util_isFieldFilled(EXTERNER_SPEICHER, argument, data))
+    if (localSetSetupChanged != nullptr)
     {
-        setup.externerSpeicher = *argument == 'j' ? true : false;
+        localSetSetupChanged(false);
     }
-    else
-        return returnFromStoreSetup(errorH, data, request);
-    argument = jsonObj[EXTERNER_SPEICHER_PRIORI];
 
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", EXTERNER_SPEICHER_PRIORI, argument);
-    if (util_isFieldFilled(EXTERNER_SPEICHER_PRIORI, argument, data))
+    argument = safeJsonString(jsonObj, WLAN_ESSID);
+    ok = util_isFieldFilled(WLAN_ESSID, argument, data);
+    if (!ok)
     {
-        setup.externerSpeicherPriori = *argument; // j1|2|3
+        returnFromStoreSetup(false, data, request);
+        return;
     }
-    else
-        return returnFromStoreSetup(errorH, data, request);
+    safeCopy(setup.ssid, LEN_WLAN, argument);
 
-    argument = jsonObj[TEMP_AUSSCHALTEN];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", TEMP_AUSSCHALTEN, argument);
-    errorH = util_checkParamInt(TEMP_AUSSCHALTEN, argument, data, &result);
-    if (errorH)
-        setup.tempMaxAllowedInGrad = result;
-    else
-        return returnFromStoreSetup(errorH, data, request);
-
-    argument = jsonObj[TEMP_EINSCHALT];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", TEMP_EINSCHALT, argument);
-    errorH = util_checkParamInt(TEMP_EINSCHALT, argument, data, &result);
-    if (errorH)
-        setup.tempMinInGrad = result;
-    else
-        return returnFromStoreSetup(errorH, data, request);
-
-    /*            MQTT */
-    argument = jsonObj[WWW_MQTT_HOST];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_MQTT_HOST, argument);
-    if (strlen(argument) < 3)
-        argument = EMPTY_STRING;
-    strncpy(setup.mqttHost, jsonObj[WWW_MQTT_HOST], MQTT_HOST_LEN);
-
-    argument = jsonObj[WWW_MQTT_PASWWD];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_MQTT_PASWWD, argument);
-    if (strlen(argument) < 3)
-        argument = EMPTY_STRING;
-    strncpy(setup.mqttPass, jsonObj[WWW_MQTT_PASWWD], MQTT_PASS_LEN);
-
-    /*  errorH = util_isFieldFilled(WWW_MQTT_PASWWD, argument, data);
-     if (errorH)
-     {
-         strncpy(setup.mqttPass, jsonObj[WWW_MQTT_PASWWD], MQTT_PASS_LEN);
-     }
-     else
-         return returnFromStoreSetup(errorH, data, request); */
-
-    argument = jsonObj[WWW_MQTT_USER];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_MQTT_USER, argument);
-
-    if (strlen(argument) < 3)
-        argument = EMPTY_STRING;
-    strncpy(setup.mqttUser, jsonObj[WWW_MQTT_USER], MQTT_USER_LEN);
-
-    /*            influx */
-
-    argument = jsonObj[WWW_INFLUX_HOST];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_INFLUX_HOST, argument);
-
-    if (strlen(argument) < 3)
-        argument = EMPTY_STRING;
-    strncpy(setup.influxHost, jsonObj[WWW_INFLUX_HOST], INFLUX_HOST_LEN);
-
-    /* errorH = util_isFieldFilled(WWW_INFLUX_HOST, argument, data);
-    if (errorH)
+    argument = safeJsonString(jsonObj, WLAN_PASSWD);
+    ok = util_isFieldFilled(WLAN_PASSWD, argument, data);
+    if (!ok)
     {
-        strncpy(setup.influxHost, jsonObj[WWW_INFLUX_HOST], INFLUX_HOST_LEN);
+        returnFromStoreSetup(false, data, request);
+        return;
     }
-    else
-        return returnFromStoreSetup(errorH, data, request); */
+    safeCopy(setup.passwd, LEN_WLAN, argument);
 
-    argument = jsonObj[WWW_INFLUX_TOKEN];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_INFLUX_TOKEN, argument);
-
-    if (strlen(argument) < 3)
-        argument = EMPTY_STRING;
-    strncpy(setup.influxToken, jsonObj[WWW_INFLUX_TOKEN], INFLUX_TOKEN_LEN);
-
-    argument = jsonObj[WWW_INFLUX_ORG];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_INFLUX_ORG, argument);
-
-    if (strlen(argument) < 3)
-        argument = EMPTY_STRING;
-    strncpy(setup.influxOrg, jsonObj[WWW_INFLUX_ORG], INFLUX_ORG_LEN);
-
-    /* errorH = util_isFieldFilled(WWW_INFLUX_ORG, argument, data);
-    if (errorH)
+    argument = safeJsonString(jsonObj, IP_INVERTER);
+    ok = util_isFieldFilled(IP_INVERTER, argument, data);
+    if (!ok)
     {
-        strncpy(setup.influxOrg, jsonObj[WWW_INFLUX_ORG], INFLUX_ORG_LEN);
+        returnFromStoreSetup(false, data, request);
+        return;
     }
-    else
-        return returnFromStoreSetup(errorH, data, request); */
+    safeCopy(setup.inverter, INET_ADDRSTRLEN, argument);
 
-    argument = jsonObj[WWW_INFLUX_BUCKET];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", WWW_INFLUX_BUCKET, argument);
-
-    if (strlen(argument) < 3)
-        argument = EMPTY_STRING;
-    strncpy(setup.influxBucket, jsonObj[WWW_INFLUX_BUCKET], INFLUX_BUCKET_LEN);
-
-    argument = jsonObj[AMIS_READER_HOST];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", AMIS_READER_HOST, argument);
-    if (strlen(argument) < 3)
-        argument = EMPTY_STRING;
-    strncpy(setup.amisReaderHost, argument, INET_ADDRSTRLEN);
-
-    argument = jsonObj[AMIS_READER_KEY];
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", AMIS_READER_KEY, argument);
-    errorH = util_isFieldFilled(AMIS_READER_KEY, argument, data);
-
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup I . result -> %d", errorH);
-    if (errorH)
+    argument = safeJsonString(jsonObj, HEIZSTABLEISTUNG);
+    ok = util_checkParamInt(HEIZSTABLEISTUNG, argument, data, &result);
+    if (!ok)
     {
-
-        LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup II");
-        strncpy(setup.amisKey, jsonObj[AMIS_READER_KEY], AMIS_KEY_LEN);
+        returnFromStoreSetup(false, data, request);
+        return;
     }
-    else
-        return returnFromStoreSetup(errorH, data, request);
-#ifdef FORCE 
-    // wir nicht generiert -> label for FORCE_HEIZPATRONE
-    /*
-        argument = jsonObj[FORCE_HEIZPATRONE];
-        if (argument != NULL)
+    setup.heizstab_leistung_in_watt = result;
+
+    argument = safeJsonString(jsonObj, EINSPEISUNG_MUSS);
+    ok = util_checkParamInt(EINSPEISUNG_MUSS, argument, data, &result);
+    if (!ok)
+    {
+        returnFromStoreSetup(false, data, request);
+        return;
+    }
+    setup.pid_powerWhichNeedNotConsumed = result;
+
+    argument = safeJsonString(jsonObj, MINDEST_LAUFZEIT_REGLER_KONSTANT);
+    ok = util_checkParamInt(MINDEST_LAUFZEIT_REGLER_KONSTANT, argument, data, &result);
+    if (!ok)
+    {
+        returnFromStoreSetup(false, data, request);
+        return;
+    }
+    setup.pid_min_time_without_contoller_inMS = result;
+
+    argument = safeJsonString(jsonObj, EXTERNER_SPEICHER);
+    ok = util_isFieldFilled(EXTERNER_SPEICHER, argument, data);
+    if (!ok)
+    {
+        returnFromStoreSetup(false, data, request);
+        return;
+    }
+    setup.externerSpeicher = (argument[0] == 'j' || argument[0] == 'J');
+
+    argument = safeJsonString(jsonObj, EXTERNER_SPEICHER_PRIORI);
+    ok = util_isFieldFilled(EXTERNER_SPEICHER_PRIORI, argument, data);
+    if (!ok)
+    {
+        returnFromStoreSetup(false, data, request);
+        return;
+    }
+    setup.externerSpeicherPriori = argument[0];
+
+    argument = safeJsonString(jsonObj, TEMP_AUSSCHALTEN);
+    ok = util_checkParamInt(TEMP_AUSSCHALTEN, argument, data, &result);
+    if (!ok)
+    {
+        returnFromStoreSetup(false, data, request);
+        return;
+    }
+    setup.tempMaxAllowedInGrad = result;
+
+    argument = safeJsonString(jsonObj, TEMP_EINSCHALT);
+    ok = util_checkParamInt(TEMP_EINSCHALT, argument, data, &result);
+    if (!ok)
+    {
+        returnFromStoreSetup(false, data, request);
+        return;
+    }
+    setup.tempMinInGrad = result;
+
+    argument = safeJsonString(jsonObj, WWW_MQTT_HOST);
+    if (strlen(argument) < 3)
+    {
+        argument = EMPTY_STRING;
+    }
+    safeCopy(setup.mqttHost, MQTT_HOST_LEN, argument);
+
+    argument = safeJsonString(jsonObj, WWW_MQTT_PASWWD);
+    if (strlen(argument) < 3)
+    {
+        argument = EMPTY_STRING;
+    }
+    safeCopy(setup.mqttPass, MQTT_PASS_LEN, argument);
+
+    argument = safeJsonString(jsonObj, WWW_MQTT_USER);
+    if (strlen(argument) < 3)
+    {
+        argument = EMPTY_STRING;
+    }
+    safeCopy(setup.mqttUser, MQTT_USER_LEN, argument);
+
+    argument = safeJsonString(jsonObj, WWW_INFLUX_HOST);
+    if (strlen(argument) < 3)
+    {
+        argument = EMPTY_STRING;
+    }
+    safeCopy(setup.influxHost, INFLUX_HOST_LEN, argument);
+
+    argument = safeJsonString(jsonObj, WWW_INFLUX_TOKEN);
+    if (strlen(argument) < 3)
+    {
+        argument = EMPTY_STRING;
+    }
+    safeCopy(setup.influxToken, INFLUX_TOKEN_LEN, argument);
+
+    argument = safeJsonString(jsonObj, WWW_INFLUX_ORG);
+    if (strlen(argument) < 3)
+    {
+        argument = EMPTY_STRING;
+    }
+    safeCopy(setup.influxOrg, INFLUX_ORG_LEN, argument);
+
+    argument = safeJsonString(jsonObj, WWW_INFLUX_BUCKET);
+    if (strlen(argument) < 3)
+    {
+        argument = EMPTY_STRING;
+    }
+    safeCopy(setup.influxBucket, INFLUX_BUCKET_LEN, argument);
+
+    argument = safeJsonString(jsonObj, AMIS_READER_HOST);
+    if (strlen(argument) < 3)
+    {
+        argument = EMPTY_STRING;
+    }
+    safeCopy(setup.amisReaderHost, INET_ADDRSTRLEN, argument);
+
+    argument = safeJsonString(jsonObj, AMIS_READER_KEY);
+    ok = util_isFieldFilled(AMIS_READER_KEY, argument, data);
+    if (!ok)
+    {
+        returnFromStoreSetup(false, data, request);
+        return;
+    }
+    safeCopy(setup.amisKey, AMIS_KEY_LEN, argument);
+
+#ifdef FORCE
+    argument = safeJsonString(jsonObj, FORCE_HEIZPATRONE);
+    if (strlen(argument) > 0)
+    {
+        if (util_checkParamInt(FORCE_HEIZPATRONE, argument, data, &result))
         {
-            LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup  force_heizpatrone is null!");
+            setup.forceHeating = result;
         }
-        else
-        {
-            LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ARG: %s, VAl: %s", FORCE_HEIZPATRONE, argument);
-            errorH = util_checkParamInt(FORCE_HEIZPATRONE, argument, data, &result);
-            if (errorH)
-                setup.forceHeating = result;
-        }
-                */
+    }
 #endif
-    setupChanged(true);
 
-    // webSockD.setupData.setupChanged = true;
-    LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup ajaxCalls_handleStoreSetup END - RESTART after 10 s");
+    if (localSetSetupChanged != nullptr)
+    {
+        localSetSetupChanged(true);
+    }
+
     eprom_storeSetup(setup);
     eprom_test_read_Eprom();
-    returnFromStoreSetup(errorH, data, request);
+
+    returnFromStoreSetup(true, data, request);
+
     if (isAPModus)
     {
-        LOG_INFO("ajaxCalls::ajaxCalls_handleStoreSetup  in AP-Modus a restart is required");
-        delay(10000); // wait 10 secs
-        esp_restart();
+        uint32_t *delayMs = static_cast<uint32_t *>(malloc(sizeof(uint32_t)));
+        if (delayMs != nullptr)
+        {
+            *delayMs = 10000U;
+            BaseType_t taskOk =
+                xTaskCreatePinnedToCore(
+                    delayedRestartTask,
+                    "ajaxRestartTask",
+                    2048,
+                    delayMs,
+                    1,
+                    nullptr,
+                    tskNO_AFFINITY);
+
+            if (taskOk != pdPASS)
+            {
+                free(delayMs);
+                LOG_ERROR("ajaxCalls_handleStoreSetup - restart task creation failed");
+            }
+        }
     }
-
-    returnFromStoreSetup(errorH, data, request);
 }
-/* private functions */
 
-static void returnFromStoreSetup(bool inputCorrect, StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data, AsyncWebServerRequest *request)
+/* ---------- response helper ---------- */
+
+static void returnFromStoreSetup(bool inputCorrect,
+                                 StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data,
+                                 AsyncWebServerRequest *request)
 {
     String response;
+
     if (inputCorrect)
     {
         data["done"] = 1;
         data["error"] = "";
-        LOG_INFO("ajaxCalls:: returnFromStoreSetup - no errors ");
-        // eprom_storeSetup(setup);
+        LOG_INFO("returnFromStoreSetup - no errors");
     }
     else
     {
         data["done"] = 0;
-        LOG_ERROR("ajaxCalls::returnFromStoreSetup -  errors ");
+        if (!data.containsKey("error"))
+        {
+            data["error"] = "invalid input";
+        }
+        LOG_ERROR("returnFromStoreSetup - errors");
     }
 
     serializeJson(data, response);
-    LOG_INFO("ajaxCalls::returnFromStoreSetup - return ");
     request->send(200, "application/json", response);
 }

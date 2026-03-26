@@ -37,11 +37,11 @@
 
 #define JSON_OBJECT_SETUP_LEN 1024 /// www.cpp,
 
-#define INVERTER_DATA webSockData.mbContainer.inverterSumValues.data
-#define METER_DATA webSockData.mbContainer.meterValues.data
-#define AKKU_STATE webSockData.mbContainer.akkuState.data
-#define AKKU_STRG webSockData.mbContainer.akkuStr.data
-#define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
+// #define INVERTER_DATA g_app.webSockData.mbContainer.inverterSumValues.data
+// #define METER_DATA g_app.webSockData.mbContainer.meterValues.data
+//#define AKKU_STATE g_app.webSockData.mbContainer.akkuState.data
+//#define AKKU_STRG g_app.webSockData.mbContainer.akkuStr.data
+//#define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
 
 /* ****************** SOCKETS *****************/
 // length of ip address string
@@ -76,12 +76,8 @@
 #define MY_ESP_LOG_LEVEL ESP_DEBUG
 
 #include "debugConsole.h"
-
-#ifdef FRONIUS_IV
 #include "modbusRegister.h"
-#elif HUAWEI_IV
-#include "huaweiDefines.h"
-#endif
+
 
 #define DEFAULT_IP_ACCESS_POINT "192.168.4.1"
 
@@ -151,12 +147,16 @@ typedef struct
     float sensor1;
     float sensor2;
 } TEMPERATURE;
+
+
 typedef struct mbContainer
 {
+
     INVERTER_SUM_VALUE_t inverterSumValues;
     METER_VALUE_t meterValues;
     AKKU_STATE_VALUE_t akkuState;
     AKKU_STRG_VALUE_t akkuStr;
+   
 
 } MB_CONTAINER;
 

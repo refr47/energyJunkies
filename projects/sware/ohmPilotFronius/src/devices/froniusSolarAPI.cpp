@@ -1,5 +1,5 @@
 #include "froniusSolarAPI.h"
-#ifdef FRONIUS_IV
+
 #include "utils.h"
 #include <Arduino_JSON.h>
 #include "defines.h"
@@ -174,4 +174,3 @@ static void mapJsonValuesFronius(HTTP_REST_TARGET_t *target, char *jsonStart, WE
     }
 }
 
-#endif

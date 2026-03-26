@@ -1,5 +1,5 @@
 #pragma once
-#ifdef FRONIUS_IV
+
 
 
 #include <Arduino.h>
@@ -180,6 +180,7 @@ typedef struct
     char text[DEVICE_NAME_LEN]; // device name
 } MODBUS_READ_t;
 
+#ifdef FRONIUS_IV
 // scale values: set target to source * scale factor, number of elements
 int scaleValues(double target[], int16_t source[], SCALE_INDEX_t relation[], int count);
 

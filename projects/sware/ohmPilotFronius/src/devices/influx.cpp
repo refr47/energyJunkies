@@ -79,20 +79,20 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     {
         if (webSockData.setupData.externerSpeicher)
         {
-            energy.addField("akku", FRONIUS.p_akku);
+            energy.addField("akku", webSockData.fronius_SOLAR_POWERFLOW.p_akku);
         }
 
-        energy.addField("grid", FRONIUS.p_grid);
-        energy.addField("load", FRONIUS.p_load);
-        energy.addField("pv", FRONIUS.p_pv);
-        energy.addField("availableWatt", (FRONIUS.p_pv + FRONIUS.p_akku + FRONIUS.p_load));
+        energy.addField("grid", webSockData.fronius_SOLAR_POWERFLOW.p_grid);
+        energy.addField("load", webSockData.fronius_SOLAR_POWERFLOW.p_load);
+        energy.addField("pv", webSockData.fronius_SOLAR_POWERFLOW.p_pv);
+        energy.addField("availableWatt", (webSockData.fronius_SOLAR_POWERFLOW.p_pv + webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_load));
     }
 
 #else
-    energy.addField("grid", METER_DATA.acCurrentPower);
-    energy.addField("load", (INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower));
-    energy.addField("pv", INVERTER_DATA.acCurrentPower);
-    energy.addField("availableWatt", INVERTER_DATA.acCurrentPower + METER_DATA.acCurrentPower);
+    energy.addField("grid", webSockData.mbContainer.meterValues.data.acCurrentPower);
+    energy.addField("load", (webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower));
+    energy.addField("pv", webSockData.mbContainer.inverterSumValues.data.acCurrentPower);
+    energy.addField("availableWatt", webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower);
 #endif
     energy.addField("pwm", webSockData.pidContainer.mAnalogOut);
     energy.addField("relay1", webSockData.pidContainer.PID_PIN1);
