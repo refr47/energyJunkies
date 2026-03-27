@@ -60,8 +60,8 @@ void eprom_storeSetup(Setup &setup)
     preferences.putString(_INVERTER_IP, setup.inverter);
     preferences.putBool(_EXTERNER_SPEICHER, setup.externerSpeicher);
     preferences.putChar(_EXTERNER_SPEICHER_PRIORI, setup.externerSpeicherPriori);
-    preferences.putUInt(_PID_TARGET_POWER, setup.pid_powerWhichNeedNotConsumed);
-    preferences.putUInt(_PID_DIG_OUT_ON_DELAY_MS, setup.pid_min_time_without_contoller_inMS);
+    preferences.putUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TIME, setup.legionellenDelta);
+    preferences.putUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TEMP, setup.legionellenMaxTemp);
 
     /*  if (strlen(setup.amisReaderHost) < 3)
          ipAsInt = 0;
@@ -197,8 +197,8 @@ void eprom_getSetup(Setup &setup)
     setup.pid_i = preferences.getFloat(_PID_I);
     setup.pid_d = preferences.getFloat(_PID_D); */
 
-    setup.pid_min_time_without_contoller_inMS = preferences.getUInt(_PID_DIG_OUT_ON_DELAY_MS);
-    setup.pid_powerWhichNeedNotConsumed = preferences.getUInt(_PID_TARGET_POWER);
+    setup.legionellenDelta = preferences.getUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TIME);
+    setup.legionellenMaxTemp = preferences.getUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TEMP);
     /*   setup.pid_min_time_before_switch_off_channel_inMS = preferences.getUInt(_PID_DIG_OUT_OFF_DELAY_MS);
       setup.pid_min_time_for_dig_output_inMS = preferences.getUInt(_PID_MIN_ON_TIME_MS);
       setup.pid_powerWhichNeedNotConsumed = preferences.getUInt(_PID_TARGET_POWER);
@@ -242,10 +242,10 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
      setup.pid_i = 0.5;
      setup.pid_d = 0.01; */
 
-    setup.pid_min_time_without_contoller_inMS = 2000;
+    setup.legionellenDelta = 7UL * 24 * 3600 * 1000;
     /*  setup.pid_min_time_before_switch_off_channel_inMS = 2000;
      setup.pid_min_time_for_dig_output_inMS = 10000; */
-    setup.pid_powerWhichNeedNotConsumed = 10;
+    setup.legionellenMaxTemp = 70;
     strcpy(setup.mqttHost, EMPTY_VALUE_IN_SETUP);
     strcpy(setup.mqttPass, "MQTT_PASS");
     strcpy(setup.mqttUser, "MQTT_USER");
@@ -278,8 +278,8 @@ void printEprom(Setup &setup)
     char buffer[2000];
     memset(buffer, 0, 2000);
     LOG_DEBUG("eprom::printEprom ============================================ ");
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Influx: %s ,inverter: %s,  Controller_OUT_ON_DELAY_MS: %d   forceHeating: %d , AdditionalLoad: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.influxOrg, setup.inverter, setup.pid_min_time_without_contoller_inMS, setup.forceHeating, setup.additionalLoad, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Influx: %s ,inverter: %s,  LegionellenCheckDelta: %d   forceHeating: %d , AdditionalLoad: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.influxOrg, setup.inverter, setup.legionellenDelta, setup.forceHeating, setup.additionalLoad, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
     LOG_DEBUG("%s", buffer);
 
     // DBGf("\n==========================(%d)============================== ", strlen(buffer));

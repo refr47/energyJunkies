@@ -145,7 +145,7 @@ void serviceTemperature()
             if (!g_app.webSockData.temperature.alarm)
             {
                 LOG_ERROR("Temperature sensors failed - heater off");
-                g_app.pidPinManager.reset();
+                g_app.pinManager.reset();
                 g_app.alarmContainer.alarmTemp.alarmTemp = true;
                 g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
                 g_app.webSockData.temperature.alarm = true;
@@ -163,7 +163,7 @@ void serviceTemperature()
     if (tempAvg < g_app.webSockData.setupData.tempMinInGrad)
     {
         g_app.webSockData.states.tempUnderflow = true;
-        g_app.pidPinManager.allOn();
+        g_app.pinManager.allOn();
         LOG_INFO("Temp under minimum, heating full power");
         appUnlock();
         return;
@@ -181,7 +181,7 @@ void serviceTemperature()
         if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
         {
             LOG_ERROR("Temperature limit reached - heater off");
-            g_app.pidPinManager.reset();
+            g_app.pinManager.reset();
             g_app.alarmContainer.alarmTemp.alarmTemp = true;
             g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
             g_app.webSockData.temperature.alarm = true;
@@ -317,14 +317,14 @@ void servicePid()
     {
         if (!g_app.alarmContainer.alarmTemp.alarmTemp)
         {
-            g_app.pidPinManager.task(g_app.webSockData);
-            g_app.webSockData.pidContainer.mAnalogOut = g_app.pidPinManager.getStateOfAnaPin();
-            g_app.webSockData.pidContainer.PID_PIN1 = g_app.pidPinManager.getStateOfDigPin(0);
-            g_app.webSockData.pidContainer.PID_PIN2 = g_app.pidPinManager.getStateOfDigPin(1);
+            g_app.pinManager.update(g_app.webSockData);
+            g_app.webSockData.pidContainer.mAnalogOut = g_app.pinManager.getStateOfAnaPin();
+            g_app.webSockData.pidContainer.PID_PIN1 = g_app.pinManager.getStateOfDigPin(0);
+            g_app.webSockData.pidContainer.PID_PIN2 = g_app.pinManager.getStateOfDigPin(1);
         }
         else
         {
-            g_app.pidPinManager.reset();
+            g_app.pinManager.reset();
         }
     }
 
@@ -338,7 +338,7 @@ void serviceWeb()
 
     if (g_app.webSockData.setupData.setupChanged)
     {
-        if (!hotUpdate(g_app.webSockData, g_app.pidPinManager))
+        if (!hotUpdate(g_app.webSockData, g_app.pinManager))
         {
             appUnlock();
             delay(1000);

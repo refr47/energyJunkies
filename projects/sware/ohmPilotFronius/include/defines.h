@@ -118,9 +118,11 @@ typedef struct
 
     bool externerSpeicher;
     char externerSpeicherPriori;
-    unsigned int pid_min_time_without_contoller_inMS;
+    //unsigned int pid_min_time_without_contoller_inMS;
+    unsigned int legionellenDelta;
+    unsigned int legionellenMaxTemp;
 
-    unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
+    //unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
     // bool pidChanged;
     // unsigned int ipAmisReaderHost;
     char amisKey[AMIS_KEY_LEN + 1];

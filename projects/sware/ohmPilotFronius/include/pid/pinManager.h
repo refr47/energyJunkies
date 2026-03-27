@@ -1,0 +1,74 @@
+#pragma once
+#include <Arduino.h>
+#include "defines.h"
+
+#include <vector>
+#include <iostream>
+#include <algorithm>
+
+#define OUTPUT_MAX 255.0
+
+class PinManager
+{
+public:
+    void config(double totalPower, int l1, int l2, int pwm);
+    void update(WEBSOCK_DATA &webSockData/*, double temp, int hour*/);
+    // helper
+    void allOn();
+    int getStateOfDigPin(short pin);
+    int getStateOfAnaPin();
+    void apply(double power);
+    void reset();
+
+private:
+
+    // Hardware
+    int pinL1, pinL2, pwmPin;
+
+    // Power
+    double onePhase;
+
+    // State
+    int currentPhases = 0;
+    double currentPWM = 0;
+
+    // Relay protection
+    unsigned long lastSwitch = 0;
+    const unsigned long MIN_SWITCH = 5000;
+    const unsigned int MAX_LEN_MEASURE = 12; // hysterese, glättung 
+ 
+    // RL
+    static const int S_T = 5;
+    static const int S_P = 5;
+    static const int A = 5;
+    double Q[S_T][S_P][A];
+
+    double epsilon = 0.05;
+    double alpha = 0.1;
+
+    // Legionella
+    unsigned long lastLegionella = 0;
+    bool legionella = false;
+
+    // Config
+    const double MIN_TEMP = 45;
+    const double MAX_TEMP = 70;
+    const double LEG_TEMP = 60;
+
+    const double EPSILON_TEMP = 20.0;
+   
+
+    // Internal 
+    int tempState(double t);
+    int pvState(double p);
+    int chooseAction(int t, int pv);
+    double actionFactor(int a);
+    std::vector<double> availablePower;
+    int powerIndex;
+
+    double heaterPower();
+    double basePower(double effectivePower);
+    bool preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS);
+
+    double getMeanOfAvailAblePower();
+};

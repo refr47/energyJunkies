@@ -1,0 +1,137 @@
+// #include "PID_v1.h"
+#include "pidManager.h"
+#include "debugConsole.h"
+#include <Arduino.h>
+
+#define OUTPUT_MAX 255.0
+
+void PinManager::config(double totalPower, int l1, int l2, int pwm)
+{
+    onePhase = totalPower / 3.0;
+
+    pinL1 = l1;
+    pinL2 = l2;
+    pwmPin = pwm;
+
+    pinMode(pinL1, OUTPUT);
+    pinMode(pinL2, OUTPUT);
+    pinMode(pwmPin, OUTPUT);
+
+    reset();
+}
+void PinManager::reset()
+{
+    digitalWrite(pinL1, LOW);
+    digitalWrite(pinL2, LOW);
+    analogWrite(pwmPin, 0);
+    
+
+    currentPhases = 0;
+    currentPWM = 0;
+}
+
+int PinManager::getStateOfDigPin(short pin) {
+    if(pin == 0)
+        return digitalRead(pinL1);
+    else if(pin == 1)
+        return digitalRead(pinL2);
+    else
+        return -1;
+}
+
+int PinManager::getStateOfAnaPin()
+{
+    return (int)currentPWM;
+}
+
+void PinManager::allOn()
+{
+    digitalWrite(pinL1, HIGH);
+    digitalWrite(pinL2, HIGH);
+    analogWrite(pwmPin, OUTPUT_MAX);
+
+    currentPhases = 2;
+    currentPWM = OUTPUT_MAX;
+} 
+double PinManager::getHeaterPower()
+{
+    double power = 0;
+
+    if (digitalRead(pinL1))
+        power += onePhase;
+    if (digitalRead(pinL2))
+        power += onePhase;
+
+    power += (currentPWM / OUTPUT_MAX) * onePhase;
+
+    return power;
+}
+
+void PinManager::update(double measuredPower)
+{
+    // Netzbezug → alles aus
+    if (measuredPower >= 0)
+    {
+        reset();
+        return;
+    }
+
+    double heaterPower = getHeaterPower();
+
+    // 🔥 entscheidend
+    double effectivePower = (-measuredPower) + heaterPower;
+
+    int targetPhases = (int)(effectivePower / onePhase);
+    if (targetPhases > 2)
+        targetPhases = 2;
+
+    double remaining = effectivePower - (targetPhases * onePhase);
+
+    double targetPWM = 0;
+    if (remaining > 0)
+        targetPWM = OUTPUT_MAX * (remaining / onePhase);
+
+    applyTargets(targetPhases, targetPWM);
+}
+
+void PinManager::applyTargets(int targetPhases, double targetPWM)
+{
+    unsigned long now = millis();
+
+    // 🔒 Relais nur mit Zeitbedingung
+    if (now - lastRelaySwitch > MIN_SWITCH_TIME)
+    {
+        // Einschalten
+        if (targetPhases > currentPhases)
+        {
+            if ((targetPhases * onePhase) > ((currentPhases * onePhase) + HYST_ON))
+            {
+                currentPhases++;
+                lastRelaySwitch = now;
+            }
+        }
+
+        // Ausschalten
+        else if (targetPhases < currentPhases)
+        {
+            if (((currentPhases * onePhase) - (targetPhases * onePhase)) > HYST_OFF)
+            {
+                currentPhases--;
+                lastRelaySwitch = now;
+            }
+        }
+    }
+
+    // Relais setzen
+    digitalWrite(pinL1, currentPhases >= 1 ? HIGH : LOW);
+    digitalWrite(pinL2, currentPhases >= 2 ? HIGH : LOW);
+
+    // PWM IMMER direkt (kein Delay!)
+    currentPWM = targetPWM;
+
+    if (currentPWM > OUTPUT_MAX)
+        currentPWM = OUTPUT_MAX;
+
+    analogWrite(pwmPin, (int)currentPWM);
+}
+

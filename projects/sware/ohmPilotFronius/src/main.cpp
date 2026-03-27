@@ -19,7 +19,7 @@
 #include "utils.h"
 #include "tft.h"
 #include "eprom.h"
-#include "pidManager.h"
+#include "pinManager.h"
 #include "pin_config.h"
 #include "www.h"
 #include "temp.h"
@@ -183,11 +183,12 @@ void setup()
         }
 #endif
 
-        g_app.pidPinManager.config(
-            g_app.webSockData.setupData,
+        g_app.pinManager.config(
+           ((double)g_app.webSockData.setupData.heizstab_leistung_in_watt),
             RELAY_L1,
             RELAY_L2,
-            PWM_FOR_PID);
+            PWM_FOR_PID
+        );
 
 #ifdef INFLUX
         g_app.webSockData.states.influx = influx_init(getDataForWebSocket);
