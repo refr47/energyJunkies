@@ -28,20 +28,20 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
         case HEATING_ON_PHASE_1:
             webSockData.states.heating = HEATING_ON_PHASE_1;
             pidPinManager.reset();
-            pidPinManager.switchOnL1();
+            //pidPinManager.switchOnL1();
             break;
         case HEATING_ON_PHASE_1_2:
             webSockData.states.heating = HEATING_ON_PHASE_1_2;
             pidPinManager.reset();
-            pidPinManager.switchOnL1();
-            pidPinManager.switchOnL2();
+            //pidPinManager.switchOnL1();
+            //pidPinManager.switchOnL2();
             break;
         case HEATING_ON_PHASE_1_2_3:
             webSockData.states.heating = HEATING_ON_PHASE_1_2_3;
             pidPinManager.reset();
-            pidPinManager.switchOnL1();
-            pidPinManager.switchOnL2();
-            pidPinManager.switchOnL3();
+            //pidPinManager.switchOnL1();
+            //pidPinManager.switchOnL2();
+            //pidPinManager.switchOnL3();
             break;
         case HEATING_OFF:
             pidPinManager.reset();
@@ -66,10 +66,10 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
         webSockData.setupData.tempMaxAllowedInGrad = d.tempMaxAllowedInGrad;
         updated = true;
     }
-    if (d.pid_powerWhichNeedNotConsumed != webSockData.setupData.pid_powerWhichNeedNotConsumed)
+    if (d.legionellenDelta != webSockData.setupData.legionellenDelta)
     {
-        LOG_INFO("hotUpdate:: pid_powerWhichNeedNotConsumed changed !! - no reboot :: eprom: %d, web: %d", d.pid_powerWhichNeedNotConsumed, webSockData.setupData.pid_powerWhichNeedNotConsumed);
-        webSockData.setupData.pid_powerWhichNeedNotConsumed = d.pid_powerWhichNeedNotConsumed;
+        LOG_INFO("hotUpdate:: pid_powerWhichNeedNotConsumed changed !! - no reboot :: eprom: %d, web: %d", d.legionellenDelta, webSockData.setupData.legionellenDelta);
+        webSockData.setupData.legionellenDelta = d.legionellenDelta;
         updated = true;
     }
     if (d.tempMinInGrad != webSockData.setupData.tempMinInGrad)

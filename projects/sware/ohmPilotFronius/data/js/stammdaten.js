@@ -8,12 +8,12 @@ function createDataSet() {
     ['Heizstableistung', '1000', 'Heizstableistung in Watt'],
     ['Ausschalt_Temperatur', '80', 'Maximal erlaubte Temperatur'],
     ['Einschalt_Temperatur', '40', 'Temperatur, bei der eingeschaltet werden muss'],
-    ['Mindest_Einspeisung', '100', 'Strom, der vom Heizregler nicht verwendet werden darf (in W)'],
+    ['Legionellen Zeitdiffernz', '7', 'Zeitdifferenz für Aufheizen (Tage)'],
     ['Speicher', 'n', 'Externer Speicher steht zur Verfügung (j,n)'],
     ['Speicher_Prioritaet', '1', '1: Externer Speicher vorrangig, 2: nachrangig'],
     /*  ['Mindeslaufzeit_Digital', '2', 'Mindeslaufzeit vor einer Änderung der digitalen Ports (in ms)'],
      ['Mindeslaufzeit_Phase', '2', 'Mindeslaufzeit, in der eine Phase eingeschaltet ist (in ms)'], */
-    ['Mindeslaufzeit_Regler', '2', 'Zeitperiode, in der Änderungen vom Regler nicht berücksichtigt werden (in s)'],
+    ['Legionellen Heiztemperatur', '61', 'Temperatur für Vermeidung Legionellen (°)'],
     /* ['Ausgangsregler (P-Anteil)', '0.9', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (I-Anteil)', '0.1', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (D-Anteil)', '0.0', 'PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'], */

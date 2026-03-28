@@ -375,8 +375,8 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[IP_INVERTER] = setup.inverter;
 
     data[HEIZSTABLEISTUNG] = setup.heizstab_leistung_in_watt;
-    data[EINSPEISUNG_MUSS] = setup.pid_powerWhichNeedNotConsumed;
-    data[MINDEST_LAUFZEIT_REGLER_KONSTANT] = setup.pid_min_time_without_contoller_inMS;
+    data[LEGIONELLEN_DELTA_TIME] = setup.legionellenDelta;
+    data[LEGIONELLEN_TEMP] = setup.legionellenMaxTemp; 
 
     data[EXTERNER_SPEICHER] = setup.externerSpeicher ? "j" : "n";
 
@@ -557,23 +557,23 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     }
     setup.heizstab_leistung_in_watt = result;
 
-    argument = safeJsonString(jsonObj, EINSPEISUNG_MUSS);
-    ok = util_checkParamInt(EINSPEISUNG_MUSS, argument, data, &result);
+    argument = safeJsonString(jsonObj, LEGIONELLEN_DELTA_TIME);
+    ok = util_checkParamInt(LEGIONELLEN_DELTA_TIME, argument, data, &result);
     if (!ok)
     {
         returnFromStoreSetup(false, data, request);
         return;
     }
-    setup.pid_powerWhichNeedNotConsumed = result;
-
-    argument = safeJsonString(jsonObj, MINDEST_LAUFZEIT_REGLER_KONSTANT);
-    ok = util_checkParamInt(MINDEST_LAUFZEIT_REGLER_KONSTANT, argument, data, &result);
+    //!!setup.pid_powerWhichNeedNotConsumed = result;
+    setup.legionellenDelta = result;
+    argument = safeJsonString(jsonObj, LEGIONELLEN_TEMP);
+    ok = util_checkParamInt(LEGIONELLEN_TEMP, argument, data, &result);
     if (!ok)
     {
         returnFromStoreSetup(false, data, request);
         return;
     }
-    setup.pid_min_time_without_contoller_inMS = result;
+    setup.legionellenMaxTemp = result;
 
     argument = safeJsonString(jsonObj, EXTERNER_SPEICHER);
     ok = util_isFieldFilled(EXTERNER_SPEICHER, argument, data);
