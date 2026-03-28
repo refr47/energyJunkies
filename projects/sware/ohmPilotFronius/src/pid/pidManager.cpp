@@ -1,14 +1,16 @@
 #include "pinManager.h"
 
-void PinManager::config(double totalPower, int l1, int l2, int pwm)
+void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 {
-    onePhase = totalPower / 3.0;
-
+    onePhase = data.setupData.heizstab_leistung_in_watt / 3.0;
+    LOG_DEBUG("PinManager::config:: - Heizpatrone Leistung %.3f Watt, Epsilon: %.3f .", data.setupData.heizstab_leistung_in_watt,data.setupData.epsilonML_PinManager)
     pinL1 = l1;
     pinL2 = l2;
     pwmPin = pwm;
+    epsilon = data.setupData.epsilonML_PinManager;
 
-    pinMode(pinL1, OUTPUT);
+
+        pinMode(pinL1, OUTPUT);
     pinMode(pinL2, OUTPUT);
     pinMode(pwmPin, OUTPUT);
     legionella = false;

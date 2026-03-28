@@ -100,14 +100,14 @@ void eprom_storeSetup(Setup &setup)
      preferences.putFloat(_PID_I, setup.pid_i);
      preferences.putFloat(_PID_D, setup.pid_d); */
     // only for testing pid controller
-    preferences.putDouble(_EN_LOAD, setup.additionalLoad);
+    preferences.putDouble(_EPSILON_PIN_MANAGER, setup.epsilonML_PinManager);
     preferences.putInt(_EN_FORCE_HEATING, setup.forceHeating);
 
     preferences.end();
 }
 /* String &eprom_getInverter(Setup &setup, String &inverter)
 {
-
+EPSI
     delay(5000);
     preferences.begin(SETUP_CREDENTIALS, false);
     strcpy(setup.inverter,preferences.getString(_INVERTER_IP).c_str());
@@ -213,7 +213,7 @@ void eprom_getSetup(Setup &setup)
     strncpy(setup.influxOrg, preferences.getString(_INFLUX_ORG).c_str(), INFLUX_ORG_LEN - 1);
     strncpy(setup.influxToken, preferences.getString(_INFLUX_TOKEN).c_str(), INFLUX_TOKEN_LEN - 1);
 
-    setup.additionalLoad = preferences.getDouble(_EN_LOAD);
+    setup.epsilonML_PinManager = preferences.getDouble(_EPSILON_PIN_MANAGER);
     setup.forceHeating = preferences.getInt(_EN_FORCE_HEATING);
 
     // DBGf("eprom_getSetup() .. AmisReaderHost: %s, Key: %s", setup.amisReaderHost, setup.amisKey);
@@ -256,6 +256,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="); 
     //strcpy(setup.influxToken, "---");
     strcpy(setup.amisReaderHost, "10.0.0.21");
+    setup.epsilonML_PinManager=0.05;
     //strcpy(setup.amisReaderHost, "192.168.178.45");
     /*
         setup.ipAmisReaderHost = ipv4_string_to_int(setup.amisReaderHost, &result);
@@ -278,8 +279,8 @@ void printEprom(Setup &setup)
     char buffer[2000];
     memset(buffer, 0, 2000);
     LOG_DEBUG("eprom::printEprom ============================================ ");
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Influx: %s ,inverter: %s,  LegionellenCheckDelta: %d   forceHeating: %d , AdditionalLoad: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.influxOrg, setup.inverter, setup.legionellenDelta, setup.forceHeating, setup.additionalLoad, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Influx: %s ,inverter: %s,  LegionellenCheckDelta: %d   forceHeating: %d , Epsilon-PinManager: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.influxOrg, setup.inverter, setup.legionellenDelta, setup.forceHeating, setup.epsilonML_PinManager, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
     LOG_DEBUG("%s", buffer);
 
     // DBGf("\n==========================(%d)============================== ", strlen(buffer));

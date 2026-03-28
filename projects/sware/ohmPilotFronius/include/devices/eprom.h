@@ -23,7 +23,7 @@
 
 /* #define _PID_TEST "pT" */
 #define _EN_FORCE_HEATING "eX"
-#define _EN_LOAD "enL"
+#define _EPSILON_PIN_MANAGER "enL"
 
 #define _AMIS_READER_HOST "arH"
 #define AMIS_READER_HOST_DEFAULT "AmisReader-Host"

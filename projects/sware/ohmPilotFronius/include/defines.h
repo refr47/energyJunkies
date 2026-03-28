@@ -137,7 +137,7 @@ typedef struct
     char influxOrg[INFLUX_ORG_LEN + 1];
     char influxBucket[INFLUX_BUCKET_LEN + 1];
 
-    double additionalLoad;
+    double epsilonML_PinManager;
     int forceHeating;
     bool setupChanged;
 

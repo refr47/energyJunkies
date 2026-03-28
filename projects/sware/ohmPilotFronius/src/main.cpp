@@ -184,7 +184,7 @@ void setup()
 #endif
 
         g_app.pinManager.config(
-           ((double)g_app.webSockData.setupData.heizstab_leistung_in_watt),
+           g_app.webSockData,
             RELAY_L1,
             RELAY_L2,
             PWM_FOR_PID

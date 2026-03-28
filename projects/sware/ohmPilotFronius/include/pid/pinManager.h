@@ -12,7 +12,7 @@
 class PinManager
 {
 public:
-    void config(double totalPower, int l1, int l2, int pwm);
+    void config(WEBSOCK_DATA &data, int l1, int l2, int pwm);
     void update(WEBSOCK_DATA &webSockData/*, double temp, int hour*/);
     // helper
     void allOn();
