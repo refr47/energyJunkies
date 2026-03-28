@@ -204,7 +204,7 @@ void eprom_getSetup(Setup &setup)
       setup.pid_powerWhichNeedNotConsumed = preferences.getUInt(_PID_TARGET_POWER);
       setup.pidChanged = false; */
 
-    strncpy(setup.mL ', ' 100 ', ' Strom, qttHost, preferences.getString(_MQTT_HOST).c_str(), MQTT_HOST_LEN - 1);
+    strncpy(setup.mqttHost, preferences.getString(_MQTT_HOST).c_str(), MQTT_HOST_LEN - 1);
     strncpy(setup.mqttPass, preferences.getString(_MQTT_PASSWD).c_str(), MQTT_PASS_LEN - 1);
     strncpy(setup.mqttUser, preferences.getString(_MQTT_USER).c_str(), MQTT_USER_LEN - 1);
 

@@ -98,7 +98,7 @@ function onOpen(event) {
   console.log('Connection opened');
   $("#isConn").html("\u2714")
 }
-
+ 
 function onClose(event) {
   console.log('Connection closed');
   setTimeout(initWebSocket, 2000);

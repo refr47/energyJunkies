@@ -201,7 +201,7 @@ bool PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp,unsigned long n
 void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 {
     unsigned long now = millis();
-    double temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor1) / 2.0;
+    double temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
 
     if (preCheck(webSockData, temp,now))
         return;                                       //
@@ -217,56 +217,124 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     double effective = (-measuredPower) + heater;
 
     // deterministic baseline
-    double base = basePower(effective);
+    // 🔢 physikalisch korrekt aufteilen
+    int phases = (int)(effective / onePhase);
+    if (phases > 2)
+        phases = 2;
 
-    // RL decision
+    double remaining = effective - phases * onePhase;
+
+    // 🧠 RL beeinflusst NUR den Rest
     int ts = tempState(temp);
     int ps = pvState(measuredPower);
 
     int action = chooseAction(ts, ps);
     double factor = actionFactor(action);
 
-    double target = base * factor;
+    // 🎯 PWM-Anteil
+    double pwmPower = remaining * factor;
+
+    // 🔥 finale Leistung
+    double target = phases * onePhase + pwmPower;
 
     apply(target);
+    /*
+    Skalierte Strafe: Anstatt nur -2 zu geben, wenn Strom bezogen wird, bestrafst du hohen Bezug stärker. Das lehrt den Algorithmus, bei knapper PV-Leistung eher vorsichtig zu sein.
+
+  Sweet Spot Bonus: Der Agent bekommt eine hohe Belohnung, wenn measuredPower nahe bei 0 liegt. Das ist das Ziel: Den Hausanschluss auf 0W zu halten.
+
+  Vermeidung von Extremen: Wenn die Temperatur zu hoch wird, sinkt der Reward, sodass der Agent lernt, die Leistung rechtzeitig zu drosseln, bevor der preCheck (Sicherheit) hart abschaltet.
+    */
 
     // reward
     double reward = 0;
+    // 1. Netzbezug vermeiden (Hohe Strafe)
+    // Jedes Watt Bezug (measuredPower > 0) wird bestraft.
+    if (measuredPower > 10.0)
+    {
+        reward -= (measuredPower / 100.0); // Lineare Strafe: 500W Bezug = -5 Punkte
+    }
+    else if (measuredPower < -50.0)
+    {
+        reward += 1.0; // Bonus für echten Überschuss-Verbrauch
+    }
 
-    if (temp >= 50 && temp <= 60)
-        reward += 1;
+    // 2. Zieltemperatur halten
+    // Wir wollen zwischen 50°C und 65°C bleiben.
+    if (temp >= 50.0 && temp <= 65.0)
+    {
+        reward += 2.0; // Wohlfühlbereich für den Boiler
+    }
+    else if (temp > webSockData.setupData.tempMaxAllowedInGrad - 5.0)
+    {
+        reward -= 3.0; // Strafe, wenn wir kurz vor dem Abschalten durch Überhitzung stehen
+    }
 
-    if (measuredPower > 0)
-        reward -= 2;
+    // 3. Effizienz-Bonus (RL soll "knapp" an der Nulllinie regeln)
+    double netzDifferenz = abs(measuredPower);
+    if (netzDifferenz < 50.0)
+    {
+        reward += 5.0; // "Sweet Spot": Wir nutzen fast exakt den verfügbaren Strom
+    }
 
+    // Q-Table Update mit der Bellman-Gleichung (vereinfacht)
+    // Alpha ist deine Lernrate (z.B. 0.1)
     Q[ts][ps][action] += alpha * (reward - Q[ts][ps][action]);
 }
+
 
 /*
 ****** aPPLY
 */
 
-void PinManager::apply(double power)
+void PinManager::apply(double targetPower)
 {
-    int phases = (int)(power / onePhase);
-    if (phases > 2)
-        phases = 2;
+    unsigned long now = millis();
 
-    double rest = power - phases * onePhase;
-
-    if (millis() - lastSwitch > MIN_SWITCH)
+    // 1. TOTZONE: Wenn die Änderung zum letzten Mal minimal ist,
+    // überspringen wir die Relais-Prüfung (spart CPU und schont Logik).
+    if (abs(targetPower - lastTargetPower) < DEAD_BAND)
     {
-        digitalWrite(pinL1, phases >= 1);
-        digitalWrite(pinL2, phases >= 2);
-        lastSwitch = millis();
+        // Wir aktualisieren nur das PWM, falls nötig, aber lassen die Relais in Ruhe
+    }
+    else
+    {
+        lastTargetPower = targetPower;
     }
 
-    double pwm = 0;
-    if (rest > 0)
-        pwm = OUTPUT_MAX * (rest / onePhase);
+    // 2. RELAIS-LOGIK (mit Hysterese & Zeit-Sperre)
+    int desiredPhases = (int)(targetPower / onePhase);
+    if (desiredPhases > 2)
+        desiredPhases = 2;
 
-    currentPWM = pwm;
-    analogWrite(pwmPin, (int)pwm);
+    // Aktuellen Hardware-Zustand lesen
+    int currentActive = (digitalRead(pinL1) ? 1 : 0) + (digitalRead(pinL2) ? 1 : 0);
+
+    if (desiredPhases != currentActive && (now - lastSwitch > MIN_SWITCH))
+    {
+        // Nur schalten, wenn wir uns wirklich sicher sind
+        digitalWrite(pinL1, desiredPhases >= 1);
+        digitalWrite(pinL2, desiredPhases >= 2);
+        lastSwitch = now;
+
+        LOG_INFO("Relais-Update: %d Phasen aktiv (Soll: %.1f W)", desiredPhases, targetPower);
+    }
+
+    // 3. PWM-LOGIK (Der dynamische Ausgleich)
+    // WICHTIG: Die PWM muss immer das ausgleichen, was die Relais gerade NICHT decken.
+    double activeRelayPower = (digitalRead(pinL1) ? onePhase : 0) + (digitalRead(pinL2) ? onePhase : 0);
+    double rest = targetPower - activeRelayPower;
+
+    // Sicherheits-Begrenzung für PWM
+    if (rest < 0)
+        rest = 0;
+    if (rest > onePhase)
+        rest = onePhase;
+
+    double pwmVal = (rest / onePhase) * OUTPUT_MAX;
+
+    currentPWM = pwmVal;
+    analogWrite(pwmPin, (int)pwmVal);
 }
 /*
 ******* HELPER
@@ -318,17 +386,36 @@ void PinManager::allOn()
 }
 double PinManager::getMeanOfAvailAblePower()
 {
-
-    std::sort(availablePower.begin(), availablePower.end());
-    double sum = 0;
-    for (int jj = 1; jj < availablePower.size() - 1; jj++)
+    // 1. Fensterverwaltung: Ältesten Wert entfernen, wenn Puffer voll
+    if (availablePower.size() > MAX_LEN_MEASURE)
     {
-        sum += availablePower[jj];
+        availablePower.erase(availablePower.begin());
     }
-    // DBGf("getMeanOfAvailablePower: %.3f, length: %d", sum, availablePower.size());
 
-    double mean = static_cast<double>(sum) / (availablePower.size() - 2);
-    // DBGf("getMeanOfAvailablePower: %.3f", mean);
-    availablePower.clear();
-    return mean;
+    size_t n = availablePower.size();
+
+    // 2. Fallback: Zu wenig Daten für Ausreißer-Bereinigung
+    if (n < 3)
+    {
+        if (n == 0)
+            return 0.0;
+        double sum = 0;
+        for (double v : availablePower)
+            sum += v;
+        return sum / n;
+    }
+
+    // 3. Kopie erstellen und sortieren (wir wollen das Originalfenster nicht zerstören)
+    std::vector<double> sortedValues = availablePower;
+    std::sort(sortedValues.begin(), sortedValues.end());
+
+    // 4. Trimmed Mean: Ersten und letzten Wert ignorieren
+    double sum = 0;
+    for (size_t i = 1; i < n - 1; i++)
+    {
+        sum += sortedValues[i];
+    }
+
+    // Division durch (n - 2), da wir zwei Werte entfernt haben
+    return sum / (n - 2);
 }
