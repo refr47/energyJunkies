@@ -29,7 +29,7 @@ http://10.0.0.31/rpc/Switch.Set?id=0&on=false
 static WiFiUDP udp;
 
 static char packetBuffer[RECEIVE_BUFFER_LEN]; // Buffer for incoming packets
-static StaticJsonDocument<RECEIVE_BUFFER_LEN> doc;
+static DynamicJsonDocument doc(RECEIVE_BUFFER_LEN);
 static unsigned int shellyIndex = 0;
 static bool doListen = false;
 static unsigned int counter = 0;
@@ -95,7 +95,7 @@ bool shelly_switchOnOff(bool on, unsigned int ind)
         LOG_ERROR("shelly::switchOnOff::Waiting for response from %s\n", pShellyObjArray[shellyIndex].ip);
         return false;
     }
-    StaticJsonDocument<64> paramsDoc;
+    DynamicJsonDocument paramsDoc(64);
     JsonObject params = paramsDoc.to<JsonObject>();
     params["id"] = 0; // Relay ID
     if (!on)
@@ -168,7 +168,7 @@ static bool clearListenFlag()
 static bool sendShellyCommandWithParm(const char *method, JsonObject &params)
 {
     // Prepare the JSON payload
-    StaticJsonDocument<256> doc;
+    DynamicJsonDocument doc(256);
     doc["id"] = pShellyObjArray[shellyIndex].id; // Unique message ID
     doc["src"] = method;                         // Source name
     doc["method"] = method;
@@ -194,7 +194,7 @@ static bool sendShellyCommandWithParm(const char *method, JsonObject &params)
 static bool sendShellyCommandWithOutParm(const char *method)
 {
     // Prepare the JSON payload
-    StaticJsonDocument<256> doc;
+    DynamicJsonDocument doc(256);
     doc["id"] = pShellyObjArray[shellyIndex].id; // Unique message ID
     doc["src"] = method;                         // Source name
     doc["method"] = method;

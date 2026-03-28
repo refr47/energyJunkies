@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <mdns.h>
+#include <Update.h>
 
 #include "tft.h"
 #include "eprom.h"
@@ -134,6 +135,7 @@ static void handleSetup(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/login.html", "text/html", false);
 }
 
+#ifdef IIIIII
 bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
 {
     // Initialize SPIFFS
@@ -278,6 +280,143 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     ajaxCalls_init(webSockData, setupChanged);
     server.addHandler(webSockets_init(webSockData));
     server.begin();
+    LOG_INFO("www_init::WebServer has started successfully ....");
+    return true;
+}
+#endif
+bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
+{
+    // 1. SPIFFS Initialisierung
+    LOG_INFO("www_init::begin");
+    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
+    {
+        LOG_ERROR("www_init::SPIFFS Mount Failed");
+        return false;
+    }
+    File root = SPIFFS.open("/");
+    File file = root.openNextFile();
+    while (file)
+    {
+        LOG_INFO("SPIFFS File: %s, Size: %u\n", file.name(), file.size());
+        file = root.openNextFile();
+    }
+
+    // 2. Netzwerk-Modus (AP oder Client)
+    if (ipAddr == NULL)
+    {
+        isAPModus = true;
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP(SSID_FOR_ACCESS_POINT, DEFAULT_IP_ACCESS_POINT);
+        ipAddr = (char *)DEFAULT_IP_ACCESS_POINT;
+        strcpy(setupData.currentIP, ipAddr);
+    }
+    else
+    {
+        isAPModus = false;
+    }
+
+    // --- STATISCHE DATEIEN (Ordner-basiert) ---
+    // Das ersetzt ca. 20 einzelne server.on() Aufrufe!
+    server.serveStatic("/css/", SPIFFS, "/css/")
+        .setCacheControl("max-age=600");
+    server.serveStatic("/js/", SPIFFS, "/js/").setCacheControl("max-age=600");
+    server.serveStatic("/img/", SPIFFS, "/img/").setCacheControl("max-age=3600");
+
+    // --- HTML ROUTEN ---
+    server.on("/ping", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(200, "text/plain", "Pong"); });
+    server.on("/", HTTP_GET, handleRoot);
+    server.on("/setup", HTTP_GET, handleSetup);
+    server.on("/login", HTTP_POST, handleLogin);
+
+    // Kurze Aliase für wichtige HTML-Seiten
+    server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/about.html", "text/html"); });
+    server.on("/shelly", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/shelly.html", "text/html"); });
+    // Route für die Update-Seite (HTML)
+    server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/update.html", "text/html"); });
+    // --- LOGGING & DIAGNOSE ---
+    server.on("/serial", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(200, "text/plain", logReader_getBufferAsString()); });
+    server.on("/logOn", HTTP_GET, [](AsyncWebServerRequest *request)
+              { 
+        logReader_enDisableRedirect(true);
+        request->send(200, "text/plain", "Enabled"); });
+
+    // --- AJAX & API Schnittstellen ---
+    server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
+    server.on("/getOverview", HTTP_GET, ajaxCalls_handleGetOverview);
+    server.on("/buildAndGetShellyDevicesTree", HTTP_GET, ajaxCalls_handleBuildAndGetShelly);
+
+    // Der eigentliche Upload-Handler
+    server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request)
+              {
+    // Wird nach dem Upload aufgerufen
+    bool updateFailed = Update.hasError();
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", (updateFailed) ? "Update Failed" : "Update Success! Rebooting...");
+    response->addHeader("Connection", "close");
+    request->send(response);
+    
+    if (!updateFailed) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        esp_restart();
+    } }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
+              {
+    // Dieser Teil verarbeitet die Datenpakete (Chunks)
+    if (!index) {
+        LOG_INFO("Update Start: %s", filename.c_str());
+        // Prüfen, ob es ein Filesystem oder Firmware Update ist
+        int cmd = (filename.indexOf("spiffs") > -1) ? U_SPIFFS : U_FLASH;
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
+            Update.printError(Serial);
+        }
+    }
+    
+    if (Update.write(data, len) != len) {
+        Update.printError(Serial);
+    }
+    
+    if (final) {
+        if (Update.end(true)) {
+            LOG_INFO("Update Success: %u bytes", index + len);
+        } else {
+            Update.printError(Serial);
+        }
+    } });
+    // JSON Handler für StoreSetup (Wichtig: Heap-Dokument nutzen!)
+    AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup",
+                                                                           [](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                           {
+                                                                               ajaxCalls_handleStoreSetup(request, json, isAPModus);
+                                                                           });
+    server.addHandler(handler);
+
+    // --- FEHLER-HANDLING & AUTHENTIFIZIERUNG ---
+    server.onNotFound([](AsyncWebServerRequest *request)
+                      {
+                        String path = request->url();
+    
+    // 1. Standard-Index fix
+    if (path == "/") path = "/index.html";
+
+    // 2. Debug-Ausgabe: Was wird gesucht?
+    Serial.printf("Suche Datei: %s\n", path.c_str());
+
+    if (SPIFFS.exists(path)) {
+        request->send(SPIFFS, path);
+    } else {
+        Serial.printf("DATEI NICHT GEFUNDEN: %s\n", path.c_str());
+        request->send(404, "text/plain", "404: File Not Found on SPIFFS");
+    } });
+
+    // Initialisierung abschließen
+    ajaxCalls_init(webSockData, setupChanged);
+    server.addHandler(webSockets_init(webSockData));
+    server.begin();
+
+    LOG_INFO("WebServer started. Free Heap: %u", ESP.getFreeHeap());
     return true;
 }
 

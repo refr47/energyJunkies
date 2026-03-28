@@ -3,7 +3,7 @@
 void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 {
     onePhase = data.setupData.heizstab_leistung_in_watt / 3.0;
-    LOG_DEBUG("PinManager::config:: - Heizpatrone Leistung %.3f Watt, Epsilon: %.3f .", data.setupData.heizstab_leistung_in_watt,data.setupData.epsilonML_PinManager)
+    LOG_DEBUG("PinManager::config:: - Heizpatrone Leistung %d Watt, Epsilon: %.3f .", data.setupData.heizstab_leistung_in_watt,data.setupData.epsilonML_PinManager)
     pinL1 = l1;
     pinL2 = l2;
     pwmPin = pwm;

@@ -26,7 +26,7 @@ function createDataSet() {
     ['Influx-Token', 'Token', 'Influx-Token'],
     ['Influx-Org', 'Org', 'Influx-Org'],
     ['Influx-Bucket', 'Bucket', 'Influx-Bucket'],
-    ['SIM_Additional_Load', '0.0', 'Simulation: zusätzliche Last'],
+    ['EpsilonPin', '0.0', 'ML: Lernparameter'],
     ['Force Heizpatrone', '10', '0: Aus, |1|2|3: Ein, 10: Auto'],
   ];
 
@@ -316,23 +316,21 @@ function renewTable() {
         replace(3, data["Heizstableistung"])
         replace(4, data["Ausschalt_Temperatur"])
         replace(5, data["Einschalt_Temperatur"])
-        replace(6, data["Mindest_Einspeisung"])
+        replace(6, data["Legionellen Delta"])
         replace(7, data["Speicher"])
         replace(8, data["Speicher_Prioritaet"])
-        replace(9, data["Mindeslaufzeit_Regler"])
+        replace(9, data["Legionellen Temp"])
         replace(10, data["Amis Reader Host (TCP/IP)"])
         replace(11, data["Amis Reader Key"])
-
         replace(12, data["MQTT-Server"])
         replace(13, data["MQTT-User"])
         replace(14, data["MQTT-Password"])
-
         replace(15, data["Influx-Server"])
         replace(16, data["Influx-Token"])
         replace(17, data["Influx-Org"])
         replace(18, data["Influx-Bucket"])
 
-        replace(19, data["SIM_Additional_Load"])
+        replace(19, data["EpsilonPin"])
         replace(20, data["Force Heizpatrone"])
 
       } else {

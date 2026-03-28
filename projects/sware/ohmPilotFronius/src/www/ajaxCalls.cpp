@@ -42,7 +42,7 @@ static bool ajaxCalls_lock(SemaphoreHandle_t mutex, TickType_t timeoutTicks);
 static void ajaxCalls_unlock(SemaphoreHandle_t mutex);
 
 static void returnFromStoreSetup(bool inputCorrect,
-                                 StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data,
+                                 DynamicJsonDocument &data,
                                  AsyncWebServerRequest *request);
 
 static const char *safeJsonString(const JsonObject &obj, const char *key);
@@ -224,7 +224,7 @@ static void shellyScanTask(void *parameter)
     (void)parameter;
     ajaxCalls_ensureInitPrimitives();
 
-    StaticJsonDocument<SHELLY_JSON_BUFFER_LEN> doc;
+    DynamicJsonDocument doc(SHELLY_JSON_BUFFER_LEN);
     JsonArray array = doc["DATA"].to<JsonArray>();
     doc["done"] = 0;
     doc["error"] = "";
@@ -367,7 +367,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     Setup setup;
     eprom_getSetup(setup);
 
-    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+    DynamicJsonDocument data(JSON_OBJECT_SETUP_LEN);
     LOG_INFO("ajaxCalls_handleGetSetup - begin");
 
     data[WLAN_ESSID] = setup.ssid;
@@ -425,7 +425,7 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 
     WEBSOCK_DATA webSockD = localGetData();
 
-    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+    DynamicJsonDocument data(JSON_OBJECT_SETUP_LEN);
     char formatBuffer[100] = {0};
 
     data[WWW_FRONIUS] = webSockD.states.froniusAPI;
@@ -449,8 +449,9 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
     data[WWW_MQTT_IP] = webSockD.states.mqtt ? webSockD.setupData.mqttHost : "";
 
     data[WWW_TEMP_SENSOR] = webSockD.states.tempSensorOK;
+    data[WWW_EPSILON]=webSockD.setupData.epsilonML_PinManager;
 
-    if (webSockD.temperature.alarm)
+        if (webSockD.temperature.alarm)
     {
         if (webSockD.temperature.sensor1 > 0.0 && webSockD.temperature.sensor2 > 0.0)
         {
@@ -496,7 +497,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
              static_cast<unsigned>(stackRemaining));
 
     JsonObject jsonObj = json.as<JsonObject>();
-    StaticJsonDocument<JSON_OBJECT_SETUP_LEN> data;
+    DynamicJsonDocument data(JSON_OBJECT_SETUP_LEN);
 
     Setup setup;
     memset(&setup, 0, sizeof(Setup));
@@ -725,7 +726,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
 /* ---------- response helper ---------- */
 
 static void returnFromStoreSetup(bool inputCorrect,
-                                 StaticJsonDocument<JSON_OBJECT_SETUP_LEN> &data,
+                                 DynamicJsonDocument &data,
                                  AsyncWebServerRequest *request)
 {
     String response;

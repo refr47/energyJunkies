@@ -135,7 +135,7 @@ bool solar_get_powerflow(WEBSOCK_DATA &webSockData)
 
 static void mapJsonValuesFronius(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_DATA &webSockData)
 {
-    StaticJsonDocument<512> jsonBuffer;
+    DynamicJsonDocument jsonBuffer(512);
     LOG_ERROR("froniusSolarAPI::mapJsonValuesFronius ENTER");
 
     // DBGf("mapJsonValues   ENTER  %s", jsonStart);

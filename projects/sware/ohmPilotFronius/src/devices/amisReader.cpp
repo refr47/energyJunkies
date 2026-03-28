@@ -73,41 +73,5 @@ bool amisReader_readRestTarget(WEBSOCK_DATA &webSockData)
     /* return utils_sock_readRestTarget(webSockData, AMIS_READER_INDEX, mapJsonValues); */
 }
 
-#ifdef NNNN
-/*
-static void mapJsonValues(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_DATA &webSockData)
-{
-    StaticJsonDocument<512> jsonBuffer;
 
-    // DBGf("mapJsonValues   ENTER  %s", jsonStart);
-
-    deserializeJson(jsonBuffer, jsonStart);
-    // DBGf("mapJsonValues %s", jsonStart);
-
-    for (int i = 0; i < target->valueCount; i++)
-    {
-
-      /*   LOG_DEBUG("map, key: %s", target->mapping[i].key);
-        LOG_DEBUG("map, jsonObj: %d", jsonBuffer[target->mapping[i].key]);
- */
-switch (i)
-{
-case 0:
-    webSockData.amisReader.absolutImportInkWh = jsonBuffer[target->mapping[i].key];
-    break;
-case 1:
-    webSockData.amisReader.absolutExportInkWh = jsonBuffer[target->mapping[i].key];
-    break;
-case 2:
-    webSockData.amisReader.saldo = jsonBuffer[target->mapping[i].key];
-    break;
-default:
-    LOG_ERROR("amisReader::mapJsonValues() no mapping found for index: %d", i);
-}
-}
-
-LOG_DEBUG("mapJsonValues: Wirkleistung P+ %.3f", webSockData.amisReader.absolutImportInkWh);
-}
-*/
-#endif
 #endif

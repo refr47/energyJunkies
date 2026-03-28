@@ -10,7 +10,7 @@
 
 #define WLAN_ESSID "WLAN_ESSID"
 #define WLAN_PASSWD "WLAN_Password"
-#define IP_INVERTER "IP_Inverter"
+#define IP_INVERTER "IP_Inverter" 
 #define HEIZSTABLEISTUNG "Heizstableistung"
 #define LEGIONELLEN_DELTA_TIME "Legionellen Delta"
 #define LEGIONELLEN_TEMP "Legionellen Temp"
@@ -51,6 +51,8 @@
 #define WWW_MQTT_IP "MQIP"
 #define WWW_TEMP_SENSOR "TEMP"
 #define WWW_TEMP_SENSOR_VAL "TEMPV"
+#define WWW_EPSILON "EpsilonPin"
+
 
 void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupCh);
 

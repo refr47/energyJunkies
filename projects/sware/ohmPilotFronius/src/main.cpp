@@ -46,7 +46,8 @@
 #include "app_sync.h"
 #include "app_state.h"
 #include "app_tasks.h"
-//#include "app_tasksfroniusSolarAPI.h"
+// #include "app_tasksfroniusSolarAPI.h"
+
 
 static RTC_DATA_ATTR int bootCount = 0;
 
@@ -116,8 +117,8 @@ void setup()
     tft_printSetup();
 
     eprom_isInit();
-    //eprom_test_write_Eprom("Milchbehaelter", "47754775");
-        eprom_getSetup(g_app.webSockData.setupData);
+    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    eprom_getSetup(g_app.webSockData.setupData);
 
     if (strcmp(g_app.webSockData.setupData.ssid, EMPTY_VALUE_IN_SETUP) == 0)
     {
@@ -154,9 +155,9 @@ void setup()
         {
             g_app.secondsCounter = time_getOffset();
         }
-        g_app.webSockData.states.modbusOK=false;
+        g_app.webSockData.states.modbusOK = false;
 #ifdef FRONIUS_IV
-            g_app.webSockData.states.modbusOK = mb_init(g_app.webSockData.setupData);
+        g_app.webSockData.states.modbusOK = mb_init(g_app.webSockData.setupData);
 #endif
 #ifdef MQTT
         g_app.webSockData.states.mqtt = mqtt_init();
@@ -184,11 +185,10 @@ void setup()
 #endif
 
         g_app.pinManager.config(
-           g_app.webSockData,
+            g_app.webSockData,
             RELAY_L1,
             RELAY_L2,
-            PWM_FOR_PID
-        );
+            PWM_FOR_PID);
 
 #ifdef INFLUX
         g_app.webSockData.states.influx = influx_init(getDataForWebSocket);
@@ -208,10 +208,43 @@ void setup()
 
     logReader_init();
     createAppTasks();
+
+    if (g_app.webSockData.states.networkOK)
+    {
+
+        HEAP_SIZE heapSize[2];
+
+        heapSize[1].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+         heapSize[1].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+         LOG_DEBUG("Free heap previous: %d largest block previous: %d,Free heap : %d largest block : %d", heapSize[0].heapSize, heapSize[0].heapSizeMax, heapSize[1].heapSize, heapSize[1].heapSizeMax); 
+
+        LOG_INFO(" -------- States ---------------");
+        LOG_INFO("Network: %c", g_app.webSockData.states.networkOK == true ? 'y' : 'n');
+        LOG_INFO("IP-Address: %s", g_app.webSockData.setupData.currentIP);
+        LOG_INFO("Fronius: %c", g_app.webSockData.states.froniusAPI == true ? 'y' : 'n');
+        LOG_INFO("AmisReader: %c", g_app.webSockData.states.amisReader == true ? 'y' : 'n');
+        LOG_INFO("CardWrite: %c", g_app.webSockData.states.cardWriterOK == true ? 'y' : 'n');
+        LOG_INFO("FlashFS: %c", g_app.webSockData.states.flashOK == true ? 'y' : 'n');
+        LOG_INFO("Influx: %c", g_app.webSockData.states.influx == true ? 'y' : 'n');
+        LOG_INFO("Modbus: %c", g_app.webSockData.states.modbusOK == true ? 'y' : 'n');
+        LOG_INFO("MqTT: %c", g_app.webSockData.states.mqtt == true ? 'y' : 'n');
+        LOG_INFO("TempSensor: %c", g_app.webSockData.states.tempSensorOK == true ? 'y' : 'n');
+        LOG_INFO("TimeServer(NTP): %c", g_app.webSockData.states.timeServer == true ? 'y' : 'n');
+        LOG_INFO("LogReader: y");
+        LOG_INFO("HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
+        tft_clearScreen();
+        delay(5000);
+    }
     LOG_INFO("Setup done - RTOS tasks started");
-}  
+}
 
 void loop()
 {
-    vTaskDelay(portMAX_DELAY);
+    // Warte 5000 Millisekunden (5 Sekunden)
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    // Alle 5 Sekunden auf Serial ausgeben:
+    LOG_INFO("Free Heap: %u | Max Alloc: %u | Connects: %d",
+             ESP.getFreeHeap(),
+             ESP.getMaxAllocHeap(),
+             WiFi.softAPgetStationNum()); // Falls im AP Modus
 }

@@ -80,13 +80,13 @@ const float w_sigma = 0.5; // Gewicht Unsicherheit (z. B. 0.5)
 const float w_T = 0.3;     // Gewicht Mittagsbonus (z. B. 0.3)
 const float sigma_T = 2.0; // Breite der Mittagsglocke
 
-static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, String &json_array, PROGNOSE &prognose);
+static void wheater_ladestrategie(DynamicJsonDocument &doc, String &json_array, PROGNOSE &prognose);
 
 //-- -Hilfsfunktionen-- -
 float deg2rad(float d) { return d * PI / 180.0; }
 float rad2deg(float r) { return r * 180.0 / PI; }
 
-static StaticJsonDocument<JSON_ARRAY_SIZE> doc;
+static DynamicJsonDocument doc(JSON_ARRAY_SIZE);
 
 bool wheater_fetch(PROGNOSE &prognose)
 {
@@ -194,7 +194,7 @@ float pvEnergyPerHour(float G_tilt, float T_amb)
     return P_final_AC / 1000.0f;
 }
 
-static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, String &payload, PROGNOSE &prognose)
+static void wheater_ladestrategie(DynamicJsonDocument &doc, String &payload, PROGNOSE &prognose)
 {
     if (deserializeJson(doc, payload) == DeserializationError::Ok)
     {
