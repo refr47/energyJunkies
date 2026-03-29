@@ -22,3 +22,6 @@ char *util_format_Watt_kWatt(double val, char *formatBuf);
 String util_GET_Request(const char *url, int *httpResponseCode);
 bool utils_sock_initRestTargets(Setup &setupData, int index);
 bool utils_sock_readRestTarget(WEBSOCK_DATA &, int index, GET_JSON_DATA getJson);
+void utils_logWrite(RingBuffer &rb, const LogEntry &e);
+bool utils_logRead(RingBuffer &rb, LogEntry &out);
+bool utils_shouldLog(bool l1, bool l2, uint8_t pwm, bool legionella, bool minTemp);

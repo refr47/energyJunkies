@@ -284,6 +284,40 @@ String util_GET_Request(const char *url, int *httpResponseCode)
 	return payload;
 }
 
+void utils_logWrite(RingBuffer &rb, const LogEntry &e) {
+	uint16_t next = (rb.writeIndex + 1) % LOG_BUFFER_SIZE;
+
+	// Overflow verhindern
+	if (next == rb.readIndex)
+		return; // buffer voll → drop oder overwrite
+
+	rb.buffer[rb.writeIndex] = e;
+	rb.writeIndex = next;
+
+	rb.active = true;
+}
+bool utils_logRead(RingBuffer &rb, LogEntry &out) {
+	if (rb.readIndex == rb.writeIndex)
+		return false; // nichts da
+
+	out = rb.buffer[rb.readIndex];
+	rb.readIndex = (rb.readIndex + 1) % LOG_BUFFER_SIZE;
+
+	return true;
+}
+bool utils_shouldLog(bool l1, bool l2, uint8_t pwm, bool legionella, bool minTemp)
+{
+	// 🔥 aktive Heizung
+	if (l1 || l2 || pwm > 0)
+		return true;
+
+	// 🔥 forced modes
+	if (legionella || minTemp)
+		return true;
+
+	return false;
+}
+
 bool utils_sock_initRestTargets(Setup &setupData, int index)
 {
 	LOG_INFO("util::utils_sock_initRestTargets()");

@@ -6,7 +6,7 @@
 #include <iostream>
 #include <algorithm>
 
-#define OUTPUT_MAX 255.0
+const double OUTPUT_MAX = 255.0;
 #define DEAD_BAND_WATT 30.0
 
 class PinManager
@@ -18,7 +18,7 @@ public:
     void allOn();
     int getStateOfDigPin(short pin);
     int getStateOfAnaPin();
-    void apply(double power);
+    void apply(LogEntry &logEntry, double power);
     void reset();
 
 private:
@@ -40,6 +40,7 @@ private:
     double lastSmoothedPower = 0;
     const double DEAD_BAND = DEAD_BAND_WATT; // Änderungen unter 50W werden ignoriert
     double lastTargetPower = 0;    // Speicher für den letzten Sollwert
+    double rest = 0;
 
     // RL
     static const int S_T = 5;
@@ -72,8 +73,8 @@ private:
 
     double heaterPower();
     double basePower(double effectivePower);
-    bool preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS);
-
+    bool preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS, LogEntry &logEntry);
+   
+    
     double getMeanOfAvailAblePower();
- 
 };

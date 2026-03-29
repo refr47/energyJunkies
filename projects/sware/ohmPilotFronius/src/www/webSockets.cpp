@@ -25,7 +25,7 @@
 #define AKKU_ENTLADEN "AkDis"
 #define NETZ_EXPORT_INS "NEI"
 #define NETZ_IMPORT_INS "NII"
-#define SIM_BIAS "SimBias"
+#define FORCE_HEIZPATRONE "Force Heizpatrone"
 #define EPSILON_PIN_MANAGER "EpsilonPin"
 
 #define HEIZPATRONE_L1 1
@@ -54,9 +54,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 
 */
 static AsyncWebSocket ws("/ws");
-static JSONVar readings; // Json Variable to Hold Sensor Readings
+// static JSONVar live; // Json Variable to Hold Sensor live
 static CALLBACK_GET_DATA webSockData;
 static char formatBuffer[35];
+
 // Create a WebSocket object static AsyncWebSocket ws("/ws");
 
 AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
@@ -66,57 +67,57 @@ AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
     return &ws;
 }
 
-// Get Sensor Readings and return JSON object
-/* String getSensorReadings()
-{
-    readings["temperature"] = String("1");
-    readings["humidity"] = String("2");
-    readings["pressure"] = String("3");
-    String jsonString = JSON.stringify(readings);
-    return jsonString;
-} */
-
 static double prevValueFromSmartMeter = 0.0;
 static unsigned int bitMaster = 0;
+static DynamicJsonDocument doc(2048);
+
 String getJsonObj()
 {
+  
+    doc.clear();
+    JsonObject live = doc.createNestedObject("live");
+    if (live.isNull())
+    {
+        LOG_ERROR("Failed to create JSON object");
+        return "{}";
+    }
+
     WEBSOCK_DATA data = webSockData();
-    // DBGf("webSocks - getJsonOj:  %.2lf", data.temperature.sensor1);
 
     if (data.states.froniusAPI)
     {
-        readings[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
-        readings[EINSPEISUNG] = data.fronius_SOLAR_POWERFLOW.p_grid;
-        readings[EIGENVERBRAUCH] = data.fronius_SOLAR_POWERFLOW.p_load;
-        readings[AKKU_AKKU] = (int)data.fronius_SOLAR_POWERFLOW.p_akku;
+        live[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
+        live[EINSPEISUNG] = data.fronius_SOLAR_POWERFLOW.p_grid;
+        live[EIGENVERBRAUCH] = data.fronius_SOLAR_POWERFLOW.p_load;
+        live[AKKU_AKKU] = (int)data.fronius_SOLAR_POWERFLOW.p_akku;
     }
     else if (data.states.modbusOK)
     {
-        readings[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
-        readings[AKKU_AKKU] = 0;
+        live[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
+        live[AKKU_AKKU] = 0;
 
         if (data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
         {
-            readings[EINSPEISUNG] = data.mbContainer.meterValues.data.acCurrentPower;
+            live[EINSPEISUNG] = data.mbContainer.meterValues.data.acCurrentPower;
 
-            readings[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower;
+            live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower;
             prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
         }
         else
         {
-            readings[EINSPEISUNG] = prevValueFromSmartMeter;
-            readings[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter;
+            live[EINSPEISUNG] = prevValueFromSmartMeter;
+            live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter;
         }
     }
     else // amis reader
     {
 
-        readings[EINSPEISUNG] = data.amisReader.saldo;
-        readings[EIGENVERBRAUCH] = data.amisReader.consumptionInWatt;
-        readings[PRODUKTION] = data.amisReader.exportInWatt;
-        readings[AKKU_AKKU] = 0;
+        live[EINSPEISUNG] = data.amisReader.saldo;
+        live[EIGENVERBRAUCH] = data.amisReader.consumptionInWatt;
+        live[PRODUKTION] = data.amisReader.exportInWatt;
+        live[AKKU_AKKU] = 0;
     }
-
+    
     if (data.temperature.alarm)
     {
         if (data.temperature.sensor1 > 0.0 && data.temperature.sensor2 > 0.0)
@@ -132,10 +133,21 @@ String getJsonObj()
     {
         sprintf(formatBuffer, "%.2f", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
     }
-
-    readings[TEMP_PUFFERSPEICHER] = formatBuffer;
+ 
+    live[TEMP_PUFFERSPEICHER] = formatBuffer;
     bitMaster = 0;
 
+    LOG_INFO("PID_PIN1: %d, PID_PIN2: %d, externerSpeicher: %d, cardWriterOK: %d, flashOK: %d, modbusOK: %d, tempSensorOK: %d, boilerHeating: %d",
+             data.pidContainer.PID_PIN1,
+             data.pidContainer.PID_PIN2,
+             data.setupData.externerSpeicher,
+             data.states.cardWriterOK,
+             data.states.flashOK,
+             data.states.modbusOK,
+             data.states.tempSensorOK,
+             data.states.boilerHeating);
+
+             
     if (data.pidContainer.PID_PIN1 == 1)
         bitMaster |= (1 << HEIZPATRONE_L1);
     if (data.pidContainer.PID_PIN2 == 1)
@@ -153,24 +165,64 @@ String getJsonObj()
     if (!data.states.boilerHeating)
         bitMaster |= (1 << STATE_BOILER_HEATING);
 
-    readings[FEHLER] = bitMaster;
+    live[FEHLER] = bitMaster;
 
-    readings[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;
-    readings[MUSS_EINSPEISUNG] = data.pidContainer.powerNotUseable;
-    readings[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
-    readings[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
-    /*  readings[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
-     readings[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate; */
-    readings[SIM_BIAS] = (int)data.setupData.forceHeating;
-    readings[EPSILON_PIN_MANAGER] = data.setupData.epsilonML_PinManager;
+    live[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;
+    live[MUSS_EINSPEISUNG] = data.pidContainer.powerNotUseable;
+    live[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
+    live[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
+    /*  live[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
+     live[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate; */
+    live[FORCE_HEIZPATRONE] = (int)data.setupData.forceHeating;
+    live[EPSILON_PIN_MANAGER] = data.setupData.epsilonML_PinManager;
 
-    String jsonString = JSON.stringify(readings);
+    // =========================
+    // 🟡 LOG OBJECT
+    // =========================
+    JsonObject logObj = doc.createNestedObject("log");
+    JsonArray entries = logObj.createNestedArray("entries");
+    RingBuffer &rb = data.logBuffer;
+    if (!rb.active)
+    {
+        logObj["count"] = 0;
+        String jsonString;
+        serializeJson(doc, jsonString);
+        // DBGf("JSON-String: %s", jsonString.c_str());
+        return jsonString;
+    }
+    uint16_t localRead = rb.readIndex;
+    uint16_t localWrite = rb.writeIndex;
+
+    uint16_t count = 0;
+
+    while ((localRead != localWrite) && count < 30) // safety check to prevent infinite loop
+    {
+        LogEntry &e = rb.buffer[localRead];
+
+        JsonObject obj = entries.createNestedObject();
+
+        obj["ts"] = e.ts;
+        obj["l1"] = e.state & 1;
+        obj["l2"] = (e.state >> 1) & 1;
+        obj["pwm"] = e.pwm;
+        obj["temp"] = e.temp;
+
+        localRead = (localRead + 1) % LOG_BUFFER_SIZE;
+        count++;
+    }
+
+    // 🔑 count setzen
+    logObj["count"] = count;
+    String jsonString;
+    serializeJson(doc, jsonString);
     // DBGf("JSON-String: %s", jsonString.c_str());
     return jsonString;
 }
-void notifyClients(String sensorReadings)
+
+
+void notifyClients(String sensorlive)
 {
-    ws.textAll(sensorReadings);
+    ws.textAll(sensorlive);
 }
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 {
@@ -179,15 +231,15 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     {
         // data[len] = 0;
         // String message = (char*)data;
-        //  Check if the message is "getReadings"
-        // if (strcmp((char*)data, "getReadings") == 0) {
-        // if it is, send current sensor readings
+        //  Check if the message is "getlive"
+        // if (strcmp((char*)data, "getlive") == 0) {
+        // if it is, send current sensor live
         LOG_INFO("webSockets::handleWebSocketMessage for message: %s", (char *)data);
         /*  if (strcmp((char *)data, "getLifeData") == 0)
          { */
-        String sensorReadings = getJsonObj();
-        Serial.print(sensorReadings);
-        notifyClients(sensorReadings);
+        String sensorlive = getJsonObj();
+        Serial.print(sensorlive);
+        notifyClients(sensorlive);
         //}
         //}
     }

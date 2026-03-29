@@ -48,7 +48,6 @@
 #include "app_tasks.h"
 // #include "app_tasksfroniusSolarAPI.h"
 
-
 static RTC_DATA_ATTR int bootCount = 0;
 
 WEBSOCK_DATA &getDataForWebSocket()
@@ -215,8 +214,8 @@ void setup()
         HEAP_SIZE heapSize[2];
 
         heapSize[1].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-         heapSize[1].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-         LOG_DEBUG("Free heap previous: %d largest block previous: %d,Free heap : %d largest block : %d", heapSize[0].heapSize, heapSize[0].heapSizeMax, heapSize[1].heapSize, heapSize[1].heapSizeMax); 
+        heapSize[1].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+        LOG_DEBUG("Free heap previous: %d largest block previous: %d,Free heap : %d largest block : %d", heapSize[0].heapSize, heapSize[0].heapSizeMax, heapSize[1].heapSize, heapSize[1].heapSizeMax);
 
         LOG_INFO(" -------- States ---------------");
         LOG_INFO("Network: %c", g_app.webSockData.states.networkOK == true ? 'y' : 'n');
@@ -243,8 +242,10 @@ void loop()
     // Warte 5000 Millisekunden (5 Sekunden)
     vTaskDelay(pdMS_TO_TICKS(5000));
     // Alle 5 Sekunden auf Serial ausgeben:
-    LOG_INFO("Free Heap: %u | Max Alloc: %u | Connects: %d",
+    LOG_INFO("Free Heap: %u | Max Alloc: %u | Connects: %d | Free Stack: %d bytes",
              ESP.getFreeHeap(),
              ESP.getMaxAllocHeap(),
-             WiFi.softAPgetStationNum()); // Falls im AP Modus
+             WiFi.softAPgetStationNum(),
+             uxTaskGetStackHighWaterMark(NULL)); // Falls im AP Modus
+                                                 // Zeigt an, wie viele Bytes der Stack vom "Abgrund" (Canary) noch entfernt ist
 }

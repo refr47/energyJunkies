@@ -3,14 +3,13 @@
 void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 {
     onePhase = data.setupData.heizstab_leistung_in_watt / 3.0;
-    LOG_DEBUG("PinManager::config:: - Heizpatrone Leistung %d Watt, Epsilon: %.3f .", data.setupData.heizstab_leistung_in_watt,data.setupData.epsilonML_PinManager)
+    LOG_DEBUG("PinManager::config:: - Heizpatrone Leistung %d Watt, Epsilon: %.3f .", data.setupData.heizstab_leistung_in_watt, data.setupData.epsilonML_PinManager)
     pinL1 = l1;
     pinL2 = l2;
     pwmPin = pwm;
     epsilon = data.setupData.epsilonML_PinManager;
-
-
-        pinMode(pinL1, OUTPUT);
+    // memcpy(&data.logBuffer, 0, sizeof(RingBuffer)); // reset log buffer
+    pinMode(pinL1, OUTPUT);
     pinMode(pinL2, OUTPUT);
     pinMode(pwmPin, OUTPUT);
     legionella = false;
@@ -98,11 +97,11 @@ Main UPDATE
 update(double measuredPower, double temp, int hour)
 */
 
-bool PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp,unsigned long nowMS)
+bool PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS, LogEntry &logEntry)
 {
     // SAFETY,
-    LOG_DEBUG("PinManager::preCheck:");
-   
+    // LOG_DEBUG("PinManager::PID:");
+
     // LEGIONELLA
     if (nowMS - lastLegionella > webSockData.setupData.legionellenDelta /*7UL * 24 * 3600 * 1000*/)
         legionella = true;
@@ -113,12 +112,17 @@ bool PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp,unsigned long n
         {
             legionella = false;
             lastLegionella = nowMS;
-            LOG_DEBUG("PinManager::preCheck: Legionellen Temperatur <%.3f> erreicht: <%.3f>", webSockData.setupData.legionellenMaxTemp, temp);
+            LOG_DEBUG("PID: Legionellen Temperatur <%.3f> erreicht: <%.3f>", webSockData.setupData.legionellenMaxTemp, temp);
         }
         else
         {
-            apply(onePhase * 3);
+            apply(logEntry, onePhase * 3);
             powerIndex = 0;
+            logEntry.state = 3; // L1 +L2 is on
+            logEntry.pwm = OUTPUT_MAX;
+            logEntry.power = webSockData.setupData.heizstab_leistung_in_watt;
+
+            LOG_DEBUG("PID:HEAT (Legionellen)");
             return true;
         }
     }
@@ -126,23 +130,33 @@ bool PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp,unsigned long n
     // allowed boiler temp
     if (temp >= webSockData.setupData.tempMaxAllowedInGrad)
     {
-        LOG_DEBUG("PinManager::preCheck: Max Temperatur <%.3f> erreicht: <%.3f>, abschalten", webSockData.setupData.tempMaxAllowedInGrad, temp);
+        LOG_DEBUG("PID: Max Temperatur <%.3f> erreicht: <%.3f>, abschalten", webSockData.setupData.tempMaxAllowedInGrad, temp);
         reset();
+        logEntry.state = 0; // L1 +L2 is on
+        logEntry.pwm = 0;
+        logEntry.power = 0;
         powerIndex = 0;
         return true;
     }
     if (temp < webSockData.setupData.tempMinInGrad)
     {
-        LOG_DEBUG("PinManager::preCheck: Min Temperatur <%.3f> erreicht: <%.3f>, einschalten", webSockData.setupData.tempMinInGrad, temp);
-        apply(onePhase * 3);
+        LOG_DEBUG("PID: Min Temperatur <%.3f> erreicht: <%.3f>, einschalten", webSockData.setupData.tempMinInGrad, temp);
+        apply(logEntry, onePhase * 3);
+        logEntry.state = 3; // L1 +L2 is on
+        logEntry.pwm = (uint8_t)OUTPUT_MAX;
+        logEntry.power = webSockData.setupData.heizstab_leistung_in_watt;
         powerIndex = 0;
         return true;
     }
 
     if (webSockData.states.heating != HEATING_AUTOMATIC) // no pid controller, all is forced
     {
-        LOG_DEBUG("PinManager::preCheck:  Manuelle Steuerung - keine Automatik");
+        LOG_DEBUG("PID  Manuelle Steuerung - keine Automatik");
         powerIndex = 0;
+
+        logEntry.state = digitalRead((pinL1) ? 1 : 0) + (digitalRead(pinL2) ? 1 : 0);
+        logEntry.pwm = (uint8_t)currentPWM;
+        logEntry.power = (int16_t)rest;
         return true; // nothing must be done due to overruling everything
     }
 
@@ -155,25 +169,25 @@ bool PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp,unsigned long n
             if (webSockData.setupData.externerSpeicherPriori == AKKU_PRIORITY_SUBORDINATED)
             {
                 availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_grid; // gird < 0: einspeisen, > 0 bezug
-                LOG_DEBUG("PinManager::preCheck (Fronius) Akku priority subordinated (nachrangig), available Watt: %.3f", availableWatt);
+                LOG_DEBUG("PID (Fronius) Akku priority subordinated (nachrangig), available Watt: %.3f", availableWatt);
             }
             else
             {
-                LOG_DEBUG("PinManager::preCheck (Fronius) Akku priority primary (vorrangig)available Watt: %.3f", availableWatt);
+                LOG_DEBUG("PID (Fronius) Akku priority primary (vorrangig)available Watt: %.3f", availableWatt);
                 availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
             }
         }
         else
         {
             availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
-            LOG_DEBUG("PinManager::preCheck (Fronius) Available Watt: %.3f", availableWatt);
+            LOG_DEBUG("PID (Fronius) Available Watt: %.3f", availableWatt);
         }
     }
     else
     {
         // gwebSockData.mbContainer.meterValues.data.acCurrentPower < 0: export: else import
         availableWatt = webSockData.mbContainer.meterValues.data.acCurrentPower;
-        LOG_DEBUG("PinManager::preCheck No froniusAPI) AvailableWatt: %.3f", availableWatt);
+        LOG_DEBUG("PID No froniusAPI) AvailableWatt: %.3f", availableWatt);
     }
     // NO PV → minimal heating via RL
     /*   if (availableWatt > 0.0)
@@ -191,7 +205,7 @@ bool PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp,unsigned long n
     else
     {
 
-        LOG_INFO("PinManager::preCheck - Means of MAX_LEN_MEASURE-2 measures  %f", availableWatt);
+        // LOG_INFO("PinManager::preCheck - Means of MAX_LEN_MEASURE-2 measures  %f", availableWatt);
         powerIndex = 0;
     }
 
@@ -203,18 +217,22 @@ bool PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp,unsigned long n
 void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 {
     unsigned long now = millis();
-    double temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
+    LogEntry logEntry;
 
-    if (preCheck(webSockData, temp,now))
-        return;                                       //
+    double temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
+    logEntry.temp = temp;
+    logEntry.ts = now;
+
+    if (preCheck(webSockData, temp, now, logEntry))
+        return;
+    //
     double measuredPower = getMeanOfAvailAblePower(); // geglättete Werte
+
     if (ABS(measuredPower) < EPSILON_TEMP)
     {
-        LOG_INFO("PinManager::task eXIT true, AvailableWatt: %.3f < 20.0", measuredPower);
-        return ;
+        LOG_INFO("PID eXIT true, AvailableWatt: %.3f < %.3f (Epsilon)", measuredPower, EPSILON_TEMP);
+        return;
     }
-
-
     double heater = heaterPower();
     double effective = (-measuredPower) + heater;
 
@@ -239,7 +257,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     // 🔥 finale Leistung
     double target = phases * onePhase + pwmPower;
 
-    apply(target);
+    apply(logEntry, target);
     /*
     Skalierte Strafe: Anstatt nur -2 zu geben, wenn Strom bezogen wird, bestrafst du hohen Bezug stärker. Das lehrt den Algorithmus, bei knapper PV-Leistung eher vorsichtig zu sein.
 
@@ -284,48 +302,54 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     Q[ts][ps][action] += alpha * (reward - Q[ts][ps][action]);
 }
 
-
 /*
 ****** aPPLY
 */
 
-void PinManager::apply(double targetPower)
+void PinManager::apply(LogEntry &logEntry, double targetPower)
 {
     unsigned long now = millis();
+    bool onlyPWM = false;
+    rest = 0;
 
     // 1. TOTZONE: Wenn die Änderung zum letzten Mal minimal ist,
     // überspringen wir die Relais-Prüfung (spart CPU und schont Logik).
     if (abs(targetPower - lastTargetPower) < DEAD_BAND)
     {
         // Wir aktualisieren nur das PWM, falls nötig, aber lassen die Relais in Ruhe
+        onlyPWM = true;
+        rest = abs(targetPower - lastTargetPower);
     }
     else
     {
         lastTargetPower = targetPower;
     }
-
-    // 2. RELAIS-LOGIK (mit Hysterese & Zeit-Sperre)
-    int desiredPhases = (int)(targetPower / onePhase);
-    if (desiredPhases > 2)
-        desiredPhases = 2;
-
-    // Aktuellen Hardware-Zustand lesen
-    int currentActive = (digitalRead(pinL1) ? 1 : 0) + (digitalRead(pinL2) ? 1 : 0);
-
-    if (desiredPhases != currentActive && (now - lastSwitch > MIN_SWITCH))
+    if (!onlyPWM)
     {
-        // Nur schalten, wenn wir uns wirklich sicher sind
-        digitalWrite(pinL1, desiredPhases >= 1);
-        digitalWrite(pinL2, desiredPhases >= 2);
-        lastSwitch = now;
+        // 2. RELAIS-LOGIK (mit Hysterese & Zeit-Sperre)
+        int desiredPhases = (int)(targetPower / onePhase);
+        if (desiredPhases > 2)
+            desiredPhases = 2;
 
-        LOG_INFO("Relais-Update: %d Phasen aktiv (Soll: %.1f W)", desiredPhases, targetPower);
+        // Aktuellen Hardware-Zustand lesen
+        int currentActive = (digitalRead(pinL1) ? 1 : 0) + (digitalRead(pinL2) ? 1 : 0);
+
+        if (desiredPhases != currentActive && (now - lastSwitch > MIN_SWITCH))
+        {
+            // Nur schalten, wenn wir uns wirklich sicher sind
+            digitalWrite(pinL1, desiredPhases >= 1);
+            digitalWrite(pinL2, desiredPhases >= 2);
+            lastSwitch = now;
+
+            // LOG_INFO("Relais-Update: %d Phasen aktiv (Soll: %.1f W)", desiredPhases, targetPower);
+        }
+        // 3. PWM-LOGIK (Der dynamische Ausgleich)
+        // WICHTIG: Die PWM muss immer das ausgleichen, was die Relais gerade NICHT decken.
+        double activeRelayPower = (digitalRead(pinL1) ? onePhase : 0) + (digitalRead(pinL2) ? onePhase : 0);
+
+        rest = targetPower - activeRelayPower;
+        LOG_DEBUG("PID L1: %d, L2: %d, Power: %.1f  W", digitalRead(pinL1), digitalRead(pinL2), rest);
     }
-
-    // 3. PWM-LOGIK (Der dynamische Ausgleich)
-    // WICHTIG: Die PWM muss immer das ausgleichen, was die Relais gerade NICHT decken.
-    double activeRelayPower = (digitalRead(pinL1) ? onePhase : 0) + (digitalRead(pinL2) ? onePhase : 0);
-    double rest = targetPower - activeRelayPower;
 
     // Sicherheits-Begrenzung für PWM
     if (rest < 0)
@@ -337,6 +361,9 @@ void PinManager::apply(double targetPower)
 
     currentPWM = pwmVal;
     analogWrite(pwmPin, (int)pwmVal);
+    logEntry.state = digitalRead((pinL1) ? 1 : 0) + (digitalRead(pinL2) ? 1 : 0);
+    logEntry.pwm = (int)currentPWM;
+    logEntry.power = rest;
 }
 /*
 ******* HELPER
@@ -365,11 +392,11 @@ void PinManager::reset()
 int PinManager::getStateOfDigPin(short pin)
 {
     if (pin == 0)
-        return digitalRead(pinL1);
-    else if (pin == 1)
-        return digitalRead(pinL2);
-    else
-        return -1;
+        return (digitalRead(pinL1) ? 1 : 0);
+    if (pin == 1)
+        return (digitalRead(pinL2) ? 1 : 0);
+
+    return -1;
 }
 
 int PinManager::getStateOfAnaPin()
@@ -381,7 +408,7 @@ void PinManager::allOn()
 {
     digitalWrite(pinL1, HIGH);
     digitalWrite(pinL2, HIGH);
-    analogWrite(pwmPin, OUTPUT_MAX);
+    analogWrite(pwmPin, (int)OUTPUT_MAX);
 
     currentPhases = 2;
     currentPWM = OUTPUT_MAX;

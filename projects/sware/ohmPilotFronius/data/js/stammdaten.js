@@ -237,7 +237,7 @@ function initHandler() {
     //get affected row().index() and append that to 'Submit' button attributes
     //you may use global variable for that purpose if you prefer
     $('#addRow').attr('rowindex', row.index());
-    //switch 'Submit' button role to 'confirmEdit'
+    //switch 'Submit' button role t/outo 'confirmEdit'
     $('#addRow').attr('action', 'confirmEdit');
     //set up 'Type' and 'Amount' values according to the selected entry
     $('#theTitle').val(row.data()[0]);
@@ -288,7 +288,7 @@ function storeDataAjax() {
 
   });
 }
-
+ 
 function replace(index, val) {
   //let cell = $('#stamm tr:eq(' + index + ') td:eq(1)');
   const row = dataTable.row(index)
@@ -328,7 +328,7 @@ function renewTable() {
         replace(15, data["Influx-Server"])
         replace(16, data["Influx-Token"])
         replace(17, data["Influx-Org"])
-        replace(18, data["Influx-Bucket"])
+        replace(18, data["Influx-Bucket"]) 
 
         replace(19, data["EpsilonPin"])
         replace(20, data["Force Heizpatrone"])

@@ -108,11 +108,15 @@ function onMessage(event) {
   console.log("Got event ")
   $("#isUpdate").html("\u21C5")
 
-  let data = JSON.parse(event.data);
-  console.log(data)
+  let dataJson = JSON.parse(event.data);
+  let live = dataJson.live;
+  let log = dataJson.log;
+  
+
+  //console.log(data)
   setTimeout(replaceDataReceivedSym, 1000);
 
-  let errorBitVektor = data["FE"]
+  let errorBitVektor = live["FE"]
   if (errorBitVektor == 0)
     $("#errorL").remove();
   else
@@ -135,23 +139,32 @@ function onMessage(event) {
     dataSetOut[9][1] = "0"
   row = dataTableMobil.row(9)
   row.invalidate().draw();
-  replace(0, data["PR"], true); // ProdukTION
-  replace(1, data["EV"], true); // Verbrauch
-  if (data["EINS"] > 0.0)
+  replace(0, live["PR"], true); // ProdukTION
+  replace(1, live["EV"], true); // Verbrauch
+  if (live["EINS"] > 0.0)
     dataSetOut[2][0] = "Bezug"
-  else
+  else 
     dataSetOut[2][0] = "Einspeisung"
-  replace(2, data["EINS"], true); // Einspeisung
-  if (data["AKKU"] > 0.0)
+  replace(2, live["EINS"], true); // Einspeisung
+  if (live["AKKU"] > 0.0)
     dataSetOut[3][0] = "Akku entladen"
   else
     dataSetOut[3][0] = "Akku laden"
-  replace(3, data["AKKU"], false)
-  replace(4, data["TPS"], false); // Sensorik Temp
-  replace(7, data["HL3"], false); // pwm 
-  replace(10, data["AkStat"], true); // Akku Status
-  replace(11, data["SimBias"], false); // Sim Bias
-  replace(12, data["SimLoad"], false); // Sim Load
+  replace(3, live["AKKU"], false)
+  replace(4, live["TPS"], false); // Sensorik Temp
+  replace(7, live["HL3"], false); // pwm 
+  replace(10, live["AkStat"], true); // Akku Status
+  replace(11, live["EpsilonPin"], false); // Sim Bias
+  replace(12, live["Force Heizpatrone"], false); // Sim Load
+
+  let count = dataJson.log.count;
+  if (count > 0) {
+    console.log("Log-Entries: " + count);
+  } else {
+    console.log("No log entries received.");
+    let entries = dataJson.log.entries;
+  }
+ 
 }
 
 function replaceDataReceivedSym() {
@@ -174,7 +187,7 @@ function createDataSetM() {
     ['Pufferspeicher reservier', '0', "W"], //8
     ['Speicher', 'j', "Aus:0, Ein: 1"], // 9
     ['Speicher Zustand (%)', '0.0', "%"], // 10
-    ['SIM_Additional_Load', '0.0 kW', "kW"], //11
+    ['EpsilonPin', '0.05', " "], //11
     ['Force Heizpatrone', '0.0 kW', "kW"], //12
   ];
 

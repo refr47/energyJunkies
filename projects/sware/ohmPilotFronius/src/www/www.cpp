@@ -135,155 +135,7 @@ static void handleSetup(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/login.html", "text/html", false);
 }
 
-#ifdef IIIIII
-bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
-{
-    // Initialize SPIFFS
-    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
-    {
-        LOG_ERROR("www_init::SPIFFS Mount Failed");
-        tft_printKeyValue("Init Flash File", "Error", TFT_RED);
-        tft_printKeyValue("Cannot Start WebServer !!", "Error", TFT_RED);
-        return false;
-    }
-    tft_printKeyValue("Init Flash File", "OK", TFT_GREEN);
-    // listDir("/");
-    if (ipAddr == NULL)
-    {
-        //  Connect to Wi-Fi network with SSID_FOR_ACCESS_POINT
-        LOG_INFO("www_init::Setting AP (Access Point) mode");
-        isAPModus = true;
-        WiFi.mode(WIFI_AP);
-        WiFi.softAP(SSID_FOR_ACCESS_POINT, DEFAULT_IP_ACCESS_POINT);
 
-        ipAddr = DEFAULT_IP_ACCESS_POINT;
-        strcpy(setupData.currentIP, ipAddr);
-        LOG_INFO("www_init::AP IP address: %s", ipAddr);
-
-        tft_printKeyValue("ACCESS Point", "OK", TFT_GREEN);
-        tft_printKeyValue("SSID", SSID_FOR_ACCESS_POINT, TFT_GREEN);
-        tft_printKeyValue("IP", DEFAULT_IP_ACCESS_POINT, TFT_GREEN);
-    }
-    else
-    {
-        LOG_INFO("www_init::Start Webserver with ip: %s", ipAddr);
-        isAPModus = false;
-        // tft_printInfo("Start WWW on:");
-
-        tft_printKeyValue("SSID", wlanAsClientSSID, TFT_GREEN);
-        tft_printKeyValue("IP", ipAddr, TFT_GREEN);
-    }
-
-    server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/about.html", "text/html", false, NULL); });
-    server.on("/shelly", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/shelly.html", "text/html", false, NULL); });
-    server.on("/headerF.html", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/headerF.html", "text/html"); });
-    server.on("/out", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/output.html", "text/html"); });
-    /* server.on("/logs", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(200, "text/html", "<!DOCTYPE html><html><head><title>Serial Monitor</title><script>function fetchData(){fetch('/serial').then(response => response.text()).then(data => {document.getElementById('output').innerText = data;});} setInterval(fetchData, 1000);</script></head><body><h1>ESP32 Serial Monitor</h1><pre id='output'></pre></body></html>"); });
- */
-    server.on("/serial", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(200, "text/plain", logReader_getBufferAsString()); });
-    server.on("/logOn", HTTP_GET, [](AsyncWebServerRequest *request)
-              { logReader_enDisableRedirect(true);
-                request->send(200, "text/plain", "Redirecting enabled"); });
-    server.on("/logOff", HTTP_GET, [](AsyncWebServerRequest *request)
-              { logReader_enDisableRedirect(false);
-                request->send(200, "text/plain", "Redirecting disabled"); });
-
-    server.on("/logs", HTTP_GET, [](AsyncWebServerRequest *request)
-              { logReader_enDisableRedirect(true);
-                    request->send(SPIFFS, "/logs.html", "text/html"); });
-
-    server.on("/setup", HTTP_GET, handleSetup);
-    server.on("/", HTTP_GET, handleRoot);
-    // Route for serving the login page and handling login requests
-    server.on("/login", HTTP_POST, handleLogin);
-
-    // Route for serving the root page  request->send(SPIFFS, "/index.html", String(), false, callBack);
-
-    server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
-    server.on("/buildAndGetShellyDevicesTree", HTTP_GET, ajaxCalls_handleBuildAndGetShelly);
-    server.on("/getOverview", HTTP_GET, ajaxCalls_handleGetOverview);
-
-    // Route to load style.css file
-    server.on("/css/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/main.css", "text/css"); });
-    server.on("/css/menu.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/menu.css", "text/css"); });
-    server.on("/css/stammdaten.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/stammdaten.css", "text/css"); });
-    server.on("/css/shelly.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/shelly.css", "text/css"); });
-    server.on("/css/jquery-3.7.1.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/jquery-3.7.1.min.css", "text/css"); });
-    server.on("/css/datatables.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/datatables.min.css", "text/css"); });
-
-    server.on("/js/jquery-3.7.1.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/js/jquery-3.7.1.min.js", String()); });
-    server.on("/js/stammdaten.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/js/stammdaten.js", String()); });
-    server.on("/js/navigation.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/js/navigation.js", String()); });
-    server.on("/js/shelly.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/js/shelly.js", String()); });
-    server.on("/js/datatables.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/js/datatables.min.js", String()); });
-
-    server.on("/img/icon.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/img/icon.jpg", "image/jpg"); });
-    server.on("/img/Energies.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/img/Energies.jpg", "image/jpg"); });
-    server.on("/img/harvester.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/img/harvester.jpg", "image/jpg"); });
-
-    // https://github.com/me-no-dev/ESPAsyncWebServer
-
-    AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                           { ajaxCalls_handleStoreSetup(request, json, isAPModus); });
-
-    // Start the server
-    server.addHandler(handler);
-    // Route for serving static files from SPIFFS
-    server.onNotFound([](AsyncWebServerRequest *request)
-                      {
-        if (request->method() == HTTP_OPTIONS)
-        {
-            request->send(200);
-        } else {
-            String path = request->url();
-            LOG_ERROR("www_init::Path  %s !found ", path.c_str());
-
-            if (!isAuthenticated) {
-            // Redirect to the login page if not authenticated
-            request->redirect("/login");
-            return;
-            }
-
-            if (SPIFFS.exists(path)) {
-            AsyncWebServerResponse* response = request->beginResponse(SPIFFS, path, String(), true);
-            response->addHeader("Cache-Control", "max-age=600");
-            request->send(response);
-            } else {
-            request->send(404, "text/plain", "File not found");
-            }
-        } });
-    tft_printKeyValue("Start WWW", "Done", TFT_GREEN);
-#ifdef CORS_DEBUG
-    DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Origin"), F("*"));
-    DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Headers"), F("content-type"));
-#endif
-    ajaxCalls_init(webSockData, setupChanged);
-    server.addHandler(webSockets_init(webSockData));
-    server.begin();
-    LOG_INFO("www_init::WebServer has started successfully ....");
-    return true;
-}
-#endif
 bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
 {
     // 1. SPIFFS Initialisierung
@@ -334,6 +186,8 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               { request->send(SPIFFS, "/about.html", "text/html"); });
     server.on("/shelly", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/shelly.html", "text/html"); });
+    server.on("/out", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/output.html", "text/html"); });
     // Route für die Update-Seite (HTML)
     server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/update.html", "text/html"); });

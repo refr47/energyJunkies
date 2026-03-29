@@ -42,38 +42,6 @@ static void readMacAddress() // 34:85:18:8b:9d:30
         Serial.println("wlan::readMacAddress() Failed to read MAC address");
     }
 }
-/*
-void ConnectedToAP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
-{
-    LOG_INFO("wlan::(ConnectedToAP_Handler) Connected to AP, haven't got IP yet, ssid: %s", WiFi.SSID().c_str());
-    connected = false;
-}
-
-// only called if status == WL_CONNECTED & password is ok & ap has admitted connection
-void GotIP_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
-{
-    String s = WiFi.localIP().toString();
-    Serial.print("\nLocal ESP32 IP: ");
-    Serial.print(s.c_str());
-    Serial.print("\n");
-    LOG_INFO("wlan::(GotIP_Handler) Connected to AP:: %s", s.c_str());
-    connected = true;
-    // Serial.println("wlan::Connected to AP: ");
-}
-
-void WiFi_Disconnected_Handler(WiFiEvent_t wifi_event, WiFiEventInfo_t wifi_info)
-{
-    LOG_INFO("wlan::(WiFi_Disconnected_Handler) Disconnected From WiFi Network, attempt to recconnect ssid: %s, ssid: %s, Password: %s", WiFi.SSID().c_str(), ssid, password);
-    // Attempt Re-Connection
-    connected = false;
-    WiFi.disconnect();
-    delay(10000);
-    WiFi.begin(ssid, password);
-    delay(1000);
-    wiFiStatus = WiFi.status();
-    LOG_INFO("wlan::WiFi_Disconnected_Handler, status: %s", Get_WiFiStatus(wiFiStatus));
-}
- */
 
 void WiFiEvent(WiFiEvent_t event)
 {
@@ -228,31 +196,29 @@ static char *Get_WiFiStatus(int status)
 bool wifi_init(Setup &setup)
 {
     LOG_INFO("wifi_init()");
-    DBG("wlan::wifi_init()");
 
+    WiFi.persistent(false); // Schont den Flash-Speicher bei häufigen Reconnects
     WiFi.mode(WIFI_STA);
+    WiFi.setHostname(NET_HOSTNAME);
     WiFi.disconnect();
     readMacAddress();
     wifi_scan_network();
-    delay(1000);
-
-    // WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-    WiFi.setHostname(NET_HOSTNAME); // define hostname defines.h
-
     ssid = setup.ssid;
     password = setup.passwd;
     connected = false;
-    WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
-    WiFi.onEvent(WiFiGotIP, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
-    WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
-    // WiFi.onEvent(WiFiEvent);
+    // Event-Handler registrieren
+    WiFi.onEvent(WiFiStationConnected, ARDUINO_EVENT_WIFI_STA_CONNECTED);
+    WiFi.onEvent(WiFiGotIP, ARDUINO_EVENT_WIFI_STA_GOT_IP);
+    WiFi.onEvent(WiFiStationDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+
+    WiFi.begin(setup.ssid, setup.passwd);;
     WiFi.begin(ssid, password);
 
     // LOG_DEBUG("WIFI: %s, Passwd: %s", setup.ssid, setup.passwd);
-    LOG_DEBUG("wlan::wifi_init - Connecting to WiFi ..");
+    //LOG_DEBUG("wlan::wifi_init - Connecting to WiFi ..");
     tft_printInfo("Connecting to WiFi :: delay: 10 secs!!");
-    delay(10000);
+    //delay(10000);
     wiFiStatus = WiFi.status();
     DBGf("wlan::wifi_init() connect - status: %d", wiFiStatus);
 

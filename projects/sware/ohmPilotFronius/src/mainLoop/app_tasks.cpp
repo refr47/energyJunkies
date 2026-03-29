@@ -72,6 +72,6 @@ void createAppTasks()
     xTaskCreatePinnedToCore(taskTemperature, "taskTemperature", 4096, nullptr, 2, nullptr, 1);
     xTaskCreatePinnedToCore(taskEnergy, "taskEnergy", 8192, nullptr, 2, nullptr, 1);
     xTaskCreatePinnedToCore(taskPid, "taskPid", 4096, nullptr, 3, nullptr, 1);
-    xTaskCreatePinnedToCore(taskWeb, "taskWeb", 6144, nullptr, 1, nullptr, 0);
-    xTaskCreatePinnedToCore(taskMaintenance, "taskMaintenance", 4096, nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(taskWeb, "taskWeb", 8192, nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(taskMaintenance, "taskMaintenance", 8192, nullptr, 1, nullptr, 0);
 }

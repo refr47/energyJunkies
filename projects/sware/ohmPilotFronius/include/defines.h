@@ -39,9 +39,9 @@
 
 // #define INVERTER_DATA g_app.webSockData.mbContainer.inverterSumValues.data
 // #define METER_DATA g_app.webSockData.mbContainer.meterValues.data
-//#define AKKU_STATE g_app.webSockData.mbContainer.akkuState.data
-//#define AKKU_STRG g_app.webSockData.mbContainer.akkuStr.data
-//#define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
+// #define AKKU_STATE g_app.webSockData.mbContainer.akkuState.data
+// #define AKKU_STRG g_app.webSockData.mbContainer.akkuStr.data
+// #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
 
 /* ****************** SOCKETS *****************/
 // length of ip address string
@@ -78,7 +78,6 @@
 #include "debugConsole.h"
 #include "modbusRegister.h"
 
-
 #define DEFAULT_IP_ACCESS_POINT "192.168.4.1"
 
 #define UDP_LOCAL_PORT 5683
@@ -101,6 +100,8 @@
 #define TEMPERATURE_SIZE 100
 #define SUNDAY_LIGHT_SIZE 100
 #define DAILY_VALUES_SIZE 100
+
+#define LOG_BUFFER_SIZE 256
 // #defin
 
 typedef struct
@@ -109,7 +110,7 @@ typedef struct
     char passwd[LEN_WLAN + 1];
 
     unsigned int heizstab_leistung_in_watt;
-    unsigned int phasen_leistung_in_watt; // heizstab_leistung_in_watt  pre calculation @see: eprom_getSetup
+    unsigned int phasen_leistung_in_watt; // heizstab_leistung_in_watt  pre calculation #define LOG_BUFFER_SIZE 256@see: eprom_getSetup
     unsigned int tempMaxAllowedInGrad;
     unsigned int tempMinInGrad;
     // unsigned int ipInverter;
@@ -118,13 +119,13 @@ typedef struct
 
     bool externerSpeicher;
     char externerSpeicherPriori;
-    //unsigned int pid_min_time_without_contoller_inMS;
+    // unsigned int pid_min_time_without_contoller_inMS;
     unsigned int legionellenDelta;
     unsigned int legionellenMaxTemp;
 
-    //unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
-    // bool pidChanged;
-    // unsigned int ipAmisReaderHost;
+    // unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
+    //  bool pidChanged;
+    //  unsigned int ipAmisReaderHost;
     char amisKey[AMIS_KEY_LEN + 1];
 
     char amisReaderHost[INET_ADDRSTRLEN + 1];
@@ -150,7 +151,6 @@ typedef struct
     float sensor2;
 } TEMPERATURE;
 
-
 typedef struct mbContainer
 {
 
@@ -158,12 +158,11 @@ typedef struct mbContainer
     METER_VALUE_t meterValues;
     AKKU_STATE_VALUE_t akkuState;
     AKKU_STRG_VALUE_t akkuStr;
-   
 
 } MB_CONTAINER;
 
 typedef struct pidContaienr
-{
+{ 
 
     double mCurrentPower;
     int mAnalogOut;
@@ -269,6 +268,25 @@ typedef struct
     bool valid;
 } ALL_SHELLY_DEVICES;
 
+struct LogEntry
+{
+    uint32_t ts;
+    uint8_t state;
+    int16_t power;
+    uint8_t pwm;
+    int temp;
+};
+
+struct RingBuffer
+{
+    LogEntry buffer[LOG_BUFFER_SIZE];
+
+    volatile uint16_t writeIndex = 0;
+    volatile uint16_t readIndex = 0;
+
+    volatile bool active = false;
+};
+
 typedef struct _WEBSOCK
 {
     MB_CONTAINER mbContainer;
@@ -279,7 +297,7 @@ typedef struct _WEBSOCK
     Setup setupData;
 
     FRONIUS_SOLAR_POWERFLOW fronius_SOLAR_POWERFLOW;
-
+    RingBuffer logBuffer;
     AMIS_READER amisReader;
 #ifdef SHELLY
     SHELLY_OBJ shellyObj[SHELLY_DEVICES];
