@@ -8,12 +8,12 @@ function createDataSet() {
     ['Heizstableistung', '1000', 'Heizstableistung in Watt'],
     ['Ausschalt_Temperatur', '80', 'Maximal erlaubte Temperatur'],
     ['Einschalt_Temperatur', '40', 'Temperatur, bei der eingeschaltet werden muss'],
-    ['Legionellen Zeitdiffernz', '7', 'Zeitdifferenz für Aufheizen (Tage)'],
+    ['Legionellen Delta', '7', 'Zeitdifferenz für Aufheizen (Tage)'],
     ['Speicher', 'n', 'Externer Speicher steht zur Verfügung (j,n)'],
     ['Speicher_Prioritaet', '1', '1: Externer Speicher vorrangig, 2: nachrangig'],
     /*  ['Mindeslaufzeit_Digital', '2', 'Mindeslaufzeit vor einer Änderung der digitalen Ports (in ms)'],
      ['Mindeslaufzeit_Phase', '2', 'Mindeslaufzeit, in der eine Phase eingeschaltet ist (in ms)'], */
-    ['Legionellen Heiztemperatur', '61', 'Temperatur für Vermeidung Legionellen (°)'],
+    ['Legionellen Temp', '61', 'Temperatur für Vermeidung Legionellen (°)'],
     /* ['Ausgangsregler (P-Anteil)', '0.9', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (I-Anteil)', '0.1', 'PI-Regler für den 0-100 % Ausgang (0.0 -1.0)'],
     ['Ausgangsregler (D-Anteil)', '0.0', 'PI-Regler für den 0-100 % Ausgang (0.0 - 1.0)'], */
@@ -124,7 +124,7 @@ function evalIt(value, index) {
     case 6: if (isNaN(value)) // einspesung muss
       return showError("Numerische Eingabe erforderlich")
       nu = parseInt(value)
-      if (nu < 1 || nu >= 20000)
+      if (nu < 1 || nu >= 704800000)
         return showError("Wertebereich ungültig (>0 und <= 20000)")
       break;
     case 7: if (!value) // externer speicher

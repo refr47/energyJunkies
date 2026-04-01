@@ -37,6 +37,8 @@
 #define STATE_TEMPSENSOR 7
 #define STATE_BOILER_HEATING 8
 
+#define FORMAT_BUFFER_LEN 35
+#define JSON_OBJECT_BUFFER_LEN 2048
 //
 //  using macro to convert float to string
 #define STRING(Value) #Value
@@ -56,9 +58,11 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 static AsyncWebSocket ws("/ws");
 // static JSONVar live; // Json Variable to Hold Sensor live
 static CALLBACK_GET_DATA webSockData;
-static char formatBuffer[35];
+static char formatBuffer[FORMAT_BUFFER_LEN];
+static char jsonObjBuffer[JSON_OBJECT_BUFFER_LEN];
 
 // Create a WebSocket object static AsyncWebSocket ws("/ws");
+static char *getJsonObj();
 
 AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
 {
@@ -71,14 +75,14 @@ static double prevValueFromSmartMeter = 0.0;
 static unsigned int bitMaster = 0;
 static DynamicJsonDocument doc(2048);
 
-String getJsonObj()
+static char *getJsonObj()
 {
-  
+
     doc.clear();
     JsonObject live = doc.createNestedObject("live");
     if (live.isNull())
     {
-        LOG_ERROR("Failed to create JSON object");
+        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to create JSON object");
         return "{}";
     }
 
@@ -117,27 +121,31 @@ String getJsonObj()
         live[PRODUKTION] = data.amisReader.exportInWatt;
         live[AKKU_AKKU] = 0;
     }
+    int avgTemp = (data.temperature.sensor1 + data.temperature.sensor2) / 2;
     
     if (data.temperature.alarm)
     {
-        if (data.temperature.sensor1 > 0.0 && data.temperature.sensor2 > 0.0)
+
+      
+
+        if (data.temperature.sensor1 > 0 && data.temperature.sensor2 > 0)
         {
-            sprintf(formatBuffer, "!! %.2f !! ", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+            snprintf(formatBuffer, FORMAT_BUFFER_LEN, "!! %d !! ", avgTemp);
         }
         else
         {
-            sprintf(formatBuffer, "!! %.2f !! ", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+            snprintf(formatBuffer, FORMAT_BUFFER_LEN, "!! %d !! ", avgTemp);
         }
     }
     else
     {
-        sprintf(formatBuffer, "%.2f", (data.temperature.sensor1 + data.temperature.sensor2) / 2.0);
+        snprintf(formatBuffer, FORMAT_BUFFER_LEN, "%d", avgTemp);
     }
- 
+
     live[TEMP_PUFFERSPEICHER] = formatBuffer;
     bitMaster = 0;
 
-    LOG_INFO("PID_PIN1: %d, PID_PIN2: %d, externerSpeicher: %d, cardWriterOK: %d, flashOK: %d, modbusOK: %d, tempSensorOK: %d, boilerHeating: %d",
+    LOG_INFO(TAG_WEB_SOCKETS, "PID_PIN1: %d, PID_PIN2: %d, externerSpeicher: %d, cardWriterOK: %d, flashOK: %d, modbusOK: %d, tempSensorOK: %d, boilerHeating: %d",
              data.pidContainer.PID_PIN1,
              data.pidContainer.PID_PIN2,
              data.setupData.externerSpeicher,
@@ -147,7 +155,6 @@ String getJsonObj()
              data.states.tempSensorOK,
              data.states.boilerHeating);
 
-             
     if (data.pidContainer.PID_PIN1 == 1)
         bitMaster |= (1 << HEIZPATRONE_L1);
     if (data.pidContainer.PID_PIN2 == 1)
@@ -181,20 +188,27 @@ String getJsonObj()
     // =========================
     JsonObject logObj = doc.createNestedObject("log");
     JsonArray entries = logObj.createNestedArray("entries");
+
     RingBuffer &rb = data.logBuffer;
     if (!rb.active)
     {
         logObj["count"] = 0;
-        String jsonString;
-        serializeJson(doc, jsonString);
-        // DBGf("JSON-String: %s", jsonString.c_str());
-        return jsonString;
+        size_t freeBytes = measureJson(doc);
+        if (freeBytes >= JSON_OBJECT_BUFFER_LEN)
+        {
+            LOG_ERROR(TAG_WEB_SOCKETS, "Not enough memory to create JSON log entries");
+            return "{}";
+        }
+        serializeJson(doc, jsonObjBuffer);
+        jsonObjBuffer[freeBytes] = '\0'; // Null-terminator hinzufügen
+            // DBGf("JSON-String: %s", jsonString.c_str());
+            return jsonObjBuffer;
     }
     uint16_t localRead = rb.readIndex;
     uint16_t localWrite = rb.writeIndex;
 
     uint16_t count = 0;
-
+    LOG_DEBUG(TAG_WEB_SOCKETS, "Creating JSON log entries");
     while ((localRead != localWrite) && count < 30) // safety check to prevent infinite loop
     {
         LogEntry &e = rb.buffer[localRead];
@@ -213,16 +227,21 @@ String getJsonObj()
 
     // 🔑 count setzen
     logObj["count"] = count;
-    String jsonString;
-    serializeJson(doc, jsonString);
-    // DBGf("JSON-String: %s", jsonString.c_str());
-    return jsonString;
+    size_t freeBytes = measureJson(doc);
+    if (freeBytes >= JSON_OBJECT_BUFFER_LEN)
+    {
+        LOG_ERROR(TAG_WEB_SOCKETS, "Not enough memory to create JSON log entries");
+        return "{}"; 
+    }
+    serializeJson(doc, jsonObjBuffer);
+    jsonObjBuffer[freeBytes] = '\0';
+
+    return jsonObjBuffer;
 }
 
-
-void notifyClients(String sensorlive)
+void notifyClients()
 {
-    ws.textAll(sensorlive);
+    ws.textAll(getJsonObj());
 }
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 {
@@ -234,12 +253,11 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         //  Check if the message is "getlive"
         // if (strcmp((char*)data, "getlive") == 0) {
         // if it is, send current sensor live
-        LOG_INFO("webSockets::handleWebSocketMessage for message: %s", (char *)data);
+        LOG_INFO(TAG_WEB_SOCKETS, "webSockets::handleWebSocketMessage for message: %s", (char *)data);
         /*  if (strcmp((char *)data, "getLifeData") == 0)
          { */
-        String sensorlive = getJsonObj();
-        Serial.print(sensorlive);
-        notifyClients(sensorlive);
+      
+        notifyClients();
         //}
         //}
     }

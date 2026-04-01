@@ -140,15 +140,15 @@ typedef struct
 
     double epsilonML_PinManager;
     int forceHeating;
-    bool setupChanged;
+    bool setupChanged; 
 
 } Setup;
 
 typedef struct
 {
     bool alarm;
-    float sensor1;
-    float sensor2;
+    int sensor1;
+    int sensor2;
 } TEMPERATURE;
 
 typedef struct mbContainer

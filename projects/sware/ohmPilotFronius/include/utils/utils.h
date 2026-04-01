@@ -25,3 +25,24 @@ bool utils_sock_readRestTarget(WEBSOCK_DATA &, int index, GET_JSON_DATA getJson)
 void utils_logWrite(RingBuffer &rb, const LogEntry &e);
 bool utils_logRead(RingBuffer &rb, LogEntry &out);
 bool utils_shouldLog(bool l1, bool l2, uint8_t pwm, bool legionella, bool minTemp);
+char* utils_floatToString(float value);
+
+/**
+ * Konvertiert float sicher in einen String.
+ * @param val Der Fließkommawert
+ * @param width Mindestbreite (inkl. Punkt)
+ * @param precision Nachkommastellen
+ * @param buf Zielpuffer (muss groß genug sein!)
+ * @return Zeiger auf den Puffer
+ */
+inline char *fToStr(double val, signed char width, unsigned char precision, char *buf)
+{
+    // Falls der Wert ungültig ist (NaN/Inf), fangen wir das ab
+    if (isnan(val))
+        return (char *)"NaN";
+    if (isinf(val))
+        return (char *)"Inf";
+
+    // dtostrf ist auf dem ESP32 viel schneller/stack-schonender als sprintf
+    return dtostrf(val, width, precision, buf);
+}

@@ -31,15 +31,15 @@ bool influx_init(CALLBACK_GET_DATA getData)
     client.setInsecure();
     timeSync(EUROPE_VIENNA_TZ, NtpServer1, NtpServer2);
     // isInfluxValid = &webSockData.states.influx;
-    LOG_INFO("Init influx");
+    LOG_INFO(TAG_INFLUX,"Init influx");
     // Check server connection
     if (client.validateConnection())
     {
-        LOG_INFO("Connected to InfluxDB: %s", client.getServerUrl().c_str());
+        LOG_INFO(TAG_INFLUX,"Connected to InfluxDB: %s", client.getServerUrl().c_str());
     }
     else
     {
-        LOG_ERROR("InfluxDB connection failed: %s", client.getLastErrorMessage().c_str());
+        LOG_ERROR(TAG_INFLUX,"InfluxDB connection failed: %s", client.getLastErrorMessage().c_str());
         return false;
     }
     time_t t = time(NULL);
@@ -57,7 +57,7 @@ bool influx_init(CALLBACK_GET_DATA getData)
     // Print what are we exactly writing
 
     client.pointToLineProtocol(environment);
-    LOG_DEBUG("influx::Write to influx: %s", client.pointToLineProtocol(environment).c_str());
+    LOG_DEBUG(TAG_INFLUX,"influx::Write to influx: %s", client.pointToLineProtocol(environment).c_str());
     if (!client.writePoint(environment))
     {
         Serial.print("InfluxDB write failed: ");

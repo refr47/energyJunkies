@@ -42,27 +42,27 @@ static bool isAPModus = false; // only in APModus a reboot is required
 
 static void listDir(char *dir)
 {
-    LOG_INFO("www::listdir");
+    LOG_INFO(TAG_WEB,"www::listdir");
     File root = SPIFFS.open(dir);
 
     if (!root)
     {
-        LOG_ERROR("www::- failed to open directory");
+        LOG_ERROR(TAG_WEB, "www::- failed to open directory");
         return;
     }
     if (!root.isDirectory())
     {
-        LOG_ERROR("www:: - not a directory");
+        LOG_ERROR(TAG_WEB, "www:: - not a directory");
         return;
     }
 
-    LOG_INFO("www::%s", root);
+    LOG_INFO(TAG_WEB, "www::%s", root);
     File file = root.openNextFile();
 
     while (file)
     {
 
-        LOG_INFO("www::FILE: %s", file.name());
+        LOG_INFO(TAG_WEB, "www::FILE: %s", file.name());
 
         file = root.openNextFile();
     }
@@ -139,18 +139,25 @@ static void handleSetup(AsyncWebServerRequest *request)
 bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
 {
     // 1. SPIFFS Initialisierung
-    LOG_INFO("www_init::begin");
+    LOG_INFO(TAG_WEB, "www_init::begin");
     if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
-        LOG_ERROR("www_init::SPIFFS Mount Failed");
+        LOG_ERROR(TAG_WEB, "www_init::SPIFFS Mount Failed");
         return false;
     }
     File root = SPIFFS.open("/");
     File file = root.openNextFile();
+    unsigned int fileCount = 0;
     while (file)
     {
-        LOG_INFO("SPIFFS File: %s, Size: %u\n", file.name(), file.size());
+        LOG_INFO(TAG_WEB, "SPIFFS File: %s, Size: %u,", file.name(), file.size());
         file = root.openNextFile();
+        fileCount++;
+        if (fileCount % 4 == 0)
+        {
+            LOG_INFO(TAG_WEB, "\n");
+            break;
+        }
     }
 
     // 2. Netzwerk-Modus (AP oder Client)
@@ -220,7 +227,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               {
     // Dieser Teil verarbeitet die Datenpakete (Chunks)
     if (!index) {
-        LOG_INFO("Update Start: %s", filename.c_str());
+        LOG_INFO(TAG_WEB, "Update Start: %s", filename.c_str());
         // Prüfen, ob es ein Filesystem oder Firmware Update ist
         int cmd = (filename.indexOf("spiffs") > -1) ? U_SPIFFS : U_FLASH;
         if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
@@ -234,7 +241,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     
     if (final) {
         if (Update.end(true)) {
-            LOG_INFO("Update Success: %u bytes", index + len);
+            LOG_INFO(TAG_WEB, "Update Success: %u bytes", index + len);
         } else {
             Update.printError(Serial);
         }
@@ -270,7 +277,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     server.addHandler(webSockets_init(webSockData));
     server.begin();
 
-    LOG_INFO("WebServer started. Free Heap: %u", ESP.getFreeHeap());
+    LOG_INFO(TAG_WEB, "WebServer started. Free Heap: %u", ESP.getFreeHeap());
     return true;
 }
 

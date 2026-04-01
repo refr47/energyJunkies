@@ -30,9 +30,9 @@ void eprom_stammDataUpdateReset()
 
 void eprom_storeSetup(Setup &setup)
 {
-    bool result = true;
+    //bool result = true;
     stammDataUpdateWatch = true;
-    uint32_t ipAsInt;
+    //uint32_t ipAsInt;
     preferences.begin(SETUP_CREDENTIALS, false);
 
     preferences.clear();
@@ -133,19 +133,19 @@ void eprom_isInit()
     preferences.begin(SETUP_CREDENTIALS, false);
     if (preferences.getString(_SSID, "") == NULL)
     {
-        LOG_INFO("epeprom_rom_isInit - flash hasn't been used never before ! - reinit ");
+        LOG_INFO(TAG_EPPROM,"epeprom_rom_isInit - flash hasn't been used never before ! - reinit ");
         eprom_test_write_Eprom("Milchbehaelter", "47754775");
     }
     else
     {
-        LOG_INFO("eprom_isInit:: Nothing to do");
+        LOG_INFO(TAG_EPPROM,"eprom_isInit:: Nothing to do");
     }
     preferences.end();
 }
 
 void eprom_getSetup(Setup &setup)
 {
-    LOG_DEBUG("eprom_getSetup");
+    LOG_DEBUG(TAG_EPPROM,"eprom_getSetup");
     memset(&setup, 0, sizeof(Setup));
     preferences.begin(SETUP_CREDENTIALS, false);
     String ssid, passwd;
@@ -156,7 +156,7 @@ void eprom_getSetup(Setup &setup)
 
     if (ssid == "" || passwd == "")
     {
-        LOG_INFO("eprom::eprom_getSetup No values saved for ssid or password");
+        LOG_INFO(TAG_EPPROM,"eprom::eprom_getSetup No values saved for ssid or password");
         strcpy(setup.ssid, EMPTY_VALUE_IN_SETUP);
         strcpy(setup.passwd, "");
     }
@@ -229,11 +229,11 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
  */
     strncpy(setup.ssid, wlanE, LEN_WLAN - 1);
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
-    LOG_DEBUG("eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
+    LOG_DEBUG(TAG_EPPROM,"eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
 
     setup.heizstab_leistung_in_watt = 4500;
     setup.tempMaxAllowedInGrad = 60;
-    setup.tempMinInGrad = 20;
+    setup.tempMinInGrad = 40;
     strcpy(setup.inverter, "10.0.0.22");
 
     setup.externerSpeicher = true;
@@ -269,7 +269,7 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
 
     setup.forceHeating = 0;
 
-    LOG_DEBUG("eprom::eprom_test_write_Eprom END");
+    LOG_DEBUG(TAG_EPPROM,"eprom::eprom_test_write_Eprom END");
 
     eprom_storeSetup(setup);
 }
@@ -278,10 +278,10 @@ void printEprom(Setup &setup)
 {
     char buffer[2000];
     memset(buffer, 0, 2000);
-    LOG_DEBUG("eprom::printEprom ============================================ ");
+    LOG_DEBUG(TAG_EPPROM,"eprom::printEprom ============================================ ");
     sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Influx: %s ,inverter: %s,  LegionellenCheckDelta: %d   forceHeating: %d , Epsilon-PinManager: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
             setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.influxOrg, setup.inverter, setup.legionellenDelta, setup.forceHeating, setup.epsilonML_PinManager, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
-    LOG_DEBUG("%s", buffer);
+    LOG_DEBUG(TAG_EPPROM,"%s", buffer);
 
     // DBGf("\n==========================(%d)============================== ", strlen(buffer));
 }
@@ -306,7 +306,7 @@ void eprom_show(Setup &setup)
 
 void eprom_store_shelly(ALL_SHELLY_DEVICES *allDevices, unsigned upperLimit)
 {
-    LOG_INFO("eprom::eprom_store_shelly\n");
+    LOG_INFO(TAG_EPPROM,"eprom::eprom_store_shelly\n");
     preferences.begin(SHELLY_EPROM, false);
     preferences.clear();
     for (int i = 0; i < upperLimit; i++)
@@ -315,7 +315,7 @@ void eprom_store_shelly(ALL_SHELLY_DEVICES *allDevices, unsigned upperLimit)
         {
             if (allDevices[i].errorContainer == NULL)
             {
-                LOG_INFO("eprom:: index: %d, device name: %s, mac: %s, ip: %s, port: %d\n", i, allDevices[i].shellyDevice->name, allDevices[i].shellyDevice->mac, allDevices[i].shellyDevice->ip, allDevices[i].shellyDevice->port);
+                LOG_INFO(TAG_EPPROM,"eprom:: index: %d, device name: %s, mac: %s, ip: %s, port: %d\n", i, allDevices[i].shellyDevice->name, allDevices[i].shellyDevice->mac, allDevices[i].shellyDevice->ip, allDevices[i].shellyDevice->port);
                 preferences.putString(SHELLY_DEVICE_NAME, allDevices[i].shellyDevice->name);
                 preferences.putString(SHELLY_MAC, allDevices[i].shellyDevice->mac);
                 preferences.putString(SHELLY_IP, allDevices[i].shellyDevice->ip);
@@ -324,7 +324,7 @@ void eprom_store_shelly(ALL_SHELLY_DEVICES *allDevices, unsigned upperLimit)
             }
             else
             {
-                LOG_ERROR("eprom::eprom_store_shelly() - ERROR Msg: %s, Method: %s\n", allDevices[i].errorContainer->errorMessage, allDevices[i].errorContainer->usedMethod);
+                LOG_ERROR(TAG_EPPROM,"eprom::eprom_store_shelly() - ERROR Msg: %s, Method: %s\n", allDevices[i].errorContainer->errorMessage, allDevices[i].errorContainer->usedMethod);
                 free(allDevices[i].errorContainer);
             }
         }

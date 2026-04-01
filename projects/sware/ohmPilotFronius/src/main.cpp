@@ -61,34 +61,28 @@ bool &setSetupChanged(bool didSetupChanged)
     return g_app.webSockData.setupData.setupChanged;
 }
 
-void logging_init()
+void logging_init() 
 {
     DBGf("main::logging_init() - log level: %d", LOG_LEVEL_ESP);
 
-    esp_log_level_set("*", ESP_LOG_VERBOSE);
-    esp_log_level_set("ArduinoJson", ESP_LOG_ERROR);
-    esp_log_level_set("AsyncTCP-esphome", ESP_LOG_ERROR);
-    esp_log_level_set("ESPAsyncWebServer-esphome", ESP_LOG_ERROR);
-    esp_log_level_set("modbus-esp8266", ESP_LOG_ERROR);
-    esp_log_level_set("wifi", ESP_LOG_ERROR);
-
-#if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 1)
-    esp_log_level_set(TAG, ESP_LOG_ERROR);
-#endif
-#if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 2)
-    esp_log_level_set(TAG, ESP_LOG_WARNING);
-#endif
-#if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 3)
-    esp_log_level_set(TAG, ESP_LOG_INFO);
-#endif
-#if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 4)
-    esp_log_level_set(TAG, ESP_LOG_DEBUG);
-#endif
-#if defined(LOG_LEVEL_ESP) && (LOG_LEVEL_ESP == 5)
-    esp_log_level_set(TAG, ESP_LOG_VERBOSE);
-#endif
-
-    esp_log_set_vprintf(debug_LogOutput);
+    esp_log_level_set("*", ESP_LOG_INFO);
+    esp_log_level_set(TAG_WLAN, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_TEMP, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_PID, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_MQTT, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_APP_SERVICES, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_WEB_SOCKETS, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_WEB, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_APP_TASKS, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_SHELLY, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_CARD, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_MODBUS, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_FRONIUS, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_AMIS, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_WEATHER, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_INFLUX, ESP_LOG_DEBUG); 
+  
+    //  esp_log_set_vprintf(debug_LogOutput);
 
 #ifdef CARD_READER
     esp_log_set_vprintf(cardRW_LogOutput);
@@ -109,37 +103,59 @@ void setup()
     appStateInit();
 
     bootCount++;
-    LOG_INFO("Boot number: %d", bootCount);
+    LOG_INFO(TAG_MAIN, "Boot number: %d", bootCount);
 
     ledHandler_init();
     tft_init();
     tft_printSetup();
 
     eprom_isInit();
-    // eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    eprom_getSetup(g_app.webSockData.setupData);
+    eprom_test_write_Eprom("Milchbehaelter", "47754775");
+        // eprom_test_write_Eprom("Milchbehaelter", "47754775");
+        eprom_getSetup(g_app.webSockData.setupData);
 
     if (strcmp(g_app.webSockData.setupData.ssid, EMPTY_VALUE_IN_SETUP) == 0)
     {
+        // AP mode
+        g_app.networkCredentialsInEEprom = false;
+        LOG_DEBUG(TAG_MAIN, "main:: No network credentials in eeprom, starting in AP mode");
         g_app.networkCredentialsInEEprom = false;
         g_app.webSockData.states.networkOK = false;
+        g_app.networkCredentialsInEEprom = false;
+        appTasks_init(true);
         www_init(g_app.webSockData.setupData, NULL, NULL, getDataForWebSocket, setSetupChanged);
+    }
+    else
+    {
+        LOG_DEBUG(TAG_MAIN, "main:: Network credentials in eeprom, trying to connect to wifi");
+        g_app.networkCredentialsInEEprom = true;
+        appTasks_init(false); // ap-mode false, because wifi found
     }
 
     if (g_app.networkCredentialsInEEprom)
     {
+        // network, password in eeprom, try to connect to wifi
+        LOG_DEBUG(TAG_MAIN, "main:: wifi init");
+        // appTask_setupSystemConfigMode(); // Set the system to configuration mode
         if (!wifi_init(g_app.webSockData.setupData))
         {
             tft_clearScreen();
-            wifi_scan_network();
+            // wifi_scan_network();
+            appTasks_init(true); // AP mode, because wifi connection failed
+            LOG_DEBUG(TAG_MAIN, "main:: www_init ");
             www_init(g_app.webSockData.setupData, NULL, NULL, getDataForWebSocket, setSetupChanged);
             g_app.webSockData.states.networkOK = false;
         }
         else
         {
             char *pBuf = g_app.globalStringBuffer;
+
+            LOG_DEBUG(TAG_MAIN, "main:: set app task to normal mode, because wifi connected");
             wifi_getLocalIP(&pBuf);
+            appTask_setupWifoMode();
+            LOG_DEBUG(TAG_MAIN, "main:: set app task to normal mode done");
             tft_drawNetworkInfo(g_app.globalStringBuffer, g_app.webSockData.setupData.ssid);
+            LOG_INFO(TAG_MAIN, "main:: www_init for network %s mode with IP: %s", g_app.webSockData.setupData.ssid, g_app.globalStringBuffer);
             g_app.webSockData.states.flashOK = www_init(
                 g_app.webSockData.setupData,
                 pBuf,
@@ -148,7 +164,7 @@ void setup()
                 setSetupChanged);
             g_app.webSockData.states.networkOK = true;
         }
-
+        LOG_DEBUG(TAG_MAIN, "main:: time_init");
         g_app.webSockData.states.timeServer = time_init();
         if (g_app.webSockData.states.timeServer)
         {
@@ -204,9 +220,11 @@ void setup()
         }
 #endif
     }
-
+    WifiCredentials credentials;
+    strncpy(credentials.ssid, g_app.webSockData.setupData.ssid, LEN_WLAN);
+    strncpy(credentials.password, g_app.webSockData.setupData.passwd, LEN_WLAN);
+    credentials.apMode = g_app.networkCredentialsInEEprom;
     logReader_init();
-    createAppTasks();
 
     if (g_app.webSockData.states.networkOK)
     {
@@ -215,26 +233,29 @@ void setup()
 
         heapSize[1].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
         heapSize[1].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-        LOG_DEBUG("Free heap previous: %d largest block previous: %d,Free heap : %d largest block : %d", heapSize[0].heapSize, heapSize[0].heapSizeMax, heapSize[1].heapSize, heapSize[1].heapSizeMax);
+        LOG_DEBUG(TAG_MAIN, "Free heap previous: %d largest block previous: %d,Free heap : %d largest block : %d", heapSize[0].heapSize, heapSize[0].heapSizeMax, heapSize[1].heapSize, heapSize[1].heapSizeMax);
 
-        LOG_INFO(" -------- States ---------------");
-        LOG_INFO("Network: %c", g_app.webSockData.states.networkOK == true ? 'y' : 'n');
-        LOG_INFO("IP-Address: %s", g_app.webSockData.setupData.currentIP);
-        LOG_INFO("Fronius: %c", g_app.webSockData.states.froniusAPI == true ? 'y' : 'n');
-        LOG_INFO("AmisReader: %c", g_app.webSockData.states.amisReader == true ? 'y' : 'n');
-        LOG_INFO("CardWrite: %c", g_app.webSockData.states.cardWriterOK == true ? 'y' : 'n');
-        LOG_INFO("FlashFS: %c", g_app.webSockData.states.flashOK == true ? 'y' : 'n');
-        LOG_INFO("Influx: %c", g_app.webSockData.states.influx == true ? 'y' : 'n');
-        LOG_INFO("Modbus: %c", g_app.webSockData.states.modbusOK == true ? 'y' : 'n');
-        LOG_INFO("MqTT: %c", g_app.webSockData.states.mqtt == true ? 'y' : 'n');
-        LOG_INFO("TempSensor: %c", g_app.webSockData.states.tempSensorOK == true ? 'y' : 'n');
-        LOG_INFO("TimeServer(NTP): %c", g_app.webSockData.states.timeServer == true ? 'y' : 'n');
-        LOG_INFO("LogReader: y");
-        LOG_INFO("HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
+        LOG_INFO(TAG_MAIN, " -------- States ---------------");
+        LOG_INFO(TAG_MAIN, "Network: %c", g_app.webSockData.states.networkOK == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "IP-Address: %s", g_app.webSockData.setupData.currentIP);
+        LOG_INFO(TAG_MAIN, "Fronius: %c", g_app.webSockData.states.froniusAPI == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "AmisReader: %c", g_app.webSockData.states.amisReader == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "CardWrite: %c", g_app.webSockData.states.cardWriterOK == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "FlashFS: %c", g_app.webSockData.states.flashOK == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "Influx: %c", g_app.webSockData.states.influx == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "Modbus: %c", g_app.webSockData.states.modbusOK == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "MqTT: %c", g_app.webSockData.states.mqtt == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "TempSensor: %c", g_app.webSockData.states.tempSensorOK == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "TimeServer(NTP): %c", g_app.webSockData.states.timeServer == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "LogReader: y");
+        LOG_INFO(TAG_MAIN, "HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
         tft_clearScreen();
         delay(5000);
     }
-    LOG_INFO("Setup done - RTOS tasks started");
+    createAppTasks(credentials);
+
+    LOG_INFO(TAG_MAIN, "Setup done - RTOS tasks started");
+    // void appTask_setupSystemConfigMode();
 }
 
 void loop()
@@ -242,7 +263,7 @@ void loop()
     // Warte 5000 Millisekunden (5 Sekunden)
     vTaskDelay(pdMS_TO_TICKS(5000));
     // Alle 5 Sekunden auf Serial ausgeben:
-    LOG_INFO("Free Heap: %u | Max Alloc: %u | Connects: %d | Free Stack: %d bytes",
+    LOG_INFO(TAG_MAIN, "Free Heap: %u | Max Alloc: %u | Connects: %d | Free Stack: %d bytes",
              ESP.getFreeHeap(),
              ESP.getMaxAllocHeap(),
              WiFi.softAPgetStationNum(),

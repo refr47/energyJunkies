@@ -9,6 +9,15 @@
 const double OUTPUT_MAX = 255.0;
 #define DEAD_BAND_WATT 30.0
 
+enum ControlMode
+{
+    MODE_OFF,        // Alles aus (Max Temp erreicht)
+    MODE_LEGIONELLA, // Vollgas (Legionellen-Programm)
+    MODE_MIN_TEMP,   // Vollgas (Frostschutz / Min-Temp)
+    MODE_MANUAL,     // Manuelle Steuerung
+    MODE_AUTO        // RL / PID Controller übernimmt
+};
+
 class PinManager
 {
 public:
@@ -41,7 +50,7 @@ private:
     const double DEAD_BAND = DEAD_BAND_WATT; // Änderungen unter 50W werden ignoriert
     double lastTargetPower = 0;    // Speicher für den letzten Sollwert
     double rest = 0;
-
+    
     // RL
     static const int S_T = 5;
     static const int S_P = 5;
@@ -73,8 +82,7 @@ private:
 
     double heaterPower();
     double basePower(double effectivePower);
-    bool preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS, LogEntry &logEntry);
-   
-    
+    ControlMode preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS, LogEntry &logEntry);
+
     double getMeanOfAvailAblePower();
 };

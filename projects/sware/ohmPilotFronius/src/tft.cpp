@@ -368,7 +368,7 @@ void tft_drawInfoNoModbus(TEMPERATURE &temp)
     tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur", TFT_SKYBLUE);
     tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie", TFT_RED);
     ++currentLine;
-    sprintf(displayBuffer, "%.2f", temp.sensor1);
+    sprintf(displayBuffer, "%d", temp.sensor1);
     tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 1", displayBuffer);
     txtColor = TFT_RED;
     sprintf(displayBuffer, "%s", "Keine ");
@@ -401,7 +401,7 @@ void tft_drawInfo(WEBSOCK_DATA &webSockData)
         ++currentLine;
         if (webSockData.temperature.alarm)
             txtColor = TFT_RED;
-        sprintf(displayBuffer, "%.2f", webSockData.temperature.sensor1);
+        sprintf(displayBuffer, "%d", webSockData.temperature.sensor1);
         tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 1", displayBuffer);
         txtColor = TFT_WHITE;
         // production LINE 1

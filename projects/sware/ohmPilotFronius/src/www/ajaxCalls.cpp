@@ -62,7 +62,7 @@ void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupC
 
     if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
-        LOG_ERROR("ajaxCalls_init - mutex lock failed");
+        LOG_ERROR(TAG_AJAX,"ajaxCalls_init - mutex lock failed");
         return;
     }
 
@@ -168,7 +168,7 @@ static void delayedRestartTask(void *parameter)
         free(parameter);
     }
 
-    LOG_INFO("delayedRestartTask - restart in %lu ms", static_cast<unsigned long>(delayMs));
+    LOG_INFO(TAG_AJAX,"delayedRestartTask - restart in %lu ms", static_cast<unsigned long>(delayMs));
     vTaskDelay(pdMS_TO_TICKS(delayMs));
     esp_restart();
 }
@@ -181,14 +181,14 @@ bool ajaxCalls_triggerShellyScan(void)
 
     if (!ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
-        LOG_ERROR("ajaxCalls_triggerShellyScan - mutex lock failed");
+        LOG_ERROR(TAG_AJAX,"ajaxCalls_triggerShellyScan - mutex lock failed");
         return false;
     }
 
     if (g_shellyScanRunning)
     {
         ajaxCalls_unlock(g_shellyMutex);
-        LOG_INFO("ajaxCalls_triggerShellyScan - scan already running");
+        LOG_INFO(TAG_AJAX,"ajaxCalls_triggerShellyScan - scan already running");
         return false;
     }
 
@@ -212,7 +212,7 @@ bool ajaxCalls_triggerShellyScan(void)
                 "{\"done\":0,\"error\":\"cannot create shelly task\",\"DATA\":[]}",
                 sizeof(g_shellyJsonCache) - 1);
         g_shellyJsonCache[sizeof(g_shellyJsonCache) - 1] = '\0';
-        LOG_ERROR("ajaxCalls_triggerShellyScan - task creation failed");
+        LOG_ERROR(TAG_AJAX,"ajaxCalls_triggerShellyScan - task creation failed");
     }
 
     ajaxCalls_unlock(g_shellyMutex);
@@ -287,7 +287,7 @@ static void shellyScanTask(void *parameter)
     bool listResult = shelly_listAllDevices(allDevices, range, SHELLY_SCAN_MAX_DEVICES);
     if (!listResult)
     {
-        LOG_WARNING("shellyScanTask - shelly_listAllDevices returned false");
+        LOG_WARNING(TAG_AJAX,"shellyScanTask - shelly_listAllDevices returned false");
     }
 
     for (int jj = 0; jj < SHELLY_SCAN_MAX_DEVICES; ++jj)
@@ -330,7 +330,7 @@ static void shellyScanTask(void *parameter)
         ajaxCalls_unlock(g_shellyMutex);
     }
 
-    LOG_INFO("shellyScanTask - finished");
+    LOG_INFO(TAG_AJAX,"shellyScanTask - finished");
     vTaskDelete(nullptr);
 }
 
@@ -368,7 +368,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     eprom_getSetup(setup);
 
     DynamicJsonDocument data(JSON_OBJECT_SETUP_LEN);
-    LOG_INFO("ajaxCalls_handleGetSetup - begin");
+    LOG_INFO(TAG_AJAX,"ajaxCalls_handleGetSetup - begin");
 
     data[WLAN_ESSID] = setup.ssid;
     data[WLAN_PASSWD] = setup.passwd;
@@ -453,7 +453,7 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 
         if (webSockD.temperature.alarm)
     {
-        if (webSockD.temperature.sensor1 > 0.0 && webSockD.temperature.sensor2 > 0.0)
+        if (webSockD.temperature.sensor1 > 0 && webSockD.temperature.sensor2 > 0)
         {
             snprintf(formatBuffer,
                      sizeof(formatBuffer),
@@ -493,7 +493,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     ajaxCalls_ensureInitPrimitives();
 
     UBaseType_t stackRemaining = uxTaskGetStackHighWaterMark(nullptr);
-    LOG_INFO("ajaxCalls_handleStoreSetup - free stack words: %u",
+    LOG_INFO(TAG_AJAX,"ajaxCalls_handleStoreSetup - free stack words: %u",
              static_cast<unsigned>(stackRemaining));
 
     JsonObject jsonObj = json.as<JsonObject>();
@@ -566,6 +566,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
         return;
     }
     //!!setup.pid_powerWhichNeedNotConsumed = result;
+
     setup.legionellenDelta = result;
     argument = safeJsonString(jsonObj, LEGIONELLEN_TEMP);
     ok = util_checkParamInt(LEGIONELLEN_TEMP, argument, data, &result);
@@ -717,7 +718,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
             if (taskOk != pdPASS)
             {
                 free(delayMs);
-                LOG_ERROR("ajaxCalls_handleStoreSetup - restart task creation failed");
+                LOG_ERROR(TAG_AJAX,"ajaxCalls_handleStoreSetup - restart task creation failed");
             }
         }
     }
@@ -735,7 +736,7 @@ static void returnFromStoreSetup(bool inputCorrect,
     {
         data["done"] = 1;
         data["error"] = "";
-        LOG_INFO("returnFromStoreSetup - no errors");
+        LOG_INFO(TAG_AJAX,"returnFromStoreSetup - no errors");
     }
     else
     {
@@ -744,7 +745,7 @@ static void returnFromStoreSetup(bool inputCorrect,
         {
             data["error"] = "invalid input";
         }
-        LOG_ERROR("returnFromStoreSetup - errors");
+        LOG_ERROR(TAG_AJAX,"returnFromStoreSetup - errors");
     }
 
     serializeJson(data, response);

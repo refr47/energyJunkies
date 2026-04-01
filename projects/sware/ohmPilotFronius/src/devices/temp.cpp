@@ -28,19 +28,19 @@ static void hardware_reset();
 
 void printAddress(DeviceAddress deviceAddress)
 {
-    LOG_DEBUG("temperature::printAddress");
+    LOG_DEBUG(TAG_TEMP,"temperature::printAddress");
     char buff[100];
     sprintf(buff, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", deviceAddress[0], deviceAddress[1], deviceAddress[2], deviceAddress[3], deviceAddress[4], deviceAddress[5], deviceAddress[6], deviceAddress[7]);
     /*  for (uint8_t i = 0; i < 8; i++)
      {
          buf[i]=deviceAddress[i];
      } */
-    LOG_DEBUG(" %s", buff);
+    LOG_DEBUG(TAG_TEMP, " %s", buff);
 }
 
 void search()
 {
-    LOG_DEBUG("temperature::search");
+    LOG_DEBUG(TAG_TEMP, "temperature::search");
     byte addr[8];
     while (oneWire.search(addr))
     {
@@ -63,7 +63,7 @@ bool temp_init()
     search();
     delay(3000); */
 
-    LOG_INFO("temperature::Init Temp Sensor...");
+    LOG_INFO(TAG_TEMP,"temperature::Init Temp Sensor...");
 
     sensors.setResolution(11);
     sensors.begin();
@@ -72,12 +72,12 @@ bool temp_init()
 
     if (numberOfDevices == 0)
     {
-        LOG_ERROR("temp_init() - keine Temperatursensorik gefunden.");
+        LOG_ERROR(TAG_TEMP, "temp_init() - keine Temperatursensorik gefunden.");
         printf("temp-init:: keine Sensorik gefunden\n");
         return false;
     }
     // locate devices on the bus
-    LOG_INFO("temperature:Locating devices...Found :%d devices", numberOfDevices);
+    LOG_INFO(TAG_TEMP, "temperature:Locating devices...Found :%d devices", numberOfDevices);
 
     // Loop through each device, print out address
     for (int i = 0; i < numberOfDevices; i++)
@@ -85,15 +85,15 @@ bool temp_init()
         // Search the wire for address
         if (sensors.getAddress(tempDeviceAddress, i))
         {
-            LOG_DEBUG("Found device %d with address:", i);
+            LOG_DEBUG(TAG_TEMP, "Found device %d with address:", i);
 
             printAddress(tempDeviceAddress);
         }
         else
         {
-            LOG_ERROR("temperature::Init Temp Sensor - but could not detect address. Found ghost device at  %d", i);
+            LOG_ERROR(TAG_TEMP, "temperature::Init Temp Sensor - but could not detect address. Found ghost device at  %d", i);
 
-            LOG_DEBUG("temp_init() - keine Temperatursensorik gefunden.");
+            LOG_DEBUG(TAG_TEMP, "temp_init() - keine Temperatursensorik gefunden.");
         }
     }
 
@@ -132,25 +132,25 @@ bool temp_getTemperature(TEMPERATURE &container)
             else if (i == 1)
                 container.sensor2 = sensors.getTempC(tempDeviceAddress);
             else
-                LOG_DEBUG("temp_getTemperature - sensor %d kann mangels fehlender Variable nicht gespeichert werden", i);
+                LOG_DEBUG(TAG_TEMP, "temp_getTemperature - sensor %d kann mangels fehlender Variable nicht gespeichert werden", i);
         }
     }
-    LOG_DEBUG("temp_getTemperature - Sensor 1: %.2f, Sensor 2: %.2f", container.sensor1, container.sensor2);
+    LOG_DEBUG(TAG_TEMP, "temp_getTemperature - Sensor 1: %d, Sensor 2: %d", container.sensor1, container.sensor2);
 
     if (container.sensor1 < 0)
     {
-        ESP_LOGE(TAG, "temp_getTemperature - Temperatur Sensor 1 (%.2f) kann nicht negativ sein.", container.sensor1);
+        ESP_LOGE(TAG_TEMP, "temp_getTemperature - Temperatur Sensor 1 (%d) kann nicht negativ sein.", container.sensor1);
     }
     if (container.sensor2 < 0 && numberOfDevices)
     {
-        ESP_LOGE(TAG, "temp_getTemperature - Temperatur Sensor 2 (%.2f) kann nicht negativ sein.", container.sensor1);
+        ESP_LOGE(TAG_TEMP, "temp_getTemperature - Temperatur Sensor 2 (%d) kann nicht negativ sein.", container.sensor1);
     }
     if (container.sensor1 < 0 && container.sensor2 < 0)
     {
-        LOG_ERROR("temp_getTemperature -Reinit OneWire Bus ....");
+        LOG_ERROR(TAG_TEMP, "temp_getTemperature -Reinit OneWire Bus ....");
         hardware_reset();
         temp_init(); // Reinitialize the sensors
-        container.sensor1 = container.sensor2 = -1.0;
+        container.sensor1 = container.sensor2 = -1;
         return false;
     }
     return container.sensor1 > 0 || container.sensor2 > 0;
@@ -163,7 +163,7 @@ int temp_getNumberOfDevices()
 
 static void hardware_reset()
 {
-    LOG_DEBUG("temperature::hardware_reset - Resetting OneWire Bus");
+    LOG_DEBUG(TAG_TEMP, "temperature::hardware_reset - Resetting OneWire Bus");
     pinMode(ONE_WIRE_TEMP_GPIO, OUTPUT);
     digitalWrite(ONE_WIRE_TEMP_GPIO, LOW); // Kurzschluss gegen GND
     delayMicroseconds(480);                // Mind. 480µs (Reset-Zeit)

@@ -116,6 +116,28 @@ function onMessage(event) {
   //console.log(data)
   setTimeout(replaceDataReceivedSym, 1000);
 
+  function updateTable(entries) {
+    const tbody = document.querySelector("#logTable tbody");
+
+    // 🧹 optional: alte Daten löschen
+    tbody.innerHTML = "";
+
+    entries.forEach(e => {
+      const row = document.createElement("tr");
+
+      row.innerHTML = `
+            <td>${new Date(e.ts * 1000).toLocaleTimeString()}</td>
+            <td>${e.l1}</td>
+            <td>${e.l2}</td>
+            <td>${e.pwm}</td>
+            <td>${e.temp.toFixed(1)}</td>
+        `;
+
+      tbody.appendChild(row);
+    });
+  }
+
+
   let errorBitVektor = live["FE"]
   if (errorBitVektor == 0)
     $("#errorL").remove();
@@ -160,6 +182,7 @@ function onMessage(event) {
   let count = dataJson.log.count;
   if (count > 0) {
     console.log("Log-Entries: " + count);
+    updateTable(dataJson.log.entries);
   } else {
     console.log("No log entries received.");
     let entries = dataJson.log.entries;

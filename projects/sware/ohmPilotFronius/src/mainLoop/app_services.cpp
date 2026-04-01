@@ -42,14 +42,15 @@
 
 static constexpr uint32_t TEMPERATURE_OVERHEATED_WAIT_IN_SECS = 300;
 
-static float averageTemp()
+static int averageTemp()
 {
-    return (g_app.webSockData.temperature.sensor1 + g_app.webSockData.temperature.sensor2) / 2.0f;
+    return (g_app.webSockData.temperature.sensor1 + g_app.webSockData.temperature.sensor2) / 2;
 }
-
+ 
 void serviceClock()
 {
     appLock();
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceClock - update time on TFT");
     if (getCurrentTime(g_app.formatBuffer, FORMAT_CHAR_BUFFER_LEN))
     {
         if (xSemaphoreTake(g_tftMutex, pdMS_TO_TICKS(50)) == pdTRUE)
@@ -84,10 +85,10 @@ void serviceClock()
 void serviceNetworkSupervisor()
 {
     appLock();
-
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceNetworkSupervisor ");
     if (!wifi_isStillConnected(g_app.webSockData.setupData))
     {
-        LOG_ERROR("Network down, try reconnecting");
+        LOG_ERROR(TAG_APP_SERVICES, "Network down, try reconnecting");
         g_app.webSockData.states.networkOK = false;
         g_app.webSockData.states.mqtt = false;
         WiFi.disconnect();
@@ -107,7 +108,7 @@ void serviceNetworkSupervisor()
                 amisReaderHost = "0.0.0.0";
             }
 
-            LOG_INFO("Network OK, SSID: %s, IP: %s, RSSI: %d, AmisReader: %s Saldo: %ld",
+            LOG_INFO(TAG_APP_SERVICES, "Network OK, SSID: %s, IP: %s, RSSI: %d, AmisReader: %s Saldo: %ld",
                      g_app.webSockData.setupData.ssid,
                      g_app.webSockData.setupData.currentIP,
                      rssi,
@@ -126,14 +127,14 @@ void serviceNetworkSupervisor()
 void serviceTemperature()
 {
     appLock();
-
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceTemperature ");
     if (!temp_getTemperature(g_app.webSockData.temperature))
     {
         g_app.webSockData.states.tempUnderflow = false;
         g_app.webSockData.states.tempSensorOK = false;
 
-        if (g_app.webSockData.temperature.sensor1 < 0.0f &&
-            g_app.webSockData.temperature.sensor2 < 0.0f)
+        if (g_app.webSockData.temperature.sensor1 < 0 &&
+            g_app.webSockData.temperature.sensor2 < 0)
         {
 #ifdef MQTT
             if (g_app.webSockData.states.mqtt)
@@ -144,7 +145,7 @@ void serviceTemperature()
 #endif
             if (!g_app.webSockData.temperature.alarm)
             {
-                LOG_ERROR("Temperature sensors failed - heater off");
+                LOG_ERROR(TAG_APP_SERVICES, "Temperature sensors failed - heater off");
                 g_app.pinManager.reset();
                 g_app.alarmContainer.alarmTemp.alarmTemp = true;
                 g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
@@ -164,7 +165,7 @@ void serviceTemperature()
     {
         g_app.webSockData.states.tempUnderflow = true;
         g_app.pinManager.allOn();
-        LOG_INFO("Temp under minimum, heating full power");
+        LOG_INFO(TAG_APP_SERVICES, "Temp under minimum, heating full power");
         appUnlock();
         return;
     }
@@ -180,7 +181,7 @@ void serviceTemperature()
     {
         if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
         {
-            LOG_ERROR("Temperature limit reached - heater off");
+            LOG_ERROR(TAG_APP_SERVICES, "Temperature limit reached - heater off");
             g_app.pinManager.reset();
             g_app.alarmContainer.alarmTemp.alarmTemp = true;
             g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
@@ -220,7 +221,7 @@ void serviceTemperature()
                 g_app.alarmContainer.alarmTemp.alarmTemp = false;
                 g_app.alarmContainer.alarmTemp.overFlowHappenedAt = 0;
                 ledHandler_showTemperaturError(false);
-                LOG_INFO("Temperature alarm reset");
+                LOG_INFO(TAG_APP_SERVICES, "Temperature alarm reset");
             }
         }
     }
@@ -231,7 +232,7 @@ void serviceTemperature()
 void serviceEnergy()
 {
     appLock();
-
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEnergy - ");
     if (!g_app.webSockData.states.tempSensorOK)
     {
         appUnlock();
@@ -274,7 +275,7 @@ void serviceEnergy()
         }
         else
         {
-            LOG_ERROR("Modbus read failed");
+            LOG_ERROR(TAG_APP_SERVICES, "Modbus read failed");
             g_app.webSockData.states.networkOK = false;
         }
     }
@@ -290,11 +291,11 @@ void serviceEnergy()
             g_app.webSockData.mbContainer.inverterSumValues.data.dcCurrentPower = 0.0;
             g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyExp = g_app.webSockData.amisReader.absolutExportInkWh;
             g_app.webSockData.mbContainer.meterValues.data.acCurrentPower = g_app.webSockData.amisReader.saldo;
-            LOG_INFO("AMIS reader OK, Saldo: %ld, ", g_app.webSockData.amisReader.saldo);
+            LOG_INFO(TAG_APP_SERVICES, "AMIS reader OK, Saldo: %ld, ", g_app.webSockData.amisReader.saldo);
         }
         else
         {
-            LOG_ERROR("AMIS reader failed");
+            LOG_ERROR(TAG_APP_SERVICES, "AMIS reader failed");
             g_app.webSockData.states.networkOK = false;
         }
     }
@@ -312,7 +313,7 @@ void serviceEnergy()
 void servicePid()
 {
     appLock();
-
+    LOG_INFO(TAG_APP_SERVICES, "app_services::servicePid - ");
     if (g_app.webSockData.states.networkOK)
     {
         if (!g_app.alarmContainer.alarmTemp.alarmTemp)
@@ -332,10 +333,10 @@ void servicePid()
 }
 
 void serviceWeb()
-{
+{ 
     appLock();
-    notifyClients(getJsonObj());
-
+    notifyClients();
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceWeb - ");
     if (g_app.webSockData.setupData.setupChanged)
     {
         if (!hotUpdate(g_app.webSockData, g_app.pinManager))
@@ -353,7 +354,7 @@ void serviceWeb()
 void serviceMaintenance()
 {
     appLock();
-
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceMaintenance - ");
     g_app.heapSize[0].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     g_app.heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
 
@@ -365,7 +366,7 @@ void serviceMaintenance()
     }
 #endif
 
-    logReader_init();
+    //logReader_init();
 
     appUnlock();
 }

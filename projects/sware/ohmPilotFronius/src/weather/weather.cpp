@@ -93,15 +93,15 @@ bool wheater_fetch(PROGNOSE &prognose)
 
     int httpResponseCode = 0;
 
-    LOG_INFO("wheater::wheater_fetch BEGIN")
+    LOG_INFO(TAG_WEATHER, "wheater::wheater_fetch BEGIN");
 
     String json_array = util_GET_Request(PARAM, &httpResponseCode);
     // LOG_INFO("URL: %s", PARAM);
 
     if (httpResponseCode != 200)
     {
-        LOG_ERROR("URL: %s is not available, ResponseCode: %d", PARAM, httpResponseCode);
-        LOG_INFO("wheater_fetch eXIT false");
+        LOG_ERROR(TAG_WEATHER, "URL: %s is not available, ResponseCode: %d", PARAM, httpResponseCode);
+        LOG_INFO(TAG_WEATHER, "wheater_fetch eXIT false");
         return false;
     }
     Serial.println(json_array);
@@ -115,12 +115,12 @@ bool wheater_fetch(PROGNOSE &prognose)
     }
     else
     {
-        LOG_DEBUG("wheater_fetch::JSON Fehler: %s", error.c_str());
-        LOG_INFO("wheater_fetch eXIT false");
+        LOG_DEBUG(TAG_WEATHER, "wheater_fetch::JSON Fehler: %s", error.c_str());
+        LOG_INFO(TAG_WEATHER, "wheater_fetch eXIT false");
 
         return false;
     }
-    LOG_INFO("wheater_fetch eXIT true");
+    LOG_INFO(TAG_WEATHER, "wheater_fetch eXIT true");
     return true;
 }
 
@@ -257,7 +257,7 @@ static void wheater_ladestrategie(DynamicJsonDocument &doc, String &payload, PRO
     else
     {
         //Serial.println("JSON Fehler in wheater_ladestrategie");
-        LOG_ERROR("wheather:wheater_ladestrategie JSON Fehler");
+        LOG_ERROR(TAG_WEATHER,"wheather:wheater_ladestrategie JSON Fehler");
     }
 }
 
