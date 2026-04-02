@@ -1,3 +1,4 @@
+// output.js
 var dataSetOut;
 var gateway = `ws://${window.location.hostname}/ws`;
 //var gateway = `ws://${"10.0.0.4"}/ws`;
