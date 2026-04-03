@@ -118,7 +118,7 @@ typedef struct
     char currentIP[INET_ADDRSTRLEN + 1];
 
     bool externerSpeicher;
-    char externerSpeicherPriori;
+    short externerSpeicherPriori;
     // unsigned int pid_min_time_without_contoller_inMS;
     unsigned int legionellenDelta;
     unsigned int legionellenMaxTemp;

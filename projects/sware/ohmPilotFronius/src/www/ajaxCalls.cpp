@@ -62,7 +62,7 @@ void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupC
 
     if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
-        LOG_ERROR(TAG_AJAX,"ajaxCalls_init - mutex lock failed");
+        LOG_ERROR(TAG_AJAX, "ajaxCalls_init - mutex lock failed");
         return;
     }
 
@@ -168,7 +168,7 @@ static void delayedRestartTask(void *parameter)
         free(parameter);
     }
 
-    LOG_INFO(TAG_AJAX,"delayedRestartTask - restart in %lu ms", static_cast<unsigned long>(delayMs));
+    LOG_INFO(TAG_AJAX, "delayedRestartTask - restart in %lu ms", static_cast<unsigned long>(delayMs));
     vTaskDelay(pdMS_TO_TICKS(delayMs));
     esp_restart();
 }
@@ -181,14 +181,14 @@ bool ajaxCalls_triggerShellyScan(void)
 
     if (!ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
-        LOG_ERROR(TAG_AJAX,"ajaxCalls_triggerShellyScan - mutex lock failed");
+        LOG_ERROR(TAG_AJAX, "ajaxCalls_triggerShellyScan - mutex lock failed");
         return false;
     }
 
     if (g_shellyScanRunning)
     {
         ajaxCalls_unlock(g_shellyMutex);
-        LOG_INFO(TAG_AJAX,"ajaxCalls_triggerShellyScan - scan already running");
+        LOG_INFO(TAG_AJAX, "ajaxCalls_triggerShellyScan - scan already running");
         return false;
     }
 
@@ -212,7 +212,7 @@ bool ajaxCalls_triggerShellyScan(void)
                 "{\"done\":0,\"error\":\"cannot create shelly task\",\"DATA\":[]}",
                 sizeof(g_shellyJsonCache) - 1);
         g_shellyJsonCache[sizeof(g_shellyJsonCache) - 1] = '\0';
-        LOG_ERROR(TAG_AJAX,"ajaxCalls_triggerShellyScan - task creation failed");
+        LOG_ERROR(TAG_AJAX, "ajaxCalls_triggerShellyScan - task creation failed");
     }
 
     ajaxCalls_unlock(g_shellyMutex);
@@ -287,7 +287,7 @@ static void shellyScanTask(void *parameter)
     bool listResult = shelly_listAllDevices(allDevices, range, SHELLY_SCAN_MAX_DEVICES);
     if (!listResult)
     {
-        LOG_WARNING(TAG_AJAX,"shellyScanTask - shelly_listAllDevices returned false");
+        LOG_WARNING(TAG_AJAX, "shellyScanTask - shelly_listAllDevices returned false");
     }
 
     for (int jj = 0; jj < SHELLY_SCAN_MAX_DEVICES; ++jj)
@@ -330,7 +330,7 @@ static void shellyScanTask(void *parameter)
         ajaxCalls_unlock(g_shellyMutex);
     }
 
-    LOG_INFO(TAG_AJAX,"shellyScanTask - finished");
+    LOG_INFO(TAG_AJAX, "shellyScanTask - finished");
     vTaskDelete(nullptr);
 }
 
@@ -368,7 +368,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     eprom_getSetup(setup);
 
     DynamicJsonDocument data(JSON_OBJECT_SETUP_LEN);
-    LOG_INFO(TAG_AJAX,"ajaxCalls_handleGetSetup - begin");
+    LOG_INFO(TAG_AJAX, "ajaxCalls_handleGetSetup - begin");
 
     data[WLAN_ESSID] = setup.ssid;
     data[WLAN_PASSWD] = setup.passwd;
@@ -376,15 +376,14 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 
     data[HEIZSTABLEISTUNG] = setup.heizstab_leistung_in_watt;
     data[LEGIONELLEN_DELTA_TIME] = setup.legionellenDelta;
-    data[LEGIONELLEN_TEMP] = setup.legionellenMaxTemp; 
+    data[LEGIONELLEN_TEMP] = setup.legionellenMaxTemp;
 
-    data[EXTERNER_SPEICHER] = setup.externerSpeicher ? "j" : "n";
+    data[EXTERNER_SPEICHER] = setup.externerSpeicher ? 0 : 1;
 
-    char speicherPriori[2] = {setup.externerSpeicherPriori, '\0'};
-    data[EXTERNER_SPEICHER_PRIORI] = speicherPriori;
+    data[EXTERNER_SPEICHER_PRIORI] = setup.externerSpeicherPriori;
 
-    data[TEMP_AUSSCHALTEN] = setup.tempMaxAllowedInGrad;
-    data[TEMP_EINSCHALT] = setup.tempMinInGrad;
+    data[TEMP_AUSSCHALTEN] = setup.tempMinInGrad;
+    data[TEMP_EINSCHALT] = setup.tempMaxAllowedInGrad;
 
     data[WWW_MQTT_HOST] = setup.mqttHost;
     data[WWW_MQTT_USER] = setup.mqttUser;
@@ -398,8 +397,11 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[AMIS_READER_HOST] = setup.amisReaderHost;
     data[AMIS_READER_KEY] = setup.amisKey;
     data[FORCE_HEIZPATRONE] = setup.forceHeating;
-
-    returnFromStoreSetup(true, data, request);
+    String response;
+    serializeJson(data, response);
+    LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
+    request->send(200, "application/json", response);
+    //returnFromStoreSetup(true, data, request);
 }
 
 /* ---------- overview ---------- */
@@ -449,9 +451,9 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
     data[WWW_MQTT_IP] = webSockD.states.mqtt ? webSockD.setupData.mqttHost : "";
 
     data[WWW_TEMP_SENSOR] = webSockD.states.tempSensorOK;
-    data[WWW_EPSILON]=webSockD.setupData.epsilonML_PinManager;
+    data[WWW_EPSILON] = webSockD.setupData.epsilonML_PinManager;
 
-        if (webSockD.temperature.alarm)
+    if (webSockD.temperature.alarm)
     {
         if (webSockD.temperature.sensor1 > 0 && webSockD.temperature.sensor2 > 0)
         {
@@ -488,12 +490,12 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 
 /* ---------- store setup ---------- */
 
-void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus)
-{
+void ajaxCalls_handleStoreSetup(DynamicJsonDocument &json, AsyncWebServerRequest *request, bool isAPModus)
+{ 
     ajaxCalls_ensureInitPrimitives();
 
     UBaseType_t stackRemaining = uxTaskGetStackHighWaterMark(nullptr);
-    LOG_INFO(TAG_AJAX,"ajaxCalls_handleStoreSetup - free stack words: %u",
+    LOG_INFO(TAG_AJAX, "ajaxCalls_handleStoreSetup - free stack words: %u",
              static_cast<unsigned>(stackRemaining));
 
     JsonObject jsonObj = json.as<JsonObject>();
@@ -550,9 +552,12 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
     safeCopy(setup.inverter, INET_ADDRSTRLEN, argument);
 
     argument = safeJsonString(jsonObj, HEIZSTABLEISTUNG);
+    argument = data[HEIZSTABLEISTUNG];
+    LOG_INFO(TAG_AJAX, "====> Received heizstab_leistung_in_watt argument: '%s'", argument);
     ok = util_checkParamInt(HEIZSTABLEISTUNG, argument, data, &result);
     if (!ok)
     {
+        LOG_ERROR(TAG_AJAX, "===> Invalid value for heizstab_leistung_in_watt: '%s'", argument);
         returnFromStoreSetup(false, data, request);
         return;
     }
@@ -718,7 +723,7 @@ void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &jso
             if (taskOk != pdPASS)
             {
                 free(delayMs);
-                LOG_ERROR(TAG_AJAX,"ajaxCalls_handleStoreSetup - restart task creation failed");
+                LOG_ERROR(TAG_AJAX, "ajaxCalls_handleStoreSetup - restart task creation failed");
             }
         }
     }
@@ -732,11 +737,11 @@ static void returnFromStoreSetup(bool inputCorrect,
 {
     String response;
 
-    if (inputCorrect)
+    /* if (inputCorrect)
     {
         data["done"] = 1;
         data["error"] = "";
-        LOG_INFO(TAG_AJAX,"returnFromStoreSetup - no errors");
+        LOG_INFO(TAG_AJAX, "returnFromStoreSetup - no errors");
     }
     else
     {
@@ -745,9 +750,10 @@ static void returnFromStoreSetup(bool inputCorrect,
         {
             data["error"] = "invalid input";
         }
-        LOG_ERROR(TAG_AJAX,"returnFromStoreSetup - errors");
-    }
-
+        LOG_ERROR(TAG_AJAX, "returnFromStoreSetup - errors");
+    } */
+    LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
+   
     serializeJson(data, response);
     request->send(200, "application/json", response);
 }

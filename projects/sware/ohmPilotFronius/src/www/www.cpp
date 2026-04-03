@@ -42,7 +42,7 @@ static bool isAPModus = false; // only in APModus a reboot is required
 
 static void listDir(char *dir)
 {
-    LOG_INFO(TAG_WEB,"www::listdir");
+    LOG_INFO(TAG_WEB, "www::listdir");
     File root = SPIFFS.open(dir);
 
     if (!root)
@@ -135,7 +135,6 @@ static void handleSetup(AsyncWebServerRequest *request)
         request->send(SPIFFS, "/login.html", "text/html", false);
 }
 
-
 bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
 {
     // 1. SPIFFS Initialisierung
@@ -174,8 +173,14 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
         isAPModus = false;
     }
 
-    // --- STATISCHE DATEIEN (Ordner-basiert) ---
-    // Das ersetzt ca. 20 einzelne server.on() Aufrufe!
+// --- STATISCHE DATEIEN (Ordner-basiert) ---
+// Das ersetzt ca. 20 einzelne server.on() Aufrufe!
+#ifdef CORS_DEBUG
+    // CORS Header global aktivieren
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
+#endif
     server.serveStatic("/css/", SPIFFS, "/css/")
         .setCacheControl("max-age=600");
     server.serveStatic("/js/", SPIFFS, "/js/").setCacheControl("max-age=600");
@@ -185,7 +190,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     server.on("/ping", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(200, "text/plain", "Pong"); });
     server.on("/", HTTP_GET, handleRoot);
-    server.on("/setup", HTTP_GET, handleSetup);
+    server.on("/setup", HTTP_OPTIONS, handleSetup);
     server.on("/login", HTTP_POST, handleLogin);
 
     // Kurze Aliase für wichtige HTML-Seiten
@@ -247,13 +252,38 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
         }
     } });
     // JSON Handler für StoreSetup (Wichtig: Heap-Dokument nutzen!)
-    AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup",
+   /*  AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup",
                                                                            [](AsyncWebServerRequest *request, JsonVariant &json)
                                                                            {
                                                                                ajaxCalls_handleStoreSetup(request, json, isAPModus);
                                                                            });
-    server.addHandler(handler);
+    server.addHandler(handler); */
+    // Spezieller Handler für den OPTIONS-Preflight (WICHTIG!)
+    server.on("/storeSetup", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+              { request->send(200); });
+    server.on("/storeSetup", HTTP_POST, [](AsyncWebServerRequest *request)
+              {
+                  // Dieser Teil bleibt leer, da wir den Body-Handler nutzen
+              },
+              NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+              {
 
+// 1. Prüfen, ob wir den Anfang des Pakets haben
+    if (index == 0) {
+        // Hier könnte man einen Puffer reservieren, falls nötig
+    }
+
+    // 2. JSON parsen (direkt aus dem 'data' Buffer)
+    DynamicJsonDocument doc(JSON_OBJECT_SETUP_LEN);
+    DeserializationError error = deserializeJson(doc, data, len);
+    LOG_INFO(TAG_WEB, "/storeSetup: %u bytes, index: %u, total: %u, content: %s", len, index, total, doc.as<String>().c_str());
+    if (!error) {
+
+        ajaxCalls_handleStoreSetup(doc, request, isAPModus);
+        request->send(200, "application/json", "{\"done\":true}");
+    } else {
+        request->send(400, "application/json", "{\"done\":false, \"msg\":\"JSON Error\"}");
+    } });
     // --- FEHLER-HANDLING & AUTHENTIFIZIERUNG ---
     server.onNotFound([](AsyncWebServerRequest *request)
                       {

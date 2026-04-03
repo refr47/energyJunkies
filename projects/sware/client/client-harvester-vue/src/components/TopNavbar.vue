@@ -6,7 +6,7 @@
       :style="{ backdropFilter: 'saturate(0.6) blur(8px) brightness(1.1)' }"></div>
     
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between h-16">
+      <div class="flex justify-between h-30">
 
         <div class="flex items-center">
           <div class="flex-shrink-0 flex items-center gap-2">
@@ -25,7 +25,7 @@
             Dashboard
           </router-link>
           <router-link to="/setup" class="nav-link" active-class="active-nav">
-            System-Setup
+            Stammdaten
           </router-link>
         </div>
 
@@ -95,4 +95,5 @@ const isMobileMenuOpen = ref(false);
   opacity: 0;
   transform: translateY(-10px);
 }
+
 </style>

@@ -8,31 +8,30 @@
 #include "debugConsole.h"
 #include "defines.h"
 
-#define WLAN_ESSID "WLAN_ESSID"
-#define WLAN_PASSWD "WLAN_Password"
-#define IP_INVERTER "IP_Inverter" 
-#define HEIZSTABLEISTUNG "Heizstableistung"
-#define LEGIONELLEN_DELTA_TIME "Legionellen Delta"
-#define LEGIONELLEN_TEMP "Legionellen Temp"
-#define EXTERNER_SPEICHER "Speicher"
-#define EXTERNER_SPEICHER_PRIORI "Speicher_Prioritaet"
-#define TEMP_AUSSCHALTEN "Ausschalt_Temperatur"
-#define TEMP_EINSCHALT "Einschalt_Temperatur"
+#define WLAN_ESSID "wlan_ssid"
+#define WLAN_PASSWD "wlan_password"
+#define IP_INVERTER "ip_wechselrichter"
+#define HEIZSTABLEISTUNG "heizstab_leistung"
+#define LEGIONELLEN_DELTA_TIME "legionellen_differenz"
+#define LEGIONELLEN_TEMP "legionellen_temp"
+#define EXTERNER_SPEICHER "akku_vorhanden"
+#define EXTERNER_SPEICHER_PRIORI "akku_priori"
+#define TEMP_AUSSCHALTEN "heizstab_temp_min"
+#define TEMP_EINSCHALT "heizstab_temp_max"
+ 
+#define WWW_MQTT_HOST "mqtt_server_ip"
+#define WWW_MQTT_USER "mqtt_user"
+#define WWW_MQTT_PASWWD "mqtt_passwd"
 
-#define WWW_MQTT_HOST "MQTT-Server"
-#define WWW_MQTT_USER "MQTT-User"
-#define WWW_MQTT_PASWWD "MQTT-Password"
+#define WWW_INFLUX_HOST "influx_server_ip"
+#define WWW_INFLUX_TOKEN "influx_token"
+#define WWW_INFLUX_ORG "influg_org"
+#define WWW_INFLUX_BUCKET "influx_bucket"
 
-#define WWW_INFLUX_HOST "Influx-Server"
-#define WWW_INFLUX_TOKEN "Influx-Token"
-#define WWW_INFLUX_ORG "Influx-Org"
-#define WWW_INFLUX_BUCKET "Influx-Bucket"
+#define AMIS_READER_HOST "amisreader_ip"
+#define AMIS_READER_KEY "amisreader_key"
 
-#define AMIS_READER_HOST "Amis Reader Host (TCP/IP)"
-#define AMIS_READER_KEY "Amis Reader Key"
-
-#define SIM_ADDITIONAL_LOAD "SIM_Additional_Load"
-#define FORCE_HEIZPATRONE "Force Heizpatrone"
+#define FORCE_HEIZPATRONE "heizstab_force"
 
 /* getOverview */
 #define WWW_FRONIUS "FR"
@@ -58,7 +57,7 @@ void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupC
 
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request);
-void ajaxCalls_handleStoreSetup(AsyncWebServerRequest *request, JsonVariant &json, bool isAPModus);
+void ajaxCalls_handleStoreSetup(DynamicJsonDocument &json, AsyncWebServerRequest *request, bool isAPModus);
 
 /* Shelly:
  * 1) ajaxCalls_triggerShellyScan() startet RTOS-Task
