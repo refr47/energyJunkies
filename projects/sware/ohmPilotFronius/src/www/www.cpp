@@ -191,6 +191,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               { request->send(200, "text/plain", "Pong"); });
     server.on("/", HTTP_GET, handleRoot);
     server.on("/setup", HTTP_OPTIONS, handleSetup);
+    server.on("/login", HTTP_OPTIONS, handleLogin);
     server.on("/login", HTTP_POST, handleLogin);
 
     // Kurze Aliase für wichtige HTML-Seiten
