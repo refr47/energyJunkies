@@ -110,6 +110,23 @@ static void ajaxCalls_unlock(SemaphoreHandle_t mutex)
     }
 }
 
+static bool updateIntFromStore(JsonDocument &doc, const char *key, int &targetValue)
+{
+    if (!doc.containsKey(key))
+        return true; // Optional: ignorieren wenn Feld fehlt
+
+    JsonVariant v = doc[key];
+
+    // Versuch die Zahl zu extrahieren (egal ob "123" oder 123)
+    if (v.is<int>() || v.is<float>())
+    {
+        targetValue = v.as<int>();
+        return true;
+    }
+
+    return false;
+}
+
 /* ---------- helpers ---------- */
 
 static const char *safeJsonString(const JsonObject &obj, const char *key)
@@ -401,7 +418,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     serializeJson(data, response);
     LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
     request->send(200, "application/json", response);
-    //returnFromStoreSetup(true, data, request);
+    // returnFromStoreSetup(true, data, request);
 }
 
 /* ---------- overview ---------- */
@@ -491,7 +508,7 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 /* ---------- store setup ---------- */
 
 void ajaxCalls_handleStoreSetup(DynamicJsonDocument &json, AsyncWebServerRequest *request, bool isAPModus)
-{ 
+{
     ajaxCalls_ensureInitPrimitives();
 
     UBaseType_t stackRemaining = uxTaskGetStackHighWaterMark(nullptr);
@@ -500,7 +517,7 @@ void ajaxCalls_handleStoreSetup(DynamicJsonDocument &json, AsyncWebServerRequest
 
     JsonObject jsonObj = json.as<JsonObject>();
     DynamicJsonDocument data(JSON_OBJECT_SETUP_LEN);
-
+    //JsonObject ret = jsonObj.createNestedObject("data");
     Setup setup;
     memset(&setup, 0, sizeof(Setup));
 
@@ -552,72 +569,137 @@ void ajaxCalls_handleStoreSetup(DynamicJsonDocument &json, AsyncWebServerRequest
     safeCopy(setup.inverter, INET_ADDRSTRLEN, argument);
 
     argument = safeJsonString(jsonObj, HEIZSTABLEISTUNG);
-    argument = data[HEIZSTABLEISTUNG];
-    LOG_INFO(TAG_AJAX, "====> Received heizstab_leistung_in_watt argument: '%s'", argument);
-    ok = util_checkParamInt(HEIZSTABLEISTUNG, argument, data, &result);
-    if (!ok)
+
+    if (argument == "")
     {
-        LOG_ERROR(TAG_AJAX, "===> Invalid value for heizstab_leistung_in_watt: '%s'", argument);
-        returnFromStoreSetup(false, data, request);
-        return;
+        if (jsonObj["heizstab_leistung"].is<int>())
+        {
+            setup.heizstab_leistung_in_watt = jsonObj["heizstab_leistung"].as<int>();
+        }
     }
-    setup.heizstab_leistung_in_watt = result;
+    else
+    {
+        ok = util_checkParamInt(HEIZSTABLEISTUNG, argument, data, &result);
+        if (!ok)
+        {
+            LOG_ERROR(TAG_AJAX, "===> Invalid value for heizstab_leistung_in_watt: '%s'", argument);
+            returnFromStoreSetup(false, data, request);
+            return;
+        }
+        setup.heizstab_leistung_in_watt = result;
+    }
 
     argument = safeJsonString(jsonObj, LEGIONELLEN_DELTA_TIME);
-    ok = util_checkParamInt(LEGIONELLEN_DELTA_TIME, argument, data, &result);
-    if (!ok)
+    if (argument == "")
     {
-        returnFromStoreSetup(false, data, request);
-        return;
+        if (jsonObj[LEGIONELLEN_DELTA_TIME].is<int>())
+        {
+            setup.legionellenDelta = jsonObj[LEGIONELLEN_DELTA_TIME].as<int>();
+        }
+    }
+    else
+    {
+        ok = util_checkParamInt(LEGIONELLEN_DELTA_TIME, argument, data, &result);
+        if (!ok)
+        {
+            returnFromStoreSetup(false, data, request);
+            return;
+        }
+        setup.legionellenDelta = result;
     }
     //!!setup.pid_powerWhichNeedNotConsumed = result;
 
-    setup.legionellenDelta = result;
     argument = safeJsonString(jsonObj, LEGIONELLEN_TEMP);
-    ok = util_checkParamInt(LEGIONELLEN_TEMP, argument, data, &result);
-    if (!ok)
+    if (argument == "")
     {
-        returnFromStoreSetup(false, data, request);
-        return;
+        if (jsonObj[LEGIONELLEN_TEMP].is<int>())
+        {
+            setup.legionellenMaxTemp = jsonObj[LEGIONELLEN_TEMP].as<int>();
+        }
     }
-    setup.legionellenMaxTemp = result;
+    else
+    {
+        ok = util_checkParamInt(LEGIONELLEN_TEMP, argument, data, &result);
+        if (!ok)
+        {
+            returnFromStoreSetup(false, data, request);
+            return;
+        }
+        setup.legionellenMaxTemp = result;
+    }
 
     argument = safeJsonString(jsonObj, EXTERNER_SPEICHER);
-    ok = util_isFieldFilled(EXTERNER_SPEICHER, argument, data);
-    if (!ok)
+    if (argument == "")
     {
-        returnFromStoreSetup(false, data, request);
-        return;
+        if (jsonObj[EXTERNER_SPEICHER].is<int>())
+        {
+            setup.externerSpeicher = jsonObj[EXTERNER_SPEICHER].as<int>();
+        }
     }
-    setup.externerSpeicher = (argument[0] == 'j' || argument[0] == 'J');
+    else
+    {
+        setup.externerSpeicher = (argument[0] == 'j' || argument[0] == 'J');
+    }
 
     argument = safeJsonString(jsonObj, EXTERNER_SPEICHER_PRIORI);
-    ok = util_isFieldFilled(EXTERNER_SPEICHER_PRIORI, argument, data);
-    if (!ok)
+    if (argument == "")
     {
-        returnFromStoreSetup(false, data, request);
-        return;
+        if (jsonObj[EXTERNER_SPEICHER_PRIORI].is<int>())
+        {
+            setup.externerSpeicherPriori = jsonObj[EXTERNER_SPEICHER_PRIORI].as<int>();
+        }
     }
-    setup.externerSpeicherPriori = argument[0];
+    else
+    {
+
+        ok = util_isFieldFilled(EXTERNER_SPEICHER_PRIORI, argument, data);
+        if (!ok)
+        {
+            returnFromStoreSetup(false, data, request);
+            return;
+        }
+        setup.externerSpeicherPriori = argument[0];
+    }
 
     argument = safeJsonString(jsonObj, TEMP_AUSSCHALTEN);
-    ok = util_checkParamInt(TEMP_AUSSCHALTEN, argument, data, &result);
-    if (!ok)
+    if (argument == "")
     {
-        returnFromStoreSetup(false, data, request);
-        return;
+        if (jsonObj[TEMP_AUSSCHALTEN].is<int>())
+        {
+            setup.tempMaxAllowedInGrad = jsonObj[TEMP_AUSSCHALTEN].as<int>();
+        }
     }
-    setup.tempMaxAllowedInGrad = result;
+    else
+    {
+
+        ok = util_checkParamInt(TEMP_AUSSCHALTEN, argument, data, &result);
+        if (!ok)
+        {
+            returnFromStoreSetup(false, data, request);
+            return;
+        }
+        setup.tempMaxAllowedInGrad = result;
+    }
 
     argument = safeJsonString(jsonObj, TEMP_EINSCHALT);
-    ok = util_checkParamInt(TEMP_EINSCHALT, argument, data, &result);
-    if (!ok)
+    if (argument == "")
     {
-        returnFromStoreSetup(false, data, request);
-        return;
+        if (jsonObj[TEMP_EINSCHALT].is<int>())
+        {
+            setup.tempMinInGrad = jsonObj[TEMP_EINSCHALT].as<int>();
+        }
     }
-    setup.tempMinInGrad = result;
+    else
+    {
 
+        ok = util_checkParamInt(TEMP_EINSCHALT, argument, data, &result);
+        if (!ok)
+        {
+            returnFromStoreSetup(false, data, request);
+            return;
+        }
+        setup.tempMinInGrad = result;
+    }
     argument = safeJsonString(jsonObj, WWW_MQTT_HOST);
     if (strlen(argument) < 3)
     {
@@ -683,16 +765,25 @@ void ajaxCalls_handleStoreSetup(DynamicJsonDocument &json, AsyncWebServerRequest
     }
     safeCopy(setup.amisKey, AMIS_KEY_LEN, argument);
 
-#ifdef FORCE
     argument = safeJsonString(jsonObj, FORCE_HEIZPATRONE);
-    if (strlen(argument) > 0)
+    if (argument == "")
     {
-        if (util_checkParamInt(FORCE_HEIZPATRONE, argument, data, &result))
+        if (jsonObj[FORCE_HEIZPATRONE].is<int>())
         {
-            setup.forceHeating = result;
+            setup.forceHeating = jsonObj[FORCE_HEIZPATRONE].as<int>();
         }
     }
-#endif
+    else
+    {
+
+        if (strlen(argument) > 0)
+        {
+            if (util_checkParamInt(FORCE_HEIZPATRONE, argument, data, &result))
+            {
+                setup.forceHeating = result;
+            }
+        }
+    }
 
     if (localSetSetupChanged != nullptr)
     {
@@ -736,8 +827,8 @@ static void returnFromStoreSetup(bool inputCorrect,
                                  AsyncWebServerRequest *request)
 {
     String response;
-
-    /* if (inputCorrect)
+    
+    if (inputCorrect)
     {
         data["done"] = 1;
         data["error"] = "";
@@ -751,9 +842,9 @@ static void returnFromStoreSetup(bool inputCorrect,
             data["error"] = "invalid input";
         }
         LOG_ERROR(TAG_AJAX, "returnFromStoreSetup - errors");
-    } */
+    } 
     LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
-   
+
     serializeJson(data, response);
     request->send(200, "application/json", response);
 }

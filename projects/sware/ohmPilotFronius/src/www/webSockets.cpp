@@ -9,28 +9,27 @@
         DEFINES
 
 */
-#define PRODUKTION "PR"
-#define EIGENVERBRAUCH "EV"
-#define EINSPEISUNG "EINS"
-#define AKKU_AKKU "AKKU"
-#define TEMP_PUFFERSPEICHER "TPS"
+#define PRODUKTION "solEr"
+#define EIGENVERBRAUCH "ev"
+#define EINSPEISUNG "netzBezug"
+#define TEMP_PUFFERSPEICHER "bTemp"
 
-#define HEIZPATRONE_L3 "HL3"
-#define MUSS_EINSPEISUNG "ME"
-#define FEHLER "FE"
+#define HEIZPATRONE_L3 "L3"
+#define HEIZPATRONE_L2 "L2"
+#define HEIZPATRONE_L1 "L1"
+#define FEHLER "errors"
+#define AAKU_AVAILABLE "aakHasBattery"
+#define AKKU_CAPACITA "aakPower"
+#define AKKU_ZUSTAND "aakStat"
+#define AKKU_ENTLADEN "aakEntladen"
 
-#define AKKU_CAPACITA "AkCap"
-#define AKKU_ZUSTAND "AkStat"
-#define AKKU_LADEN "AkLoad"
-#define AKKU_ENTLADEN "AkDis"
+
 #define NETZ_EXPORT_INS "NEI"
 #define NETZ_IMPORT_INS "NII"
-#define FORCE_HEIZPATRONE "Force Heizpatrone"
+#define FORCE_HEIZPATRONE "forceHeizung"
 #define EPSILON_PIN_MANAGER "EpsilonPin"
 
-#define HEIZPATRONE_L1 1
-#define HEIZPATRONE_L2 2
-#define AKKU_AVAILABLE 3
+
 #define STATE_CARDWRITE 4
 #define STATE_MODBUS 5
 #define STATE_FLASH 6
@@ -50,11 +49,12 @@
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 
-/*
+/*forceHeizung
         *****************************************************
         local variables
 
 */
+
 static AsyncWebSocket ws("/ws");
 // static JSONVar live; // Json Variable to Hold Sensor live
 static CALLBACK_GET_DATA webSockData;
@@ -91,14 +91,14 @@ static char *getJsonObj()
     if (data.states.froniusAPI)
     {
         live[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
-        live[EINSPEISUNG] = data.fronius_SOLAR_POWERFLOW.p_grid;
+        live[EINSPEISUNG] =data.fronius_SOLAR_POWERFLOW.p_grid;
         live[EIGENVERBRAUCH] = data.fronius_SOLAR_POWERFLOW.p_load;
-        live[AKKU_AKKU] = (int)data.fronius_SOLAR_POWERFLOW.p_akku;
+        //live[AKKU_AKKU] = (int)data.fronius_SOLAR_POWERFLOW.p_akku;
     }
     else if (data.states.modbusOK)
     {
         live[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
-        live[AKKU_AKKU] = 0;
+        //live[AKKU_AKKU] = 0;
 
         if (data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
         {
@@ -119,7 +119,7 @@ static char *getJsonObj()
         live[EINSPEISUNG] = data.amisReader.saldo;
         live[EIGENVERBRAUCH] = data.amisReader.consumptionInWatt;
         live[PRODUKTION] = data.amisReader.exportInWatt;
-        live[AKKU_AKKU] = 0;
+        //live[AKKU_AKKU] = 0;
     }
     int avgTemp = (data.temperature.sensor1 + data.temperature.sensor2) / 2;
     
@@ -143,7 +143,7 @@ static char *getJsonObj()
     }
 
     live[TEMP_PUFFERSPEICHER] = formatBuffer;
-    bitMaster = 0;
+    
 
     LOG_INFO(TAG_WEB_SOCKETS, "PID_PIN1: %d, PID_PIN2: %d, externerSpeicher: %d, cardWriterOK: %d, flashOK: %d, modbusOK: %d, tempSensorOK: %d, boilerHeating: %d",
              data.pidContainer.PID_PIN1,
@@ -155,12 +155,18 @@ static char *getJsonObj()
              data.states.tempSensorOK,
              data.states.boilerHeating);
 
-    if (data.pidContainer.PID_PIN1 == 1)
-        bitMaster |= (1 << HEIZPATRONE_L1);
-    if (data.pidContainer.PID_PIN2 == 1)
-        bitMaster |= (1 << HEIZPATRONE_L2);
-    if (data.setupData.externerSpeicher == true)
-        bitMaster |= (1 << AKKU_AVAILABLE);
+    live[HEIZPATRONE_L1] = data.pidContainer.PID_PIN1;  
+    live[HEIZPATRONE_L2] = data.pidContainer.PID_PIN2;  
+    live[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;
+    live[FORCE_HEIZPATRONE] = (int)data.setupData.forceHeating;
+
+    live[AAKU_AVAILABLE] = data.setupData.externerSpeicher;
+    live[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
+    live[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
+    live[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate;
+
+    bitMaster = 0;
+   
     if (!data.states.cardWriterOK)
         bitMaster |= (1 << STATE_CARDWRITE);
     if (!data.states.flashOK)
@@ -174,14 +180,12 @@ static char *getJsonObj()
 
     live[FEHLER] = bitMaster;
 
-    live[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;
-    live[MUSS_EINSPEISUNG] = data.pidContainer.powerNotUseable;
-    live[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
-    live[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
+    
+   
     /*  live[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
      live[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate; */
-    live[FORCE_HEIZPATRONE] = (int)data.setupData.forceHeating;
-    live[EPSILON_PIN_MANAGER] = data.setupData.epsilonML_PinManager;
+    
+    
 
     // =========================
     // 🟡 LOG OBJECT
