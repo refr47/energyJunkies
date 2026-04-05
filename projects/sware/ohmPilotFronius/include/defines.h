@@ -269,11 +269,13 @@ typedef struct
 } ALL_SHELLY_DEVICES;
 
 struct LogEntry
-{
+{ 
     uint32_t ts;
     uint8_t state;
     int16_t power;
-    uint8_t pwm;
+    uint8_t pwm;    
+    char *tag;
+
     int temp;
 };
 

@@ -223,6 +223,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     LogEntry logEntry;
 
     int temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2;
+    logEntry.tag="PID";
     logEntry.temp = temp;
     logEntry.ts = now;
     ControlMode currentMode = preCheck(webSockData, temp, now, logEntry);
@@ -409,6 +410,7 @@ void PinManager::apply(LogEntry &logEntry, double targetPower)
 
     currentPWM = pwmVal;
     analogWrite(pwmPin, (int)pwmVal);
+   
     logEntry.state = digitalRead((pinL1) ? 1 : 0) + (digitalRead(pinL2) ? 1 : 0);
     logEntry.pwm = (int)currentPWM;
     logEntry.power = rest;

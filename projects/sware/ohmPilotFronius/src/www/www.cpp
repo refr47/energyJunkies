@@ -82,37 +82,29 @@ static void sendHTML(String &path, AsyncWebServerRequest *request)
     }
 }
 
-static void handleLogin(AsyncWebServerRequest *request)
+static void handleLogin(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
 {
 
-    bool standingData = false;
-    // Check if the request method is POST
-    if (request->method() == HTTP_POST)
-    {
-        // Check if the POST data matches the expected username and password
-        if (
-            request->hasParam("username", true) &&
-            request->hasParam("password", true) &&
-            // request->hasParam("standingData", true) &&
-            request->getParam("username", true)->value() == "admin" &&
-            request->getParam("password", true)->value() == "password")
-        {
-            isAuthenticated = true;
-            standingData = request->arg("standingData") == "true";
+    LOG_INFO(TAG_WEB, "handleLogin::begin");
+    DynamicJsonDocument doc(120);
+    deserializeJson(doc, data, len);
 
-            if (standingData)
-                request->send(SPIFFS, "/setupData.html", String(), false);
-            else
-                request->send(SPIFFS, "/index.html", String(), false);
-        }
-        else
-        {
-            request->send(401, "text/plain", "Login failed");
-        }
+    // Check if the request method is POST
+
+    const char *user = doc["user"] | "";
+    const char *pass = doc["password"] | "";
+    //LOG_INFO(TAG_WEB, "handleLogin::user: %s, pass: %s", user, pass);
+    // Check if the POST data matches the expected username and password
+    if (strcmp(user, "admin") == 0 && strcmp(pass, "password") == 0)
+    {
+        isAuthenticated = true;
+        request->send(200, "application/json", "{\"authenticated\":true}");
+        LOG_INFO(TAG_WEB, "handleLogin::authenticated");
     }
     else
     {
-        request->send(405, "text/plain", "Method Not Allowed");
+        request->send(401, "application/json", "{\"error\":\"Benutzername oder Passwort falsch\"}");
+        LOG_INFO(TAG_WEB, "handleLogin::authentication failed");
     }
 }
 
@@ -191,9 +183,10 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               { request->send(200, "text/plain", "Pong"); });
     server.on("/", HTTP_GET, handleRoot);
     server.on("/setup", HTTP_OPTIONS, handleSetup);
-    server.on("/login", HTTP_OPTIONS, handleLogin);
-    server.on("/login", HTTP_POST, handleLogin);
 
+    server.on("/login", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+              { request->send(200); });
+    server.on("/login", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, handleLogin);
     // Kurze Aliase für wichtige HTML-Seiten
     server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/about.html", "text/html"); });
@@ -253,12 +246,12 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
         }
     } });
     // JSON Handler für StoreSetup (Wichtig: Heap-Dokument nutzen!)
-   /*  AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup",
-                                                                           [](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                           {
-                                                                               ajaxCalls_handleStoreSetup(request, json, isAPModus);
-                                                                           });
-    server.addHandler(handler); */
+    /*  AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup",
+                                                                            [](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                            {
+                                                                                ajaxCalls_handleStoreSetup(request, json, isAPModus);
+                                                                            });
+     server.addHandler(handler); */
     // Spezieller Handler für den OPTIONS-Preflight (WICHTIG!)
     server.on("/storeSetup", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
               { request->send(200); });

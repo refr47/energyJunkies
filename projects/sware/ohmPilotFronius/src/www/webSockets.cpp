@@ -30,11 +30,11 @@
 #define EPSILON_PIN_MANAGER "EpsilonPin"
 
 
-#define STATE_CARDWRITE 4
-#define STATE_MODBUS 5
-#define STATE_FLASH 6
-#define STATE_TEMPSENSOR 7
-#define STATE_BOILER_HEATING 8
+#define STATE_CARDWRITE 1
+#define STATE_MODBUS 2
+#define STATE_FLASH 3
+#define STATE_TEMPSENSOR 4
+#define STATE_BOILER_HEATING 5
 
 #define FORMAT_BUFFER_LEN 35
 #define JSON_OBJECT_BUFFER_LEN 2048
@@ -218,13 +218,13 @@ static char *getJsonObj()
         LogEntry &e = rb.buffer[localRead];
 
         JsonObject obj = entries.createNestedObject();
-
+ 
         obj["ts"] = e.ts;
         obj["l1"] = e.state & 1;
         obj["l2"] = (e.state >> 1) & 1;
         obj["pwm"] = e.pwm;
         obj["temp"] = e.temp;
-
+        obj["tag"] = "WEB_SOCKET";
         localRead = (localRead + 1) % LOG_BUFFER_SIZE;
         count++;
     }
