@@ -27,7 +27,11 @@
           <router-link to="/setup" class="nav-link" active-class="active-nav">
             Stammdaten
           </router-link>
+          <router-link to="/logs" class="nav-link" active-class="active-nav">
+            Logs
+          </router-link>
         </div>
+        
 
         <div class="flex items-center sm:hidden">
           <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="text-slate-500 p-2">

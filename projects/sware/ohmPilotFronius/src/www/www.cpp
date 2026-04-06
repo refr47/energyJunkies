@@ -1,7 +1,7 @@
 #define __ACCESS_POINT_CPP
 
 #include <WiFi.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <mdns.h>
 #include <Update.h>
 
@@ -43,7 +43,7 @@ static bool isAPModus = false; // only in APModus a reboot is required
 static void listDir(char *dir)
 {
     LOG_INFO(TAG_WEB, "www::listdir");
-    File root = SPIFFS.open(dir);
+    File root = LittleFS.open(dir);
 
     if (!root)
     {
@@ -70,9 +70,9 @@ static void listDir(char *dir)
 
 static void sendHTML(String &path, AsyncWebServerRequest *request)
 {
-    if (SPIFFS.exists(path))
+    if (LittleFS.exists(path))
     {
-        AsyncWebServerResponse *response = request->beginResponse(SPIFFS, path, String(), true);
+        AsyncWebServerResponse *response = request->beginResponse(LittleFS, path, String(), true);
         response->addHeader("Cache-Control", "max-age=600");
         request->send(response);
     }
@@ -113,35 +113,45 @@ static void handleRoot(AsyncWebServerRequest *request)
     // Check if the user is authenticated
 
     if (isAuthenticated)
-        request->send(SPIFFS, "/index.html", String(), false);
+        request->send(LittleFS, "/index.html", String(), false);
     else
-        request->send(SPIFFS, "/login.html", "text/html", false);
+        request->send(LittleFS, "/login.html", "text/html", false);
 }
 
 static void handleSetup(AsyncWebServerRequest *request)
 {
     // Check if the user is authenticated
     if (isAuthenticated)
-        request->send(SPIFFS, "/setupData.html", "text/html", false);
+        request->send(LittleFS, "/setupData.html", "text/html", false);
     else
-        request->send(SPIFFS, "/login.html", "text/html", false);
+        request->send(LittleFS, "/login.html", "text/html", false);
 }
 
 bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
 {
-    // 1. SPIFFS Initialisierung
+    // 1. LITTLEFS Initialisierung
     LOG_INFO(TAG_WEB, "www_init::begin");
-    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
+    if (!LittleFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
-        LOG_ERROR(TAG_WEB, "www_init::SPIFFS Mount Failed");
+        LOG_ERROR(TAG_WEB, "www_init::LITTLEFS Mount Failed");
         return false;
     }
-    File root = SPIFFS.open("/");
+    File root = LittleFS.open("/");
+    if (!root)
+    {
+        LOG_ERROR(TAG_WEB, "www_init::Failed to open directory (LittleFS) - open (/)");
+        return false;
+    }
     File file = root.openNextFile();
+    if (!file)
+    {
+        LOG_ERROR(TAG_WEB, "www_init::Failed to open directory (LittleFS openNextFile)");
+        return false;
+    }
     unsigned int fileCount = 0;
     while (file)
     {
-        LOG_INFO(TAG_WEB, "SPIFFS File: %s, Size: %u,", file.name(), file.size());
+        LOG_INFO(TAG_WEB, "LITTLEFS File: %s, Size: %u,", file.name(), file.size());
         file = root.openNextFile();
         fileCount++;
         if (fileCount % 4 == 0)
@@ -173,11 +183,18 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
 #endif
-    server.serveStatic("/css/", SPIFFS, "/css/")
+    server.serveStatic("/assets/", LittleFS, "/assets/")
         .setCacheControl("max-age=600");
-    server.serveStatic("/js/", SPIFFS, "/js/").setCacheControl("max-age=600");
-    server.serveStatic("/img/", SPIFFS, "/img/").setCacheControl("max-age=3600");
 
+    // Falls du Bilder direkt im /img/ Ordner hast:
+    server.serveStatic("/img/", LittleFS, "/img/")
+        .setCacheControl("max-age=3600");
+
+    // WICHTIG: Die Root-Datei (index.html)
+    server.serveStatic("/", LittleFS, "/")
+        .setDefaultFile("index.html");
+
+        
     // --- HTML ROUTEN ---
     server.on("/ping", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(200, "text/plain", "Pong"); });

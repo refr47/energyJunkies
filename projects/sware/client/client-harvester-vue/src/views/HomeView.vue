@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
+  <div v-if="liveData" class="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
 
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
       <div>
@@ -126,62 +126,38 @@
       </div>
     </div>
   </div>
+  <div v-else class="flex justify-center p-12 text-slate-400 italic">
+    Warte auf Systemdaten...
+  </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-
-const errorDefinitions = {
-  1: "Überspannung PV-Eingang",
-  2: "Unterspannung Batterie",
-  4: "Übertemperatur Wechselrichter",
-  8: "Kommunikationsfehler BMS",
-  16: "Isolationsfehler",
-  32: "Not-Aus betätigt"
-};
+import { computed, ref } from 'vue';
 
 const props = defineProps(['liveData', 'logs', 'isConnected']);
 
-const isExporting = computed(() => props.liveData.EINS <= 0);
-const hasBattery = computed(() => props.liveData.config?.hasBattery);
-const errorVektor = computed(() => props.liveData.errors > 0);
+// 1. Definiere die Fehlertexte
+const errorDefinitions = {
+  1: "MicroCard",
+  2: "Modbus",
+  4: "Flash Speicher",
+  8: "Temperatur Sensorig",
+  16: "Boiler Heizung aktiv",
+};
 
-console.log("LiveData in HomeView:", props.liveData);
+// 2. Computed Properties mit "Optional Chaining" (?.) absichern
+const isExporting = computed(() => (props.liveData?.netzBezug || 0) <= 0);
+const hasBattery = computed(() => !!props.liveData?.aakHasBattery); // !! erzwingt Boolean
 
-
-// In HomeView.vue <script setup>
-const chargeMode = computed(() => {
-  // 0 = Standby/Aus, 1 = Überschuss (Normal), 2 = Force (Erzwungen)
-  const mode = props.liveData?.netzBezug || 0;
-
-  if (mode === 2) {
-    return {
-      label: 'FORCE LOAD',
-      class: 'bg-rose-500 text-white animate-pulse',
-      desc: 'Netzbezug aktiv'
-    };
-  }
-  if (mode === 1) {
-    return {
-      label: 'SOLAR ONLY',
-      class: 'bg-emerald-500 text-white',
-      desc: 'Nur Überschuss'
-    };
-  }
-  return {
-    label: 'STANDBY',
-    class: 'bg-slate-200 text-slate-500',
-    desc: 'Wartet auf Solarstrom'
-  };
-});
-
+// 3. Fehlerliste berechnen
 const errorList = computed(() => {
-  // 1. Sicherstellen, dass props.liveData existiert, sonst leere Liste
-  const data = errorVektor.value ? props.liveData.errors : null;
-  //console.log("Fehlervektor:", data);
-  if (!data === undefined) return [];
-  const bitvector = parseInt(data);
-  if (isNaN(bitvector) || bitvector === 0) return [];
+  // Sicherstellen, dass liveData und liveData.errors existieren
+  const errorCode = props.liveData?.errors;
+
+  if (!errorCode || isNaN(parseInt(errorCode))) return [];
+
+  const bitvector = parseInt(errorCode);
+
   return Object.keys(errorDefinitions)
     .filter(bitKey => {
       const bitValue = parseInt(bitKey);
@@ -192,4 +168,11 @@ const errorList = computed(() => {
 
 const hasErrors = computed(() => errorList.value.length > 0);
 
+// Lademodus Logik
+const chargeMode = computed(() => {
+  const mode = props.liveData?.forceHeizung || 0;
+  if (mode === 2) return { label: 'FORCE LOAD', class: 'bg-rose-500 text-white animate-pulse' };
+  if (mode === 1) return { label: 'SOLAR ONLY', class: 'bg-emerald-500 text-white' };
+  return { label: 'STANDBY', class: 'bg-slate-200 text-slate-500' };
+});
 </script>

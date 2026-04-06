@@ -143,18 +143,6 @@ static char *getJsonObj()
     }
 
     live[TEMP_PUFFERSPEICHER] = formatBuffer;
-    
-
-    LOG_INFO(TAG_WEB_SOCKETS, "PID_PIN1: %d, PID_PIN2: %d, externerSpeicher: %d, cardWriterOK: %d, flashOK: %d, modbusOK: %d, tempSensorOK: %d, boilerHeating: %d",
-             data.pidContainer.PID_PIN1,
-             data.pidContainer.PID_PIN2,
-             data.setupData.externerSpeicher,
-             data.states.cardWriterOK,
-             data.states.flashOK,
-             data.states.modbusOK,
-             data.states.tempSensorOK,
-             data.states.boilerHeating);
-
     live[HEIZPATRONE_L1] = data.pidContainer.PID_PIN1;  
     live[HEIZPATRONE_L2] = data.pidContainer.PID_PIN2;  
     live[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;

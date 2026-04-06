@@ -1,5 +1,6 @@
 <template>
   <div class="min-h-screen bg-slate-50 p-4 md:p-8">
+    <StatusToast :message="statusMsg" :type="statusClass" @close="statusMsg = ''" />
     <div class="max-w-7xl mx-auto">
 
       <div class="flex justify-between items-end mb-10">
@@ -98,7 +99,15 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import ConfigInput from '../components/ConfigInput.vue'; // Eine kleine Hilfs-Komponente
+import StatusToast from '../components/StatusToast.vue'; // Importieren
 
+const notify = (msg, type = 'success', timeout = 4000) => {
+  statusMsg.value = msg;
+  statusClass.value = type;
+  if (timeout > 0) {
+    setTimeout(() => statusMsg.value = '', timeout);
+  }
+};
 
 const statusMsg = ref('');
 const statusClass = ref('');
@@ -138,22 +147,25 @@ const setup = ref({
 });
 const load = async () => {
   try {
-    const res = await fetch('http://10.0.0.19/getSetup');
+    const res = await fetch('/getSetup');
     const data = await res.json();
     setup.value = { ...setup.value, ...data };
     statusMsg.value = "Erfolgreich geladen.";
     console.log("Setup Daten geladen:", data);
-    statusClass.value = "success";
+    
+    notify("Konfiguration erfolgreich geladen!", "success");
   } catch (e) {
     statusMsg.value = "Konnte Daten vom ESP32 nicht laden.";
-    statusClass.value = "error";
+   
+    notify("Fehler beim Laden der Konfiguration!", "error");
   }
 };
 
 const pushToESP = async () => {
   statusMsg.value = "Speichere...";
+  console.log("Sende Setup Daten:", setup.value);
   try {
-    const res = await fetch('http://10.0.0.19/storeSetup', {
+    const res = await fetch('/storeSetup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(setup.value)
@@ -161,12 +173,15 @@ const pushToESP = async () => {
     const data = await res.json();
     console.log("storeSetup - returned data:", data);
     if (data.done) {
-      statusMsg.value = "Erfolgreich gespeichert! Der ESP32 startet neu...";
-      statusClass.value = "success";
+      notify("Konfiguration erfolgreich gespeichert! Der ESP32 startet neu...", "success");
+   
+    } else {
+      notify("Fehler beim Speichern der Konfiguration!", "error");
     }
   } catch (e) {
-    statusMsg.value = "Fehler beim Senden der Daten.";
-    statusClass.value = "error";
+    notify("Fehler beim Speichern der Konfiguration!", "error");
+    console.log("Fehlerdetails:", e);
+   
   }
 };
 

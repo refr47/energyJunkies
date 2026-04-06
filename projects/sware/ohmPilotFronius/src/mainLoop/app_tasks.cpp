@@ -185,17 +185,17 @@ void createAppTasks(WifiCredentials &credentials)
     {
         wifi_event_group = xEventGroupCreate();
     }
-    LOG_INFO(TAG_APP_TASKS,"main:: Creating App Tasks, but waiting 10 seconds for setup to be done");
-    vTaskDelay(pdMS_TO_TICKS(10000));
+    LOG_INFO(TAG_APP_TASKS,"main:: Creating App Tasks, but waiting 3 seconds for setup to be done");
+    vTaskDelay(pdMS_TO_TICKS(3000));
     // WARTEN, bis setup() fertig ist
     LOG_INFO(TAG_APP_TASKS,"main:: Creating App Tasks, waiting for setup to be done");
     // xEventGroupWaitBits(wifi_event_group, SYSTEM_CONFIG_MODE_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
-    xTaskCreatePinnedToCore(taskClock, "taskClock", 4096, nullptr, 1, nullptr, 1);
+    xTaskCreatePinnedToCore(taskClock, "taskClock", 8192, nullptr, 1, nullptr, 1);
     // xTaskCreatePinnedToCore(taskNetwork, "taskNetwork", 4096, nullptr, 2, nullptr, 0);
     xTaskCreatePinnedToCore(taskTemperature, "taskTemperature", 4096, nullptr, 2, nullptr, 1);
     xTaskCreatePinnedToCore(taskEnergy, "taskEnergy", 8192, nullptr, 2, nullptr, 1);
-    xTaskCreatePinnedToCore(taskPid, "taskPid", 4096, nullptr, 3, nullptr, 1);
+    xTaskCreatePinnedToCore(taskPid, "taskPid", 8192, nullptr, 3, nullptr, 1);
     xTaskCreatePinnedToCore(taskWeb, "taskWeb", 8192, nullptr, 1, nullptr, 0);
     xTaskCreatePinnedToCore(taskMaintenance, "taskMaintenance", 8192, nullptr, 1, nullptr, 0);
-    xTaskCreatePinnedToCore(taskWiFi, "taskWiFi", 6144, (void *)(&credentials), 10, NULL, 0);
+    xTaskCreatePinnedToCore(taskWiFi, "taskWiFi", 8192, (void *)(&credentials), 10, NULL, 0);
 }

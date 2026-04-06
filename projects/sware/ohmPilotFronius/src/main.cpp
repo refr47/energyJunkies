@@ -95,6 +95,7 @@ void logging_init()
 
 void setup()
 {
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     DBGbgn(115200);
     btStop();
     logging_init();
