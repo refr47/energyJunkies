@@ -159,7 +159,7 @@ const initWebSocket = () => {
   };
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-
+    isConnected.value = true;
     liveData.value = data.live;
     //logEntries.value = data.log.entries;
     handleWebSockData(data);
