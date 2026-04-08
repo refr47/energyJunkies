@@ -93,8 +93,8 @@ static void handleLogin(AsyncWebServerRequest *request, uint8_t *data, size_t le
 
     const char *user = doc["user"] | "";
     const char *pass = doc["password"] | "";
-    //LOG_INFO(TAG_WEB, "handleLogin::user: %s, pass: %s", user, pass);
-    // Check if the POST data matches the expected username and password
+    // LOG_INFO(TAG_WEB, "handleLogin::user: %s, pass: %s", user, pass);
+    //  Check if the POST data matches the expected username and password
     if (strcmp(user, "admin") == 0 && strcmp(pass, "password") == 0)
     {
         isAuthenticated = true;
@@ -126,40 +126,54 @@ static void handleSetup(AsyncWebServerRequest *request)
     else
         request->send(LittleFS, "/login.html", "text/html", false);
 }
-
-bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
+  
+static inline bool helperForWWW()
 {
-    // 1. LITTLEFS Initialisierung
-    LOG_INFO(TAG_WEB, "www_init::begin");
     if (!LittleFS.begin(FORMAT_SPIFFS_IF_FAILED))
     {
         LOG_ERROR(TAG_WEB, "www_init::LITTLEFS Mount Failed");
         return false;
     }
-    File root = LittleFS.open("/");
-    if (!root)
+    // In deiner helperForWWW Funktion oder dort, wo du iterierst:
+  /*   File root = LittleFS.open("/");
+    File entry = root.openNextFile();
+
+    while (entry)
     {
-        LOG_ERROR(TAG_WEB, "www_init::Failed to open directory (LittleFS) - open (/)");
-        return false;
-    }
-    File file = root.openNextFile();
-    if (!file)
-    {
-        LOG_ERROR(TAG_WEB, "www_init::Failed to open directory (LittleFS openNextFile)");
-        return false;
-    }
-    unsigned int fileCount = 0;
-    while (file)
-    {
-        LOG_INFO(TAG_WEB, "LITTLEFS File: %s, Size: %u,", file.name(), file.size());
-        file = root.openNextFile();
-        fileCount++;
-        if (fileCount % 4 == 0)
+        if (entry.isDirectory())
         {
-            LOG_INFO(TAG_WEB, "\n");
-            break;
+            // Überspringe Ordner, da sie keine "Dateien" im herkömmlichen Sinne sind
+            entry = root.openNextFile();
+            continue;
         }
+
+        // Nur wenn es KEIN Directory ist, darfst du auf Name/Size zugreifen
+        Serial.printf("Datei: %s, Größe: %u\n", entry.name(), entry.size());
+
+        entry = root.openNextFile();
     }
+    root.close(); */
+    return true;
+}
+
+static void inline doCORS()
+{
+#ifdef CORS_DEBUG
+    // CORS Header global aktivieren
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
+#endif
+}
+
+bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
+{
+    // 1. LITTLEFS Initialisierung
+    LOG_INFO(TAG_WEB, "www_init::begin");
+    if (!helperForWWW())
+    {
+        return false;
+    } 
 
     // 2. Netzwerk-Modus (AP oder Client)
     if (ipAddr == NULL)
@@ -174,15 +188,33 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     {
         isAPModus = false;
     }
+    doCORS();
+    /// AJAX & API Endpoints
+    server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
+    server.on("/storeSetup", HTTP_POST, [](AsyncWebServerRequest *request)
+              {
+                  // Dieser Teil bleibt leer, da wir den Body-Handler nutzen
+              },
+              NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+              {
 
-// --- STATISCHE DATEIEN (Ordner-basiert) ---
-// Das ersetzt ca. 20 einzelne server.on() Aufrufe!
-#ifdef CORS_DEBUG
-    // CORS Header global aktivieren
-    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
-    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
-#endif
+// 1. Prüfen, ob wir den Anfang des Pakets haben
+    if (index == 0) {
+        // Hier könnte man einen Puffer reservieren, falls nötig
+    }
+
+    // 2. JSON parsen (direkt aus dem 'data' Buffer)
+    DynamicJsonDocument doc(JSON_OBJECT_SETUP_LEN);
+    DeserializationError error = deserializeJson(doc, data, len);
+    LOG_INFO(TAG_WEB, "/storeSetup: %u bytes, index: %u, total: %u, content: %s", len, index, total, doc.as<String>().c_str());
+    if (!error) {  
+
+        ajaxCalls_handleStoreSetup(doc, request, isAPModus);
+        request->send(200, "application/json", "{\"done\":true}");
+    } else {
+        request->send(400, "application/json", "{\"done\":false, \"msg\":\"JSON Error\"}");
+    } });
+
     server.serveStatic("/assets/", LittleFS, "/assets/")
         .setCacheControl("max-age=600");
 
@@ -190,11 +222,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     server.serveStatic("/img/", LittleFS, "/img/")
         .setCacheControl("max-age=3600");
 
-    // WICHTIG: Die Root-Datei (index.html)
-    server.serveStatic("/", LittleFS, "/")
-        .setDefaultFile("index.html");
-
-        
+#ifdef IIII
     // --- HTML ROUTEN ---
     server.on("/ping", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(200, "text/plain", "Pong"); });
@@ -223,7 +251,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
         request->send(200, "text/plain", "Enabled"); });
 
     // --- AJAX & API Schnittstellen ---
-    server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
+
     server.on("/getOverview", HTTP_GET, ajaxCalls_handleGetOverview);
     server.on("/buildAndGetShellyDevicesTree", HTTP_GET, ajaxCalls_handleBuildAndGetShelly);
 
@@ -272,45 +300,18 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     // Spezieller Handler für den OPTIONS-Preflight (WICHTIG!)
     server.on("/storeSetup", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
               { request->send(200); });
-    server.on("/storeSetup", HTTP_POST, [](AsyncWebServerRequest *request)
-              {
-                  // Dieser Teil bleibt leer, da wir den Body-Handler nutzen
-              },
-              NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
-              {
+#endif
+    // WICHTIG: Die Root-Datei (index.html)
+    server.serveStatic("/", LittleFS, "/")
+        .setDefaultFile("index.html");
 
-// 1. Prüfen, ob wir den Anfang des Pakets haben
-    if (index == 0) {
-        // Hier könnte man einen Puffer reservieren, falls nötig
-    }
-
-    // 2. JSON parsen (direkt aus dem 'data' Buffer)
-    DynamicJsonDocument doc(JSON_OBJECT_SETUP_LEN);
-    DeserializationError error = deserializeJson(doc, data, len);
-    LOG_INFO(TAG_WEB, "/storeSetup: %u bytes, index: %u, total: %u, content: %s", len, index, total, doc.as<String>().c_str());
-    if (!error) {
-
-        ajaxCalls_handleStoreSetup(doc, request, isAPModus);
-        request->send(200, "application/json", "{\"done\":true}");
-    } else {
-        request->send(400, "application/json", "{\"done\":false, \"msg\":\"JSON Error\"}");
-    } });
     // --- FEHLER-HANDLING & AUTHENTIFIZIERUNG ---
     server.onNotFound([](AsyncWebServerRequest *request)
                       {
-                        String path = request->url();
-    
-    // 1. Standard-Index fix
-    if (path == "/") path = "/index.html";
-
-    // 2. Debug-Ausgabe: Was wird gesucht?
-    Serial.printf("Suche Datei: %s\n", path.c_str());
-
-    if (SPIFFS.exists(path)) {
-        request->send(SPIFFS, path);
+    if (request->method() == HTTP_GET) {
+        request->send(LittleFS, "/index.html", "text/html");
     } else {
-        Serial.printf("DATEI NICHT GEFUNDEN: %s\n", path.c_str());
-        request->send(404, "text/plain", "404: File Not Found on SPIFFS");
+        request->send(404);
     } });
 
     // Initialisierung abschließen

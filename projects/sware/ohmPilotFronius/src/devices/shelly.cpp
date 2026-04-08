@@ -338,7 +338,7 @@ bool shelly_listAllDevices(ALL_SHELLY_DEVICES *allDevices, char *ipRange, unsign
 {
     shellyIndex = 0;
     LOG_INFO(TAG_SHELLY, "shelly::listAllDevices\n");
-    DBG("shelly::listAllDevices\n");
+    LOG_INFO(TAG_SHELLY, "shelly::listAllDevices\n");
     MAX_COUNTER = 5;
     for (int i = 1; i <= upperLimit; i++)
     {

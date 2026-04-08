@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <WiFi.h>
 #include <arpa/inet.h>
 #include <lwip/sockets.h>
@@ -101,7 +103,7 @@
 #define SUNDAY_LIGHT_SIZE 100
 #define DAILY_VALUES_SIZE 100
 
-#define LOG_BUFFER_SIZE 256
+#define LOG_BUFFER_SIZE 60
 // #defin
 
 typedef struct
@@ -277,7 +279,7 @@ struct LogEntry
     char *tag;
 
     int temp;
-};
+}; 
 
 struct RingBuffer
 {
@@ -285,8 +287,13 @@ struct RingBuffer
 
     volatile uint16_t writeIndex = 0;
     volatile uint16_t readIndex = 0;
+    // Speicher für den letzten Zustand, der TATSÄCHLICH in den Buffer geschrieben wurde
+    LogEntry lastAddedEntry;
+    uint32_t lastAddedTime = 0;
+    bool firstEntryMade = false;
 
-    volatile bool active = false;
+    volatile bool active = true;
+    SemaphoreHandle_t mutex; // Mutex für thread-sicheren Zugriff
 };
 
 typedef struct _WEBSOCK

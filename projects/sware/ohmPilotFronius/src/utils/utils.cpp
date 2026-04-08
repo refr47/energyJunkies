@@ -1,6 +1,5 @@
 #define __UTILS_CPP__
 
-
 #include "utils.h"
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -83,19 +82,19 @@ int pingloop = 1;
 
 void printHWInfo()
 {
-	LOG_DEBUG(TAG_UTILS ,"MEM: %d", esp_get_free_heap_size());
+	LOG_DEBUG(TAG_UTILS, "MEM: %d", esp_get_free_heap_size());
 
 	esp_chip_info_t chip_info;
 	esp_chip_info(&chip_info);
 
-	LOG_DEBUG(TAG_UTILS,"Hardware info: %d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+	LOG_DEBUG(TAG_UTILS, "Hardware info: %d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
 			  (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
-	LOG_DEBUG(TAG_UTILS,"Silicon revision: %d\n", chip_info.revision);
+	LOG_DEBUG(TAG_UTILS, "Silicon revision: %d\n", chip_info.revision);
 
 	// get chip id
 	uint32_t chipId = ESP.getEfuseMac();
 
-	LOG_DEBUG(TAG_UTILS,"Chip id: %x\n", chipId);
+	LOG_DEBUG(TAG_UTILS, "Chip id: %x\n", chipId);
 }
 bool isNumber(char s[])
 {
@@ -284,27 +283,92 @@ String util_GET_Request(const char *url, int *httpResponseCode)
 	return payload;
 }
 
-void utils_logWrite(RingBuffer &rb, const LogEntry &e) {
+// Initialisierung (einmalig aufrufen!)
+void utils_logInit(RingBuffer &rb)
+{
+	LOG_DEBUG(TAG_UTILS,"utils_logInit");
+	rb.mutex = xSemaphoreCreateBinary();
+	if(rb.mutex != NULL)
+	{
+		xSemaphoreGive(rb.mutex); // Macht den Semaphore "verfügbar"
+	}
+	else
+	{
+		LOG_ERROR(TAG_UTILS, "Failed to create mutex for log buffer");
+	}
+}
+ 
+void utils_logWrite(RingBuffer &rb, const LogEntry &e)
+{
+	
 	uint16_t next = (rb.writeIndex + 1) % LOG_BUFFER_SIZE;
-
+	LOG_ERROR(TAG_UTILS, "utils_logWrite() - next: %d, readIndex: %d", next, rb.readIndex);
+	uint32_t now = millis();
+	const uint32_t heartbeatInterval = LOG_DELTA_FORCE_WRITE; // Alle LOG_DELTA_FORCE_WRITE Sek. trotzdem schreiben
 	// Overflow verhindern
 	if (next == rb.readIndex)
 		return; // buffer voll → drop oder overwrite
 
-	rb.buffer[rb.writeIndex] = e;
-	rb.writeIndex = next;
+	bool hasChanged = (e.state != rb.lastAddedEntry.state ||
+					   e.power != rb.lastAddedEntry.power ||
+					   e.pwm != rb.lastAddedEntry.pwm ||
+					   e.temp != rb.lastAddedEntry.temp);
 
-	rb.active = true;
+	bool heartbeatDue = (now - rb.lastAddedTime >= heartbeatInterval);
+	// Nur schreiben, wenn es der erste Eintrag ist, sich was geändert hat oder der Heartbeat fällig ist
+	if (!rb.firstEntryMade || hasChanged || heartbeatDue)
+	{
+		if (xSemaphoreTake(rb.mutex, pdMS_TO_TICKS(100)) == pdTRUE) // lock für thread-sicheren Zugriff
+		{
+			uint16_t next = (rb.writeIndex + 1) % LOG_BUFFER_SIZE;
+
+			// Overflow-Check (Overwrite-Strategie: Wenn voll, rückt readIndex mit)
+			if (next == rb.readIndex)
+			{
+				rb.readIndex = (rb.readIndex + 1) % LOG_BUFFER_SIZE;
+			}
+
+			rb.buffer[rb.writeIndex] = e;
+
+			// Update der Vergleichswerte
+			rb.lastAddedEntry = e;
+			rb.lastAddedTime = now;
+			rb.firstEntryMade = true;
+
+			rb.writeIndex = next;
+			rb.active = true;
+			if (xSemaphoreGetMutexHolder(rb.mutex) == xTaskGetCurrentTaskHandle())
+			{
+				xSemaphoreGive(rb.mutex);
+			}
+			LOG_DEBUG(TAG_UTILS, "Log entry added: ts=%u, state=%u, power=%d, pwm=%u, temp=%d", e.ts, e.state, e.power, e.pwm, e.temp);
+		} else {
+			LOG_ERROR(TAG_UTILS, "Failed to acquire mutex in utils_logWrite");
+		}	
+	}
 }
-bool utils_logRead(RingBuffer &rb, LogEntry &out) {
-	if (rb.readIndex == rb.writeIndex)
-		return false; // nichts da
 
-	out = rb.buffer[rb.readIndex];
-	rb.readIndex = (rb.readIndex + 1) % LOG_BUFFER_SIZE;
+bool utils_logRead(RingBuffer &rb, LogEntry &out)
+{
+	bool success = false;
+	LOG_ERROR(TAG_UTILS, "utils_logRead() called");
+	if (xSemaphoreTake(rb.mutex, pdMS_TO_TICKS(10)) == pdTRUE)
+	{
+		if (rb.readIndex == rb.writeIndex)
+			xSemaphoreGive(rb.mutex); // UNBEDINGT FREIGEBEN!
+			return false; // nichts da
 
-	return true;
+		out = rb.buffer[rb.readIndex];
+		rb.readIndex = (rb.readIndex + 1) % LOG_BUFFER_SIZE;
+		if (xSemaphoreGetMutexHolder(rb.mutex) == xTaskGetCurrentTaskHandle())
+		{
+			xSemaphoreGive(rb.mutex);
+		}
+		success = true;
+	}
+	return success;
 }
+
 bool utils_shouldLog(bool l1, bool l2, uint8_t pwm, bool legionella, bool minTemp)
 {
 	// 🔥 aktive Heizung
@@ -318,8 +382,9 @@ bool utils_shouldLog(bool l1, bool l2, uint8_t pwm, bool legionella, bool minTem
 	return false;
 }
 
-char *utils_floatToString(float value) {
-	static char buf[20]; 
+char *utils_floatToString(float value)
+{
+	static char buf[20];
 	dtostrf(value, 1, 2, buf);
 	return buf;
 }
@@ -393,8 +458,40 @@ bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData, GET
 		(*getJson)(target, jsonStart, webSockData);
 	}
 
-
 	return true;
+}
+
+bool isStreamingAllowed(bool &isHeartbeatDue)
+{
+	static uint32_t lastNightlyHeartbeat = 0;
+	uint32_t now = millis();
+
+	struct tm timeinfo;
+	if (!getLocalTime(&timeinfo))
+		return true; // Sicherheitshalber senden
+
+	int hour = timeinfo.tm_hour;
+	// Prüfen, ob wir im Tag-Modus sind (6:00 bis 21:59)
+	bool dayMode = (hour >= LOG_DAY_TIME_IN_HOURS && hour < LOG_NIGHT_TIME_IN_HOURS);
+
+	if (dayMode)
+	{
+		return true;
+	}
+	else
+	{
+		// Nacht-Modus: Prüfen, ob 10 Minuten (600.000 ms) um sind
+		if (now - lastNightlyHeartbeat >= LOG_KEEP_ALIVE_TIME_IN_MS)
+		{
+			lastNightlyHeartbeat = now;
+			isHeartbeatDue = true; // Einmaliges Senden erlauben
+		} 
+		else
+		{
+			isHeartbeatDue = false;
+		}
+		return false;
+	}
 }
 
 #ifdef NOT

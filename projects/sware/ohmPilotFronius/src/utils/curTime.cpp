@@ -31,7 +31,7 @@ bool time_init()
 {
     // esp_sntp_servermode_dhcp(1); // (optional)
     LOG_INFO(TAG_TIME, "time_init()");
-    configTime(gmtOffset_sec, daylightOffset_sec, NtpServer1, NtpServer2);
+    configTzTime(EUROPE_VIENNA_TZ, NtpServer1, NtpServer2); 
     setenv("TZ", EUROPE_VIENNA_TZ, 1);
     tzset();
 

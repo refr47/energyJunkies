@@ -16,22 +16,9 @@
 #define DEBUG_PORT Serial
 #endif
 
-int debug_LogOutput(const char *format, va_list args);
-// This only works for C
-/* static const char *currTime()
-{
-    time_t rawtime;do
-    struct tm *timeinfo;
-
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-    char *thetime = asctime(timeinfo);
-    thetime[strlen(thetime) - 5] = '\0';
-
-    return (const char *)(thetime + 10);
-}
-// What is the current time
-#define DATE_STRING currTime() */
+//int debug_LogOutput(const char *format, va_list args);
+void smartLogExec(esp_log_level_t level, const char *tag, const char *file, int line, const char *format, ...);
+bool shouldLogSmart(const char *file, int line, const char *formattedMsg);
 
 #define FINFO strrchr(__FILE__, '/') + 1
 
@@ -56,7 +43,7 @@ ESP_LOGV - verbose (highest)
 #define TAG_MAIN "APP_MAIN"
 #define TAG_WLAN "WLAN" 
 #define TAG_TEMP "TEMP"
-#define TAG_PID "PID"
+#define TAG_PID "PID_CONTROL"
 #define TAG_MQTT "MQTT"
 #define TAG_WEB "WEB"
 #define TAG_APP_TASKS "APP_TASKS"
@@ -76,14 +63,14 @@ ESP_LOGV - verbose (highest)
 #define TAG_UTILS "UTILS"
 #define TAG_TIME    "TIME" 
 #define TAG_LOGGER "LOGGER"
- 
-#define LOG_ERROR(tag, M, ...) ESP_LOGE(tag, "%s:%d | " M, __FILE__, __LINE__, ##__VA_ARGS__)
-#define LOG_INFO(tag, M, ...) ESP_LOGI(tag, "%s:%d | " M, __FILE__, __LINE__, ##__VA_ARGS__)
-#define LOG_DEBUG(tag, M, ...) ESP_LOGD(tag, "%s:%d | " M, __FILE__, __LINE__, ##__VA_ARGS__)
-#define LOG_WARNING(tag,M, ...) ESP_LOGW(tag, "%s:%d | " M, __FILE__, __LINE__, ##__VA_ARGS__)
+
+#define LOG_ERROR(tag, M, ...) smartLogExec(ESP_LOG_ERROR, tag, __FILE__, __LINE__, M, ##__VA_ARGS__)
+#define LOG_INFO(tag, M, ...) smartLogExec(ESP_LOG_INFO, tag, __FILE__, __LINE__, M, ##__VA_ARGS__)
+#define LOG_DEBUG(tag, M, ...) smartLogExec(ESP_LOG_DEBUG, tag, __FILE__, __LINE__, M, ##__VA_ARGS__)
+#define LOG_WARNING(tag, M, ...) smartLogExec(ESP_LOG_WARN, tag, __FILE__, __LINE__, M, ##__VA_ARGS__)
 //#define LOG_VERBOSE(tag,M, ...) ESP_LOGV(tag, "%s:%d | " M, __FILE__, __LINE__, ##__VA_ARGS__)
 
-#define DBG(M, ...) ESP_LOGD("*", "%s:%d | " M, __FILE__, __LINE__, ##__VA_ARGS__)
+#define DBG(M, ...) smartLogExec(ESP_LOG_DEBUG, "*", "%s:%d | " M, __FILE__, __LINE__, ##__VA_ARGS__)
 
 #else
 #define DBGbgn(speed)
@@ -92,25 +79,25 @@ ESP_LOGV - verbose (highest)
 
 #endif
 
-/* 
+    /*
 
-// 1. Die Callback-Funktion definieren
-vprintf_like_t original_vprintf = NULL;
+    // 1. Die Callback-Funktion definieren
+    vprintf_like_t original_vprintf = NULL;
 
-int mqtt_vprintf_hook(const char *format, va_list args) {
-    // 1. Normal auf Serial ausgeben (originale Funktion)
-    int written = original_vprintf(format, args);
+    int mqtt_vprintf_hook(const char *format, va_list args) {
+        // 1. Normal auf Serial ausgeben (originale Funktion)
+        int written = original_vprintf(format, args);
 
-    // 2. Optional: Log an MQTT senden
-    // Aber VORSICHT: Nicht loggen, wenn wir gerade im MQTT-Task sind (Endlosschleife!)
-    // Wir verwenden einen statischen Buffer, um Stack zu sparen
-    static char msg_buffer[256];
-    vsnprintf(msg_buffer, sizeof(msg_buffer), format, args);
+        // 2. Optional: Log an MQTT senden
+        // Aber VORSICHT: Nicht loggen, wenn wir gerade im MQTT-Task sind (Endlosschleife!)
+        // Wir verwenden einen statischen Buffer, um Stack zu sparen
+        static char msg_buffer[256];
+        vsnprintf(msg_buffer, sizeof(msg_buffer), format, args);
 
-    // Hier dein MQTT Publish (nur wenn Netzwerk da ist)
-    // mqtt_publish_log('L', msg_buffer);
+        // Hier dein MQTT Publish (nur wenn Netzwerk da ist)
+        // mqtt_publish_log('L', msg_buffer);
 
-    return written;
-}
+        return written;
+    }
 
-*/
+    */

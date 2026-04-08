@@ -126,8 +126,6 @@ static char *getJsonObj()
     if (data.temperature.alarm)
     {
 
-      
-
         if (data.temperature.sensor1 > 0 && data.temperature.sensor2 > 0)
         {
             snprintf(formatBuffer, FORMAT_BUFFER_LEN, "!! %d !! ", avgTemp);
@@ -196,27 +194,25 @@ static char *getJsonObj()
             // DBGf("JSON-String: %s", jsonString.c_str());
             return jsonObjBuffer;
     }
-    uint16_t localRead = rb.readIndex;
-    uint16_t localWrite = rb.writeIndex;
-
+   
     uint16_t count = 0;
     LOG_DEBUG(TAG_WEB_SOCKETS, "Creating JSON log entries");
-    while ((localRead != localWrite) && count < 30) // safety check to prevent infinite loop
-    {
-        LogEntry &e = rb.buffer[localRead];
+    LogEntry logEntry;
+    while (utils_logRead(rb, logEntry)&& count < 30)   
+    { 
 
         JsonObject obj = entries.createNestedObject();
- 
-        obj["ts"] = e.ts;
-        obj["l1"] = e.state & 1;
-        obj["l2"] = (e.state >> 1) & 1;
-        obj["pwm"] = e.pwm;
-        obj["temp"] = e.temp;
-        obj["tag"] = "WEB_SOCKET";
-        localRead = (localRead + 1) % LOG_BUFFER_SIZE;
-        count++;
-    }
 
+        obj["ts"] = logEntry.ts;
+        obj["l1"] = logEntry.state & 1;
+        obj["l2"] = (logEntry.state >> 1) & 1;
+        obj["pwm"] = logEntry.pwm;
+        obj["temp"] = logEntry.temp;
+        obj["tag"] = "WEB_SOCKET";
+        LOG_DEBUG(TAG_WEB_SOCKETS, "Add object to stream with count: %d", count);
+        count++;
+    } 
+ 
     // 🔑 count setzen
     logObj["count"] = count;
     size_t freeBytes = measureJson(doc);
@@ -227,7 +223,7 @@ static char *getJsonObj()
     }
     serializeJson(doc, jsonObjBuffer);
     jsonObjBuffer[freeBytes] = '\0';
-
+    LOG_DEBUG(TAG_WEB_SOCKETS, "Send stream with count: %d", count);
     return jsonObjBuffer;
 }
 

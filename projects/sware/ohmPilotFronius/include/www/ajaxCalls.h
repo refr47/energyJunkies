@@ -16,9 +16,9 @@
 #define LEGIONELLEN_TEMP "legionellen_temp"
 #define EXTERNER_SPEICHER "akku_vorhanden"
 #define EXTERNER_SPEICHER_PRIORI "akku_priori"
-#define TEMP_AUSSCHALTEN "heizstab_temp_min"
-#define TEMP_EINSCHALT "heizstab_temp_max"
- 
+#define TEMP_AUSSCHALTEN "heizstab_temp_max"
+#define TEMP_EINSCHALT "heizstab_temp_min"
+
 #define WWW_MQTT_HOST "mqtt_server_ip"
 #define WWW_MQTT_USER "mqtt_user"
 #define WWW_MQTT_PASWWD "mqtt_passwd"
@@ -52,8 +52,7 @@
 #define WWW_TEMP_SENSOR_VAL "TEMPV"
 #define WWW_EPSILON "EpsilonPin"
 
-
-void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupCh);
+    void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupCh);
 
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request);

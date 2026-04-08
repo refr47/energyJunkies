@@ -55,5 +55,5 @@ typedef struct _APP_RUNTIME
 extern APP_RUNTIME g_app;
 
 bool appStateInit();
-void appLock();
+bool appLock(uint32_t timeout_ms);
 void appUnlock();

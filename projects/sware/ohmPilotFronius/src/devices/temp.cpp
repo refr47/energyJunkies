@@ -107,7 +107,7 @@ bool temp_getTemperature(TEMPERATURE &container)
         hardware_reset(); // Reset the OneWire bus
         if (!temp_init())
         {
-            DBG("Sensorik ausser Betrieb oder fehlerhaft !!");
+            LOG_INFO(TAG_TEMP, "Sensorik ausser Betrieb oder fehlerhaft !!");
             container.sensor1 = container.sensor2 = -1.0;
             return false;
         }
