@@ -56,7 +56,7 @@
 
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request);
-void ajaxCalls_handleStoreSetup(DynamicJsonDocument &json, AsyncWebServerRequest *request, bool isAPModus);
+void ajaxCalls_handleStoreSetup(JsonDocument &json, AsyncWebServerRequest *request, bool isAPModus);
 
 /* Shelly:
  * 1) ajaxCalls_triggerShellyScan() startet RTOS-Task

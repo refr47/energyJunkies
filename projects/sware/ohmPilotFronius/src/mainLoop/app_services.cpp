@@ -190,81 +190,80 @@ void serviceTemperature()
 
     g_app.webSockData.states.tempSensorOK = true;
 
-    const float tempAvg = averageTemp();
-
+    const int tempAvg = averageTemp();
+    g_app.webSockData.states.tempUnderflow = false;
     if (tempAvg < g_app.webSockData.setupData.tempMinInGrad)
     {
         LOG_INFO(TAG_APP_SERVICES, "Temperature underflow detected: %d °C, setup: %d °C", tempAvg, g_app.webSockData.setupData.tempMinInGrad);
-        if (appLock(10)) {
-            g_app.webSockData.states.tempUnderflow = true;
-            g_app.pinManager.allOn();
-            LOG_INFO(TAG_APP_SERVICES, "Temp under minimum, heating full power");
-            appUnlock();
-        } else {
-            LOG_DEBUG(TAG_APP_SERVICES, "Temperature underflow detected, but could not acquire lock to update state");
-        }
-           
-        return;
-    }
+        g_app.webSockData.states.tempUnderflow = true;
+         /*  if (appLock(10)) {
+              g_app.webSockData.states.tempUnderflow = true;
+              g_app.pinManager.allOn();
+              LOG_INFO(TAG_APP_SERVICES, "Temp under minimum, heating full power");
+              appUnlock();
+          } else {
+              LOG_DEBUG(TAG_APP_SERVICES, "Temperature underflow detected, but could not acquire lock to update state");
+          }
 
-    g_app.webSockData.states.tempUnderflow = false;
+          return; */
+    } 
+
+    
 
     if (tempAvg < g_app.webSockData.setupData.tempMaxAllowedInGrad)
 
         g_app.webSockData.temperature.alarm = false;
 
-    if (!g_app.alarmContainer.alarmTemp.alarmTemp)
-    {
-        if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
-        {
-            LOG_ERROR(TAG_APP_SERVICES, "Temperature limit reached - heater off");
-            g_app.pinManager.reset();
-            g_app.alarmContainer.alarmTemp.alarmTemp = true;
-            g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
-            g_app.webSockData.temperature.alarm = true;
-            ledHandler_showTemperaturError(true);
+    /*   if (!g_app.alarmContainer.alarmTemp.alarmTemp)
+      {
+          if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
+          {
+              LOG_ERROR(TAG_APP_SERVICES, "Temperature limit reached - heater off");
+              g_app.pinManager.reset();
+              g_app.alarmContainer.alarmTemp.alarmTemp = true;
+              g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+              g_app.webSockData.temperature.alarm = true;
+              ledHandler_showTemperaturError(true);
 
-#ifdef MQTT
-            if (g_app.webSockData.states.mqtt)
-            {
-                mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
-                                        g_app.webSockData.temperature.sensor2);
-            }
-#endif
-        }
-    }
-    else
-    {
-        const time_t currT = time_getTimeStamp();
-        const double diffT = difftime(currT, g_app.alarmContainer.alarmTemp.overFlowHappenedAt);
+  #ifdef MQTT
+              if (g_app.webSockData.states.mqtt)
+              {
+                  mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
+                                          g_app.webSockData.temperature.sensor2);
+              }
+  #endif
+          }
+      }
+      else
+      {
+          const time_t currT = time_getTimeStamp();
+          const double diffT = difftime(currT, g_app.alarmContainer.alarmTemp.overFlowHappenedAt);
 
-        if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
-        {
-            if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
-            {
-                g_app.alarmContainer.alarmTemp.overFlowHappenedAt = currT;
-                ledHandler_showTemperaturError(true);
-#ifdef MQTT
-                if (g_app.webSockData.states.mqtt)
-                {
-                    mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
-                                            g_app.webSockData.temperature.sensor2);
-                }
-#endif
-            }
-            else
-            {
-                g_app.alarmContainer.alarmTemp.alarmTemp = false;
-                g_app.alarmContainer.alarmTemp.overFlowHappenedAt = 0;
-                // ledHandler_showTemperaturError(false);
-                LOG_INFO(TAG_APP_SERVICES, "Temperature alarm reset");
-            }
-        }
-    }
-
-   
+          if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
+          {
+              if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
+              {
+                  g_app.alarmContainer.alarmTemp.overFlowHappenedAt = currT;
+                  ledHandler_showTemperaturError(true);
+  #ifdef MQTT
+                  if (g_app.webSockData.states.mqtt)
+                  {
+                      mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
+                                              g_app.webSockData.temperature.sensor2);
+                  }
+  #endif
+              }
+              else
+              {
+                  g_app.alarmContainer.alarmTemp.alarmTemp = false;
+                  g_app.alarmContainer.alarmTemp.overFlowHappenedAt = 0;
+                  // ledHandler_showTemperaturError(false);
+                  LOG_INFO(TAG_APP_SERVICES, "Temperature alarm reset");
+              }
+          }
+      }*/
 }
-
+ 
 void serviceEnergy()
 {
     // appLock();
@@ -355,20 +354,28 @@ void servicePid()
 {
 
     LOG_INFO(TAG_APP_SERVICES, "app_services::servicePid - ");
-    if (g_app.webSockData.states.networkOK)
-    {
-        if (!g_app.alarmContainer.alarmTemp.alarmTemp)
-        {
-            g_app.pinManager.update(g_app.webSockData);
-            g_app.webSockData.pidContainer.mAnalogOut = g_app.pinManager.getStateOfAnaPin();
-            g_app.webSockData.pidContainer.PID_PIN1 = g_app.pinManager.getStateOfDigPin(0);
-            g_app.webSockData.pidContainer.PID_PIN2 = g_app.pinManager.getStateOfDigPin(1);
-        }
-        else
-        {
-            g_app.pinManager.reset();
-        }
-    }
+    g_app.pinManager.update(g_app.webSockData);
+    g_app.webSockData.pidContainer.mAnalogOut = g_app.pinManager.getStateOfAnaPin();
+    g_app.webSockData.pidContainer.PID_PIN1 = g_app.pinManager.getStateOfDigPin(0);
+    g_app.webSockData.pidContainer.PID_PIN2 = g_app.pinManager.getStateOfDigPin(1);
+
+    
+    /*  if (g_app.webSockData.states.networkOK)
+     {
+         if (!g_app.alarmContainer.alarmTemp.alarmTemp)
+         {
+             LOG_INFO(TAG_APP_SERVICES, "Temperature OK, updating PID and heating state");
+             g_app.pinManager.update(g_app.webSockData);
+             g_app.webSockData.pidContainer.mAnalogOut = g_app.pinManager.getStateOfAnaPin();
+             g_app.webSockData.pidContainer.PID_PIN1 = g_app.pinManager.getStateOfDigPin(0);
+             g_app.webSockData.pidContainer.PID_PIN2 = g_app.pinManager.getStateOfDigPin(1);
+         }
+         else
+         {
+             LOG_INFO(TAG_APP_SERVICES, "Temperature alarm active, skipping PID update and set heating to 0");
+             g_app.pinManager.reset();
+         }
+     } */
 }
 
 void serviceWeb()

@@ -63,7 +63,6 @@ RL
 
 */
 
-
 /*
 ****** Base Power
 */
@@ -85,7 +84,7 @@ update(double measuredPower, double temp, int hour)
 ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS, LogEntry &logEntry)
 {
     // SAFETY,
-    // LOG_DEBUG("PinManager::PID:");
+    LOG_DEBUG("PinManager::PID: : %s", pcTaskGetName(NULL));
     // allowed boiler temp
     if (temp >= webSockData.setupData.tempMaxAllowedInGrad)
     {
@@ -203,15 +202,42 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 {
     unsigned long now = millis();
     LogEntry logEntry;
+    time_t curT;
+    time(&curT);
 
     int temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2;
-    logEntry.tag = "PID";
+    if (temp == -1)
+    {
+        // LOG_ERROR(TAG_PID, "PinManager::update() - Invalid temperature reading, skipping update, t1: %d t2: %d", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+        // logEntry.tag = "PID";
+        logEntry.temp = 0;
+        logEntry.ts = (uint32_t)curT;
+        logEntry.power = 0;
+        logEntry.pwm = 0;
+        logEntry.state = 0;
+        utils_logWrite(webSockData.logBuffer, logEntry);
+        return;
+    }
+    if (webSockData.temperature.sensor1 < 0)
+    {
+        temp = webSockData.temperature.sensor2;
+    }
+    if (webSockData.temperature.sensor2 < 0)
+    {
+        temp = webSockData.temperature.sensor1;
+    }
+
+    // logEntry.tag = "PID";
     logEntry.temp = temp;
     logEntry.ts = now;
+    // LOG_ERROR(TAG_PID, "PinManager::BEFORE() - Task: %s", pcTaskGetName(NULL));
     ControlMode currentMode = preCheck(webSockData, temp, now, logEntry);
+    // LOG_ERROR(TAG_PID, "PinManager::AFTER() - Task: %s", pcTaskGetName(NULL));
     double measuredPower = 0.0;
     double targetPower = 0.0;
     bool doML = true;
+    // LOG_ERROR(TAG_PID, "PinManager::update() - currentMode: %d, temperature %d, sensor1 %d, sensor2 %d", currentMode, temp, webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+
     switch (currentMode)
     {
     case MODE_OFF:
@@ -282,7 +308,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
             double factors[5] = {0.0, 0.25, 0.5, 0.75, 1.0};
             double factor = factors[action];
 
-            //double pwmPower = remaining * factor;
+            // double pwmPower = remaining * factor;
             targetPower = phases * onePhase + (remaining * factor);
 
             // 🎯 reward (keep your improved version!)
@@ -312,12 +338,12 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 
     // Prüfe, wie viel Stack noch übrig ist (in Bytes)
     UBaseType_t stackLeft = uxTaskGetStackHighWaterMark(NULL);
-    LOG_INFO(TAG_PID, "Freier Stack vor Write: %u", stackLeft * sizeof(StackType_t));
+    LOG_INFO(TAG_PID, "Freier Stack vor Write: %u, Task: %s", stackLeft * sizeof(StackType_t), pcTaskGetTaskName(NULL));
 
     if (stackLeft < 200)
     { // Willkürliche Grenze
         LOG_ERROR(TAG_PID, "STACK FAST VOLL! Aufruf wird wahrscheinlich crashen.");
-    }
+    };
     utils_logWrite(webSockData.logBuffer, logEntry);
 
     /*
@@ -327,16 +353,15 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 
     Vermeidung von Extremen: Wenn die Temperatur zu hoch wird, sinkt der Reward, sodass der Agent lernt, die Leistung rechtzeitig zu drosseln, bevor der preCheck (Sicherheit) hart abschaltet.
     */
-    LOG_DEBUG(TAG_PID, "ENTER ML");
+    LOG_DEBUG(TAG_PID, "ENTER ML Task: %s", pcTaskGetTaskName(NULL));
 
- /*    int ts = tempState(temp);
-    int ps = pvState(measuredPower);
-    int action = chooseAction(ts, ps);
- */
+    /*    int ts = tempState(temp);
+       int ps = pvState(measuredPower);
+       int action = chooseAction(ts, ps);
+    */
     if (doML)
     {
-     
-#ifdef MMMMM
+
         // reward
         double reward = 0;
         // 1. Netzbezug vermeiden (Hohe Strafe)
@@ -370,9 +395,9 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 
         // Q-Table Update mit der Bellman-Gleichung (vereinfacht)
         // Alpha ist deine Lernrate (z.B. 0.1)
-       // Q[ts][ps][action] += alpha * (reward - Q[ts][ps][action]);
-       #endif
+        // Q[ts][ps][action] += alpha * (reward - Q[ts][ps][action]);
     }
+    LOG_INFO(TAG_PID, "EXIT ML Task: %s", pcTaskGetTaskName(NULL));
 }
 
 /*
@@ -382,6 +407,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 void PinManager::apply(LogEntry &logEntry, double targetPower)
 {
     unsigned long now = millis();
+    LOG_INFO(TAG_PID, "PinManager::apply() - ENTER Task %s", pcTaskGetName(NULL));
 
     // 🔥 HARD STOP
     if (targetPower < 0.1)
@@ -449,6 +475,8 @@ void PinManager::apply(LogEntry &logEntry, double targetPower)
     logEntry.state = currentActive;
     logEntry.pwm = (int)currentPWM;
     logEntry.power = rest;
+
+    LOG_INFO(TAG_PID, "PinManager::apply() - EXIT Task %s", pcTaskGetName(NULL));
 }
 /*
 ******* HELPER

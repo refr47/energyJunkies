@@ -132,15 +132,15 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onMounted } from 'vue';
 
 const props = defineProps(['liveData', 'logs', 'isConnected']);
 
 // 1. Definiere die Fehlertexte
 const errorDefinitions = {
   1: "MicroCard",
-  2: "Modbus",
-  4: "Flash Speicher",
+  2: "Modbus/Wechselrichter",
+  4: "MicroSD Karte",
   8: "Temperatur Sensorig",
   16: "Boiler Heizung aktiv",
 };
@@ -174,5 +174,15 @@ const chargeMode = computed(() => {
   if (mode === 2) return { label: 'FORCE LOAD', class: 'bg-rose-500 text-white animate-pulse' };
   if (mode === 1) return { label: 'SOLAR ONLY', class: 'bg-emerald-500 text-white' };
   return { label: 'STANDBY', class: 'bg-slate-200 text-slate-500' };
+});
+onMounted(() => {
+  console.log("Props Check:");
+  console.log("liveData vorhanden:", !!props.liveData);
+  console.log("logs vorhanden:", !!props.logs);
+  console.log("isConnected Status:", props.isConnected);
+
+  if (props.liveData === undefined) {
+    console.error("KRITISCH: liveData wurde nicht an HomeView übergeben!");
+  }
 });
 </script>

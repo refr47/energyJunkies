@@ -73,7 +73,7 @@ AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
 
 static double prevValueFromSmartMeter = 0.0;
 static unsigned int bitMaster = 0;
-static DynamicJsonDocument doc(2048);
+static JsonDocument doc;
 
 static char *getJsonObj()
 {
@@ -176,11 +176,11 @@ static char *getJsonObj()
     // =========================
     // 🟡 LOG OBJECT
     // =========================
-    JsonObject logObj = doc.createNestedObject("log");
-    JsonArray entries = logObj.createNestedArray("entries");
-
+   /*  JsonObject logObj = doc.createNestedObject("log");
+    JsonArray entries = logObj.createNestedArray("entries"); */
     RingBuffer &rb = data.logBuffer;
-    if (!rb.active)
+    LOG_DEBUG(TAG_WEB_SOCKETS, "Preparing JSON log entries, log buffer active: %d", rb.active);
+   /*  if (!rb.active)
     {
         logObj["count"] = 0;
         size_t freeBytes = measureJson(doc);
@@ -193,36 +193,22 @@ static char *getJsonObj()
         jsonObjBuffer[freeBytes] = '\0'; // Null-terminator hinzufügen
             // DBGf("JSON-String: %s", jsonString.c_str());
             return jsonObjBuffer;
-    }
+    } */
    
-    uint16_t count = 0;
+    
     LOG_DEBUG(TAG_WEB_SOCKETS, "Creating JSON log entries");
-    LogEntry logEntry;
-    while (utils_logRead(rb, logEntry)&& count < 30)   
-    { 
-
-        JsonObject obj = entries.createNestedObject();
-
-        obj["ts"] = logEntry.ts;
-        obj["l1"] = logEntry.state & 1;
-        obj["l2"] = (logEntry.state >> 1) & 1;
-        obj["pwm"] = logEntry.pwm;
-        obj["temp"] = logEntry.temp;
-        obj["tag"] = "WEB_SOCKET";
-        LOG_DEBUG(TAG_WEB_SOCKETS, "Add object to stream with count: %d", count);
-        count++;
-    } 
- 
+    int count = utils_logRead(rb, doc);
     // 🔑 count setzen
-    logObj["count"] = count;
-    size_t freeBytes = measureJson(doc);
-    if (freeBytes >= JSON_OBJECT_BUFFER_LEN)
+    //logObj["count"] = count;
+    
+    /* if (freeBytes >= JSON_OBJECT_BUFFER_LEN)
     {
         LOG_ERROR(TAG_WEB_SOCKETS, "Not enough memory to create JSON log entries");
         return "{}"; 
-    }
+    } */
     serializeJson(doc, jsonObjBuffer);
-    jsonObjBuffer[freeBytes] = '\0';
+    //jsonObjBuffer[freeBytes] = '\0';
+    LOG_DEBUG(TAG_WEB_SOCKETS, "JSON log entries created, free bytes: %s", doc.as<String>().c_str() );
     LOG_DEBUG(TAG_WEB_SOCKETS, "Send stream with count: %d", count);
     return jsonObjBuffer;
 }

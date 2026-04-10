@@ -12,13 +12,17 @@
 
 #define LOG_BUFFER_SIZE 64 // Reicht meist für die kritischen Zeilen in Loops
 
-typedef struct _LogEntry
+struct LogEntry
 {
     const char *file;
     int line;
     uint32_t lastHash;
-    uint32_t count;
-} LogEntry;
+    int count;
+    uint32_t firstSeenTime; // Wann trat die Wiederholung zuerst auf?
+    uint32_t lastLogTime;   // Wann haben wir das letzte Mal tatsächlich gedruckt?
+};
+
+
 
 static uint32_t calculateHash(const char *str);
 
@@ -80,9 +84,9 @@ static uint32_t calculateHash(const char *str)
 bool shouldLogSmart(const char *file, int line, const char *formattedMsg)
 {
     uint32_t currentHash = calculateHash(formattedMsg);
+    uint32_t now = millis();
     int foundIdx = -1;
 
-    // 1. Suchen, ob diese Zeile schon im Buffer ist
     for (int i = 0; i < LOG_BUFFER_SIZE; i++)
     {
         if (logBuffer[i].file == file && logBuffer[i].line == line)
@@ -92,29 +96,46 @@ bool shouldLogSmart(const char *file, int line, const char *formattedMsg)
         }
     }
 
-    // 2. Logik: Ist es neu oder hat sich der Wert geändert?
     if (foundIdx != -1)
     {
         if (logBuffer[foundIdx].lastHash == currentHash)
         {
             logBuffer[foundIdx].count++;
-            return false; // Inhalt identisch -> Nicht loggen
+
+            // LOGIK: Wenn wir noch innerhalb der "Sofort-Phase" sind (z.B. die ersten 3 Wiederholungen)
+            if (logBuffer[foundIdx].count <= IMMEDIATE_LOG_COUNT)
+            {
+                logBuffer[foundIdx].lastLogTime = now;
+                return true;
+            }
+
+            // Danach: Nur loggen, wenn das Zeit-Intervall abgelaufen ist
+            if (now - logBuffer[foundIdx].lastLogTime >= SMART_LOG_INTERVAL)
+            {
+                Serial.printf("--- [%s:%d] %d weitere Wiederholungen seit %lu ms ---\n",
+                              file, line, logBuffer[foundIdx].count - IMMEDIATE_LOG_COUNT,
+                              now - logBuffer[foundIdx].lastLogTime);
+
+                logBuffer[foundIdx].lastLogTime = now;
+                // Wir resetten den count hier NICHT auf 0, damit wir wissen,
+                // dass wir noch im "Wiederholungs-Modus" sind.
+                return true;
+            }
+
+            return false; // Unterdrücken
         }
         else
         {
-            // Wert hat sich geändert!
-            if (logBuffer[foundIdx].count > 0)
-            {
-                Serial.printf("--- [%s:%d] %d mal wiederholt ---\n", file, line, logBuffer[foundIdx].count);
-            }
+            // Inhalt hat sich geändert -> Sofort loggen und Counter zurücksetzen
             logBuffer[foundIdx].lastHash = currentHash;
             logBuffer[foundIdx].count = 0;
+            logBuffer[foundIdx].lastLogTime = now;
             return true;
         }
     }
 
-    // 3. Neuer Eintrag im Ringbuffer (Überschreiben nach FIFO)
-    logBuffer[nextBufferIdx] = {file, line, currentHash, 0};
+    // Neuer Eintrag
+    logBuffer[nextBufferIdx] = {file, line, currentHash, 0, now, now};
     nextBufferIdx = (nextBufferIdx + 1) % LOG_BUFFER_SIZE;
     return true;
 }

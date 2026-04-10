@@ -507,7 +507,7 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 
 /* ---------- store setup ---------- */
 
-void ajaxCalls_handleStoreSetup(DynamicJsonDocument &json, AsyncWebServerRequest *request, bool isAPModus)
+void ajaxCalls_handleStoreSetup(JsonDocument &json, AsyncWebServerRequest *request, bool isAPModus)
 {
     ajaxCalls_ensureInitPrimitives();
 

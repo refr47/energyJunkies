@@ -270,15 +270,13 @@ typedef struct
     bool valid;
 } ALL_SHELLY_DEVICES;
 
-struct LogEntry
+struct __attribute__((packed)) LogEntry 
 { 
     uint32_t ts;
     uint8_t state;
     int16_t power;
-    uint8_t pwm;    
-    char *tag;
-
-    int temp;
+    uint8_t pwm;
+    int16_t temp;
 }; 
 
 struct RingBuffer

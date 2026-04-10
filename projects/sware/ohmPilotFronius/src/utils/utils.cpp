@@ -11,6 +11,7 @@
 #include <lwip/icmp.h>
 #include <lwip/ip.h>
 #include <lwip/netdb.h>
+#include <base64.h>
 
 #include <HTTPClient.h>
 
@@ -297,17 +298,11 @@ void utils_logInit(RingBuffer &rb)
 		LOG_ERROR(TAG_UTILS, "Failed to create mutex for log buffer");
 	}
 }
- 
+
 void utils_logWrite(RingBuffer &rb, const LogEntry &e)
 {
-	
-	uint16_t next = (rb.writeIndex + 1) % LOG_BUFFER_SIZE;
-	LOG_ERROR(TAG_UTILS, "utils_logWrite() - next: %d, readIndex: %d", next, rb.readIndex);
 	uint32_t now = millis();
-	const uint32_t heartbeatInterval = LOG_DELTA_FORCE_WRITE; // Alle LOG_DELTA_FORCE_WRITE Sek. trotzdem schreiben
-	// Overflow verhindern
-	if (next == rb.readIndex)
-		return; // buffer voll → drop oder overwrite
+	const uint32_t heartbeatInterval = LOG_DELTA_FORCE_WRITE;
 
 	bool hasChanged = (e.state != rb.lastAddedEntry.state ||
 					   e.power != rb.lastAddedEntry.power ||
@@ -315,14 +310,14 @@ void utils_logWrite(RingBuffer &rb, const LogEntry &e)
 					   e.temp != rb.lastAddedEntry.temp);
 
 	bool heartbeatDue = (now - rb.lastAddedTime >= heartbeatInterval);
-	// Nur schreiben, wenn es der erste Eintrag ist, sich was geändert hat oder der Heartbeat fällig ist
+	
 	if (!rb.firstEntryMade || hasChanged || heartbeatDue)
 	{
-		if (xSemaphoreTake(rb.mutex, pdMS_TO_TICKS(100)) == pdTRUE) // lock für thread-sicheren Zugriff
+		if (xSemaphoreTake(rb.mutex, pdMS_TO_TICKS(10)) == pdTRUE)
 		{
 			uint16_t next = (rb.writeIndex + 1) % LOG_BUFFER_SIZE;
 
-			// Overflow-Check (Overwrite-Strategie: Wenn voll, rückt readIndex mit)
+			// Overflow → overwrite oldest
 			if (next == rb.readIndex)
 			{
 				rb.readIndex = (rb.readIndex + 1) % LOG_BUFFER_SIZE;
@@ -330,43 +325,80 @@ void utils_logWrite(RingBuffer &rb, const LogEntry &e)
 
 			rb.buffer[rb.writeIndex] = e;
 
-			// Update der Vergleichswerte
 			rb.lastAddedEntry = e;
 			rb.lastAddedTime = now;
 			rb.firstEntryMade = true;
 
 			rb.writeIndex = next;
 			rb.active = true;
-			if (xSemaphoreGetMutexHolder(rb.mutex) == xTaskGetCurrentTaskHandle())
-			{
-				xSemaphoreGive(rb.mutex);
-			}
-			LOG_DEBUG(TAG_UTILS, "Log entry added: ts=%u, state=%u, power=%d, pwm=%u, temp=%d", e.ts, e.state, e.power, e.pwm, e.temp);
-		} else {
+
+			xSemaphoreGive(rb.mutex);
+
+			/* LOG_DEBUG(TAG_UTILS,
+					  "Log entry added: ts=%u, state=%u, power=%d, pwm=%u, temp=%d",
+					  e.ts, e.state, e.power, e.pwm, e.temp); */
+		}
+		else
+		{
 			LOG_ERROR(TAG_UTILS, "Failed to acquire mutex in utils_logWrite");
-		}	
+		}
 	}
 }
-
-bool utils_logRead(RingBuffer &rb, LogEntry &out)
+/*
 {
-	bool success = false;
-	LOG_ERROR(TAG_UTILS, "utils_logRead() called");
-	if (xSemaphoreTake(rb.mutex, pdMS_TO_TICKS(10)) == pdTRUE)
-	{
-		if (rb.readIndex == rb.writeIndex)
-			xSemaphoreGive(rb.mutex); // UNBEDINGT FREIGEBEN!
-			return false; // nichts da
+  "live": {"netzBezug": -14, "ev": 208, "...": "..."},
+  "log": {
+	"blob": "AFp4AQAFAADvP6==",
+	"len": 42
+  }
+}
+*/
+int utils_logRead(RingBuffer &rb, JsonDocument &doc)
+{ // 1. Speicher sicher auf dem Heap statt auf dem Stack allokieren
+	static LogEntry targetSpace[LOG_BUFFER_SIZE];
 
-		out = rb.buffer[rb.readIndex];
-		rb.readIndex = (rb.readIndex + 1) % LOG_BUFFER_SIZE;
-		if (xSemaphoreGetMutexHolder(rb.mutex) == xTaskGetCurrentTaskHandle())
+	int count = 0;
+	if (xSemaphoreTake(rb.mutex, portMAX_DELAY) == pdTRUE)
+	{
+		if (rb.readIndex != rb.writeIndex)
 		{
-			xSemaphoreGive(rb.mutex);
+			if (rb.readIndex < rb.writeIndex)
+			{
+				count = rb.writeIndex - rb.readIndex;
+				memcpy(targetSpace, &rb.buffer[rb.readIndex], count * sizeof(LogEntry));
+			}
+			else
+			{
+				int firstPart = LOG_BUFFER_SIZE - rb.readIndex;
+				memcpy(targetSpace, &rb.buffer[rb.readIndex], firstPart * sizeof(LogEntry));
+				int secondPart = rb.writeIndex;
+				memcpy(&targetSpace[firstPart], &rb.buffer[0], secondPart * sizeof(LogEntry));
+				count = firstPart + secondPart;
+			}
+
+			// WICHTIG: Wir setzen den readIndex hier NOCH NICHT.
+			// Wir geben nur die Kopie frei.
 		}
-		success = true;
+		xSemaphoreGive(rb.mutex);
 	}
-	return success;
+
+	// --- KRITISCHER BEREICH ENDE ---
+	JsonObject logObj = doc["log"].to<JsonObject>();
+	// 2. JSON-Generierung außerhalb der Semaphore
+	if (count > 0)
+	{
+		String encoded = base64::encode((uint8_t *)targetSpace, count * sizeof(LogEntry));
+		logObj["blob"] = encoded;	 // Der kompakte Datenblock
+		logObj["len"] = count;		 // Info für den Client, wie viele Entries drin stecken
+	}else if(rb.active== false) {
+		logObj["blob"] = "";	 // Leerer Datenblock
+		logObj["len"] = 0;		 // Info für den Client, wie viele Entries drin stecken
+	}else {
+		logObj["blob"] = "";	 // Leerer Datenblock
+		logObj["len"] = 0;		 // Info für den Client, wie viele Entries drin stecken
+		}
+
+	return count;
 }
 
 bool utils_shouldLog(bool l1, bool l2, uint8_t pwm, bool legionella, bool minTemp)

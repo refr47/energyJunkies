@@ -118,6 +118,7 @@ bool temp_getTemperature(TEMPERATURE &container)
 
     // DBG("Sensor 1(*C): ");
     delay(1000);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
     for (int i = 0; i < numberOfDevices; i++)
     {
         // Search the wire for address

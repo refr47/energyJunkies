@@ -13,7 +13,7 @@
 
       <main class="flex-grow w-full container mx-auto max-w-7xl">
         <router-view :liveData="liveData" :logs="logEntries" />
-        <router-view :logs="logEntries" :maxLogs="maxLogs" @update-max="v => maxLogs = v" />
+        <router-view :logs="logEntries" :isConnected="isConnected"  :maxLogs="maxLogs" @update-max="v => maxLogs = v" />
       </main>
 
       <footer class="w-full flex items-center border-t border-slate-200 bg-white overflow-hidden p-0 m-0">
@@ -86,43 +86,84 @@ const handleLogin = async () => {
 };
 
 
+const parseLogBlob = (base64String, count) => {
+  const binaryString = window.atob(base64String);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
 
+  const view = new DataView(bytes.buffer);
+  const entries = [];
+
+  // WICHTIG: Die structSize muss EXAKT deinem C-Struct entsprechen!
+  // uint32(4) + uint8(1) + int16(2) + uint16(2) + int16(2) = 11 Bytes
+  /*
+  struct __attribute__((packed)) LogEntry
+{ 
+    uint32_t ts;
+    uint8_t state;
+    int16_t power;
+    uint8_t pwm;    
+    int temp;
+};
+*/
+  // const safeCount = Math.min(count, 60);
+  /*
+VariableC-TypBytesSummetsuint32_t44stateuint8_t15powerint16_t27pwmuint8_t18tempint16_t210
+
+  */
+
+  const structSize = 10;
+
+  for (let i = 0; i < count; i++) {
+    let offset = i * structSize;
+    entries.push({
+      ts: view.getUint32(offset + 0, true), // Byte 0, 1, 2, 3
+      state: view.getUint8(offset + 4),        // Byte 4
+      power: view.getInt16(offset + 5, true),  // Byte 5, 6
+      pwm: view.getUint8(offset + 7),        // Byte 7
+      temp: view.getInt16(offset + 8, true)   // Byte 8, 9
+    });
+  }
+  return entries;
+};
 
 const handleWebSockData = (data) => {
-  // Prüfen, ob das 'log' Objekt und das 'entries' Array existieren
   console.log("handleWebSockData aufgerufen mit Daten:", data);
-  if (data.log && Array.isArray(data.log.entries) && data.log.entries.length > 0) {
 
-    data.log.entries.forEach((newEntry) => {
+  // 1. Prüfen, ob der neue 'blob' vorhanden ist
+  if (data.log && data.log.blob && data.log.len > 0) {
+
+    // 2. Den Blob in ein Array von Objekten umwandeln
+    const decodedEntries = parseLogBlob(data.log.blob, data.log.len);
+
+    // 3. Bestehende Deduplizierungs-Logik anwenden
+    decodedEntries.forEach((newEntry) => {
       const last = logEntries.value[0]; // Der aktuell neueste im Speicher
 
-      // Ähnlichkeitscheck (Deduplizierung)
-      // Wir prüfen: L1, L2, PWM und Temperatur. Der Timestamp wird ignoriert.
+      // Ähnlichkeitscheck (angepasst an die neuen Feldnamen im Struct)
       const isIdentical = last &&
-        newEntry.l1 === last.l1 &&
-        newEntry.l2 === last.l2 &&
+        newEntry.state === last.state &&
+        newEntry.pwr === last.pwr &&
         newEntry.pwm === last.pwm &&
-        newEntry.temp === last.temp &&
-        newEntry.tag === last.tag; // Auch gleicher Dienst?
-      //console.log("newEntry und dann:", newEntry);
+        newEntry.temp === last.temp;
+
       if (isIdentical) {
-        // Falls identisch: Wir aktualisieren nur, wann wir diesen Zustand zuletzt gesehen haben
-        last.lastSeen = newEntry.timestamp;
-        
+        // Nur Zeitstempel aktualisieren
+        last.lastSeen = newEntry.ts;
       } else {
-       
-        // Falls neu oder geändert: Vorne ins Array einfügen
+        // Neu oder geändert -> vorne einfügen
         logEntries.value.unshift({
           ...newEntry,
           firstSeen: newEntry.ts,
           lastSeen: newEntry.ts
         });
-       
-
       }
     });
 
-    // Ringpuffer-Sicherheit: Speicherlimit einhalten
+    // 4. Speicherlimit einhalten (Slice)
     if (logEntries.value.length > maxLogs.value) {
       logEntries.value = logEntries.value.slice(0, maxLogs.value);
     }

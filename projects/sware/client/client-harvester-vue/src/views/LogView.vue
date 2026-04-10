@@ -34,10 +34,10 @@
                         <tr v-for="(log, i) in filteredLogs" :key="i" class="hover:bg-blue-50/50 transition-colors">
 
                             <td class="p-4 text-left text-slate-500 font-bold">
-                                {{ formatTimestamp(log.firstSeen) }}
+                                {{ formatUnixTime(log.firstSeen) }}
                                 <div v-if="log.firstSeen !== log.lastSeen"
                                     class="text-[9px] text-emerald-500 font-black italic">
-                                    bis {{ formatTimestamp(log.lastSeen) }}
+                                    bis {{ formatUnixTime(log.lastSeen) }}
                                 </div>
                             </td>
 
@@ -131,7 +131,7 @@ const clearLogs = () => {
         props.logs.splice(0, props.logs.length);
     }
 };
-const formatTimestamp = (ms) => {
+/* const formatTimestamp = (ms) => {
     // Falls ms ein String ist, versuchen wir ihn zu konvertieren, 
     // ansonsten nehmen wir das aktuelle Datum als Fallback
     const date = new Date(ms || Date.now());
@@ -140,6 +140,19 @@ const formatTimestamp = (ms) => {
         day: '2-digit',
         month: '2-digit',
         year: '2-digit', // '2-digit' spart Platz (24 statt 2024)
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+}; */
+const formatUnixTime = (unixSeconds) => {
+    if (!unixSeconds) return "--:--:--";
+
+    // Unix-Sekunden in JS-Datum umwandeln
+    const date = new Date(unixSeconds * 1000);
+
+    // Formatieren (HH:MM:SS)
+    return date.toLocaleTimeString('de-DE', {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit'

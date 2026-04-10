@@ -86,7 +86,7 @@ static void handleLogin(AsyncWebServerRequest *request, uint8_t *data, size_t le
 {
 
     LOG_INFO(TAG_WEB, "handleLogin::begin");
-    DynamicJsonDocument doc(120);
+    JsonDocument doc;
     deserializeJson(doc, data, len);
 
     // Check if the request method is POST
@@ -204,7 +204,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     }
 
     // 2. JSON parsen (direkt aus dem 'data' Buffer)
-    DynamicJsonDocument doc(JSON_OBJECT_SETUP_LEN);
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, data, len);
     LOG_INFO(TAG_WEB, "/storeSetup: %u bytes, index: %u, total: %u, content: %s", len, index, total, doc.as<String>().c_str());
     if (!error) {  

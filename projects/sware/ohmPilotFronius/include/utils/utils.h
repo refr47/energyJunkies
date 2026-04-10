@@ -25,7 +25,7 @@ bool utils_sock_readRestTarget(WEBSOCK_DATA &, int index, GET_JSON_DATA getJson)
 // Initialisierung (einmalig aufrufen!)
 void utils_logInit(RingBuffer &rb);
 void utils_logWrite(RingBuffer &rb, const LogEntry &e);
-bool utils_logRead(RingBuffer &rb, LogEntry &out);
+int utils_logRead(RingBuffer &rb, JsonDocument &doc);
 bool utils_shouldLog(bool l1, bool l2, uint8_t pwm, bool legionella, bool minTemp);
 bool isStreamingAllowed(bool &isHeartbeatDue);
 char *utils_floatToString(float value);
