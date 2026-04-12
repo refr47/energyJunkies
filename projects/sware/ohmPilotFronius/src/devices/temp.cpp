@@ -9,6 +9,9 @@
 // GPIO where the DS18B20 is connected to
 // SENSOR 1: 28 9A 2C 57 4 E1 3C D5
 
+// static int tempHistory[TEMP_FILTER_SIZE];
+// static int filterIdx = 0;
+
 // Setup a oneWire instance to communicate with any OneWire devices
 static OneWire oneWire(ONE_WIRE_TEMP_GPIO);
 
@@ -24,11 +27,35 @@ Found device 1 with address:  28 BE 5C 570 4 E1 3C D2
 /* DeviceAddress sensor1 = {0x28, 0x9A, 0x2C, 0x57, 0x4, 0xE1, 0x3C, 0xD5};
 DeviceAddress sensor2 = {0x28, 0xBE, 0x5C, 0x57, 0x4, 0xE1, 0x3C, 0xD2}; */
 // function to print a device address
+
+struct TempFilter
+{
+    float values[TEMP_FILTER_SIZE]; // Die letzten 5 Messwerte
+    int index = 0;
+    bool filled = false;
+
+    float add(float newValue)
+    {
+        values[index] = newValue;
+        index = (index + 1) % TEMP_FILTER_SIZE;
+        if (index == 0)
+            filled = true;
+
+        int count = filled ? TEMP_FILTER_SIZE : index;
+        int sum = 0;
+        for (int i = 0; i < count; i++)
+            sum += values[i];
+        return sum / count;
+    }
+};
+
+static TempFilter filter1, filter2;
+
 static void hardware_reset();
 
 void printAddress(DeviceAddress deviceAddress)
 {
-    LOG_DEBUG(TAG_TEMP,"temperature::printAddress");
+    LOG_DEBUG(TAG_TEMP, "temperature::printAddress");
     char buff[100];
     sprintf(buff, "%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", deviceAddress[0], deviceAddress[1], deviceAddress[2], deviceAddress[3], deviceAddress[4], deviceAddress[5], deviceAddress[6], deviceAddress[7]);
     /*  for (uint8_t i = 0; i < 8; i++)
@@ -63,7 +90,7 @@ bool temp_init()
     search();
     delay(3000); */
 
-    LOG_INFO(TAG_TEMP,"temperature::Init Temp Sensor...");
+    LOG_INFO(TAG_TEMP, "temperature::Init Temp Sensor...");
 
     sensors.setResolution(11);
     sensors.begin();
@@ -76,6 +103,7 @@ bool temp_init()
         printf("temp-init:: keine Sensorik gefunden\n");
         return false;
     }
+
     // locate devices on the bus
     LOG_INFO(TAG_TEMP, "temperature:Locating devices...Found :%d devices", numberOfDevices);
 
@@ -99,62 +127,79 @@ bool temp_init()
 
     return true;
 }
+static int errorCounter = 0; // Zählt aufeinanderfolgende Fehler
 
 bool temp_getTemperature(TEMPERATURE &container)
 {
     if (numberOfDevices == 0)
     {
-        hardware_reset(); // Reset the OneWire bus
         if (!temp_init())
         {
-            LOG_INFO(TAG_TEMP, "Sensorik ausser Betrieb oder fehlerhaft !!");
-            container.sensor1 = container.sensor2 = -1.0;
+            LOG_INFO(TAG_TEMP, "Keine Sensoren gefunden!");
             return false;
         }
     }
-    container.sensor1 = container.sensor2 = -1;
-    sensors.requestTemperatures(); // Send the command to get temperatures
-    // DBGln("DONE");
 
-    // DBG("Sensor 1(*C): ");
-    delay(1000);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    // Command an alle Sensoren: Messung starten
+    sensors.requestTemperatures();
+
+    // Warten, bis die Sensoren fertig sind (750ms bei 12-bit)
+    // vTaskDelay ist besser als delay(), da es die CPU für andere Tasks freigibt
+    vTaskDelay(pdMS_TO_TICKS(800));
+
+    bool success1 = false;
+    bool success2 = false;
+
     for (int i = 0; i < numberOfDevices; i++)
     {
-        // Search the wire for address
-        if (sensors.getAddress(tempDeviceAddress, i))
+        float rawTemp = sensors.getTempCByIndex(i);
+
+        // Validierung der DS18B20 Standard-Fehlerwerte
+        // -127.0: Sensor nicht erreichbar / Kabelbruch
+        // 85.0:   Sensor hat Saft, aber noch keine Messung abgeschlossen
+        if (rawTemp == DEVICE_DISCONNECTED_C || rawTemp == 85.0 || rawTemp < -10.0)
         {
-            // Output the device ID
-            /*  Serial.print("Temperature for device: ");
-             Serial.println(i, DEC); */
-            // Print the datas
+            LOG_INFO(TAG_TEMP, "Sensor %d liefert ungültigen Wert: %.2f", i, rawTemp);
+        }
+        else
+        {
+
             if (i == 0)
-                container.sensor1 = sensors.getTempC(tempDeviceAddress);
+            {
+                container.sensor1 = filter1.add(rawTemp);
+                success1 = true;
+            }
             else if (i == 1)
-                container.sensor2 = sensors.getTempC(tempDeviceAddress);
-            else
-                LOG_DEBUG(TAG_TEMP, "temp_getTemperature - sensor %d kann mangels fehlender Variable nicht gespeichert werden", i);
+            {
+                container.sensor2 = filter2.add(rawTemp);
+                success2 = true;
+            }
         }
     }
-    LOG_DEBUG(TAG_TEMP, "temp_getTemperature - Sensor 1: %d, Sensor 2: %d", container.sensor1, container.sensor2);
 
-    if (container.sensor1 < 0)
+    if (! (success1 && success2)) 
     {
-        ESP_LOGE(TAG_TEMP, "temp_getTemperature - Temperatur Sensor 1 (%d) kann nicht negativ sein.", container.sensor1);
+        LOG_ERROR(TAG_TEMP, "Alle Messungen fehlgeschlagen. Reinit...");
+        errorCounter++;
+        if(errorCounter < 5)
+        {
+            // Die Werte in container.sensor1/2 bleiben einfach die alten vom letzten Mal
+            return true;    
+            
+        }
+        else
+        {
+            // Erst nach 5 Fehlern in Folge melden wir einen harten Fehler
+            LOG_ERROR(TAG_TEMP, "5 Fehler in Folge! Resetting Bus...");
+            hardware_reset();
+            temp_init();
+            errorCounter = 0; // Reset counter um Endlosschleife zu vermeiden
+            
+        }
+    } else {
+        errorCounter = 0; // Reset counter bei erfolgreicher Messung
     }
-    if (container.sensor2 < 0 && numberOfDevices)
-    {
-        ESP_LOGE(TAG_TEMP, "temp_getTemperature - Temperatur Sensor 2 (%d) kann nicht negativ sein.", container.sensor1);
-    }
-    if (container.sensor1 < 0 && container.sensor2 < 0)
-    {
-        LOG_ERROR(TAG_TEMP, "temp_getTemperature -Reinit OneWire Bus ....");
-        hardware_reset();
-        temp_init(); // Reinitialize the sensors
-        container.sensor1 = container.sensor2 = -1;
-        return false;
-    }
-    return container.sensor1 > 0 || container.sensor2 > 0;
+    return success1 && success2;
 }
 
 int temp_getNumberOfDevices()

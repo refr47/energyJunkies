@@ -7,3 +7,4 @@
 AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA);
 
 void notifyClients();
+void cleanupClients();

@@ -73,14 +73,15 @@ static void taskNetwork(void *pvParameters)
 
 static void taskTemperature(void *pvParameters)
 {
-    int wdId = watchdogRegister("Temperature", 10000);
+    int wdId = watchdogRegister("Temperature", TASK_TEMPERATURE_INTERVAL);
 
     for (;;)
     {
         watchdogKick(wdId);
         serviceTemperature();
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(TASK_TEMPERATURE_INTERVAL));
     }
+    
 }
 
 static void taskEnergy(void *pvParameters)
@@ -111,6 +112,8 @@ static void taskPid(void *pvParameters)
 static void taskWeb(void *pvParameters)
 {
     int wdId = watchdogRegister("Web", 100000);
+   
+
     for (;;)
     {
 
@@ -122,6 +125,7 @@ static void taskWeb(void *pvParameters)
 
             watchdogKick(wdId);
             serviceWeb();
+           
         }
         else if (heartbeatDue)
         {

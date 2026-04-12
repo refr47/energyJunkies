@@ -208,14 +208,22 @@ static char *getJsonObj()
     } */
     serializeJson(doc, jsonObjBuffer);
     //jsonObjBuffer[freeBytes] = '\0';
-    LOG_DEBUG(TAG_WEB_SOCKETS, "JSON log entries created, free bytes: %s", doc.as<String>().c_str() );
-    LOG_DEBUG(TAG_WEB_SOCKETS, "Send stream with count: %d", count);
+    //LOG_DEBUG(TAG_WEB_SOCKETS, "JSON log entries created, free bytes: %s", doc.as<String>().c_str() );
+    //LOG_DEBUG(TAG_WEB_SOCKETS, "Send stream with count: %d", count);
     return jsonObjBuffer;
+}
+void cleanupClients() {
+    ws.cleanupClients();
 }
 
 void notifyClients()
 {
-    ws.textAll(getJsonObj());
+    if (ws.count() > 0) {
+         ws.textAll(getJsonObj());
+    } else {
+        LOG_DEBUG(TAG_WEB_SOCKETS, "No clients connected, skipping notify");
+    }
+        
 }
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 {

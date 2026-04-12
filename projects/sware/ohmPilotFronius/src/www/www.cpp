@@ -190,6 +190,9 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     }
     doCORS();
     /// AJAX & API Endpoints
+    server.on("/login", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+              { request->send(200); });
+    server.on("/login", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, handleLogin);
     server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
     server.on("/storeSetup", HTTP_POST, [](AsyncWebServerRequest *request)
               {

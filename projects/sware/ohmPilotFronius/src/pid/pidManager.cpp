@@ -136,7 +136,7 @@ ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigne
         LOG_DEBUG(TAG_PID, "PID  Manuelle Steuerung - keine Automatik");
         powerIndex = 0;
 
-        logEntry.state = digitalRead((pinL1) ? 1 : 0) + (digitalRead(pinL2) ? 1 : 0);
+        logEntry.state = logEntry.state = (digitalRead(pinL1) == HIGH) || (digitalRead(pinL2) == HIGH);
         logEntry.pwm = (uint8_t)currentPWM;
         logEntry.power = (int16_t)rest;
         return MODE_MANUAL; // nothing must be done due to overruling everything
@@ -195,8 +195,16 @@ ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigne
 
     return MODE_AUTO;
 }
-
+  
 #define ABS(N) ((N < 0) ? (-N) : (N))
+
+void inline PinManager:: fillLogEntry(WEBSOCK_DATA &webSockData, LogEntry &logEntry) {
+    utils_logWrite(webSockData.logBuffer, logEntry);
+    webSockData.pidContainer.mAnalogOut = currentPWM;
+    webSockData.pidContainer.PID_PIN1 = digitalRead(pinL1) == HIGH ? 1 : 0;
+    webSockData.pidContainer.PID_PIN2 = digitalRead(pinL2) == HIGH ? 1 : 0  ;
+    
+}
 
 void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 {
@@ -206,7 +214,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     time(&curT);
 
     int temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2;
-    if (temp == -1)
+    if (temp < 0)
     {
         // LOG_ERROR(TAG_PID, "PinManager::update() - Invalid temperature reading, skipping update, t1: %d t2: %d", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
         // logEntry.tag = "PID";
@@ -215,7 +223,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         logEntry.power = 0;
         logEntry.pwm = 0;
         logEntry.state = 0;
-        utils_logWrite(webSockData.logBuffer, logEntry);
+        fillLogEntry(webSockData, logEntry);
         return;
     }
     if (webSockData.temperature.sensor1 < 0)
@@ -226,12 +234,12 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     {
         temp = webSockData.temperature.sensor1;
     }
-
+ 
     // logEntry.tag = "PID";
     logEntry.temp = temp;
-    logEntry.ts = now;
-    // LOG_ERROR(TAG_PID, "PinManager::BEFORE() - Task: %s", pcTaskGetName(NULL));
-    ControlMode currentMode = preCheck(webSockData, temp, now, logEntry);
+    logEntry.ts = curT;
+        // LOG_ERROR(TAG_PID, "PinManager::BEFORE() - Task: %s", pcTaskGetName(NULL));
+        ControlMode currentMode = preCheck(webSockData, temp, now, logEntry);
     // LOG_ERROR(TAG_PID, "PinManager::AFTER() - Task: %s", pcTaskGetName(NULL));
     double measuredPower = 0.0;
     double targetPower = 0.0;
@@ -265,18 +273,18 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     case MODE_MANUAL:
         // Hier einfach den aktuellen Ist-Wert lassen oder aus webSockData lesen
         LOG_INFO(TAG_PID, "Manuelle Steuerung");
-        logEntry.state = digitalRead((pinL1) ? 1 : 0) + (digitalRead(pinL2) ? 1 : 0);
+        logEntry.state = (digitalRead(pinL1) == HIGH) || (digitalRead(pinL2) == HIGH);
         logEntry.pwm = (int)currentPWM;
-        logEntry.power = rest;
+        logEntry.power = getMeanOfAvailAblePower();
         doML = false;
-        utils_logWrite(webSockData.logBuffer, logEntry);
+        fillLogEntry(webSockData, logEntry);
         return;
 
     case MODE_AUTO:
         // Nur hier läuft deine RL-Logik!
         measuredPower = getMeanOfAvailAblePower();
         LOG_DEBUG(TAG_PID, "RL AUTO - Gemessene Leistung: %.3f W ", measuredPower);
-
+        logEntry.power = measuredPower;
         if (abs(measuredPower) < EPSILON_TEMP)
         {
             targetPower = 0; // <--- DAS schaltet aus, wenn kein Strom da ist!
@@ -338,13 +346,13 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 
     // Prüfe, wie viel Stack noch übrig ist (in Bytes)
     UBaseType_t stackLeft = uxTaskGetStackHighWaterMark(NULL);
-    LOG_INFO(TAG_PID, "Freier Stack vor Write: %u, Task: %s", stackLeft * sizeof(StackType_t), pcTaskGetTaskName(NULL));
+    //LOG_INFO(TAG_PID, "Freier Stack vor Write: %u, Task: %s", stackLeft * sizeof(StackType_t), pcTaskGetTaskName(NULL));
 
     if (stackLeft < 200)
     { // Willkürliche Grenze
         LOG_ERROR(TAG_PID, "STACK FAST VOLL! Aufruf wird wahrscheinlich crashen.");
     };
-    utils_logWrite(webSockData.logBuffer, logEntry);
+    fillLogEntry(webSockData, logEntry);
 
     /*
     Skalierte Strafe: Anstatt nur -2 zu geben, wenn Strom bezogen wird, bestrafst du hohen Bezug stärker. Das lehrt den Algorithmus, bei knapper PV-Leistung eher vorsichtig zu sein.
@@ -408,7 +416,7 @@ void PinManager::apply(LogEntry &logEntry, double targetPower)
 {
     unsigned long now = millis();
     LOG_INFO(TAG_PID, "PinManager::apply() - ENTER Task %s", pcTaskGetName(NULL));
-
+   
     // 🔥 HARD STOP
     if (targetPower < 0.1)
     {
@@ -472,9 +480,9 @@ void PinManager::apply(LogEntry &logEntry, double targetPower)
     analogWrite(pwmPin, (int)currentPWM);
 
     // 🔹 LOGGING
-    logEntry.state = currentActive;
+    logEntry.state = logEntry.state = (digitalRead(pinL1) == HIGH) || (digitalRead(pinL2) == HIGH);
     logEntry.pwm = (int)currentPWM;
-    logEntry.power = rest;
+    
 
     LOG_INFO(TAG_PID, "PinManager::apply() - EXIT Task %s", pcTaskGetName(NULL));
 }

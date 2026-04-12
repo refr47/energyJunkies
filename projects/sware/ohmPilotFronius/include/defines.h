@@ -278,7 +278,7 @@ struct __attribute__((packed)) LogEntry
     uint8_t pwm;
     int16_t temp;
 }; 
-
+ 
 struct RingBuffer
 {
     LogEntry buffer[LOG_BUFFER_SIZE];

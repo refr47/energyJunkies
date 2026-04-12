@@ -87,6 +87,8 @@ private:
     double heaterPower();
     double basePower(double effectivePower);
     ControlMode preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS, LogEntry &logEntry);
-
+    void fillLogEntry(WEBSOCK_DATA& webSockData, LogEntry& logEntry);
     double getMeanOfAvailAblePower();
+
 };
+ 

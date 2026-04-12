@@ -351,13 +351,13 @@ void serviceEnergy()
 }
 
 void servicePid()
-{
+{ 
 
     LOG_INFO(TAG_APP_SERVICES, "app_services::servicePid - ");
     g_app.pinManager.update(g_app.webSockData);
-    g_app.webSockData.pidContainer.mAnalogOut = g_app.pinManager.getStateOfAnaPin();
+    /* g_app.webSockData.pidContainer.mAnalogOut = g_app.pinManager.getStateOfAnaPin();
     g_app.webSockData.pidContainer.PID_PIN1 = g_app.pinManager.getStateOfDigPin(0);
-    g_app.webSockData.pidContainer.PID_PIN2 = g_app.pinManager.getStateOfDigPin(1);
+    g_app.webSockData.pidContainer.PID_PIN2 = g_app.pinManager.getStateOfDigPin(1); */
 
     
     /*  if (g_app.webSockData.states.networkOK)
@@ -380,7 +380,11 @@ void servicePid()
 
 void serviceWeb()
 {
-
+    static uint32_t counter = 0;
+    if (counter++ % 10 == 0) {
+        cleanupClients();
+        counter = 0;
+    }
     notifyClients();
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceWeb - ");
     if (g_app.webSockData.setupData.setupChanged)
