@@ -188,7 +188,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     {
         isAPModus = false;
     }
-    doCORS();
+    doCORS(); 
     /// AJAX & API Endpoints
     server.on("/login", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
               { request->send(200); });

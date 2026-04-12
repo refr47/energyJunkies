@@ -399,8 +399,8 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 
     data[EXTERNER_SPEICHER_PRIORI] = setup.externerSpeicherPriori;
 
-    data[TEMP_AUSSCHALTEN] = setup.tempMinInGrad;
-    data[TEMP_EINSCHALT] = setup.tempMaxAllowedInGrad;
+    data[TEMP_AUSSCHALTEN] = setup.tempMaxAllowedInGrad; 
+    data[TEMP_EINSCHALT] = setup.tempMinInGrad;
 
     data[WWW_MQTT_HOST] = setup.mqttHost;
     data[WWW_MQTT_USER] = setup.mqttUser;
@@ -660,7 +660,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json, AsyncWebServerRequest *reque
         }
         setup.externerSpeicherPriori = argument[0];
     }
-
+ 
     argument = safeJsonString(jsonObj, TEMP_AUSSCHALTEN);
     if (argument == "")
     {

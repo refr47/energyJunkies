@@ -81,7 +81,7 @@ Main UPDATE
 update(double measuredPower, double temp, int hour)
 */
 
-ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS, LogEntry &logEntry)
+ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS)
 {
     // SAFETY,
     LOG_DEBUG("PinManager::PID: : %s", pcTaskGetName(NULL));
@@ -93,10 +93,7 @@ ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigne
 
         LOG_DEBUG(TAG_PID, "PID: Max Temperatur <%s> erreicht: <%s>, abschalten", fToStr(webSockData.setupData.tempMaxAllowedInGrad, 10, 1, tempBuf), fToStr(temp, 5, 1, tempBuf1));
         reset();
-        logEntry.state = 0; // L1 +L2 is on
-        logEntry.pwm = 0;
-        logEntry.power = 0;
-        powerIndex = 0;
+
         return MODE_OFF;
     }
 
@@ -135,10 +132,6 @@ ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigne
     {
         LOG_DEBUG(TAG_PID, "PID  Manuelle Steuerung - keine Automatik");
         powerIndex = 0;
-
-        logEntry.state = logEntry.state = (digitalRead(pinL1) == HIGH) || (digitalRead(pinL2) == HIGH);
-        logEntry.pwm = (uint8_t)currentPWM;
-        logEntry.power = (int16_t)rest;
         return MODE_MANUAL; // nothing must be done due to overruling everything
     }
 
@@ -195,15 +188,16 @@ ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigne
 
     return MODE_AUTO;
 }
-  
+
 #define ABS(N) ((N < 0) ? (-N) : (N))
 
-void inline PinManager:: fillLogEntry(WEBSOCK_DATA &webSockData, LogEntry &logEntry) {
+void inline PinManager::fillLogEntry(WEBSOCK_DATA &webSockData, LogEntry &logEntry)
+{
     utils_logWrite(webSockData.logBuffer, logEntry);
+    // LOG_DEBUG(TAG_PID, "===> LogEntry ts: %lu, temp: %d, power: %d, pwm: %d, state: %d", logEntry.ts, logEntry.temp, logEntry.power, logEntry.pwm, logEntry.state);
     webSockData.pidContainer.mAnalogOut = currentPWM;
     webSockData.pidContainer.PID_PIN1 = digitalRead(pinL1) == HIGH ? 1 : 0;
-    webSockData.pidContainer.PID_PIN2 = digitalRead(pinL2) == HIGH ? 1 : 0  ;
-    
+    webSockData.pidContainer.PID_PIN2 = digitalRead(pinL2) == HIGH ? 1 : 0;
 }
 
 void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
@@ -214,18 +208,6 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     time(&curT);
 
     int temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2;
-    if (temp < 0)
-    {
-        // LOG_ERROR(TAG_PID, "PinManager::update() - Invalid temperature reading, skipping update, t1: %d t2: %d", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
-        // logEntry.tag = "PID";
-        logEntry.temp = 0;
-        logEntry.ts = (uint32_t)curT;
-        logEntry.power = 0;
-        logEntry.pwm = 0;
-        logEntry.state = 0;
-        fillLogEntry(webSockData, logEntry);
-        return;
-    }
     if (webSockData.temperature.sensor1 < 0)
     {
         temp = webSockData.temperature.sensor2;
@@ -234,12 +216,24 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     {
         temp = webSockData.temperature.sensor1;
     }
- 
+    if (temp <= 0)
+    {
+        
+        /* logEntry.temp = 0;
+        logEntry.ts = (uint32_t)curT;
+        logEntry.power = 0;
+        logEntry.pwm = 0;
+        logEntry.state = 0;
+        fillLogEntry(webSockData, logEntry); */
+        LOG_ERROR(TAG_PID, "Ungültige Temperaturmessung: sensor1: %d, sensor2: %d", webSockData.temperature.sensor1, webSockData.temperature.sensor2);  
+        return;
+    }
+
     // logEntry.tag = "PID";
     logEntry.temp = temp;
     logEntry.ts = curT;
-        // LOG_ERROR(TAG_PID, "PinManager::BEFORE() - Task: %s", pcTaskGetName(NULL));
-        ControlMode currentMode = preCheck(webSockData, temp, now, logEntry);
+    // LOG_ERROR(TAG_PID, "PinManager::BEFORE() - Task: %s", pcTaskGetName(NULL));
+    ControlMode currentMode = preCheck(webSockData, temp, now);
     // LOG_ERROR(TAG_PID, "PinManager::AFTER() - Task: %s", pcTaskGetName(NULL));
     double measuredPower = 0.0;
     double targetPower = 0.0;
@@ -253,8 +247,10 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         measuredPower = 0;
         logEntry.power = 0;
         logEntry.pwm = 0;
+       
         logEntry.state = 0;
         targetPower = 0;
+
         doML = false;
         reset(); // Interne Zähler zurücksetzen
         LOG_INFO(TAG_PID, "HEAT OFF (Sicherheit) - Alle Relais aus, PWM 0");
@@ -264,6 +260,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     case MODE_MIN_TEMP:
         targetPower = measuredPower = onePhase * 3; // Volle Kraft
         doML = false;
+        logEntry.state = 3; // Spezieller Zustand für Legionella
         logEntry.power = targetPower;
         logEntry.pwm = 255;
 
@@ -346,7 +343,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 
     // Prüfe, wie viel Stack noch übrig ist (in Bytes)
     UBaseType_t stackLeft = uxTaskGetStackHighWaterMark(NULL);
-    //LOG_INFO(TAG_PID, "Freier Stack vor Write: %u, Task: %s", stackLeft * sizeof(StackType_t), pcTaskGetTaskName(NULL));
+    // LOG_INFO(TAG_PID, "Freier Stack vor Write: %u, Task: %s", stackLeft * sizeof(StackType_t), pcTaskGetTaskName(NULL));
 
     if (stackLeft < 200)
     { // Willkürliche Grenze
@@ -416,7 +413,7 @@ void PinManager::apply(LogEntry &logEntry, double targetPower)
 {
     unsigned long now = millis();
     LOG_INFO(TAG_PID, "PinManager::apply() - ENTER Task %s", pcTaskGetName(NULL));
-   
+
     // 🔥 HARD STOP
     if (targetPower < 0.1)
     {
@@ -482,7 +479,6 @@ void PinManager::apply(LogEntry &logEntry, double targetPower)
     // 🔹 LOGGING
     logEntry.state = logEntry.state = (digitalRead(pinL1) == HIGH) || (digitalRead(pinL2) == HIGH);
     logEntry.pwm = (int)currentPWM;
-    
 
     LOG_INFO(TAG_PID, "PinManager::apply() - EXIT Task %s", pcTaskGetName(NULL));
 }
