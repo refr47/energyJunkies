@@ -4,6 +4,13 @@ export default {
         "./index.html",
         "./src/**/*.{vue,js,ts,jsx,tsx}",
     ],
+    css: {
+        transformer: 'lightningcss',
+        minify: 'lightningcss',
+    },
+    build: {
+        cssMinify: 'lightningcss'
+    },
     theme: {
         extend: {
             // Hier kannst du eigene Farben für deinen E-Harvester definieren

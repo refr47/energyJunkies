@@ -48,11 +48,11 @@ const errorMessage = ref(''); // Lokaler Ref für die Anzeige im Formular
 const handleLogin = async () => {
   try {
     errorMessage.value = ''; // Vorherigen Fehler löschen
-    const res = await fetch('http://10.0.0.19/login', {
+    const res = await fetch('/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user: user.value, password: password.value })
-    });
+    }); 
     const data = await res.json();
 
     if (data.authenticated) {

@@ -1,19 +1,20 @@
 <template>
   <div class="min-h-screen bg-slate-50 flex flex-col">
-    <LoginForm v-if="!isLoggedIn" @login-success="isLoggedIn = true" />
+    <LoginForm v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
 
     <template v-else>
       <div id="backGr" class="relative">
         <span class="headerFont">Energie Junkies</span>
       </div>
 
-      <header>
-        <Navbar :connected="isConnected" />
-      </header>
+      <Navbar :connected="isConnected" :weather="weather" :currentTime="currentTime" @clear="clearLogs"
+        @download="downloadCSV" />
 
-      <main class="flex-grow w-full container mx-auto max-w-7xl">
-        <router-view :liveData="liveData" :logs="logEntries" />
-        <router-view :logs="logEntries" :isConnected="isConnected"  :maxLogs="maxLogs" @update-max="v => maxLogs = v" />
+      <main class="flex-grow w-full container mx-auto max-w-7xl ">
+        <router-view :liveData="liveData" :logs="logEntries" :isConnected="isConnected" :maxLogs="maxLogs" @update-max="v => maxLogs = v" />
+
+        <!--    <router-view :liveData="liveData" :logs="logEntries" />
+        <router-view :logs="logEntries" :isConnected="isConnected" :maxLogs="maxLogs" @update-max="v => maxLogs = v" /> -->
       </main>
 
       <footer class="w-full flex items-center border-t border-slate-200 bg-white overflow-hidden p-0 m-0">
@@ -27,6 +28,12 @@
       </footer>
     </template>
   </div>
+  <transition name="fade">
+    <div v-if="toast.show" :class="toast.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'"
+      class="fixed bottom-5 right-5 text-white px-6 py-3 rounded-xl shadow-2xl z-[100] font-bold">
+      {{ toast.message }}
+    </div>
+  </transition>
 </template>
 
 
@@ -35,8 +42,13 @@
 import { ref, onMounted, onUnmounted, provide } from "vue";
 import Navbar from "./components/TopNavbar.vue";
 import LoginForm from './components/LoginForm.vue';
+import { db } from './db';
+
+const weather = ref({ temp: '--', label: 'Lade...', icon: 'Loading' });
 
 
+let socket = null;
+const isClearing = ref(false);
 const logEntries = ref([]);
 const maxLogs = ref(50); // Einstellbar
 
@@ -47,8 +59,11 @@ const liveData = ref({
   pv: { power: 0 },
 });
 const isConnected = ref(false);
+
 const handleLoginSuccess = () => {
   isLoggedIn.value = true;
+  sessionStorage.setItem('isLoggedIn', 'true');
+  startApplication(); // Jetzt erst Dienste starten
   // Erst nach dem Login fangen wir an, die Daten vom ESP32 zu laden
 };
 
@@ -58,35 +73,24 @@ const logout = () => {
 };
 
 
-const handleLogin = async () => {
-  const payload = {
-    user: username.value,
-    password: password.value
-  };
 
+
+const saveToDb = async (newEntries) => {
   try {
-    const response = await fetch('/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (response.status === 200) {
-      const data = await response.json();
-      if (data.authenticated) {
-        sessionStorage.setItem('isLoggedIn', 'true');
-        emit('login-success');
-      }
-    } else {
-      showError("Login fehlgeschlagen. Passwort prüfen.");
-    }
-  } catch (err) {
-    showError("ESP32 nicht erreichbar.");
+    // 'put' fügt ein oder aktualisiert, falls ts schon existiert (Deduplizierung!)
+    await db.logs.bulkPut(newEntries);
+  } catch (error) {
+    console.error("Fehler beim Speichern in IndexedDB:", error);
   }
 };
 
+const cleanOldLogs = async () => {
+  const thirtyDaysAgo = Date.now() / 1000 - (30 * 24 * 60 * 60);
+  await db.logs.where('ts').below(thirtyDaysAgo).delete();
+};
 
-const parseLogBlob = (base64String, count) => {
+
+const parseLogBlob = async (base64String, count) => {
   const binaryString = window.atob(base64String);
   const len = binaryString.length;
   const bytes = new Uint8Array(len);
@@ -112,7 +116,7 @@ const parseLogBlob = (base64String, count) => {
   // const safeCount = Math.min(count, 60);
   /*
 VariableC-TypBytesSummetsuint32_t44stateuint8_t15powerint16_t27pwmuint8_t18tempint16_t210
-
+ 
   */
 
   const structSize = 10;
@@ -127,26 +131,34 @@ VariableC-TypBytesSummetsuint32_t44stateuint8_t15powerint16_t27pwmuint8_t18tempi
       temp: view.getInt16(offset + 8, true)   // Byte 8, 9
     });
   }
+  if (entries.length > 0) {
+    // 1. In die Datenbank schreiben (Deduplizierung passiert automatisch via 'ts')
+    await saveToDb(entries);
+  }
+
   return entries;
 };
 
-const handleWebSockData = (data) => {
+const handleWebSockData = async (data) => {
+  if (isClearing.value) return;
   console.log("handleWebSockData aufgerufen mit Daten:", data);
 
   // 1. Prüfen, ob der neue 'blob' vorhanden ist
   if (data.log && data.log.blob && data.log.len > 0) {
 
     // 2. Den Blob in ein Array von Objekten umwandeln
-    const decodedEntries = parseLogBlob(data.log.blob, data.log.len);
-
+    const decodedEntries = await parseLogBlob(data.log.blob, data.log.len);
+    console.table(decodedEntries);
     // 3. Bestehende Deduplizierungs-Logik anwenden
     decodedEntries.forEach((newEntry) => {
+      const exists = logEntries.value.some(e => e.ts === newEntry.ts);
+      if (exists) return;
       const last = logEntries.value[0]; // Der aktuell neueste im Speicher
 
       // Ähnlichkeitscheck (angepasst an die neuen Feldnamen im Struct)
       const isIdentical = last &&
         newEntry.state === last.state &&
-        newEntry.pwr === last.pwr &&
+        newEntry.power === last.power &&
         newEntry.pwm === last.pwm &&
         newEntry.temp === last.temp;
 
@@ -189,7 +201,7 @@ const initWebSocket = () => {
   console.log("🔌 Verbinde mit ESP32 WebSocket...");
 
   const gateway = `ws://${window.location.hostname}/ws`;
-  const socket = new WebSocket(gateway);
+  socket = new WebSocket(gateway);
 
   socket.onopen = () => {
     isConnected.value = true;
@@ -209,8 +221,175 @@ const initWebSocket = () => {
 
   };
 };
+
+
+
+
+const startApplication = async () => {
+  console.log("Starte App-Dienste...");
+  if (socket) {
+    console.log("WebSocket bereits offen, schließe alten Socket...");
+    socket.onclose = null;
+    socket.close();
+    socket = null; // Speicher freigeben
+  }
+
+  // 1. Zuerst lokale Daten laden (Sorgt für sofortige Anzeige)
+  try {
+    await cleanOldLogs();
+    const savedLogs = await db.logs.orderBy('ts').toArray();
+    if (savedLogs.length > 0) {
+
+      logEntries.value = savedLogs;
+      console.log(`${savedLogs.length} Logs aus IndexedDB geladen.`);
+    }
+  } catch (err) {
+    console.error("Fehler beim Laden der DB:", err);
+  }
+
+  // 2. Dann WebSocket für Live-Daten öffnen
+  initWebSocket();
+}
+
+
+
+// Referenz auf den Socket, damit wir ihn überall im Script erreichen
+
+
+
+// --- HIER DER WICHTIGE TEIL ---
+onUnmounted(() => {
+  if (socket) {
+    console.log("Schließe WebSocket vor dem Unmount...");
+    socket.onclose = null;
+    socket.close();
+    socket = null; // Speicher freigeben
+  }
+});
+
+
+
+const toast = ref({ show: false, message: '', type: 'success' });
+
+const showToast = (msg, type = 'success') => {
+  toast.value = { show: true, message: msg, type };
+  setTimeout(() => toast.value.show = false, 3000); // Nach 3 Sek. ausblenden
+};
+
+const downloadCSV = async () => {
+  try {
+    // 1. Alle Daten aus der IndexedDB holen
+    const allLogs = await db.logs.orderBy('ts').toArray();
+
+    if (allLogs.length === 0) {
+      alert("Keine Daten zum Exportieren vorhanden.");
+      return;
+    }
+
+    // 2. Header-Zeile definieren
+    const headers = ["Datum/Zeit", "Unix-Timestamp", "L1", "L2", "Leistung (W)", "PWM (%)", "Temperatur (C)"];
+
+    // 3. Daten in Zeilen umwandeln
+    const csvRows = allLogs.map(log => {
+      // Wir nutzen das gleiche Format wie in der Tabelle für das Datum
+      const dateStr = new Date(log.ts * 1000).toLocaleString('de-DE');
+
+      return [
+        `"${dateStr}"`,       // In Anführungszeichen, falls Kommas im Datum sind
+        log.ts,
+        (log.state & 1) ? 1 : 0,
+        (log.state & 2) ? 1 : 0,
+        log.power,
+        log.pwm,
+        log.temp
+      ].join(';'); // Semikolon ist der Standard für deutsches Excel
+    });
+
+    // 4. Alles zusammenfügen (Header + Daten)
+    const csvString = [headers.join(';'), ...csvRows].join('\n');
+
+    // 5. Blob erstellen (mit UTF-8 Byte Order Mark für Excel-Kompatibilität)
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvString], { type: "text/csv;charset=utf-8;" });
+
+    // 6. Download auslösen
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `harvester_export_${new Date().toISOString().slice(0, 10)}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+
+    // 7. Cleanup
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    console.log("CSV Export erfolgreich.");
+  } catch (err) {
+    console.error("CSV Export Fehler:", err);
+  }
+};
+
+const clearLogs = async () => {
+  if (!confirm("Alle Logs löschen?")) return;
+
+  isClearing.value = true; // Blockiert eingehende WebSocket-Daten
+
+  try {
+    // 1. In der Datenbank löschen
+    await db.logs.clear();
+
+    // 2. Im Vue-State löschen (Anzeige leeren)
+    logEntries.value = [];
+    showToast("Datenbank erfolgreich geleert");
+    console.log("Datenbank erfolgreich geleert.");
+  } catch (err) {
+    console.error("Fehler beim Löschen der Logs:", err);
+    showToast("Fehler beim Löschen der Logs");
+  }
+  finally {
+    // 3. Kurz warten, um sicherzustellen, dass keine neuen Daten reinkommen, während wir löschen
+    isClearing.value = false; // Gibt die Verarbeitung wieder frei
+  }
+
+};
+
+
+
+const fetchWeather = async () => {
+  try {
+    // Beispiel-Koordinaten (Wien). Setze hier deine exakten Daten ein!
+    const lat = 48.24;
+    const lon = 13.3308;
+    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`);
+    const data = await response.json();
+
+    const code = data.current.weather_code;
+    weather.value = {
+      temp: Math.round(data.current.temperature_2m),
+      // Mapping der Open-Meteo WMO Codes
+      status: code === 0 ? 'sunny' : (code < 4 ? 'cloudy' : 'rainy'),
+      label: code === 0 ? 'Klar' : (code < 4 ? 'Wolkig' : 'Regen')
+    };
+  } catch (e) {
+    console.error("Wetter konnte nicht geladen werden", e);
+  }
+};
+provide('harvesterStats', liveData);
+provide('connectionStatus', isConnected);
+onMounted(async () => {
+  if (sessionStorage.getItem('isLoggedIn') === 'true') {
+    isLoggedIn.value = true;
+    startApplication();
+    fetchWeather();
+    setInterval(fetchWeather, 1000 * 60 * 15); // Alle 15 Min aktualisiere
+  }
+  //initWebSocket()
+});
+
 // Simulation für die Entwicklung am PC
-const simulateData = () => {  
+const simulateData = () => {
   console.log("🔄 Simuliere ESP32 Daten...beginnend mit Live-Daten");
   liveData.value.netzBezug = Math.random() > 0.5 ? 500 : -500; // Simuliere 
   liveData.value.ev = 1500;
@@ -249,17 +428,6 @@ const simulateData = () => {
   }
 
 }
-onUnmounted(() => socket?.close());
-provide('harvesterStats', liveData);
-provide('connectionStatus', isConnected);
-onMounted(() => {
-  // Check, ob wir noch eine aktive Sitzung im Browser-Tab haben
-  if (sessionStorage.getItem('isLoggedIn') === 'true') {
-    isLoggedIn.value = true;
-  }
-  initWebSocket()
-});
-
 </script>
 
 <style></style>
