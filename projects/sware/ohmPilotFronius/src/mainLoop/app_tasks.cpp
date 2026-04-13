@@ -43,19 +43,19 @@ extern "C" void vConfigureTimerForRunTimeStats(void)
 
 static void taskClock(void *pvParameters)
 {
-    int wdId = watchdogRegister("Clock", 10000);
+    int wdId = watchdogRegister("Clock", TASK_CLOCK_INTERVAL*2);
 
     for (;;)
     {
         watchdogKick(wdId);
         serviceClock();
-        vTaskDelay(pdMS_TO_TICKS(10000));
+        vTaskDelay(pdMS_TO_TICKS(TASK_CLOCK_INTERVAL));
     }
 }
 
 static void taskNetwork(void *pvParameters)
 {
-    int wdId = watchdogRegister("Network", 10000);
+    int wdId = watchdogRegister("Network", TASK_NETWORK_MONITOR_INTERVAL*2);
 
     for (;;)
     {
@@ -67,7 +67,7 @@ static void taskNetwork(void *pvParameters)
             watchdogKick(wdId);
             serviceNetworkSupervisor();
         }
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(TASK_NETWORK_MONITOR_INTERVAL));
     }
 }
 
@@ -87,13 +87,13 @@ static void taskTemperature(void *pvParameters)
 static void taskEnergy(void *pvParameters)
 {
 
-    int wdId = watchdogRegister("Energy", 10000);
+    int wdId = watchdogRegister("Energy", TASK_MODBUS_AMISREADER_INTERVAL*2);
     for (;;)
     {
         watchdogKick(wdId);
         xEventGroupWaitBits(wifi_event_group, WIFI_STA_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
         serviceEnergy();
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(TASK_MODBUS_AMISREADER_INTERVAL));
     }
 }
 
@@ -105,13 +105,13 @@ static void taskPid(void *pvParameters)
     {
         watchdogKick(wdId);
         servicePid();
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(TASK_PID_INTERVAL));
     }
 }
 
 static void taskWeb(void *pvParameters)
 {
-    int wdId = watchdogRegister("Web", 100000);
+    int wdId = watchdogRegister("Web", TASK_WEBSOCKET_INTERVAL*50);
    
 
     for (;;)
@@ -136,9 +136,9 @@ static void taskWeb(void *pvParameters)
         else
         {
             LOG_DEBUG(TAG_APP_SERVICES, "Nachtmodus: Kein Streaming, kein Heartbeat fällig");
-            vTaskDelay(pdMS_TO_TICKS(10000));
+            vTaskDelay(pdMS_TO_TICKS(TASK_WEBSOCKET_INTERVAL));
         }
-        vTaskDelay(pdMS_TO_TICKS(10000));
+        vTaskDelay(pdMS_TO_TICKS(TASK_WEBSOCKET_INTERVAL));
     }
 }
 
@@ -149,7 +149,7 @@ static void taskMaintenance(void *pvParameters)
     {
         watchdogKick(wdId);
         serviceMaintenance();
-        vTaskDelay(pdMS_TO_TICKS(60000));
+        vTaskDelay(pdMS_TO_TICKS(TASK_MAINTANANCE_INTERVAL));
     }
 }
 
