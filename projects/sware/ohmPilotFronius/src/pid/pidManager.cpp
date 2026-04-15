@@ -174,18 +174,20 @@ ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigne
           LOG_DEBUG("PinManager::preCheck - Bezug <%.3f>", availableWatt);
           return true;
       } */
-
-    if (powerIndex < MAX_LEN_MEASURE)
+    /* LOG_DEBUG(TAG_PID, "PinManager::after FRONIUS - powerindex: %d HYSTERESIS_WATT: %d", powerIndex, HYSTERESIS_WATT);
+     */
+    if (powerIndex < HYSTERESIS_WATT)
     {
         availablePower.push_back(availableWatt); // availablePower;
         ++powerIndex;
+        LOG_DEBUG(TAG_PID, "PinManager::preCheck - powerIndex < MAX_LEN_MEASUR: %f, powerIndex: %d", availableWatt, powerIndex);
     }
     else
     {
-        // LOG_INFO("PinManager::preCheck - Means of MAX_LEN_MEASURE-2 measures  %f", availableWatt);
+        // LOG_INFO("PinManager::preCheck - Means of HYSTERESIS_WATT-2 measures  %f", availableWatt);
         powerIndex = 0;
     }
-
+    /* LOG_DEBUG(TAG_PID, "PinManager::preCheck - EXIT: %f, powerIndex: %d", availableWatt, powerIndex); */
     return MODE_AUTO;
 }
 
@@ -218,14 +220,14 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     }
     if (temp <= 0)
     {
-        
+
         /* logEntry.temp = 0;
         logEntry.ts = (uint32_t)curT;
         logEntry.power = 0;
         logEntry.pwm = 0;
         logEntry.state = 0;
         fillLogEntry(webSockData, logEntry); */
-        LOG_ERROR(TAG_PID, "Ungültige Temperaturmessung: sensor1: %d, sensor2: %d", webSockData.temperature.sensor1, webSockData.temperature.sensor2);  
+        LOG_ERROR(TAG_PID, "Ungültige Temperaturmessung: sensor1: %d, sensor2: %d", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
         return;
     }
 
@@ -238,7 +240,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     double measuredPower = 0.0;
     double targetPower = 0.0;
     bool doML = true;
-    // LOG_ERROR(TAG_PID, "PinManager::update() - currentMode: %d, temperature %d, sensor1 %d, sensor2 %d", currentMode, temp, webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+    LOG_ERROR(TAG_PID, "PinManager::update() - currentMode: %d, temperature %d, sensor1 %d, sensor2 %d", currentMode, temp, webSockData.temperature.sensor1, webSockData.temperature.sensor2);
 
     switch (currentMode)
     {
@@ -247,7 +249,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         measuredPower = 0;
         logEntry.power = 0;
         logEntry.pwm = 0;
-       
+
         logEntry.state = 0;
         targetPower = 0;
 
@@ -473,12 +475,22 @@ void PinManager::apply(LogEntry &logEntry, double targetPower)
 
     // 🔥 GLÄTTUNG
     currentPWM = 0.7 * currentPWM + 0.3 * pwmVal;
+    if (currentPWM > LOW_BOUND_PWM)
+    {
+
+        logEntry.pwm = (int)currentPWM;
+    }
+    else
+    {
+        logEntry.pwm =0.0;
+        currentPWM = 0.0;
+    }
 
     analogWrite(pwmPin, (int)currentPWM);
 
     // 🔹 LOGGING
     logEntry.state = logEntry.state = (digitalRead(pinL1) == HIGH) || (digitalRead(pinL2) == HIGH);
-    logEntry.pwm = (int)currentPWM;
+   
 
     LOG_INFO(TAG_PID, "PinManager::apply() - EXIT Task %s", pcTaskGetName(NULL));
 }
@@ -530,10 +542,12 @@ void PinManager::allOn()
     currentPhases = 2;
     currentPWM = OUTPUT_MAX;
 }
-double PinManager::getMeanOfAvailAblePower()
+inline double PinManager::getMeanOfAvailAblePower()
 {
     // 1. Fensterverwaltung: Ältesten Wert entfernen, wenn Puffer voll
-    if (availablePower.size() > MAX_LEN_MEASURE)
+    // LOG_DEBUG(TAG_PID, "getMeanOfAvailAblePower - ENTER: %d", (int)availablePower.size());
+
+    if (availablePower.size() > HYSTERESIS_WATT)
     {
         availablePower.erase(availablePower.begin());
     }
@@ -548,6 +562,7 @@ double PinManager::getMeanOfAvailAblePower()
         double sum = 0;
         for (double v : availablePower)
             sum += v;
+        // LOG_DEBUG(TAG_PID, "SuM %d values", (int) sum, n);
         return sum / n;
     }
 
@@ -561,7 +576,7 @@ double PinManager::getMeanOfAvailAblePower()
     {
         sum += sortedValues[i];
     }
-
-    // Division durch (n - 2), da wir zwei Werte entfernt haben
+    // LOG_DEBUG(TAG_PID, "SuM 2  %d values", (int)sum, n);
+    //  Division durch (n - 2), da wir zwei Werte entfernt haben
     return sum / (n - 2);
 }

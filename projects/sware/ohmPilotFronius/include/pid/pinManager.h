@@ -46,7 +46,7 @@ private:
     // Relay protection
     unsigned long lastSwitch = 0;
     const unsigned long MIN_SWITCH = 5000;
-    const unsigned int MAX_LEN_MEASURE = 12; // hysterese, glättung
+    //const unsigned int MAX_LEN_MEASURE = 12; // hysterese, glättung
     double lastSmoothedPower = 0;
     const double DEAD_BAND = DEAD_BAND_WATT; // Änderungen unter 50W werden ignoriert
     double lastTargetPower = 0;    // Speicher für den letzten Sollwert
