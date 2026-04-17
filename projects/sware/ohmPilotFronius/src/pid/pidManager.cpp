@@ -81,7 +81,7 @@ Main UPDATE
 update(double measuredPower, double temp, int hour)
 */
 
-ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS)
+inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS)
 {
     // SAFETY,
     LOG_DEBUG("PinManager::PID: : %s", pcTaskGetName(NULL));
@@ -96,7 +96,7 @@ ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigne
 
         return MODE_OFF;
     }
-
+#ifdef BOILER
     // LEGIONELLA
     if (nowMS - lastLegionella > webSockData.setupData.legionellenDelta /*7UL * 24 * 3600 * 1000*/)
         legionella = true;
@@ -127,7 +127,7 @@ ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, unsigne
         powerIndex = 0;
         return MODE_MIN_TEMP;
     }
-
+#endif
     if (webSockData.states.heating != HEATING_AUTOMATIC) // no pid controller, all is forced
     {
         LOG_DEBUG(TAG_PID, "PID  Manuelle Steuerung - keine Automatik");
@@ -280,7 +280,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         return;
 
     case MODE_AUTO:
-        // Nur hier läuft deine RL-Logik!
+        // Nur hier läuft deine RL-Logik! 
         measuredPower = getMeanOfAvailAblePower();
         LOG_DEBUG(TAG_PID, "RL AUTO - Gemessene Leistung: %.3f W ", measuredPower);
         logEntry.power = measuredPower;
@@ -288,9 +288,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         {
             targetPower = 0; // <--- DAS schaltet aus, wenn kein Strom da ist!
 
-            char tempBuf[20];  // Platz für "-123.45\0"
-            char tempBuf1[30]; // Platz für "-123.45\0"
-            LOG_INFO(TAG_PID, "PID eXIT true, AvailableWatt: %s < %s (Epsilon)", fToStr(measuredPower, 5, 1, tempBuf), fToStr(EPSILON_TEMP, 5, 1, tempBuf1));
+            LOG_INFO(TAG_PID, "PID eXIT true, AvailableWatt: %d < %d (Epsilon)", (int)measuredPower, (int)EPSILON_TEMP);
             targetPower = 0; // <--- DAS schaltet aus, wenn kein Strom da ist!
             doML = false;
         }
@@ -415,7 +413,7 @@ void PinManager::apply(LogEntry &logEntry, double targetPower)
 {
     unsigned long now = millis();
     LOG_INFO(TAG_PID, "PinManager::apply() - ENTER Task %s", pcTaskGetName(NULL));
-
+#ifndef PHASEN2
     // 🔥 HARD STOP
     if (targetPower < 0.1)
     {
@@ -490,10 +488,84 @@ void PinManager::apply(LogEntry &logEntry, double targetPower)
 
     // 🔹 LOGGING
     logEntry.state = logEntry.state = (digitalRead(pinL1) == HIGH) || (digitalRead(pinL2) == HIGH);
-   
+#else
+
+    // 🔥 HARD STOP
+    if (targetPower < 0.1)
+    {
+        digitalWrite(pinL1, LOW);
+        digitalWrite(pinL2, LOW);
+        return;
+    }
+    // 🔹 BASISLEISTUNG (fixe Phase)
+    double basePower = onePhase;
+
+    // 🔹 ZIELLEISTUNG FÜR REGELUNG
+    double effectiveTarget = targetPower - basePower;
+
+    if (effectiveTarget < 0)
+        effectiveTarget = 0;
+
+    // 🔹 LIMIT
+    double maxPower = 2.0 * onePhase;
+
+    if (effectiveTarget > maxPower)
+        effectiveTarget = maxPower;
+
+    // 🔹 WINDOW RESET
+    if (now - windowStart >= PHASEN2_WINDOW_SIZE)
+    {
+        windowStart = now;
+    }
+
+    unsigned long elapsed = now - windowStart;
+    double normalized = effectiveTarget / onePhase;
+    int fullPhases = (int)normalized; // 0 oder 1
+    double fractional = normalized - fullPhases;
+
+    unsigned long onTime = (unsigned long)(fractional * PHASEN2_WINDOW_SIZE);
+    bool phase1 = false;
+    bool phase2 = false;
+
+    if (fullPhases == 0)
+    {
+        // Phase1 moduliert
+        phase1 = (elapsed < onTime);
+        phase2 = false;
+    }
+    else
+    {
+        // Phase1 immer an
+        phase1 = true;
+
+        // Phase2 moduliert
+        phase2 = (elapsed < onTime);
+    }
+    // 🔹 RELAIS SICHER SETZEN
+    setRelaySafe(pinL1, phase1, lastSwitchL1);
+    setRelaySafe(pinL2, phase2, lastSwitchL2);
+
+    // 🔹 LOGGING
+    logEntry.state = logEntry.state = (digitalRead(pinL1) == HIGH) || (digitalRead(pinL2) == HIGH);
+    logEntry.power = targetPower;
+    logEntry.pwm = (int)0; // PWM wird bei Phasen2 nicht genutzt
+
+#endif
 
     LOG_INFO(TAG_PID, "PinManager::apply() - EXIT Task %s", pcTaskGetName(NULL));
 }
+#ifdef PHASEN2
+void PinManager::setRelaySafe(int pin, bool state, unsigned long &lastSwitch)
+{
+    unsigned long now = millis();
+
+    if (digitalRead(pin) != state && (now - lastSwitch > MIN_RELAY_SWITCH))
+    {
+        digitalWrite(pin, state);
+        lastSwitch = now;
+    }
+}
+#endif
 /*
 ******* HELPER
 */

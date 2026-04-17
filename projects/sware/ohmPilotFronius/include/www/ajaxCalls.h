@@ -51,8 +51,9 @@
 #define WWW_TEMP_SENSOR "TEMP"
 #define WWW_TEMP_SENSOR_VAL "TEMPV"
 #define WWW_EPSILON "EpsilonPin"
+#define WWW_WATT_BIAS "watt_bias"
 
-    void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupCh);
+void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupCh);
 
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request);

@@ -89,6 +89,12 @@ private:
     ControlMode preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS);
     void fillLogEntry(WEBSOCK_DATA& webSockData, LogEntry& logEntry);
     double getMeanOfAvailAblePower();
+#ifdef PHASEN2
 
+    unsigned long windowStart = 0;
+    unsigned long lastSwitchL1 = 0;
+    unsigned long lastSwitchL2 = 0;
+    void setRelaySafe(int pin, bool state, unsigned long &lastSwitch);
+#endif
 };
  

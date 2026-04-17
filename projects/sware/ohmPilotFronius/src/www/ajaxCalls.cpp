@@ -414,6 +414,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     data[AMIS_READER_HOST] = setup.amisReaderHost;
     data[AMIS_READER_KEY] = setup.amisKey;
     data[FORCE_HEIZPATRONE] = setup.forceHeating;
+    data[WWW_WATT_BIAS] = setup.wattSetupForTest;
     String response;
     serializeJson(data, response);
     LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
@@ -469,7 +470,7 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 
     data[WWW_TEMP_SENSOR] = webSockD.states.tempSensorOK;
     data[WWW_EPSILON] = webSockD.setupData.epsilonML_PinManager;
-
+    data[WWW_WATT_BIAS] = webSockD.setupData.wattSetupForTest;
     if (webSockD.temperature.alarm)
     {
         if (webSockD.temperature.sensor1 > 0 && webSockD.temperature.sensor2 > 0)
@@ -783,6 +784,25 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json, AsyncWebServerRequest *reque
                 setup.forceHeating = result;
             }
         }
+    }
+    argument = safeJsonString(jsonObj, WWW_WATT_BIAS);
+    if (argument == "")
+    {
+        if (jsonObj[WWW_WATT_BIAS].is<int>())
+        {
+            setup.wattSetupForTest = jsonObj[WWW_WATT_BIAS].as<int>();
+        }
+    }
+    else
+    {
+
+        ok = util_checkParamInt(WWW_WATT_BIAS, argument, data, &result);
+        if (!ok)
+        {
+            returnFromStoreSetup(false, data, request);
+            return;
+        }
+        setup.wattSetupForTest = result;
     }
 
     if (localSetSetupChanged != nullptr)

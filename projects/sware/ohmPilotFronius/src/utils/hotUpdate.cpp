@@ -78,6 +78,12 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
         webSockData.setupData.tempMinInGrad = d.tempMinInGrad;
         updated = true;
     }
+    if (d.wattSetupForTest != webSockData.setupData.wattSetupForTest)
+    {
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: wattSetupForTest changed !! - no reboot :: eprom: %.3f, web: %d", d.wattSetupForTest, webSockData.setupData.wattSetupForTest);
+        webSockData.setupData.wattSetupForTest = d.wattSetupForTest;
+        updated = true;
+    }
    /*  if (d.additionalLoad != webSockData.setupData.additionalLoad)
     {
         LOG_INFO("main:: additionalLoad changed !! - no reboot :: eprom: %.3f, web: %.3f", d.additionalLoad, webSockData.setupData.additionalLoad);
