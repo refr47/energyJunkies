@@ -1,15 +1,17 @@
 <template>
   <nav class="sticky top-0 z-50 overflow-hidden border-b border-white/10 shadow-2xl">
-    <div class="absolute inset-0 -z-10 bg-slate-950">
-      <div class="absolute inset-0 opacity-50" style="background: 
-          radial-gradient(at 0% 0%, #065f46 0px, transparent 70%), 
-          radial-gradient(at 100% 0%, #1e40af 0px, transparent 70%),
-          radial-gradient(at 50% 120%, #10b981 0px, transparent 80%);">
+    <div class="absolute inset-0 -z-10 bg-zinc-800">
+      <div class="absolute inset-0 opacity-60" style="background: 
+            radial-gradient(at 0% 0%, #10b981 0px, transparent 70%), 
+            radial-gradient(at 100% 0%, #3b82f6 0px, transparent 70%),
+            radial-gradient(at 50% 120%, #34d399 0px, transparent 80%);">
       </div>
-      <div class="absolute inset-0 opacity-[0.07]"
-        style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px); background-size: 30px 30px;">
+
+      <div class="absolute inset-0 opacity-[0.05]"
+        style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px); background-size: 40px 40px;">
       </div>
-      <div class="absolute inset-0 backdrop-blur-xl"></div>
+
+      <div class="absolute inset-0 backdrop-blur-3xl bg-zinc-900/40"></div>
     </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -29,7 +31,7 @@
         <div class="flex items-center">
 
           <div
-            class="hidden md:flex items-center gap-4 px-4 py-2 bg-slate-900/40 border border-white/5 rounded-2xl mr-6 backdrop-blur-sm shadow-inner">
+            class="hidden md:flex items-center gap-4 px-4 py-2 bg-zinc-900 border border-white/5 rounded-2xl mr-6 backdrop-blur-sm shadow-inner">
             <div class="flex items-center justify-center">
               <svg v-if="weather.status === 'sunny'"
                 class="w-6 h-6 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" fill="none"
@@ -66,10 +68,10 @@
           </div>
 
           <div
-            class="hidden sm:flex sm:items-center sm:gap-6 bg-slate-900/40 border border-white/10 p-2 rounded-2xl shadow-inner">
-            <div class="relative flex items-center gap-2 px-4 py-3 border border-white/10 rounded-xl bg-slate-950/40">
+            class="hidden sm:flex sm:items-center sm:gap-6 bg-zinc-900 border border-white/10 p-2 rounded-2xl shadow-inner">
+            <div class="relative flex items-center gap-2 px-4 py-3 border border-white/5 rounded-xl bg-zinc-900">
               <span
-                class="absolute -top-2 left-3 px-1.5 bg-slate-900 text-[8px] font-black text-emerald-400 uppercase tracking-[0.2em] border border-white/10 rounded-sm">
+                class="absolute -top-2 left-3 px-1.5 bg-slate-900 text-[8px] font-white text-emerald-400 uppercase tracking-[0.2em] border border-white/10 rounded-sm">
                 Log Management
               </span>
               <button @click="$emit('download')"
@@ -181,7 +183,7 @@ onUnmounted(() => {
 }
 
 .nav-btn-active {
-  @apply bg-white border-slate-200 text-emerald-600 shadow-sm;
+  @apply bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)];
 }
 
 .nav-link {
@@ -199,7 +201,9 @@ onUnmounted(() => {
 .active-mobile {
   @apply bg-emerald-50 text-emerald-600 border-l-4;
 }
-
+.nav-btn-large {
+  @apply text-sm font-bold text-slate-200 px-5 py-2.5 rounded-xl transition-all hover:text-white hover:bg-white/10;
+}
 /* Einfache Animation für das mobile Menü */
 /* Slide Transition für Mobile */
 .slide-enter-active,

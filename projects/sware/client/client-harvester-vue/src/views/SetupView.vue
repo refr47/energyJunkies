@@ -37,7 +37,12 @@
               <ConfigInput label="Temp Min" v-model="setup.heizstab_temp_min" type="number" unit="°C" />
               <ConfigInput label="Temp Max" v-model="setup.heizstab_temp_max" type="number" unit="°C" />
             </div>
-            <ConfigInput label="Regel-Präzision (PID)" v-model="setup.pid_epsilon" type="number" step="0.01" />
+             <div class="grid grid-cols-2 gap-3">
+
+              <ConfigInput label="Regel-Präzision (PID)" v-model="setup.pid_epsilon" type="number" step="0.01" />
+              <ConfigInput label="Watt-Bias" v-model="setup.watt_bias" type="number"  />
+             </div>
+          
             <div class="pt-2">
               <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Force Mode (Laden)</label>
               <select v-model="setup.heizstab_force"
@@ -57,15 +62,21 @@
               <ConfigInput label="Hysterese (Diff)" v-model="setup.legionellen_differenz" type="number" unit="K" />
             </div>
             <div class="pt-4">
-              <label
-                class="text-[10px] font-bold text-slate-400 uppercase ml-1 text-emerald-600">Speicher-Priorität</label>
-              <select v-model="setup.akku_vorhanden"
-                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 mt-1 outline-none font-medium mb-3">
-                <option value="1">Akku vorhanden</option>
-                <option value="0">Kein Akku</option>
-              </select>
-              <ConfigInput v-if="setup.akku_vorhanden === 'j'" label="Priorität" v-model="setup.akku_priori"
-                type="number" />
+              <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 text-emerald-600">
+                Speicher-Konfiguration
+              </label>
+
+              <div
+                class="flex items-center space-x-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 mt-1 mb-3">
+                <input id="akku-checkbox" type="checkbox" v-model="setup.akku_vorhanden" :true-value="1"
+                  :false-value="0" class="w-5 h-5 accent-emerald-600 cursor-pointer" />
+                <label for="akku-checkbox" class="text-sm font-medium text-slate-700 cursor-pointer">
+                  Akku vorhanden
+                </label>
+              </div>
+
+              <ConfigInput v-if="setup.akku_vorhanden == 1" label="Priorität (0 = Niedrig, 1 = Hoch)"
+                v-model="setup.akku_priori" type="number" min="0" max="1" />
             </div>
           </div>
         </div>
@@ -109,6 +120,7 @@ const notify = (msg, type = 'success', timeout = 4000) => {
   }
 };
 
+
 const statusMsg = ref('');
 const statusClass = ref('');
 const setup = ref({
@@ -130,8 +142,8 @@ const setup = ref({
   legionellen_differenz: 5,
 
   // Energiemanagement
-  akku_vorhanden: 'n',
-  akku_priori: 1,
+  akku_vorhanden:0,
+  akku_priori: 0,
 
   // Daten-Schnittstellen (MQTT / Influx)
   mqtt_server_ip: '',
@@ -143,7 +155,8 @@ const setup = ref({
   influx_bucket: '',
 
   // Regelungstechnik
-  pid_epsilon: 0.1
+  pid_epsilon: 0.1,
+  watt_bias: 0
 });
 const load = async () => {
   try {

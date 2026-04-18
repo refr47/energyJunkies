@@ -5,7 +5,8 @@
             {{ label }}
         </label>
         <div class="relative mt-1">
-            <input :type="type || 'text'" :value="modelValue" @input="$emit('update:modelValue', $event.target.value)"
+            <input :type="type || 'text'" :value="modelValue"
+                @input="$emit('update:modelValue', type === 'number' ? Number($event.target.value) : $event.target.value)"
                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300"
                 :placeholder="placeholder" />
             <div v-if="unit"

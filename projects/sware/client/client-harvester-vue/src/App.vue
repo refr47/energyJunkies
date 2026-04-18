@@ -148,7 +148,7 @@ const handleWebSockData = async (data) => {
 
     // 2. Den Blob in ein Array von Objekten umwandeln
     const decodedEntries = await parseLogBlob(data.log.blob, data.log.len);
-    console.table(decodedEntries);
+    //console.table(decodedEntries);
     // 3. Bestehende Deduplizierungs-Logik anwenden
     decodedEntries.forEach((newEntry) => {
       const exists = logEntries.value.some(e => e.ts === newEntry.ts);
