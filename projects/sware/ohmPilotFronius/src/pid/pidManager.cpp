@@ -141,7 +141,7 @@ inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, 
     {
         if (webSockData.fronius_SOLAR_POWERFLOW.p_akku < 20.0)
         { // <0: laden, >0 entladen
-            if (webSockData.setupData.externerSpeicherPriori == AKKU_PRIORITY_SUBORDINATED)
+            if (webSockData.setupData.akkuPriori == AKKU_PRIORITY_SUBORDINATED)
             {
                 availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_grid; // gird < 0: einspeisen, > 0 bezug
                 char tempBuf[20];                                                                                        // Platz für "-123.45\0"

@@ -26,6 +26,7 @@ static TaskHandle_t hTaskWatchdog = NULL;
 static TaskHandle_t hTaskWifi = NULL;
 
 EventGroupHandle_t wifi_event_group = NULL;
+static QueueHandle_t setupQueue = nullptr;
 
 /* extern "C"
 {
@@ -43,7 +44,7 @@ extern "C" void vConfigureTimerForRunTimeStats(void)
 
 static void taskClock(void *pvParameters)
 {
-    int wdId = watchdogRegister("Clock", TASK_CLOCK_INTERVAL*2);
+    int wdId = watchdogRegister("Clock", TASK_CLOCK_INTERVAL * 2);
 
     for (;;)
     {
@@ -55,7 +56,7 @@ static void taskClock(void *pvParameters)
 
 static void taskNetwork(void *pvParameters)
 {
-    int wdId = watchdogRegister("Network", TASK_NETWORK_MONITOR_INTERVAL*2);
+    int wdId = watchdogRegister("Network", TASK_NETWORK_MONITOR_INTERVAL * 2);
 
     for (;;)
     {
@@ -81,13 +82,12 @@ static void taskTemperature(void *pvParameters)
         serviceTemperature();
         vTaskDelay(pdMS_TO_TICKS(TASK_TEMPERATURE_INTERVAL));
     }
-    
 }
 
 static void taskEnergy(void *pvParameters)
 {
 
-    int wdId = watchdogRegister("Energy", TASK_MODBUS_AMISREADER_INTERVAL*2);
+    int wdId = watchdogRegister("Energy", TASK_MODBUS_AMISREADER_INTERVAL * 2);
     for (;;)
     {
         watchdogKick(wdId);
@@ -111,8 +111,7 @@ static void taskPid(void *pvParameters)
 
 static void taskWeb(void *pvParameters)
 {
-    int wdId = watchdogRegister("Web", TASK_WEBSOCKET_INTERVAL*50);
-   
+    int wdId = watchdogRegister("Web", TASK_WEBSOCKET_INTERVAL * 50);
 
     for (;;)
     {
@@ -125,7 +124,6 @@ static void taskWeb(void *pvParameters)
 
             watchdogKick(wdId);
             serviceWeb();
-           
         }
         else if (heartbeatDue)
         {
@@ -251,6 +249,38 @@ static void taskWiFi(void *pvParameters)
             MONITORING-TASK: Zeigt alle 2 Sekunden die Task-Liste und den freien Heap an. Hilfreich für Debugging und Performance-Überwachung.
 */
 
+bool appTask_epromWriter(Setup *setup)
+{
+    if (setupQueue == nullptr)
+    {
+        LOG_ERROR(TAG_APP_SERVICES, "Setup Queue is not initialized!");
+        return false;
+    }
+
+    if (xQueueSend(setupQueue, setup, pdMS_TO_TICKS(5000)) != pdPASS)
+    {
+        LOG_ERROR(TAG_APP_SERVICES, "Failed to send setup to queue");
+        return false;
+    }
+    return true;
+}
+
+static void taskEpromWriter(void *pv)
+{
+    Setup setup; // er lokale Puffer, in den die Queue schreibt. Er wird dann in der Queue empfangen und in den Eprom geschrieben. So muss nicht die ganze Struktur in die Queue, sondern nur ein Zeiger auf den lokalen Puffer.
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEpromStore - started");
+
+    while (true)
+    {
+        if (xQueueReceive(setupQueue, &setup, portMAX_DELAY))
+        {
+            serviceEpromStore(&setup);
+
+            LOG_INFO(TAG_AJAX, "Setup stored async");
+        }
+    }
+}
+
 static void taskSimpleMonitor(void *pv)
 {
     for (;;)
@@ -267,7 +297,7 @@ static void taskSimpleMonitor(void *pv)
                 if (entry.name == NULL || entry.name[0] == '\0')
                 {
                     LOG_ERROR("MON", "Task %d hat keinen Namen!", i);
-                    
+
                 }
                 else
                 {
@@ -304,92 +334,113 @@ void createAppTasks(WifiCredentials &credentials)
     {
         wifi_event_group = xEventGroupCreate();
     }
-
-    /// wdMutex = xSemaphoreCreateMutex();
-
-    LOG_INFO(TAG_APP_TASKS, "main:: Creating App Tasks, but waiting 3 seconds for setup to be done");
-    vTaskDelay(pdMS_TO_TICKS(3000));
-    // WARTEN, bis setup() fertig ist
-    LOG_INFO(TAG_APP_TASKS, "main:: Creating App Tasks, waiting for setup to be done");
-    // xEventGroupWaitBits(wifi_event_group, SYSTEM_CONFIG_MODE_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
-    /// CORE 0
-
-    
-
-    BaseType_t res = xTaskCreatePinnedToCore(taskNetwork, "taskNetwork", 4096, nullptr, 2, &hTaskNetwork, 0);
-    if (res != pdPASS)
+    if (setupQueue == nullptr)
     {
-        LOG_ERROR(TAG_APP_TASKS, "Failed to create taskNetwork!");
-    }
-    registerTask("Network", hTaskNetwork);
+        setupQueue = xQueueCreate(10, sizeof(Setup));
+        if (!setupQueue)
+        {
+            LOG_ERROR(TAG_APP_SERVICES, "Queue creation failed");
+            return;
+        }
 
-    res = xTaskCreatePinnedToCore(taskWeb, "taskWeb", 16384, nullptr, 1, &hTaskWeb, 0);
-    if (res != pdPASS)
-    {
-        LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWeb!");
-    }
-    registerTask("Web", hTaskWeb);
-    res = xTaskCreatePinnedToCore(taskMaintenance, "taskMaintenance", 8192, nullptr, 1, &hTaskMaintenance, 0);
-    if (res != pdPASS)
-    {
-        LOG_ERROR(TAG_APP_TASKS, "Failed to create taskMaintenance!");
-    }
-    registerTask("Maintenance", hTaskMaintenance);
+        /// wdMutex = xSemaphoreCreateMutex();
 
-    res = xTaskCreatePinnedToCore(taskWiFi, "taskWiFi", 8192, (void *)(&credentials), 2, &hTaskWifi, 0);
-    if (res != pdPASS)
-    {
-        LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWiFi!");
-    }
-    registerTask("WiFi", hTaskWifi);
+        LOG_INFO(TAG_APP_TASKS, "main:: Creating App Tasks, but waiting 3 seconds for setup to be done");
+        vTaskDelay(pdMS_TO_TICKS(3000));
+        // WARTEN, bis setup() fertig ist
+        LOG_INFO(TAG_APP_TASKS, "main:: Creating App Tasks, waiting for setup to be done");
+        // xEventGroupWaitBits(wifi_event_group, SYSTEM_CONFIG_MODE_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
+        /// CORE 0
 
-    res = xTaskCreatePinnedToCore(taskWatchdog, "taskWatchdog", 4096, nullptr, 1, &hTaskWatchdog, 0);
-    if (res != pdPASS)
-    {
-        LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWatchdog!");
-    }
-    registerTask("Watchdog", hTaskWatchdog);
+        BaseType_t res = xTaskCreatePinnedToCore(taskNetwork, "taskNetwork", 4096, nullptr, 2, &hTaskNetwork, 0);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskNetwork!");
+        }
+        registerTask("Network", hTaskNetwork);
 
-    // CORE 1
+        res = xTaskCreatePinnedToCore(taskWeb, "taskWeb", 16384, nullptr, 1, &hTaskWeb, 0);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWeb!");
+        }
+        registerTask("Web", hTaskWeb);
+        res = xTaskCreatePinnedToCore(taskMaintenance, "taskMaintenance", 8192, nullptr, 1, &hTaskMaintenance, 0);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskMaintenance!");
+        }
+        registerTask("Maintenance", hTaskMaintenance);
 
-    res = xTaskCreatePinnedToCore(taskClock, "taskClock", 8192, nullptr, 1, &hTaskClock, 1);
-    if (res != pdPASS)
-    {
-        LOG_ERROR(TAG_APP_TASKS, "Failed to create taskTemperature!");
-    }
+        res = xTaskCreatePinnedToCore(taskWiFi, "taskWiFi", 8192, (void *)(&credentials), 2, &hTaskWifi, 0);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWiFi!");
+        }
+        registerTask("WiFi", hTaskWifi);
 
-    res = xTaskCreatePinnedToCore(taskNetwork, "taskNetwork", 4096, nullptr, 2, &hTaskNetwork, 0);
-    if (res != pdPASS)
-    {
-        LOG_ERROR(TAG_APP_TASKS, "Failed to create taskNetwork!");
-    }
-    registerTask("Clock", hTaskClock);
-    res = xTaskCreatePinnedToCore(taskTemperature, "taskTemperature", 4096, nullptr, 2, &hTaskTemperature, 1);
-    if (res != pdPASS)
-    {
-        LOG_ERROR(TAG_APP_TASKS, "Failed to create taskTemperature!");
-    }
-    registerTask("Temperature", hTaskTemperature);
-    res = xTaskCreatePinnedToCore(taskEnergy, "taskEnergy", 8192, nullptr, 2, &hTaskEnergy, 1);
-    if (res != pdPASS)
-    {
-        LOG_ERROR(TAG_APP_TASKS, "Failed to create taskEnergy!");
-    }
-    registerTask("Energy", hTaskEnergy);
+        res = xTaskCreatePinnedToCore(taskWatchdog, "taskWatchdog", 4096, nullptr, 1, &hTaskWatchdog, 0);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWatchdog!");
+        }
+        registerTask("Watchdog", hTaskWatchdog);
 
-    res = xTaskCreatePinnedToCore(taskPid, "taskPid", 16384, nullptr, 2, &hTaskPid, 1);
-    if (res != pdPASS)
-    {
-        LOG_ERROR(TAG_APP_TASKS, "Failed to create taskPid!");
-    }
-    registerTask("PID", hTaskPid);
+        // CORE 1
 
-    xTaskCreatePinnedToCore(
-        taskSimpleMonitor,
-        "RuntimeMon",
-        8192,
-        nullptr,
-        1,
-        nullptr,
-        0);
+        res = xTaskCreatePinnedToCore(taskClock, "taskClock", 8192, nullptr, 1, &hTaskClock, 1);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskTemperature!");
+        }
+
+        res = xTaskCreatePinnedToCore(taskNetwork, "taskNetwork", 4096, nullptr, 2, &hTaskNetwork, 0);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskNetwork!");
+        }
+        registerTask("Clock", hTaskClock);
+        res = xTaskCreatePinnedToCore(taskTemperature, "taskTemperature", 4096, nullptr, 2, &hTaskTemperature, 1);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskTemperature!");
+        }
+        registerTask("Temperature", hTaskTemperature);
+        res = xTaskCreatePinnedToCore(taskEnergy, "taskEnergy", 8192, nullptr, 2, &hTaskEnergy, 1);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskEnergy!");
+        }
+        registerTask("Energy", hTaskEnergy);
+
+        res = xTaskCreatePinnedToCore(taskPid, "taskPid", 16384, nullptr, 2, &hTaskPid, 1);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskPid!");
+        }
+        registerTask("PID", hTaskPid);
+
+        res = xTaskCreatePinnedToCore(
+            taskEpromWriter,
+            "epromWorker",
+            4096,
+            nullptr,
+            1,
+            nullptr,
+            tskNO_AFFINITY);
+
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create epromWorker!");
+        }
+
+        xTaskCreatePinnedToCore(
+            taskSimpleMonitor,
+            "RuntimeMon",
+            8192,
+            nullptr,
+            1,
+            nullptr,
+            0);
+    }
 }

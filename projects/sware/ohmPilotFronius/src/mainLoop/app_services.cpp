@@ -196,19 +196,17 @@ void serviceTemperature()
     {
         LOG_INFO(TAG_APP_SERVICES, "Temperature underflow detected: %d °C, setup: %d °C", tempAvg, g_app.webSockData.setupData.tempMinInGrad);
         g_app.webSockData.states.tempUnderflow = true;
-         /*  if (appLock(10)) {
-              g_app.webSockData.states.tempUnderflow = true;
-              g_app.pinManager.allOn();
-              LOG_INFO(TAG_APP_SERVICES, "Temp under minimum, heating full power");
-              appUnlock();
-          } else {
-              LOG_DEBUG(TAG_APP_SERVICES, "Temperature underflow detected, but could not acquire lock to update state");
-          }
+        /*  if (appLock(10)) {
+             g_app.webSockData.states.tempUnderflow = true;
+             g_app.pinManager.allOn();
+             LOG_INFO(TAG_APP_SERVICES, "Temp under minimum, heating full power");
+             appUnlock();
+         } else {
+             LOG_DEBUG(TAG_APP_SERVICES, "Temperature underflow detected, but could not acquire lock to update state");
+         }
 
-          return; */
-    } 
-
-    
+         return; */
+    }
 
     if (tempAvg < g_app.webSockData.setupData.tempMaxAllowedInGrad)
 
@@ -263,7 +261,7 @@ void serviceTemperature()
           }
       }*/
 }
- 
+
 void serviceEnergy()
 {
     // appLock();
@@ -351,7 +349,7 @@ void serviceEnergy()
 }
 
 void servicePid()
-{ 
+{
 
     LOG_INFO(TAG_APP_SERVICES, "app_services::servicePid - ");
     g_app.pinManager.update(g_app.webSockData);
@@ -359,7 +357,6 @@ void servicePid()
     g_app.webSockData.pidContainer.PID_PIN1 = g_app.pinManager.getStateOfDigPin(0);
     g_app.webSockData.pidContainer.PID_PIN2 = g_app.pinManager.getStateOfDigPin(1); */
 
-    
     /*  if (g_app.webSockData.states.networkOK)
      {
          if (!g_app.alarmContainer.alarmTemp.alarmTemp)
@@ -381,7 +378,8 @@ void servicePid()
 void serviceWeb()
 {
     static uint32_t counter = 0;
-    if (counter++ % 10 == 0) {
+    if (counter++ % 10 == 0)
+    {
         cleanupClients();
         counter = 0;
     }
@@ -399,12 +397,16 @@ void serviceWeb()
                 delay(1000);
                 esp_restart();
                 return;
-            } else {
+            }
+            else
+            {
                 LOG_INFO(TAG_APP_SERVICES, "Hot update applied successfully without reboot");
             }
             g_app.webSockData.setupData.setupChanged = false;
             appUnlock();
-        } else {
+        }
+        else
+        {
             LOG_DEBUG(TAG_APP_SERVICES, "Setup changed, but could not acquire lock to apply hot update");
         }
     }
@@ -412,7 +414,7 @@ void serviceWeb()
 
 void serviceMaintenance()
 {
-    
+
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceMaintenance - ");
     g_app.heapSize[0].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     g_app.heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
@@ -426,6 +428,12 @@ void serviceMaintenance()
 #endif
 
     // logReader_init();
+}
 
-
+void serviceEpromStore(void *param)
+{
+    Setup *setup = (Setup *)param;
+    // er lokale Puffer, in den die Queue schreibt. Er wird dann in der Queue empfangen und in den Eprom geschrieben. So muss nicht die ganze Struktur in die Queue, sondern nur ein Zeiger auf den lokalen Puffer.
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEpromStore - started");
+    eprom_storeSetup(*setup);
 }

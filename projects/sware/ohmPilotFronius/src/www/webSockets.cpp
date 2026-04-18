@@ -146,7 +146,7 @@ static char *getJsonObj()
     live[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;
     live[FORCE_HEIZPATRONE] = (int)data.setupData.forceHeating;
 
-    live[AAKU_AVAILABLE] = data.setupData.externerSpeicher;
+    live[AAKU_AVAILABLE] = data.setupData.akku;
     live[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
     live[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
     live[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate;

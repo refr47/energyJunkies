@@ -14,7 +14,8 @@
 #define NET_HOSTNAME "E-Junkies.at"
 
 #define LEN_WLAN 30
-#define MODBUS_PORT "502"
+#define MODBUS_PORT "502"   
+#define LEN_INVERTER 16
 
 #define AMIS_KEY_LEN 35
 #define AMIS_HOST_LEN 50
@@ -34,6 +35,7 @@
 
 #define AKKU_PRIORITY_PRIMARY '1'
 #define AKKU_PRIORITY_SUBORDINATED '2'
+
 
 #define EMPTY_VALUE_IN_SETUP "---"
 
@@ -119,8 +121,8 @@ typedef struct
     char inverter[INET_ADDRSTRLEN + 1];
     char currentIP[INET_ADDRSTRLEN + 1];
 
-    bool externerSpeicher;
-    short externerSpeicherPriori;
+    short akku;
+    short akkuPriori; // 1 oder 2, je nachdem, ob Akku vorrangig behandelt werden soll oder nicht
     // unsigned int pid_min_time_without_contoller_inMS;
     unsigned int legionellenDelta;
     unsigned int legionellenMaxTemp;

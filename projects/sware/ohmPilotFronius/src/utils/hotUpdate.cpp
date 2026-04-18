@@ -10,7 +10,7 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
     Setup d;
 
     eprom_getSetup(d);
-    delay(10000); // wait 10 secs
+    vTaskDelay(pdMS_TO_TICKS(50)); // "Atempause"
     /* DBGf("==::== oldVal: %d, newVal: %d", webSockData.setupData.forceHeating, d.forceHeating); */
     if (d.forceHeating != webSockData.setupData.forceHeating)
     {
@@ -54,10 +54,10 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
         }
         webSockData.setupData.forceHeating = d.forceHeating;
     }
-    if (d.externerSpeicherPriori != webSockData.setupData.externerSpeicherPriori)
+    if (d.akkuPriori != webSockData.setupData.akkuPriori)
     {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate::externerSpeicherPriori changed !! - no reboot :: eprom: %c, web: %c", d.externerSpeicherPriori, webSockData.setupData.externerSpeicherPriori);
-        webSockData.setupData.externerSpeicherPriori = d.externerSpeicherPriori;
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate::akkuPriori changed !! - no reboot :: eprom: %c, web: %c", d.akkuPriori, webSockData.setupData.akkuPriori);
+        webSockData.setupData.akkuPriori = d.akkuPriori;
         updated = true;
     }
     if (d.tempMaxAllowedInGrad != webSockData.setupData.tempMaxAllowedInGrad)
@@ -74,13 +74,13 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
     }
     if (d.tempMinInGrad != webSockData.setupData.tempMinInGrad)
     {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: tempMinInGrad changed !! - no reboot :: eprom: %.3f, web: %d", d.tempMinInGrad, webSockData.setupData.tempMinInGrad);
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: tempMinInGrad changed !! - no reboot :: eprom: %d, web: %d", d.tempMinInGrad, webSockData.setupData.tempMinInGrad);
         webSockData.setupData.tempMinInGrad = d.tempMinInGrad;
         updated = true;
     }
     if (d.wattSetupForTest != webSockData.setupData.wattSetupForTest)
     {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: wattSetupForTest changed !! - no reboot :: eprom: %.3f, web: %d", d.wattSetupForTest, webSockData.setupData.wattSetupForTest);
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: wattSetupForTest changed !! - no reboot :: eprom: %d, web: %d", d.wattSetupForTest, webSockData.setupData.wattSetupForTest);
         webSockData.setupData.wattSetupForTest = d.wattSetupForTest;
         updated = true;
     }

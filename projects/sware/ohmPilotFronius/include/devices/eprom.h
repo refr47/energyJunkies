@@ -9,8 +9,8 @@
 #define _INVERTER_IP "ip"
 #define _TEMP_MAX_IN_GRAD "ausT"
 #define _TEMP_MIN_IN_GRAD "einT"
-#define _EXTERNER_SPEICHER "eS"
-#define _EXTERNER_SPEICHER_PRIORI "esP"
+#define _AKKU "eS"
+#define _AKKU_PRIORI "esP"
 /* #define _PID_P "pid_p"
 #define _PID_I "pid_i"
 #define _PID_D "pid_d" */

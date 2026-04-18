@@ -61,7 +61,7 @@ bool &setSetupChanged(bool didSetupChanged)
     return g_app.webSockData.setupData.setupChanged;
 }
 
-void logging_init() 
+void logging_init()
 {
     DBGf("main::logging_init() - log level: %d", LOG_LEVEL_ESP);
 
@@ -80,8 +80,8 @@ void logging_init()
     esp_log_level_set(TAG_FRONIUS, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_AMIS, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_WEATHER, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_INFLUX, ESP_LOG_DEBUG); 
-  
+    esp_log_level_set(TAG_INFLUX, ESP_LOG_DEBUG);
+
     //  esp_log_set_vprintf(debug_LogOutput);
 
 #ifdef CARD_READER
@@ -111,9 +111,9 @@ void setup()
     tft_printSetup();
 
     eprom_isInit();
-    //eprom_test_write_Eprom("FRITZ!Box 7530 YK", "reitinger");
-        // eprom_test_write_Eprom("Milchbehaelter", "47754775");
-        eprom_getSetup(g_app.webSockData.setupData);
+    // eprom_test_write_Eprom("FRITZ!Box 7530 YK", "reitinger");
+    eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    eprom_getSetup(g_app.webSockData.setupData);
 
     if (strcmp(g_app.webSockData.setupData.ssid, EMPTY_VALUE_IN_SETUP) == 0)
     {

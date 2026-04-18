@@ -13,3 +13,4 @@ void appTasks_init(bool apMode);
 void appTask_setupWifoMode();
 void createAppTasks(WifiCredentials &credentials);
 void appTask_setupSystemConfigMode();
+bool appTask_epromWriter(Setup *setup);

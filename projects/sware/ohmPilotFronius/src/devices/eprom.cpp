@@ -58,8 +58,8 @@ void eprom_storeSetup(Setup &setup)
     } */
     // preferences.putUInt(_INVERTER_IP, ipAsInt);
     preferences.putString(_INVERTER_IP, setup.inverter);
-    preferences.putBool(_EXTERNER_SPEICHER, setup.externerSpeicher);
-    preferences.putChar(_EXTERNER_SPEICHER_PRIORI, setup.externerSpeicherPriori);
+    preferences.putChar(_AKKU, setup.akku);
+    preferences.putChar(_AKKU_PRIORI, setup.akkuPriori);
     preferences.putUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TIME, setup.legionellenDelta);
     preferences.putUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TEMP, setup.legionellenMaxTemp);
 
@@ -191,8 +191,8 @@ void eprom_getSetup(Setup &setup)
     // DBGf("===>IP-Inverter eprom_getSetup: as string: %s ", setup.inverter);
 
     // DBGf("EPROM::   IP-Inverter as string: %s", setup.inverter);
-    setup.externerSpeicher = preferences.getBool(_EXTERNER_SPEICHER);
-    setup.externerSpeicherPriori = preferences.getChar(_EXTERNER_SPEICHER_PRIORI);
+    setup.akku = preferences.getChar(_AKKU);
+    setup.akkuPriori = preferences.getChar(_AKKU_PRIORI);
     /* setup.pid_p = preferences.getFloat(_PID_P);
     setup.pid_i = pL', '100', 'Strom, references.getFloat(_PID_I);
     setup.pid_d = preferences.getFloat(_PID_D); */
@@ -236,8 +236,8 @@ void eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.tempMinInGrad = 5;
     strcpy(setup.inverter, "10.0.0.22");
 
-    setup.externerSpeicher = true;
-    setup.externerSpeicherPriori = '1';
+    setup.akku = 0;
+    setup.akkuPriori = 0;
     /*  setup.pid_p = 1.0;
      setup.pid_i = 0.5;
      setup.pid_d = 0.01; */
@@ -279,8 +279,8 @@ void printEprom(Setup &setup)
     char buffer[2000];
     memset(buffer, 0, 2000);
     LOG_DEBUG(TAG_EPPROM,"eprom::printEprom ============================================ ");
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %c Influx: %s ,inverter: %s,  LegionellenCheckDelta: %d   forceHeating: %d , Epsilon-PinManager: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.externerSpeicher, setup.externerSpeicherPriori, setup.influxOrg, setup.inverter, setup.legionellenDelta, setup.forceHeating, setup.epsilonML_PinManager, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
+    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %d Influx: %s ,inverter: %s,  LegionellenCheckDelta: %d   forceHeating: %d , Epsilon-PinManager: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.akku, setup.akkuPriori, setup.influxOrg, setup.inverter, setup.legionellenDelta, setup.forceHeating, setup.epsilonML_PinManager, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
     LOG_DEBUG(TAG_EPPROM,"%s", buffer);
 
     // DBGf("\n==========================(%d)============================== ", strlen(buffer));

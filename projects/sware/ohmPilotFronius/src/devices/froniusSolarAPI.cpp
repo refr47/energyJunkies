@@ -36,7 +36,7 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
     sprintf(buf, "http://%s%s", webSockData.setupData.inverter, PATH_NAME_FORECAST);
     uRL = buf;
     LOG_DEBUG(TAG_SOLAR,"solar_init() for %s", buf);
-    webSockData.setupData.externerSpeicher = false;
+    webSockData.setupData.akku = false;
     *akku = false;
     webSockData.states.froniusAPI = false;
 
@@ -65,7 +65,7 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
     }
     else
     {
-        webSockData.setupData.externerSpeicher = true;
+        webSockData.setupData.akku = 1;
         *akku = true;
         LOG_DEBUG(TAG_SOLAR,"solar_init - akku  vorhanden!");
     }

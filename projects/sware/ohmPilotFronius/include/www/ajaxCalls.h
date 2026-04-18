@@ -14,8 +14,8 @@
 #define HEIZSTABLEISTUNG "heizstab_leistung"
 #define LEGIONELLEN_DELTA_TIME "legionellen_differenz"
 #define LEGIONELLEN_TEMP "legionellen_temp"
-#define EXTERNER_SPEICHER "akku_vorhanden"
-#define EXTERNER_SPEICHER_PRIORI "akku_priori"
+#define AKKU "akku_vorhanden"
+#define AKKU_PRIORI "akku_priori"
 #define TEMP_AUSSCHALTEN "heizstab_temp_max"
 #define TEMP_EINSCHALT "heizstab_temp_min"
 
@@ -30,6 +30,7 @@
 
 #define AMIS_READER_HOST "amisreader_ip"
 #define AMIS_READER_KEY "amisreader_key"
+#define PID_EPSILON "pid_epsilon"
 
 #define FORCE_HEIZPATRONE "heizstab_force"
 
@@ -58,6 +59,7 @@ void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupC
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request);
 void ajaxCalls_handleStoreSetup(JsonDocument &json, AsyncWebServerRequest *request, bool isAPModus);
+
 
 /* Shelly:
  * 1) ajaxCalls_triggerShellyScan() startet RTOS-Task
