@@ -139,11 +139,17 @@ const props = defineProps(['liveData', 'logs', 'isConnected']);
 // 1. Definiere die Fehlertexte
 const errorDefinitions = {
   1: "MicroCard",
-  2: "Modbus/Wechselrichter",
-  4: "MicroSD Karte",
-  8: "Temperatur Sensorig",
-  16: "Boiler Heizung aktiv",
-};
+  2: "Flash Speicher",
+  4: "Modbus/Wechselrichter",
+  8: "Temperatur Sensorik",
+  16: "Boiler Heizung nicht aktiv",
+  32: "Amis Reader", 
+  64: "MQTT Schnittstelle",
+  128: "InfluxDB Schnittstelle",
+  256: "Watt Bias AKTIV !! ",
+
+}
+
 
 // 2. Computed Properties mit "Optional Chaining" (?.) absichern
 const isExporting = computed(() => (props.liveData?.netzBezug || 0) <= 0);

@@ -162,15 +162,23 @@ const load = async () => {
   try {
     const res = await fetch('/getSetup');
     const data = await res.json();
-    setup.value = { ...setup.value, ...data };
+    if (data.error.code == 0) {
+      console.log("Error in fetching data (setup): "+data.error.msg)
+      return
+    }
+    let result=data.result;
+    setup.value = { ...setup.value, ...result };
     statusMsg.value = "Erfolgreich geladen.";
-    console.log("Setup Daten geladen:", data);
+    console.log("Setup Daten geladen:", result);
     
     notify("Konfiguration erfolgreich geladen!", "success");
   } catch (e) {
     statusMsg.value = "Konnte Daten vom ESP32 nicht laden.";
    
     notify("Fehler beim Laden der Konfiguration!", "error");
+    if (data.error.code == 1) {
+      console.log("Error in fetching data (setup): " + data.error.msg)
+    }
   }
 };
 
@@ -190,6 +198,9 @@ const pushToESP = async () => {
    
     } else {
       notify("Fehler beim Speichern der Konfiguration!", "error");
+      if (data.error) {
+        console.log.error("Error in storing setup ",data.error)
+      }
     }
   } catch (e) {
     notify("Fehler beim Speichern der Konfiguration!", "error");
