@@ -133,44 +133,10 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
 
     LOG_ERROR("TAG_WLAN", "Trying to Reconnect");
     connected = false;
-    // WiFi.begin(ssid, password);
+  
 }
 
 static long lastReconnectAttempt = 0;
-
-/* void handleWiFiReconnect()
-{
-    unsigned long currentMillis = millis();
-
-    if (reconnectAttempts < WIFI_NUMBER_OF_TRIES)
-    {
-        int delayTime = min((int)5000 * reconnectAttempts, 60000); // Exponential backoff with a maximum delay of 60 seconds
-        if (currentMillis - lastReconnectAttempt >= delayTime)
-        {
-            reconnectAttempts++;
-            LOG_ERROR("WLAN::handleWiFiReconnect - Reconnecting in %d seconds", delayTime / 1000);
-
-            // delay(delayvTime);
-
-            LOG_ERROR("WLAN::handleWiFiReconnect Reconnecting to WiFi...");
-            WiFi.begin(ssid, password);
-            lastReconnectAttempt = currentMillis;
-            LOG_ERROR("WLAN::handleWiFiReconnect - result of reconnecting.. ");
-        }
-        else
-        {
-            LOG_DEBUG("WLAN::handleWiFiReconnect , reconnect attemps: %d  ", reconnectAttempts);
-        }
-    }
-
-    else
-    {
-        LOG_INFO("Max reconnect attempts reached. Can not reconnect to WiFi. (restart)");
-        reconnectAttempts = 0;
-        // Optionally, reset the ESP32 to attempt a fresh connection
-        ESP.restart();
-    }
-} */
 
 static char *Get_WiFiStatus(int status)
 {

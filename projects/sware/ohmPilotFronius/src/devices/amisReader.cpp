@@ -27,7 +27,7 @@ static void mapJsonValues(HTTP_REST_TARGET_t *target, char jsonString[], WEBSOCK
 // initialize the rest API targets
 bool amisReader_initRestTargets(WEBSOCK_DATA &webSockData)
 {
-    char buf[70];
+    char buf[70]; 
     memset(buf, 0, 70);
     int httpResponseCode = 0;
     LOG_INFO(TAG_AMIS,"amisReader_initRestTargets , HOST: %s", webSockData.setupData.amisReaderHost);

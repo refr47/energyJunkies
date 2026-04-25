@@ -10,6 +10,7 @@
 #define LOG_COLOR_V ""           // Standard
 #define LOG_RESET_COLOR "\033[0m"
 
+#define FORMAT_BUFFER_ON_HEAP 512
 #define LOG_BUFFER_SIZE 64 // Reicht meist für die kritischen Zeilen in Loops
 
 struct LogEntry
@@ -21,8 +22,6 @@ struct LogEntry
     uint32_t firstSeenTime; // Wann trat die Wiederholung zuerst auf?
     uint32_t lastLogTime;   // Wann haben wir das letzte Mal tatsächlich gedruckt?
 };
-
-
 
 static uint32_t calculateHash(const char *str);
 
@@ -140,10 +139,36 @@ bool shouldLogSmart(const char *file, int line, const char *formattedMsg)
     return true;
 }
 
+void smartLogExec(esp_log_level_t level, const char *tag, const char *file, int line, const char *format, ...)
+{
+    char buffer[FORMAT_BUFFER_ON_HEAP]; // Puffer für die formatierte Nachricht
+    va_list args;
+    va_start(args, format);
+    int written = vsnprintf(buffer, sizeof(buffer), format ? format : "", args);
+    va_end(args);
+    if (written < 0)
+    {
+        snprintf(buffer, sizeof(buffer), "Logging Error: Invalid arguments or format");
+    }
+    if (shouldLogSmart(file, line, buffer))
+    {
+        esp_log_write(level, tag, "%s%c (%lu) %s: %s:%d | %s%s\n",
+                      getLogColor(level),
+                      getLevelChar(level),
+                      (unsigned long)millis(),
+                      tag,
+                      file,
+                      line,
+                      buffer,
+                      LOG_RESET_COLOR);
+    }
+}
+
+/*
 
 void smartLogExec(esp_log_level_t level, const char *tag, const char *file, int line, const char *format, ...)
 {
-    static char buffer[256]; // Puffer für die formatierte Nachricht
+    static char buffer[FORMAT_BUFFER_ON_HEAP]; // Puffer für die formatierte Nachricht
     va_list args;
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
@@ -162,6 +187,29 @@ void smartLogExec(esp_log_level_t level, const char *tag, const char *file, int 
                       LOG_RESET_COLOR);
     }
 }
+void smartLogExec(esp_log_level_t level, const char *tag, const char *file, int line, const char *format, ...)
+{
+    static char buffer[FORMAT_BUFFER_ON_HEAP]; // Puffer für die formatierte Nachricht
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+
+    if (shouldLogSmart(file, line, buffer))
+    {
+        esp_log_write(level, tag, "%s%c (%lu) %s: %s:%d | %s%s\n",
+                      getLogColor(level),
+                      getLevelChar(level),
+                      (unsigned long)millis(),
+                      tag,
+                      file,
+                      line,
+                      buffer,
+                      LOG_RESET_COLOR);
+    }
+}
+
+*/
 /* static char buf[200];
 int debug_LogOutput(const char *format, va_list args)
 {

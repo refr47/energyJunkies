@@ -43,7 +43,7 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
             //pidPinManager.switchOnL2();
             //pidPinManager.switchOnL3();
             break;
-        case HEATING_OFF:
+        case HEATING_OFF: 
             pidPinManager.reset();
             webSockData.states.heating = HEATING_OFF;
             break;
@@ -83,7 +83,7 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
         LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: wattSetupForTest changed !! - no reboot :: eprom: %d, web: %d", d.wattSetupForTest, webSockData.setupData.wattSetupForTest);
         webSockData.setupData.wattSetupForTest = d.wattSetupForTest;
         updated = true;
-    }
+    } 
    /*  if (d.additionalLoad != webSockData.setupData.additionalLoad)
     {
         LOG_INFO("main:: additionalLoad changed !! - no reboot :: eprom: %.3f, web: %.3f", d.additionalLoad, webSockData.setupData.additionalLoad);
@@ -102,6 +102,13 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
         strcpy(webSockData.setupData.inverter, d.inverter);
         updated = true;
     }
+    if (strcmp(d.amisReaderHost, webSockData.setupData.amisReaderHost) != 0)
+    {
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: amisReaderHost changed !! - no reboot :: eprom: %s, web: %s", d.amisReaderHost, webSockData.setupData.amisReaderHost);
+        strcpy(webSockData.setupData.amisReaderHost, d.amisReaderHost);
+        updated = true;
+    }
+   
 
     return updated;
 

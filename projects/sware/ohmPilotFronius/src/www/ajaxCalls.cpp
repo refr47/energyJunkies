@@ -10,6 +10,12 @@
 #include "eprom.h"
 #include "utils.h"
 #include "shelly.h"
+#include "templ.h"
+#include "ajaxConst.h"
+#include "setupFields.h"
+/*
+extern const FieldBase<Setup>* setupFields[];
+extern const size_t setupFieldsCount;*/
 
 #ifndef SHELLY_SCAN_MAX_DEVICES
 #define SHELLY_SCAN_MAX_DEVICES 254
@@ -61,8 +67,9 @@ static bool ajaxCalls_lock(SemaphoreHandle_t mutex, TickType_t timeoutTicks);
 static void ajaxCalls_unlock(SemaphoreHandle_t mutex);
 
 static void returnFromStoreSetup(bool inputCorrect,
-                                 JsonDocument &data,
-                                 AsyncWebServerRequest *request);
+                                 JsonDocument &result,
+                                 AsyncWebServerRequest *request,
+                                char *caller);
 
 void delayedRestartTask(void *param);
 bool parseStruct(JsonObject obj,
@@ -76,8 +83,8 @@ static void safeCopy(char *dest, size_t destSize, const char *src);
 
 static void shellyScanTask(void *parameter);
 
-static void fillShellyJsonObj(const ALL_SHELLY_DEVICES &data, JsonArray &array);
-static void fillShellyJsonObjWithErrorMsg(const ALL_SHELLY_DEVICES &data, JsonArray &array);
+static void fillShellyJsonObj(const ALL_SHELLY_DEVICES &result, JsonArray &array);
+static void fillShellyJsonObjWithErrorMsg(const ALL_SHELLY_DEVICES &result, JsonArray &array);
 
 /* ---------- init ---------- */
 
@@ -176,28 +183,28 @@ static void safeCopy(char *dest, size_t destSize, const char *src)
     dest[destSize - 1] = '\0';
 }
 
-static void fillShellyJsonObj(const ALL_SHELLY_DEVICES &data, JsonArray &array)
+static void fillShellyJsonObj(const ALL_SHELLY_DEVICES &result, JsonArray &array)
 {
-    if (data.shellyDevice == nullptr)
+    if (result.shellyDevice == nullptr)
     {
         return;
     }
 
     JsonObject object1 = array.createNestedObject();
-    object1["IP"] = data.shellyDevice->ip;
-    object1["PORT"] = data.shellyDevice->port;
-    object1["NAME"] = data.shellyDevice->name;
+    object1["IP"] = result.shellyDevice->ip;
+    object1["PORT"] = result.shellyDevice->port;
+    object1["NAME"] = result.shellyDevice->name;
 }
 
-static void fillShellyJsonObjWithErrorMsg(const ALL_SHELLY_DEVICES &data, JsonArray &array)
+static void fillShellyJsonObjWithErrorMsg(const ALL_SHELLY_DEVICES &result, JsonArray &array)
 {
-    if (data.errorContainer == nullptr)
+    if (result.errorContainer == nullptr)
     {
         return;
     }
 
     JsonObject object1 = array.createNestedObject();
-    object1["ERROR"] = data.errorContainer->errorMessage;
+    object1["ERROR"] = result.errorContainer->errorMessage;
 }
 
 /* ---------- restart task ---------- */
@@ -389,6 +396,19 @@ void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request)
     request->send(200, "application/json", response);
 }
 
+
+void ajaxCalls_handleGetFullSetup(AsyncWebServerRequest *request) {
+    Setup setup;
+    eprom_getSetup(setup);
+    JsonDocument data;
+    JsonObject result = data["result"].to<JsonObject>();
+
+    for (size_t i = 0; i < setupFieldsCount; i++)
+    {
+        setupFields[i]->serialize(setup, result);
+    }
+}
+
 /* ---------- get setup ---------- */
 
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
@@ -397,41 +417,61 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     eprom_getSetup(setup);
 
     JsonDocument data;
+    JsonObject result = data["result"].to<JsonObject>();
+
     LOG_INFO(TAG_AJAX, "ajaxCalls_handleGetSetup - begin");
 
-    data[WLAN_ESSID] = setup.ssid;
-    data[WLAN_PASSWD] = setup.passwd;
-    data[IP_INVERTER] = setup.inverter;
-    data[AMIS_READER_HOST] = setup.amisReaderHost;
-    data[AMIS_READER_KEY] = setup.amisKey;
+    result[WLAN_ESSID] = setup.ssid;
+    result[WLAN_PASSWD] = setup.passwd;
+    result[IP_INVERTER] = setup.inverter;
+    result[AMIS_READER_HOST] = setup.amisReaderHost;
+    result[AMIS_READER_KEY] = setup.amisKey;
 
-    data[FORCE_HEIZPATRONE] = setup.forceHeating;
-    data[HEIZSTABLEISTUNG] = setup.heizstab_leistung_in_watt;
-    data[TEMP_AUSSCHALTEN] = setup.tempMaxAllowedInGrad;
-    data[TEMP_EINSCHALT] = setup.tempMinInGrad;
+    result[FORCE_HEIZPATRONE] = setup.forceHeating;
+    result[HEIZSTABLEISTUNG] = setup.heizstab_leistung_in_watt;
+    result[TEMP_AUSSCHALTEN] = setup.tempMaxAllowedInGrad;
+    result[TEMP_EINSCHALT] = setup.tempMinInGrad;
 
-    data[LEGIONELLEN_DELTA_TIME] = setup.legionellenDelta;
-    data[LEGIONELLEN_TEMP] = setup.legionellenMaxTemp;
+    result[LEGIONELLEN_DELTA_TIME] = setup.legionellenDelta;
+    result[LEGIONELLEN_TEMP] = setup.legionellenMaxTemp;
 
-    data[AKKU] = setup.akku;
-    data[AKKU_PRIORI] = setup.akkuPriori;
+    result[AKKU] = setup.akku;
+    result[AKKU_PRIORI] = setup.akkuPriori;
 
-    data[WWW_MQTT_HOST] = setup.mqttHost;
-    data[WWW_MQTT_USER] = setup.mqttUser;
-    data[WWW_MQTT_PASWWD] = setup.mqttPass;
+    result[WWW_MQTT_HOST] = setup.mqttHost;
+    result[WWW_MQTT_USER] = setup.mqttUser;
+    result[WWW_MQTT_PASWWD] = setup.mqttPass;
 
-    data[WWW_INFLUX_HOST] = setup.influxHost;
-    data[WWW_INFLUX_TOKEN] = setup.influxToken;
-    data[WWW_INFLUX_ORG] = setup.influxOrg;
-    data[WWW_INFLUX_BUCKET] = setup.influxBucket;
-    data[PID_EPSILON] = setup.epsilonML_PinManager;
+    result[WWW_INFLUX_HOST] = setup.influxHost;
+    result[WWW_INFLUX_TOKEN] = setup.influxToken;
+    result[WWW_INFLUX_ORG] = setup.influxOrg;
+    result[WWW_INFLUX_BUCKET] = setup.influxBucket;
+    result[PID_EPSILON] = setup.epsilonML_PinManager;
 
-    data[WWW_WATT_BIAS] = setup.wattSetupForTest;
+    result[WWW_WATT_BIAS] = setup.wattSetupForTest;
     String response;
+    unsigned httpCode = 200;
+
+    if (data.overflowed())
+    {
+        LOG_ERROR(TAG_AJAX, "JsonDocument overflowed! Not enough memory.");
+        data.clear(); // Alles raus, wir brauchen Platz für die Fehlermeldung
+        data["result"] = nullptr;
+        data["error"]["code"] = 0;
+        data["error"]["msg"] = "JsonDocument ist zu groß!";
+        httpCode = 500;
+    }
+
+    else
+    {
+        data["error"]["code"] = 1;
+        data["error"]["msg"] = "";
+    }
+
     serializeJson(data, response);
     LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
-    request->send(200, "application/json", response);
-    // returnFromStoreSetup(true, data, request);
+    request->send(httpCode, "application/json", response);
+
 }
 
 /* ---------- overview ---------- */
@@ -457,32 +497,32 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 
     WEBSOCK_DATA webSockD = localGetData();
 
-    DynamicJsonDocument data(JSON_OBJECT_SETUP_LEN);
+    DynamicJsonDocument result(JSON_OBJECT_SETUP_LEN);
     char formatBuffer[100] = {0};
 
-    data[WWW_FRONIUS] = webSockD.states.froniusAPI;
-    data[WWW_FRONIUS_IP] = webSockD.states.froniusAPI ? webSockD.setupData.inverter : "";
+    result[WWW_FRONIUS] = webSockD.states.froniusAPI;
+    result[WWW_FRONIUS_IP] = webSockD.states.froniusAPI ? webSockD.setupData.inverter : "";
 
-    data[WWW_AMIS] = webSockD.states.amisReader;
-    data[WWW_AMIS_IP] = webSockD.states.amisReader ? webSockD.setupData.amisReaderHost : "";
+    result[WWW_AMIS] = webSockD.states.amisReader;
+    result[WWW_AMIS_IP] = webSockD.states.amisReader ? webSockD.setupData.amisReaderHost : "";
 
-    data[WWW_CARDREADER] = webSockD.states.cardWriterOK;
-    data[WWW_AKKU] = webSockD.setupData.akku;
-    data[WWW_AKKU_KAPA] = webSockD.setupData.akku ? webSockD.fronius_SOLAR_POWERFLOW.p_akku : 0.0;
+    result[WWW_CARDREADER] = webSockD.states.cardWriterOK;
+    result[WWW_AKKU] = webSockD.setupData.akku;
+    result[WWW_AKKU_KAPA] = webSockD.setupData.akku ? webSockD.fronius_SOLAR_POWERFLOW.p_akku : 0.0;
 
-    data[WWW_FLASH] = webSockD.states.flashOK;
-    data[WWW_INFLUX] = webSockD.states.influx;
-    data[WWW_INFLUX_IP] = webSockD.states.influx ? webSockD.setupData.influxHost : "";
+    result[WWW_FLASH] = webSockD.states.flashOK;
+    result[WWW_INFLUX] = webSockD.states.influx;
+    result[WWW_INFLUX_IP] = webSockD.states.influx ? webSockD.setupData.influxHost : "";
 
-    data[WWW_MODBUS] = webSockD.states.modbusOK;
-    data[WWW_MODBUS_IP] = webSockD.states.modbusOK ? webSockD.setupData.inverter : "";
+    result[WWW_MODBUS] = webSockD.states.modbusOK;
+    result[WWW_MODBUS_IP] = webSockD.states.modbusOK ? webSockD.setupData.inverter : "";
 
-    data[WWW_MQTT] = webSockD.states.mqtt;
-    data[WWW_MQTT_IP] = webSockD.states.mqtt ? webSockD.setupData.mqttHost : "";
+    result[WWW_MQTT] = webSockD.states.mqtt;
+    result[WWW_MQTT_IP] = webSockD.states.mqtt ? webSockD.setupData.mqttHost : "";
 
-    data[WWW_TEMP_SENSOR] = webSockD.states.tempSensorOK;
-    data[WWW_EPSILON] = webSockD.setupData.epsilonML_PinManager;
-    data[WWW_WATT_BIAS] = webSockD.setupData.wattSetupForTest;
+    result[WWW_TEMP_SENSOR] = webSockD.states.tempSensorOK;
+    result[WWW_EPSILON] = webSockD.setupData.epsilonML_PinManager;
+    result[WWW_WATT_BIAS] = webSockD.setupData.wattSetupForTest;
     if (webSockD.temperature.alarm)
     {
         if (webSockD.temperature.sensor1 > 0 && webSockD.temperature.sensor2 > 0)
@@ -509,12 +549,12 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
                  (webSockD.temperature.sensor1 + webSockD.temperature.sensor2) / 2.0);
     }
 
-    data[WWW_TEMP_SENSOR_VAL] = formatBuffer;
-    data["done"] = 1;
-    data["error"] = "";
+    result[WWW_TEMP_SENSOR_VAL] = formatBuffer;
+    result["done"] = 1;
+    result["error"] = "";
 
     String response;
-    serializeJson(data, response);
+    serializeJson(result, response);
     request->send(200, "application/json", response);
 }
 
@@ -561,88 +601,19 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
         {"setupChanged", TYPE_BOOL, OFFSET(Setup, setupChanged), 0, false}}
 ; */
 
-template <typename T, typename Struct>
-struct Field
-{
-    const char *key;
-    T Struct::*member;
-    size_t maxLen;
-    bool required;
-};
-
-template <typename Struct, size_t N>
-struct StringField
-{
-    const char *key;
-    char (Struct::*member)[N];
-    bool required;
-};
-
-template <typename T, typename Struct>
-bool parseField(JsonObject obj,
-                const Field<T, Struct> &f,
-                Struct &s,
-                JsonDocument &res)
-{
-    if (!obj.containsKey(f.key))
-    {
-        if (f.required)
-        {
-            res["error"] = String("Missing: ") + f.key;
-            return false;
-        }
-        return true;
-    }
-
-    JsonVariant v = obj[f.key];
-
-    if (!v.is<T>())
-    {
-        res["error"] = String("Invalid: ") + f.key;
-        return false;
-    }
-
-    s.*(f.member) = v.as<T>();
-    return true;
-}
-
-template <typename Struct, size_t N>
-bool parseField(JsonObject obj,
-                const StringField<Struct, N> &f,
-                Struct &s,
-                JsonDocument &res)
-{
-    const char *value = obj[f.key];
-
-    if (!value || strlen(value) == 0)
-    {
-        if (f.required)
-        {
-            res["error"] = String("Missing: ") + f.key;
-            return false;
-        }
-        return true;
-    }
-
-    char *target = (s.*(f.member));
-    strncpy(target, value, N - 1);
-    target[N - 1] = '\0';
-
-    return true;
-}
-
-template <typename Struct, typename... Fields>
+template <typename Struct>
 bool parseStruct(JsonObject obj,
                  Struct &s,
                  JsonDocument &res,
-                 Fields... fields)
+                 const FieldBase<Struct> *const *fields,
+                 size_t count)
 {
-    bool ok = true;
-
-    (void)std::initializer_list<int>{
-        (ok = ok && parseField(obj, fields, s, res), 0)...};
-
-    return ok;
+    for (size_t i = 0; i < count; i++)
+    {
+        if (!fields[i]->apply(obj, s, res))
+            return false;
+    }
+    return true;
 }
 
 void ajaxCalls_handleStoreSetup(JsonDocument &json,
@@ -652,10 +623,16 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     ajaxCalls_ensureInitPrimitives();
 
     UBaseType_t stackRemaining = uxTaskGetStackHighWaterMark(nullptr);
-    LOG_INFO(TAG_AJAX, "free stack words: %u", (unsigned)stackRemaining);
+    LOG_INFO(TAG_AJAX, "jaxCallsHandleStoreSetup::free stack words: %u", (unsigned)stackRemaining);
+    JsonDocument result;
+   
+    LOG_INFO(TAG_AJAX, "axCallsHandleStoreSetup (2) ::size: %u", json.size());
+    auto docPtr = my_make_unique<JsonDocument>();
+    *docPtr = json;
+    JsonObject jsonObj = docPtr->as<JsonObject>();
+    //JsonObject jsonObj = json.as<JsonObject>();
 
-    JsonObject jsonObj = json.as<JsonObject>();
-    JsonDocument data;
+
 
     CALLBACK_SET_SETUP_CHANGED cb = nullptr;
 
@@ -668,70 +645,75 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
 
     cb = g_setSetupChangedCallback;
     ajaxCalls_unlock(g_ajaxMutex);
-
+    LOG_DEBUG(TAG_AJAX, "===========> cb: %d",cb==NULL);
     if (cb)
-        cb(false);
+        cb(true);
 
-    Setup setup{};
+    auto setup = my_make_unique<Setup>();
+    bool allSuccessful = true;
 
-    bool ok = parseStruct(
-        jsonObj,
-        setup,
-        data,
-
-        StringField<Setup, LEN_WLAN + 1>{WLAN_ESSID, &Setup::ssid, true},
-        StringField<Setup, LEN_WLAN + 1>{WLAN_PASSWD, &Setup::passwd, true},
-        StringField<Setup, INET_ADDRSTRLEN + 1>{IP_INVERTER, &Setup::inverter, true},
-
-        StringField<Setup, INET_ADDRSTRLEN + 1>{AMIS_READER_HOST, &Setup::amisReaderHost, false},
-        StringField<Setup, AMIS_KEY_LEN + 1>{AMIS_READER_KEY, &Setup::amisKey, false},
-
-        Field<unsigned int, Setup>{HEIZSTABLEISTUNG, &Setup::heizstab_leistung_in_watt, 0, true},
-        Field<int, Setup>{FORCE_HEIZPATRONE, &Setup::forceHeating, 0, false},
-        Field<unsigned int, Setup>{TEMP_AUSSCHALTEN, &Setup::tempMaxAllowedInGrad, 0, true},
-        Field<unsigned int, Setup>{TEMP_EINSCHALT, &Setup::tempMinInGrad, 0, true},
-
-        Field<unsigned int, Setup>{LEGIONELLEN_DELTA_TIME, &Setup::legionellenDelta, 0, false},
-        Field<unsigned int, Setup>{LEGIONELLEN_TEMP, &Setup::legionellenMaxTemp, 0, false},
-
-        Field<short, Setup>{AKKU, &Setup::akku, 0, false},
-        Field<short, Setup>{AKKU_PRIORI, &Setup::akkuPriori, 0, false},
-
-        StringField<Setup, MQTT_HOST_LEN + 1>{WWW_MQTT_HOST, &Setup::mqttHost, false},
-        StringField<Setup, MQTT_USER_LEN + 1>{WWW_MQTT_USER, &Setup::mqttUser, false},
-        StringField<Setup, MQTT_PASS_LEN + 1>{WWW_MQTT_PASWWD, &Setup::mqttPass, false},
-        StringField<Setup, INFLUX_HOST_LEN + 1>{WWW_INFLUX_HOST, &Setup::influxHost, false},
-        StringField<Setup, INFLUX_TOKEN_LEN + 1>{WWW_INFLUX_TOKEN, &Setup::influxToken, false},
-        StringField<Setup, INFLUX_ORG_LEN + 1>{WWW_INFLUX_ORG, &Setup::influxOrg, false},
-        StringField<Setup, INFLUX_BUCKET_LEN + 1>{WWW_INFLUX_BUCKET, &Setup::influxBucket, false},
-        Field<double, Setup>{PID_EPSILON, &Setup::epsilonML_PinManager, 0, false},
-        Field<int, Setup>{WWW_WATT_BIAS, &Setup::wattSetupForTest, 0, false});
-
-    setup.phasen_leistung_in_watt = setup.heizstab_leistung_in_watt / 3;
-
-    if (!ok)
+    LOG_DEBUG(TAG_AJAX, "===========> before parseStruct");
+    
+    for (size_t i = 0; i < setupFieldsCount; i++)
     {
-        returnFromStoreSetup(false, data, request);
+        const char *key = setupFields[i]->getKey();
+        if (key == NULL)
+        {
+            LOG_DEBUG(TAG_AJAX, "No Key available");
+            jsonObj["error"] = "No Key available";
+            allSuccessful = false;
+           
+        }
+        else
+        {
+            if (!json[key].isNull())
+            {
+                // WICHTIG: *mySetup dereferenziert den Pointer zu einer Referenz
+                if (!setupFields[i]->update(*setup, json[key])) {
+                    allSuccessful = false;
+                    /*char buf[50];
+                    sprintf(buf, "Wrong type or null value for key: %s.", key);
+                    strcpy(jsonObj["error"],buf);*/
+                    LOG_DEBUG(TAG_AJAX, "Wrong type or null value for key: %s", key);
+                    jsonObj["error"] = "Wrong type or null value for ";
+                }
+            }
+        }
+    }
+/*
+ data["error"]["code"] = 0;
+        data["error"]["msg"] = "JsonDocument ist zu groß!";
+*/
+
+    LOG_DEBUG(TAG_AJAX, "===========> after parseStruct");
+    setup->phasen_leistung_in_watt = setup->heizstab_leistung_in_watt / 3;
+    
+    LOG_DEBUG(TAG_AJAX, "after parseStruct, ok: ");
+    if (!allSuccessful) 
+    {
+        returnFromStoreSetup(false, result, request,"caller 1");
         return;
     }
 
     if (cb)
         cb(true);
+    LOG_DEBUG(TAG_AJAX, "Try to write Eprom in calling task.");
+   
+    eprom_storeSetup(*setup);
 
-    // eprom_storeSetup(setup);
-    if (!appTask_epromWriter(&setup))
+   /*  if (!appTask_epromWriter(std::move(setup)))
     {
-        data["error"] = "queue full";
-        returnFromStoreSetup(false, data, request);
+        result["error"] = "queue full";
+        returnFromStoreSetup(false, result, request);
         vTaskDelay(pdMS_TO_TICKS(2000));
         return;
-    }
-    returnFromStoreSetup(true, data, request);
-
+    } */
+    returnFromStoreSetup(true, result, request, "caller 2");
+    LOG_DEBUG(TAG_AJAX, "EXIT with isAppMod: %d", isAPModus);
     if (isAPModus)
     {
         static uint32_t delayMs = 10000U;
-
+        LOG_DEBUG(TAG_AJAX, "ESP SHUTING DOWN FOR RESTARTING");
         BaseType_t taskOk = xTaskCreatePinnedToCore(
             delayedRestartTask,
             "ajaxRestartTask",
@@ -747,11 +729,12 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         }
     }
 }
-
+  
 void delayedRestartTask(void *param)
 {
     uint32_t delayMs = (uint32_t)param;
 
+    LOG_DEBUG(TAG_AJAX, "delayedRestartTask - restart ing in several secs ");
     vTaskDelay(pdMS_TO_TICKS(delayMs));
 
     esp_restart();
@@ -762,28 +745,30 @@ void delayedRestartTask(void *param)
 /* ---------- response helper ---------- */
 
 static void returnFromStoreSetup(bool inputCorrect,
-                                 JsonDocument &data,
-                                 AsyncWebServerRequest *request)
+                                 JsonDocument &result,
+                                 AsyncWebServerRequest *request,
+                                char *caller)
 {
     String response;
-
+    unsigned httpCode = 200;
     if (inputCorrect)
     {
-        data["done"] = 1;
-        data["error"] = "";
-        LOG_INFO(TAG_AJAX, "returnFromStoreSetup - no errors");
+        result["done"] = 1;
+        result["error"] = "";
+        LOG_INFO(TAG_AJAX, "ReturnFromStoreSetup - no errors, caller: %s",caller);
     }
     else
     {
-        data["done"] = 0;
-        if (!data.containsKey("error"))
+        result["done"] = 0;
+        if (!result["error"].isNull())
         {
-            data["error"] = "invalid input";
-        }
-        LOG_ERROR(TAG_AJAX, "returnFromStoreSetup - errors");
+            result["error"] = "invalid input";
+        } 
+        httpCode = 500;
+        LOG_ERROR(TAG_AJAX, "ReturnFromStoreSetup(ERRORS) , caller: %s", caller);
     }
     LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
 
-    serializeJson(data, response);
-    request->send(200, "application/json", response);
+    serializeJson(result, response);
+    request->send(httpCode, "application/json", response);
 }

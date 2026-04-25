@@ -249,32 +249,40 @@ static void taskWiFi(void *pvParameters)
             MONITORING-TASK: Zeigt alle 2 Sekunden die Task-Liste und den freien Heap an. Hilfreich für Debugging und Performance-Überwachung.
 */
 
-bool appTask_epromWriter(Setup *setup)
+bool appTask_epromWriter(std::unique_ptr<Setup> setup)
 {
     if (setupQueue == nullptr)
     {
         LOG_ERROR(TAG_APP_SERVICES, "Setup Queue is not initialized!");
         return false;
     }
-
-    if (xQueueSend(setupQueue, setup, pdMS_TO_TICKS(5000)) != pdPASS)
-    {
-        LOG_ERROR(TAG_APP_SERVICES, "Failed to send setup to queue");
+    if (!setup) {
+        LOG_ERROR(TAG_APP_SERVICES,"Setup pointer is null.");
         return false;
     }
+    LOG_DEBUG(TAG_APP_SERVICES,"Start Queue - size: %d",sizeof(*setup));
+    Setup* rawPtr = setup.release();
+    if (xQueueSend(setupQueue, (const void *)setup.get(), pdMS_TO_TICKS(5000)) != pdPASS)
+    {
+        LOG_ERROR(TAG_APP_SERVICES, "Failed to send setup to queue");
+        delete rawPtr;
+        return false;
+    }
+    LOG_DEBUG(TAG_APP_SERVICES, "Start Queue - done: ");
     return true;
 }
 
 static void taskEpromWriter(void *pv)
 {
-    Setup setup; // er lokale Puffer, in den die Queue schreibt. Er wird dann in der Queue empfangen und in den Eprom geschrieben. So muss nicht die ganze Struktur in die Queue, sondern nur ein Zeiger auf den lokalen Puffer.
+     // er lokale Puffer, in den die Queue schreibt. Er wird dann in der Queue empfangen und in den Eprom geschrieben. So muss nicht die ganze Struktur in die Queue, sondern nur ein Zeiger auf den lokalen Puffer.
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEpromStore - started");
-
+    Setup *receivedPtr;
     while (true)
     {
-        if (xQueueReceive(setupQueue, &setup, portMAX_DELAY))
+
+        if (xQueueReceive(setupQueue, &receivedPtr, portMAX_DELAY))
         {
-            serviceEpromStore(&setup);
+            serviceEpromStore(receivedPtr);
 
             LOG_INFO(TAG_AJAX, "Setup stored async");
         }
@@ -336,7 +344,7 @@ void createAppTasks(WifiCredentials &credentials)
     }
     if (setupQueue == nullptr)
     {
-        setupQueue = xQueueCreate(10, sizeof(Setup));
+        setupQueue = xQueueCreate(2, sizeof(Setup*));
         if (!setupQueue)
         {
             LOG_ERROR(TAG_APP_SERVICES, "Queue creation failed");

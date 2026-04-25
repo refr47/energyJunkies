@@ -104,32 +104,44 @@ void serviceNetworkSupervisor()
         {
             LOG_DEBUG(TAG_APP_SERVICES, "Network seems down, but could not acquire lock to update state");
         }
+        return; 
     }
-    else
-    {
-        int rssi = 0;
-        esp_err_t result = esp_wifi_sta_get_rssi(&rssi);
-        if (result == ESP_OK)
+    
+
+#ifdef FRONIUS_IV
+        if (!g_app.webSockData.states.modbusOK)
         {
-            long saldo = 0;
-            char *amisReaderHost = NULL;
-            if (g_app.webSockData.states.amisReader)
+            LOG_ERROR(TAG_APP_SERVICES, "Modbus connection to Fronius failed, try reconnecting");
+            if (appLock(10))
             {
-                amisReaderHost = g_app.webSockData.setupData.amisReaderHost;
-                saldo = g_app.webSockData.amisReader.saldo;
+                g_app.webSockData.states.modbusOK = mb_init(g_app.webSockData.setupData);
+                appUnlock();
             }
             else
             {
-                amisReaderHost = "0.0.0.0";
+                LOG_DEBUG(TAG_APP_SERVICES, "Modbus connection seems down, but could not acquire lock to update state");
             }
-
-            LOG_INFO(TAG_APP_SERVICES, "Network OK, SSID: %s, IP: %s, RSSI: %d, AmisReader: %s Saldo: %ld",
-                     g_app.webSockData.setupData.ssid,
-                     g_app.webSockData.setupData.currentIP,
-                     rssi,
-                     amisReaderHost,
-                     saldo);
         }
+#endif
+#ifdef AMIS_READER_DEV
+        if (!g_app.webSockData.states.amisReader)
+        {
+            LOG_ERROR(TAG_APP_SERVICES, "AmisReader connection failed, try reconnecting");
+            if (appLock(10))
+            {
+                g_app.webSockData.states.amisReader = amisReader_initRestTargets(g_app.webSockData);
+                appUnlock();
+            }
+            else
+            {
+                LOG_DEBUG(TAG_APP_SERVICES, "AmisReader connection seems down, but could not acquire lock to update state");
+            }
+        }
+#endif
+        
+        
+
+       
         if (appLock(10))
         {
 
@@ -144,7 +156,7 @@ void serviceNetworkSupervisor()
         {
             LOG_DEBUG(TAG_APP_SERVICES, "Network check passed, but could not acquire lock to update state");
         }
-    }
+    
 }
 
 void serviceTemperature()
@@ -384,17 +396,18 @@ void serviceWeb()
         counter = 0;
     }
     notifyClients();
-    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceWeb - ");
+    LOG_INFO(TAG_APP_SERVICES, "ServiceWeb - data changed? %d",g_app.webSockData.setupData.setupChanged);
     if (g_app.webSockData.setupData.setupChanged)
     {
         if (appLock(100))
         {
-            g_app.webSockData.states.networkOK = false;
+            //g_app.webSockData.states.networkOK = false;
 
             if (!hotUpdate(g_app.webSockData, g_app.pinManager))
             {
                 appUnlock();
-                delay(1000);
+                LOG_DEBUG(TAG_APP_SERVICES," Waiting for restart ....");
+                vTaskDelay(pdMS_TO_TICKS(3000));
                 esp_restart();
                 return;
             }

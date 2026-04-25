@@ -126,7 +126,7 @@ static void handleSetup(AsyncWebServerRequest *request)
     else
         request->send(LittleFS, "/login.html", "text/html", false);
 }
-  
+
 static inline bool helperForWWW()
 {
     if (!LittleFS.begin(FORMAT_SPIFFS_IF_FAILED))
@@ -135,24 +135,24 @@ static inline bool helperForWWW()
         return false;
     }
     // In deiner helperForWWW Funktion oder dort, wo du iterierst:
-  /*   File root = LittleFS.open("/");
-    File entry = root.openNextFile();
+    /*   File root = LittleFS.open("/");
+      File entry = root.openNextFile();
 
-    while (entry)
-    {
-        if (entry.isDirectory())
-        {
-            // Überspringe Ordner, da sie keine "Dateien" im herkömmlichen Sinne sind
-            entry = root.openNextFile();
-            continue;
-        }
+      while (entry)
+      {
+          if (entry.isDirectory())
+          {
+              // Überspringe Ordner, da sie keine "Dateien" im herkömmlichen Sinne sind
+              entry = root.openNextFile();
+              continue;
+          }
 
-        // Nur wenn es KEIN Directory ist, darfst du auf Name/Size zugreifen
-        Serial.printf("Datei: %s, Größe: %u\n", entry.name(), entry.size());
+          // Nur wenn es KEIN Directory ist, darfst du auf Name/Size zugreifen
+          Serial.printf("Datei: %s, Größe: %u\n", entry.name(), entry.size());
 
-        entry = root.openNextFile();
-    }
-    root.close(); */
+          entry = root.openNextFile();
+      }
+      root.close(); */
     return true;
 }
 
@@ -173,7 +173,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     if (!helperForWWW())
     {
         return false;
-    } 
+    }
 
     // 2. Netzwerk-Modus (AP oder Client)
     if (ipAddr == NULL)
@@ -188,7 +188,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     {
         isAPModus = false;
     }
-    doCORS(); 
+    doCORS();
     /// AJAX & API Endpoints
     server.on("/login", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
               { request->send(200); });
@@ -203,19 +203,38 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
 
 // 1. Prüfen, ob wir den Anfang des Pakets haben
     if (index == 0) {
-        // Hier könnte man einen Puffer reservieren, falls nötig
+        request->_tempObject = new String("");
     }
-
-    // 2. JSON parsen (direkt aus dem 'data' Buffer)
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, data, len);
-    LOG_INFO(TAG_WEB, "/storeSetup: %u bytes, index: %u, total: %u, content: %s", len, index, total, doc.as<String>().c_str());
-    if (!error) {  
-
-        ajaxCalls_handleStoreSetup(doc, request, isAPModus);
-        request->send(200, "application/json", "{\"done\":true}");
-    } else {
-        request->send(400, "application/json", "{\"done\":false, \"msg\":\"JSON Error\"}");
+    String *body = (String *)request->_tempObject;
+    if (body)
+    {
+        for (size_t i = 0; i < len; i++)
+        {
+            body->concat((char)data[i]);
+        }
+    }
+    if (index + len == total)
+    {
+        // 2. JSON parsen (direkt aus dem 'data' Buffer)
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, data, len);
+        LOG_INFO(TAG_WEB, "/storeSetup: len: %u , index: %u, total: %u", len, index, total);
+        if (!error)
+        {
+            LOG_INFO(TAG_WEB, "/storeSetup: JSON OK");
+            
+            ajaxCalls_handleStoreSetup(doc, request, isAPModus);
+         //   request->send(200, "application/json", "{\"done\":true}");
+        }
+        else
+        { 
+            LOG_INFO(TAG_WEB, "/storeSetup: JSON Error");
+            request->send(400, "application/json", "{\"done\":false, \"msg\":\"JSON Error\"}");
+        }
+        // release mem
+        delete body;
+        
+        request->_tempObject = nullptr;
     } });
 
     server.serveStatic("/assets/", LittleFS, "/assets/")
@@ -225,85 +244,6 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     server.serveStatic("/img/", LittleFS, "/img/")
         .setCacheControl("max-age=3600");
 
-#ifdef IIII
-    // --- HTML ROUTEN ---
-    server.on("/ping", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(200, "text/plain", "Pong"); });
-    server.on("/", HTTP_GET, handleRoot);
-    server.on("/setup", HTTP_OPTIONS, handleSetup);
-
-    server.on("/login", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-              { request->send(200); });
-    server.on("/login", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, handleLogin);
-    // Kurze Aliase für wichtige HTML-Seiten
-    server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/about.html", "text/html"); });
-    server.on("/shelly", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/shelly.html", "text/html"); });
-    server.on("/out", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/output.html", "text/html"); });
-    // Route für die Update-Seite (HTML)
-    server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/update.html", "text/html"); });
-    // --- LOGGING & DIAGNOSE ---
-    server.on("/serial", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(200, "text/plain", logReader_getBufferAsString()); });
-    server.on("/logOn", HTTP_GET, [](AsyncWebServerRequest *request)
-              { 
-        logReader_enDisableRedirect(true);
-        request->send(200, "text/plain", "Enabled"); });
-
-    // --- AJAX & API Schnittstellen ---
-
-    server.on("/getOverview", HTTP_GET, ajaxCalls_handleGetOverview);
-    server.on("/buildAndGetShellyDevicesTree", HTTP_GET, ajaxCalls_handleBuildAndGetShelly);
-
-    // Der eigentliche Upload-Handler
-    server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request)
-              {
-    // Wird nach dem Upload aufgerufen
-    bool updateFailed = Update.hasError();
-    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", (updateFailed) ? "Update Failed" : "Update Success! Rebooting...");
-    response->addHeader("Connection", "close");
-    request->send(response);
-    
-    if (!updateFailed) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        esp_restart();
-    } }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
-              {
-    // Dieser Teil verarbeitet die Datenpakete (Chunks)
-    if (!index) {
-        LOG_INFO(TAG_WEB, "Update Start: %s", filename.c_str());
-        // Prüfen, ob es ein Filesystem oder Firmware Update ist
-        int cmd = (filename.indexOf("spiffs") > -1) ? U_SPIFFS : U_FLASH;
-        if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
-            Update.printError(Serial);
-        }
-    }
-    
-    if (Update.write(data, len) != len) {
-        Update.printError(Serial);
-    }
-    
-    if (final) {
-        if (Update.end(true)) {
-            LOG_INFO(TAG_WEB, "Update Success: %u bytes", index + len);
-        } else {
-            Update.printError(Serial);
-        }
-    } });
-    // JSON Handler für StoreSetup (Wichtig: Heap-Dokument nutzen!)
-    /*  AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup",
-                                                                            [](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                            {
-                                                                                ajaxCalls_handleStoreSetup(request, json, isAPModus);
-                                                                            });
-     server.addHandler(handler); */
-    // Spezieller Handler für den OPTIONS-Preflight (WICHTIG!)
-    server.on("/storeSetup", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-              { request->send(200); });
-#endif
     // WICHTIG: Die Root-Datei (index.html)
     server.serveStatic("/", LittleFS, "/")
         .setDefaultFile("index.html");

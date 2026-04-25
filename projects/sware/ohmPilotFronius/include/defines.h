@@ -26,7 +26,7 @@
 #define INFLUX_TOKEN_LEN 95
 #define INFLUX_ORG_LEN 30
 #define INFLUX_BUCKET_LEN 30
-
+  
 #define HEATING_OFF 10
 #define HEATING_ON_PHASE_1 1
 #define HEATING_ON_PHASE_1_2 2
@@ -182,7 +182,7 @@ typedef struct _LIFE_DATA
     long heatingLastTime;
 
 } LIFE_DATA;
-
+ 
 typedef struct _STATES
 {
     bool cardWriterOK;
@@ -198,6 +198,7 @@ typedef struct _STATES
     bool mqtt;
     bool boilerHeating; // on or off
     unsigned int heating;
+    bool wattBiasForTest; // only for testing, overrides available watt in PinManager::preCheck
 } STATES;
 
 typedef struct _FRONIUS_SOLAR_POWERFLOW

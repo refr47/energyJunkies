@@ -40,11 +40,11 @@
 
 #define EMPTY_STRING "\0"
 void eprom_storeSetup(Setup &setup);
-void eprom_getSetup(Setup &setup);
+bool eprom_getSetup(Setup &setup);
 void eprom_isInit();
 // String& eprom_getInverter(Setup &setup, String &inverter);
 
-void eprom_test_write_Eprom(const char *, const char *);
+bool eprom_test_write_Eprom(const char *, const char *);
 void eprom_test_read_Eprom();
 void eprom_show(Setup &setup);
 

@@ -168,6 +168,17 @@ inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, 
         char tempBuf[20]; // Platz für "-123.45\0"
         LOG_DEBUG(TAG_PID, "PID No froniusAPI) AvailableWatt: %s", fToStr(availableWatt, 5, 1, tempBuf));
     }
+ 
+    // WATT-Bias for testing - only for testing
+    if (webSockData.setupData.wattSetupForTest != 0)
+    {
+        webSockData.states.wattBiasForTest = true;
+        availableWatt = webSockData.setupData.wattSetupForTest;
+        char tempBuf[20]; // Platz für "-123.45\0"
+        LOG_DEBUG(TAG_PID, "PID TEST MODE - AvailableWatt overridden by setup: %s", fToStr(availableWatt, 5, 1, tempBuf));
+    } else {
+        webSockData.states.wattBiasForTest = false;
+    }
     // NO PV → minimal heating via RL
     /*   if (availableWatt > 0.0)
       {
@@ -186,6 +197,8 @@ inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, double temp, 
     {
         // LOG_INFO("PinManager::preCheck - Means of HYSTERESIS_WATT-2 measures  %f", availableWatt);
         powerIndex = 0;
+        availablePower.push_back(availableWatt); // availablePower;
+        ++powerIndex;
     }
     /* LOG_DEBUG(TAG_PID, "PinManager::preCheck - EXIT: %f, powerIndex: %d", availableWatt, powerIndex); */
     return MODE_AUTO;
