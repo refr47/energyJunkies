@@ -42,4 +42,4 @@ pio
 .vscode/launch.json
 .vscode/ipch
 *.log
-
+node_modules/
