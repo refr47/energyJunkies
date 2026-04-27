@@ -28,8 +28,9 @@ public:
     void allOn();
     int getStateOfDigPin(short pin);
     int getStateOfAnaPin();
-    void apply(LogEntry &logEntry, double power);
+    void apply(LogEntry &logEntry, int power);
     void reset();
+    void testPins(int l1,int l2,int pwm );
 
 private:
 
@@ -37,20 +38,20 @@ private:
     int pinL1, pinL2, pwmPin;
 
     // Power
-    double onePhase;
+    int onePhase;
 
     // State
     int currentPhases = 0;
-    double currentPWM = 0;
+    int currentPWM = 0;
 
     // Relay protection
     unsigned long lastSwitch = 0;
     const unsigned long MIN_SWITCH = 5000;
     //const unsigned int MAX_LEN_MEASURE = 12; // hysterese, glättung
     double lastSmoothedPower = 0;
-    const double DEAD_BAND = DEAD_BAND_WATT; // Änderungen unter 50W werden ignoriert
-    double lastTargetPower = 0;    // Speicher für den letzten Sollwert
-    double rest = 0;
+    const int DEAD_BAND = DEAD_BAND_WATT; // Änderungen unter 50W werden ignoriert
+    int lastTargetPower = 0;    // Speicher für den letzten Sollwert
+    int rest = 0;
 
     TinyNN *tinyNN;
 
@@ -68,32 +69,36 @@ private:
     bool legionella = false;
 
     // Config
-    const double MIN_TEMP = 45;
-    const double MAX_TEMP = 70;
-    const double LEG_TEMP = 60;
-
-    const double EPSILON_TEMP = 20.0;
+    /* const double MIN_TEMP = 45;
+     const double MAX_TEMP = 70;
+     const double LEG_TEMP = 60;
+ */
+    const int EPSILON_TEMP = 20;
    
  
 
     // Internal 
     int tempState(double t);
     int pvState(double p);
-    /* int chooseAction(int t, int pv);
-    double actionFactor(int a); */
-    std::vector<double> availablePower;
+    std::vector<int> availablePower;
     int powerIndex;
 
-    double heaterPower();
-    double basePower(double effectivePower);
-    ControlMode preCheck(WEBSOCK_DATA &webSockData, double temp, unsigned long nowMS);
+    int heaterPower();
+    int basePower(int effectivePower);
+    ControlMode preCheck(WEBSOCK_DATA &webSockData, int temp, unsigned long nowMS);
     void fillLogEntry(WEBSOCK_DATA& webSockData, LogEntry& logEntry);
-    double getMeanOfAvailAblePower();
+    int getMeanOfAvailAblePower();
 #ifdef PHASEN2
 
-    unsigned long windowStart = 0;
-    unsigned long lastSwitchL1 = 0;
-    unsigned long lastSwitchL2 = 0;
+    float P_surplus;      // aktueller PV-Überschuss
+    float P_phase = 1000; // Leistung einer Heizphase in Watt
+
+    bool relayState = false;
+    float relay_on_threshold = 100;
+    float relay_off_threshold = 80;
+    int pwmValue = 0;
+    unsigned long relayCandidateTimer = 0;
+    unsigned long relayDelay = 10000; // 10 Sekunden
     void setRelaySafe(int pin, bool state, unsigned long &lastSwitch);
 #endif
 };

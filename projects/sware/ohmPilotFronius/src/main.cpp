@@ -208,6 +208,8 @@ void setup()
             RELAY_L2,
             PWM_FOR_PID);
 
+        g_app.pinManager.testPins(RELAY_L1, RELAY_L2, PWM_FOR_PID);
+
 #ifdef INFLUX
         g_app.webSockData.states.influx = influx_init(getDataForWebSocket);
 #endif
@@ -250,11 +252,14 @@ void setup()
         LOG_INFO(TAG_MAIN, "MqTT: %c", g_app.webSockData.states.mqtt == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "TempSensor: %c", g_app.webSockData.states.tempSensorOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "TimeServer(NTP): %c", g_app.webSockData.states.timeServer == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "ForceHeating: %d", g_app.webSockData.setupData.forceHeating);
         LOG_INFO(TAG_MAIN, "LogReader: y");
         LOG_INFO(TAG_MAIN, "HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
         tft_clearScreen();
         delay(5000);
     }
+
+    
     createAppTasks(credentials);
 
     LOG_INFO(TAG_MAIN, "Setup done - RTOS tasks started");

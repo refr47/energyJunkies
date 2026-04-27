@@ -136,7 +136,7 @@ typedef struct
     char mqttHost[MQTT_HOST_LEN + 1];
     char mqttUser[MQTT_USER_LEN + 1];
     char mqttPass[MQTT_PASS_LEN + 1];
-
+ 
     char influxHost[INFLUX_HOST_LEN + 1];
     char influxToken[INFLUX_TOKEN_LEN + 1];
     char influxOrg[INFLUX_ORG_LEN + 1];
@@ -197,7 +197,7 @@ typedef struct _STATES
     bool influx;
     bool mqtt;
     bool boilerHeating; // on or off
-    unsigned int heating;
+    //unsigned int heating;
     bool wattBiasForTest; // only for testing, overrides available watt in PinManager::preCheck
 } STATES;
 

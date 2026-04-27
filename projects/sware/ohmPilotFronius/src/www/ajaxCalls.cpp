@@ -626,7 +626,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     LOG_INFO(TAG_AJAX, "jaxCallsHandleStoreSetup::free stack words: %u", (unsigned)stackRemaining);
     JsonDocument result;
    
-    LOG_INFO(TAG_AJAX, "axCallsHandleStoreSetup (2) ::size: %u", json.size());
+  
     auto docPtr = my_make_unique<JsonDocument>();
     *docPtr = json;
     JsonObject jsonObj = docPtr->as<JsonObject>();
@@ -645,9 +645,9 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
 
     cb = g_setSetupChangedCallback;
     ajaxCalls_unlock(g_ajaxMutex);
-    LOG_DEBUG(TAG_AJAX, "===========> cb: %d",cb==NULL);
+    LOG_DEBUG(TAG_AJAX, "===========> cb: %d", cb == NULL);
     if (cb)
-        cb(true);
+        cb(false); // for hotupdate, mal alles deaktivieren
 
     auto setup = my_make_unique<Setup>();
     bool allSuccessful = true;
@@ -695,8 +695,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         return;
     }
 
-    if (cb)
-        cb(true);
+    
     LOG_DEBUG(TAG_AJAX, "Try to write Eprom in calling task.");
    
     eprom_storeSetup(*setup);
@@ -709,6 +708,8 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         return;
     } */
     returnFromStoreSetup(true, result, request, "caller 2");
+    if (cb)
+        cb(true);
     LOG_DEBUG(TAG_AJAX, "EXIT with isAppMod: %d", isAPModus);
     if (isAPModus)
     {

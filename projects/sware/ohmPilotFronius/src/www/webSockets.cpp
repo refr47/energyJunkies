@@ -37,6 +37,7 @@
 #define STATE_MQTT 6           // 1 << 6 = 64
 #define STATE_INFLUX 7         // 1 << 7 = 128
 #define STATE_WATT_BIAS 8      // 1 << 8 = 256
+#define STATE_FORCE_HEATING 9  // 1 << 9 = 512
 
 #define FORMAT_BUFFER_LEN 35
 #define JSON_OBJECT_BUFFER_LEN 2048
@@ -176,6 +177,8 @@ static char *getJsonObj()
     if (!data.states.mqtt)
         bitMaster |= (1 << STATE_MQTT);
 #endif 
+    if (data.setupData.forceHeating==1) 
+        bitMaster |= (1 << STATE_FORCE_HEATING);
     if (data.states.wattBiasForTest)
         bitMaster |= (1 << STATE_WATT_BIAS);
         

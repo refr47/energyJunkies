@@ -131,7 +131,7 @@ bool influx_write_test(double boilerData, double availableWatt)
     simulation.addField("relay2", data.pidContainer.PID_PIN2);
     simulation.addField("storage", boilerData);
     simulation.addField("availableWatt", availableWatt);
-    simulation.addField("ForceHeating", data.states.heating);
+    simulation.addField("ForceHeating", data.setupData.forceHeating);
     String proto = client.pointToLineProtocol(simulation);
     if (!client.writePoint(simulation))
     {
