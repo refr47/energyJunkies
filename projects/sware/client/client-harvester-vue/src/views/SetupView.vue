@@ -37,18 +37,18 @@
               <ConfigInput label="Temp Min" v-model="setup.heizstab_temp_min" type="number" unit="°C" />
               <ConfigInput label="Temp Max" v-model="setup.heizstab_temp_max" type="number" unit="°C" />
             </div>
-             <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-2 gap-3">
 
               <ConfigInput label="Regel-Präzision (PID)" v-model="setup.pid_epsilon" type="number" step="0.01" />
-              <ConfigInput label="Watt-Bias" v-model="setup.watt_bias" type="number"  />
-             </div>
-          
+              <ConfigInput label="Watt-Bias" v-model="setup.watt_bias" type="number" />
+            </div>
+
             <div class="pt-2">
               <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Force Mode (Laden)</label>
-              <select v-model="setup.heizstab_force"
+              <select v-model.number="setup.heizstab_force"
                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 mt-1 focus:ring-2 focus:ring-rose-500 outline-none font-medium">
-                <option value="1">Erzwungen (Immer An)</option>
-                <option value="0">Automatik (PV-Überschuss)</option>
+                <option :value="1">Erzwungen (Immer An)</option>
+                <option :value="0">Automatik (PV-Überschuss)</option>
               </select>
             </div>
           </div>
@@ -97,7 +97,7 @@
               <p class="text-[10px] font-bold text-slate-300 -mb-2 italic">InfluxDB Time-Series</p>
               <ConfigInput label="Server URL" v-model="setup.influx_server_ip" />
               <ConfigInput label="Organization" v-model="setup.influg_org" />
-              <ConfigInput label="Access Token" v-model="setup.influx_token"/>
+              <ConfigInput label="Access Token" v-model="setup.influx_token" />
             </div>
           </div>
         </div>
@@ -142,7 +142,7 @@ const setup = ref({
   legionellen_differenz: 5,
 
   // Energiemanagement
-  akku_vorhanden:0,
+  akku_vorhanden: 0,
   akku_priori: 0,
 
   // Daten-Schnittstellen (MQTT / Influx)
@@ -163,18 +163,18 @@ const load = async () => {
     const res = await fetch('/getSetup');
     const data = await res.json();
     if (data.error.code == 0) {
-      console.log("Error in fetching data (setup): "+data.error.msg)
+      console.log("Error in fetching data (setup): " + data.error.msg)
       return
     }
-    let result=data.result;
+    let result = data.result;
     setup.value = { ...setup.value, ...result };
     statusMsg.value = "Erfolgreich geladen.";
     console.log("Setup Daten geladen:", result);
-    
+
     notify("Konfiguration erfolgreich geladen!", "success");
   } catch (e) {
     statusMsg.value = "Konnte Daten vom ESP32 nicht laden.";
-   
+
     notify("Fehler beim Laden der Konfiguration!", "error");
     if (data.error.code == 1) {
       console.log("Error in fetching data (setup): " + data.error.msg)
@@ -195,17 +195,17 @@ const pushToESP = async () => {
     console.log("storeSetup - returned data:", data);
     if (data.done) {
       notify("Konfiguration erfolgreich gespeichert! Der ESP32 startet neu...", "success");
-   
+
     } else {
       notify("Fehler beim Speichern der Konfiguration!", "error");
       if (data.error) {
-        console.log.error("Error in storing setup ",data.error)
+        console.log.error("Error in storing setup ", data.error)
       }
     }
   } catch (e) {
     notify("Fehler beim Speichern der Konfiguration!", "error");
     console.log("Fehlerdetails:", e);
-   
+
   }
 };
 

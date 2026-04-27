@@ -1,133 +1,111 @@
 <template>
-  <div v-if="liveData" class="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
+  <div v-if="liveData" class="min-h-screen bg-[#f8fafc] p-4 md:p-6 font-sans text-slate-900">
 
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-      <div>
-        <h1 class="text-3xl font-light tracking-tight text-slate-700">Energie-Zentrale</h1>
-        <p class="text-slate-400 text-sm">E-Harvester Control v3.0</p>
-      </div>
-      <div class="flex gap-2">
-        <div :class="[isConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700']"
-          class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-sm border border-white">
-          <span :class="[isConnected ? 'bg-emerald-500' : 'bg-rose-500']"
-            class="w-2 h-2 rounded-full animate-pulse"></span>
-          {{ isConnected ? 'Verbunden' : 'Getrennt' }}
+    <header class="flex justify-between items-center mb-6">
+      <div class="flex items-center gap-3">
+        <div class="bg-blue-600 p-2 rounded-lg text-white shadow-lg">⚡</div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-slate-800">Energie-Zentrale</h1>
+          <p class="text-slate-400 text-[10px] uppercase font-bold tracking-widest">System Live</p>
         </div>
       </div>
-    </div>
-
-    <transition name="fade">
-      <div v-if="hasErrors" class="mb-8 bg-rose-500 text-white p-2 rounded-2xl shadow-lg border-b-4 border-rose-700">
-        <div class="flex items-center gap-3 font-black mb-3">
-          <span class="text-2xl">⚠️</span>
-          <h3 class="uppercase tracking-tighter">System-Alarm</h3>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <div v-for="(err, index) in errorList" :key="index"
-            class="bg-rose-600/50 px-3 py-2 rounded-lg flex items-center gap-2 text-sm border border-rose-400/30">
-            <span class="w-1.5 h-1.5 bg-white rounded-full"></span>
-            {{ err }}
-          </div>
-        </div>
+      <div :class="[isConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600']"
+        class="px-3 py-1 rounded-full text-[10px] font-black border border-current flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+        {{ isConnected ? 'ONLINE' : 'OFFLINE' }}
       </div>
-    </transition>
+    </header>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" :class="hasBattery ? 'lg:grid-cols-3' : 'lg:grid-cols-2'">
-
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <span class="text-slate-400 text-xs font-bold uppercase tracking-widest block mb-4">Netzanschluss</span>
-        <div class="text-center py-4">
-          <span class="text-5xl font-black tracking-tighter"
-            :class="isExporting ? 'text-emerald-600' : 'text-rose-600'">
-            {{ Math.abs(liveData.netzBezug || 0).toLocaleString('de-DE') }}<small class="text-xl ml-1">W</small>
-          </span>
-          <p class="text-slate-400 mt-2 font-medium">{{ isExporting ? 'Einspeisung' : 'Netzbezug' }}</p>
-        </div>
+    <div v-if="hasErrors" class="mb-6 overflow-hidden rounded-xl bg-rose-500 text-white shadow-md">
+      <div class="flex items-center gap-3 px-4 py-2 bg-rose-600 text-[10px] font-black uppercase">
+        <span>⚠️ System-Alarm</span>
       </div>
-
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <span class="text-slate-400 text-xs font-bold uppercase tracking-widest block mb-4">Boiler</span>
-        <div class="flex justify-between items-start mb-4">
-          <span class="text-slate-400 text-xs font-bold uppercase tracking-widest">Temperatur</span>
-
-          <div :class="chargeMode.class"
-            class="px-2 py-1 rounded text-[10px] font-black tracking-tighter transition-all">
-            {{ chargeMode.label }}
-          </div>
-        </div>
-
-        <div class="flex items-center gap-6">
-          <div class="relative w-16 h-28 bg-slate-100 rounded-xl overflow-hidden border-2 border-slate-50">
-            <div class="absolute bottom-0 w-full bg-blue-500 transition-all duration-1000"
-              :style="{ height: liveData.bTemp + '%' }"></div>
-            <div class="absolute inset-0 flex items-center justify-center font-bold text-slate-700">{{ liveData.bTemp }}°
-            </div>
-          </div>
-          <div class="flex-1 space-y-2 text-xs font-bold text-slate-500">
-            <div class="flex justify-between bg-slate-50 p-2 rounded"><span>Phase L1</span><span
-                :class="liveData.L1 ? 'text-amber-500' : 'text-slate-300'">●</span></div>
-            <div class="flex justify-between bg-slate-50 p-2 rounded"><span>Phase L2</span><span
-                :class="liveData.L2 ? 'text-amber-500' : 'text-slate-300'">●</span></div>
-            <div class="flex justify-between bg-slate-50 p-2 rounded"><span>PWM L3</span><span class="text-blue-500">{{
-                liveData.L3 }}%</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="hasBattery" class="bg-emerald-600 rounded-2xl shadow-xl p-6 text-white relative overflow-hidden">
-        <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-
-        <span class="text-emerald-100 text-xs font-bold uppercase tracking-widest block mb-6">AKKU</span>
-        <div class="flex flex-col items-center justify-center py-2">
-          <div class="relative w-full h-16 bg-emerald-800/50 rounded-xl border-2 border-emerald-400/30 p-1.5 mb-4">
-            <div class="h-full bg-white rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.4)] transition-all duration-1000"
-              :style="{ width: liveData.AkStat + '%' }"></div>
-            <div class="absolute inset-0 flex items-center justify-center font-black text-xl mix-blend-difference">
-              {{ liveData.aakStat }}%
-            </div>
-          </div>
-          <div class="grid grid-cols-2 w-full gap-4 text-center">
-            <div class="bg-emerald-700/50 rounded-lg p-2">
-              <p class="text-[10px] text-emerald-200 uppercase">Leistung</p>
-              <p class="text-lg font-bold">{{ liveData.aakPower || 0 }} W</p>
-            </div>
-            <div class="bg-emerald-700/50 rounded-lg p-2">
-              <p class="text-[10px] text-emerald-200 uppercase">Status</p>
-              <p class="text-xs font-bold">{{ (liveData.aakEntladen || 0) > 0 ? 'Laden' : 'Entladen' }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-slate-400 rounded-2xl shadow-xl p-6 text-white transition-all duration-500" :class="[
-        // Wenn kein Akku da ist, nimm auf großen Bildschirmen 2 Spalten ein
-        !hasBattery ? 'md:col-span-2 lg:col-span-2' : '',
-        // Wenn ein Akku da ist, aber das Fenster so schmal wird, dass die Bilanz 
-        // in die nächste Zeile rutscht (Desktop), zentrieren wir sie optional:
-        hasBattery ? 'lg:col-span-1' : ''
-      ]">
-        <span class="text-slate-400 text-xs font-bold uppercase tracking-widest block mb-6">Leistungsbilanz</span>
-        <div class="grid grid-cols-1" :class="!hasBattery ? 'md:grid-cols-2 gap-8' : 'space-y-6'">
-          <div class="flex justify-between items-end border-b border-slate-200 pb-4">
-            <div>
-              <p class="text-slate-400 text-xs mb-1">Solar-Ertrag</p>
-              <p class="text-3xl font-bold text-emerald-400">{{ (liveData.solEr || 0).toLocaleString('de-DE') }} <small
-                  class="text-sm">W</small></p>
-            </div>
-          </div>
-          <div class="flex justify-between items-end border-b border-slate-700 pb-4">
-            <div>
-              <p class="text-slate-400 text-xs mb-1">Eigenverbrauch</p>
-              <p class="text-3xl font-bold text-rose-400">{{ (liveData.ev || 0).toLocaleString('de-DE') }} <small
-                  class="text-sm">W</small></p>
-            </div>
-          </div>
+      <div class="p-3 text-xs grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div v-for="err in errorList" :key="err" class="flex items-center gap-2">
+          <span class="w-1 h-1 bg-white rounded-full"></span> {{ err }}
         </div>
       </div>
     </div>
-  </div>
-  <div v-else class="flex justify-center p-12 text-slate-400 italic">
-    Warte auf Systemdaten...
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+
+      <div class="md:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+        <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Leistungsbilanz</div>
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="p-2">
+            <p class="text-xs text-slate-400 mb-1">Solar</p>
+            <p class="text-2xl font-black text-emerald-500">{{ liveData.solEr }}<small class="text-xs ml-0.5">W</small>
+            </p>
+          </div>
+          <div class="p-2 border-x border-slate-100">
+            <p class="text-xs text-slate-400 mb-1">{{ isExporting ? 'Einspeisung' : 'Bezug' }}</p>
+            <p class="text-2xl font-black" :class="isExporting ? 'text-blue-500' : 'text-rose-500'">
+              {{ Math.abs(liveData.netzBezug) }}<small class="text-xs ml-0.5">W</small>
+            </p>
+          </div>
+          <div class="p-2">
+            <p class="text-xs text-slate-400 mb-1">Haus</p>
+            <p class="text-2xl font-black text-slate-700">{{ liveData.ev }}<small class="text-xs ml-0.5">W</small></p>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="hasBattery" class="md:col-span-4 bg-emerald-600 rounded-2xl shadow-lg p-4 text-white relative">
+        <div class="flex justify-between items-center mb-4">
+          <span class="text-[10px] font-black uppercase tracking-widest opacity-80">Speicher</span>
+          <span class="text-xs font-bold">{{ liveData.aakPower }} W</span>
+        </div>
+        <div class="relative pt-1">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-2xl font-black">{{ liveData.aakStat }}%</div>
+            <div class="text-[10px] uppercase font-bold bg-emerald-500 px-2 py-0.5 rounded">{{ (liveData.aakEntladen >
+              0) ? 'Laden' : 'Entladen' }}</div>
+          </div>
+          <div class="overflow-hidden h-2 text-xs flex rounded bg-emerald-800">
+            <div :style="{ width: liveData.aakStat + '%' }"
+              class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-white transition-all duration-1000">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="md:col-span-12 bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+        <div class="flex justify-between items-center mb-6">
+          <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Boiler Management</div>
+          <div :class="chargeMode.class" class="px-2 py-0.5 rounded text-[10px] font-black uppercase">{{
+            chargeMode.label }}</div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
+          <div class="flex flex-col items-center border-r border-slate-50">
+            <div class="text-4xl font-black text-slate-800">{{ liveData.bTemp }}°</div>
+            <div class="text-[10px] text-slate-400 font-bold uppercase mt-1">Temperatur</div>
+          </div>
+
+          <div class="md:col-span-3 grid grid-cols-3 gap-4">
+            <div v-for="i in [1, 2]" :key="i"
+              class="flex flex-col items-center p-3 rounded-xl border border-slate-50 transition-all"
+              :class="liveData['L' + i] ? 'bg-amber-50 border-amber-100' : 'bg-slate-50'">
+              <span class="text-[10px] font-bold text-slate-400 mb-2">Phase {{ i }}</span>
+              <div :class="liveData['L' + i] ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-slate-200'"
+                class="w-3 h-3 rounded-full"></div>
+              <span class="text-[10px] font-black mt-2" :class="liveData['L' + i] ? 'text-amber-700' : 'text-slate-300'">
+                {{ liveData['L' + i] ? '2000W' : 'OFF' }}
+              </span>
+            </div>
+
+            <div class="flex flex-col items-center p-3 rounded-xl bg-blue-50 border border-blue-100">
+              <span class="text-[10px] font-bold text-blue-400 mb-2">Regelung (L3)</span>
+              <div class="w-full bg-blue-200 h-1.5 rounded-full overflow-hidden mt-1">
+                <div class="bg-blue-500 h-full transition-all" :style="{ width: liveData.L3 + '%' }"></div>
+              </div>
+              <span class="text-[10px] font-black text-blue-700 mt-2">{{ liveData.L3 }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 </template>
 
@@ -147,6 +125,7 @@ const errorDefinitions = {
   64: "MQTT Schnittstelle",
   128: "InfluxDB Schnittstelle",
   256: "Watt Bias AKTIV !! ",
+  512: "Manuelle Heizung"
 
 }
 
