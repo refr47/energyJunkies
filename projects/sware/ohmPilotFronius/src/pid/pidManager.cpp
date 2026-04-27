@@ -326,12 +326,14 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         }
         else
         {
-#ifdef BOILER
+
             // 1. Aktuelle Gesamtsituation erfassen
             int heater = heaterPower();
+            doML = true;
             // Was wir theoretisch verbrauchen könnten (Überschuss + aktueller Eigenverbrauch)
             int effectiveAvailable = (-measuredPower) + heater;
-
+#ifdef BOILER
+           
             // 2. Deterministische Basis (Wie viele Phasen sind VOLLSTÄNDIG deckbar?)
             int fullPhases = (int)(effectiveAvailable / onePhase);
             if (fullPhases > 2)
@@ -355,6 +357,20 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
             // Die Relais-Phasen nehmen wir fix (basierend auf Überschuss),
             // die PWM-Phase wird vom ML-Agenten feinjustiert.
             targetPower = (fullPhases * onePhase) + (int)(onePhase * chosenFactor);
+#endif
+#ifdef PHASEN2
+          
+            int fullPhases = effectiveAvailable / onePhase;
+            if (fullPhases > 1)
+                fullPhases = 1; // Nur ein Relais vorhanden!
+
+            action = tinyNN->chooseAction(temp, measuredPower);
+            float factors[5] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+
+            // TargetPower = (1000W wenn genug da) + (0-1000W per PWM)
+            targetPower = (fullPhases * onePhase) + (int)(onePhase * factors[action]);
+
+#endif
             if (targetPower > effectiveAvailable + 50)
             {
                 targetPower = effectiveAvailable;
@@ -363,12 +379,8 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
                      effectiveAvailable, fullPhases, remainingForPWM, chosenFactor, targetPower); */
 
          
-#endif
-#ifdef PHASEN2
-            P_surplus = measuredPower;
-            P_phase = onePhase;
-            doML = false;
-#endif
+
+
         } // else
 
         break;
@@ -475,7 +487,7 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
     LOG_INFO(TAG_PID, "PinManager::apply() - ENTER Task %s, available watt: %d", pcTaskGetName(NULL), targetPower);
     unsigned long now = millis();
 
-#ifdef BOILER
+
     // 🔥 HARD STOP
     if (targetPower < 50)
     {
@@ -488,7 +500,7 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
         logEntry.power = 0;
         return;
     }
-
+#ifdef BOILER
     // 2. Phasen-Logik mit Hysterese
     // Wir bestimmen, wie viele Phasen VOLL (per Relais) laufen sollen.
     const int margin = onePhase * 0.05;
@@ -561,18 +573,24 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
              state, (state & 1), (state >> 1 & 1));
 #endif
 #ifdef PHASEN2
-    // Relay-Hysterese
+    const float P_ph = (float)onePhase;
+    const float margin = P_ph * 0.10;       // 10% Hysterese (z.B. 100W bei 1000W Phase)
+    const unsigned long relayDelay = 10000; // 10 Sek. Beruhigungszeit
+
+    // 1. Relais-Logik (Hysterese)
+    // Wir nutzen 'targetPower' direkt als Entscheidungsgrundlage
     if (!relayState)
     {
-        if (P_surplus > relay_on_threshold)
+        // EINSCHALTEN: Wenn die Wunschleistung deutlich über einer Phase liegt
+        if (targetPower > (P_ph + margin))
         {
             if (relayCandidateTimer == 0)
-                relayCandidateTimer = millis();
-
-            if (millis() - relayCandidateTimer > relayDelay)
+                relayCandidateTimer = now;
+            if (now - relayCandidateTimer > relayDelay)
             {
                 relayState = true;
                 relayCandidateTimer = 0;
+                lastSwitch = now; // Zeitstempel für Hardware-Schutz
             }
         }
         else
@@ -582,15 +600,16 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
     }
     else
     {
-        if (P_surplus < relay_off_threshold)
+        // AUSSCHALTEN: Wenn die Wunschleistung unter die Phase minus Puffer fällt
+        if (targetPower < (P_ph - margin))
         {
             if (relayCandidateTimer == 0)
-                relayCandidateTimer = millis();
-
-            if (millis() - relayCandidateTimer > relayDelay)
+                relayCandidateTimer = now;
+            if (now - relayCandidateTimer > relayDelay)
             {
                 relayState = false;
                 relayCandidateTimer = 0;
+                lastSwitch = now;
             }
         }
         else
@@ -599,26 +618,43 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
         }
     }
 
-    // PWM-Berechnung
-    float P_available;
-
+    // 2. PWM-Berechnung (Restwert-Regelung)
+    float P_for_pwm = 0;
     if (relayState)
-        P_available = P_surplus - P_phase;
+    {
+        // Relais liefert die erste Phase (fix), PWM liefert den Rest
+        P_for_pwm = (float)targetPower - P_ph;
+    }
     else
-        P_available = P_surplus;
+    {
+        // Relais ist aus, PWM übernimmt die komplette targetPower (bis max P_ph)
+        P_for_pwm = (float)targetPower;
+    }
 
-    if (P_available < 0)
-        P_available = 0;
+    // Begrenzung auf 0 bis onePhase
+    P_for_pwm = constrain(P_for_pwm, 0, P_ph);
 
-    float ratio = P_available / P_phase;
+    // Duty Cycle berechnen (0-255)
+    int finalPWM = (int)((P_for_pwm / P_ph) * 255);
 
-    if (ratio > 1.0)
-        ratio = 1.0;
+    // Hardware-Output
+    digitalWrite(pinL1, relayState); // Phase 1
+    analogWrite(pwmPin, finalPWM);   // Phase 3 (PWM)
 
-    pwmValue = ratio * 255;
+    // 3. LogEntry für das Frontend befüllen
+    logEntry.pwm = finalPWM;
+    logEntry.power = targetPower;
 
-    digitalWrite(pinL1, relayState);
-    analogWrite(pwmPin, pwmValue);
+    // Bitmaske: Bit 0 für Relais L1
+    int state = 0;
+    if (relayState)
+        state |= 1;
+    // Falls L2 dauerhaft an ist (Stern ohne N), könntest du hier Bit 1 setzen:
+    // state |= 2;
+    logEntry.state = state;
+
+    LOG_INFO(TAG_PID, "Apply Stern: Target %dW, Relay %s, PWM %d",
+             targetPower, relayState ? "AN" : "AUS", finalPWM);
 
 #endif
 

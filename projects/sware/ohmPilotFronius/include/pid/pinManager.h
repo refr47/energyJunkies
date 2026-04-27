@@ -90,15 +90,14 @@ private:
     int getMeanOfAvailAblePower();
 #ifdef PHASEN2
 
-    float P_surplus;      // aktueller PV-Überschuss
+    float P_actual_measured; // aktueller PV-Überschuss
     float P_phase = 1000; // Leistung einer Heizphase in Watt
 
     bool relayState = false;
-    float relay_on_threshold = 100;
-    float relay_off_threshold = 80;
+    const float margin = 150.0;
     int pwmValue = 0;
     unsigned long relayCandidateTimer = 0;
-    unsigned long relayDelay = 10000; // 10 Sekunden
+    unsigned long relayDelay = 15000; // 10 Sekunden
     void setRelaySafe(int pin, bool state, unsigned long &lastSwitch);
 #endif
 };
