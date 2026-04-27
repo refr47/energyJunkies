@@ -1,953 +1,760 @@
-// #include "PID_v1.h"
-#include "esp32-hal.h"
-#include "debugConsole.h"
-#include "pidManager.h"
-#include "mqtt.h"
-#ifdef TEST_PID_WWWW
-#include "eprom.h"
-#endif
-#ifdef INFLUX
-#include "influx.h"
-#endif
+#include "pinManager.h"
+#include "app_state.h"
+#include "utils.h"
 
-// pid settings and gains
-#define OUTPUT_MIN 0.0
-#define OUTPUT_MAX 255.0
-
-#define ABS(N) ((N < 0) ? (-N) : (N))
-
-#define aggKp 4
-#define aggKi 0.2
-#define aggKd 1
-
-#define consKp 1
-#define consKi 0.05
-#define consKd 0.25
-
-#define KP 1
-#define KI 0.5
-#define KD 0
-
-// power has to be above set point for this time, before next digital output
-// is activated (in ms)
-#define DELAY_DIG_OUT_ON 5000
-// delay turning of next digital output for this time (in ms)
-#define DELAY_DIG_OUT_OFF 2000
-
-// minimal on time for digital output (in ms)
-static int MIN_ON_TIME = 10000;
-// target power - max available power
-// //static int TARGET_POWER = 5950;
-
-static const int id_DIG_PIN_1 = 0;
-static const int id_DIG_PIN_2 = 1;
-static const int id_ANA_PWM = 2;
-
-PinManager::PinManager()
+void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 {
+    onePhase = data.setupData.heizstab_leistung_in_watt / 3;
+
+    LOG_INFO(TAG_PID, "PinManager::config:: - Heizpatrone Leistung %d Watt,", data.setupData.heizstab_leistung_in_watt);
+    pinL1 = l1;
+    pinL2 = l2;
+    pwmPin = pwm;
+    epsilon = data.setupData.epsilonML_PinManager;
+    // memcpy(&data.logBuffer, 0, sizeof(RingBuffer)); // reset log buffer
+    pinMode(pinL1, OUTPUT);
+    pinMode(pinL2, OUTPUT);
+    pinMode(pwmPin, OUTPUT);
+    legionella = false;
     availablePower.clear();
+    reset();
+    int delta = data.setupData.tempMaxAllowedInGrad - data.setupData.tempMinInGrad;
 
-    powerIndex = 0;
-    storage = 0;
-    boilerSwitchExternalOn = 0;
+    tinyNN = new TinyNN(data.setupData.heizstab_leistung_in_watt, delta / 2.0, delta);
 }
 
-void PinManager::config(Setup &setup, int digOut1, int digOut2, int anOut)
+/*
+*********** STATE
+*/
+
+int PinManager::tempState(double t)
 {
-
-    onePhase = setup.heizstab_leistung_in_watt / 3.00;
-    mOuts[id_DIG_PIN_1].init(digOut1, MIN_ON_TIME, Digital);
-    mOuts[id_DIG_PIN_2].init(digOut2, MIN_ON_TIME, Digital);
-    mOuts[id_ANA_PWM].init(anOut, MIN_ON_TIME, Analog);
-
-    mDelayDigOutOn = millis();
-    mDelayDigOutOff = millis();
-    boilerSwitchExternalOn = 0;
+    if (t < 45)
+        return 0;
+    if (t < 50)
+        return 1;
+    if (t < 55)
+        return 2;
+    if (t < 60)
+        return 3;
+    return 4;
 }
 
-void PinManager::allOn()
+int PinManager::pvState(double p)
 {
-    LOG_DEBUG("PinManager::allOn");
-    storage = 0.0;
-    if (mAnalogOut != OUTPUT_MAX)
+    p = -p;
+    if (p < 500)
+        return 0;
+    if (p < 1500)
+        return 1;
+    if (p < 3000)
+        return 2;
+    if (p < 5000)
+        return 3;
+    return 4;
+}
+
+/*
+RL
+
+*/
+
+/*
+****** Base Power
+*/
+int PinManager::basePower(int effective)
+{
+    int phases = (int)(effective / onePhase);
+    if (phases > 2)
+        phases = 2;
+
+    return phases * onePhase;
+}
+
+/*
+
+Main UPDATE
+update(double measuredPower, double temp, int hour)
+*/
+void PinManager::testPins(int l1, int l2, int pwm)
+{
+    LOG_INFO("GPIO", "testPins, BEGIN");
+    LOG_INFO("GPIO", "Port l1 ist jetzt HIGH");
+    digitalWrite(l1, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(4000));
+    digitalWrite(l1, LOW);
+
+    LOG_INFO("GPIO", "Port l2 ist jetzt HIGH");
+    digitalWrite(l2, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(4000));
+    digitalWrite(l2, LOW);
+
+    LOG_INFO("GPIO", "Port pwm ist jetzt HIGH");
+    analogWrite(pwm, 255);
+    vTaskDelay(pdMS_TO_TICKS(4000));
+    analogWrite(pwm, 0);
+    LOG_INFO("GPIO", "testPins ExITT");
+}
+inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, int temp, unsigned long nowMS)
+{
+    // SAFETY,
+    LOG_DEBUG("PinManager::PID: : %s", pcTaskGetName(NULL));
+    // allowed boiler temp
+    if (temp >= webSockData.setupData.tempMaxAllowedInGrad)
     {
-        switchOnL3();
+
+        LOG_DEBUG(TAG_PID, "PID: Max Temperatur <%d> erreicht: <%d>, abschalten", webSockData.setupData.tempMaxAllowedInGrad, temp);
+        reset();
+
+        return MODE_OFF;
     }
-    for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
+#ifdef BOILER
+    // LEGIONELLA
+    if (nowMS - lastLegionella > webSockData.setupData.legionellenDelta /*7UL * 24 * 3600 * 1000*/)
+        legionella = true;
+
+    if (legionella)
     {
-        if (!mOuts[i].isDigOn())
+        if (temp >= webSockData.setupData.legionellenMaxTemp /*LEG_TEMP*/)
         {
-            mOuts[i].setValue(1);
-        }
-    }
-    storage += onePhase * 3;
-}
-
-void PinManager::reset()
-{
-    LOG_DEBUG("PinManager::reset");
-    if (mAnalogOut != 0.0)
-    {
-        mAnalogOut = 0.0;
-        mOuts[id_ANA_PWM].setValue(mAnalogOut);
-        mAnalogOut = 0.0;
-        LOG_DEBUG("PinManager::reset analog out %.2f", mAnalogOut);
-    }
-    for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
-    {
-        if (mOuts[i].isDigOn())
-        {
-            mOuts[i].setValue(0);
-            mDelayDigOutOff = millis();
-            LOG_DEBUG("PinManager::reset pin %d", i);
+            legionella = false;
+            lastLegionella = nowMS;
+            char tempBuf[10];  // Platz für "-123.45\0"
+            char tempBuf1[10]; // Platz für "-123.45\0"
+            LOG_DEBUG(TAG_PID, "PID: Legionellen Temperatur <%s> erreicht: <%s>", fToStr(webSockData.setupData.legionellenMaxTemp, 5, 1, tempBuf), fToStr(temp, 5, 1, tempBuf1));
+            return MODE_OFF;
         }
         else
         {
-            LOG_DEBUG("PinManager::reset pin %d already off", i);
+
+            LOG_DEBUG(TAG_PID, "PID:HEAT (Legionellen)");
+            return MODE_LEGIONELLA;
         }
     }
-    storage = 0.0;
-}
-
-void PinManager::switchOnL1()
-{
-
-    mOuts[id_DIG_PIN_1].setValue(1);
-    mAnalogOut = 0.0;
-    mOuts[id_ANA_PWM].setValue(mAnalogOut);
-    storage += onePhase;
-}
-
-void PinManager::switchOnL2()
-{
-
-    mOuts[id_DIG_PIN_2].setValue(1);
-    mAnalogOut = 0.0;
-    mOuts[id_ANA_PWM].setValue(mAnalogOut);
-    storage += onePhase;
-}
-
-void PinManager::switchOnL3()
-{
-    mAnalogOut = OUTPUT_MAX;
-    mOuts[id_ANA_PWM].setValue(mAnalogOut);
-    storage += onePhase;
-}
-
-double PinManager::getMeanOfAvailAblePower()
-{
-
-    std::sort(availablePower.begin(), availablePower.end());
-    double sum = 0;
-    for (int jj = 1; jj < availablePower.size() - 1; jj++)
+    if (temp < webSockData.setupData.tempMinInGrad)
     {
-        sum += availablePower[jj];
+
+        LOG_DEBUG(TAG_PID, "PID: Min Temperatur <%d> erreicht: <%d>, einschalten", webSockData.setupData.tempMinInGrad, temp);
+        powerIndex = 0;
+        return MODE_MIN_TEMP;
     }
-    // DBGf("getMeanOfAvailablePower: %.3f, length: %d", sum, availablePower.size());
-
-    double mean = static_cast<double>(sum) / (availablePower.size() - 2);
-    // DBGf("getMeanOfAvailablePower: %.3f", mean);
-    availablePower.clear();
-    return mean;
-}
-
-#ifdef TEST_PID_WWWW
-#define START_VALUE_FOR_AIVALABLE_WATT -99999.0
-static Setup d;
-// static double prevAvailableWatt = 0.0;
-static double statusBoilerWatt = 0.0;
-static double firstAvailableWatt = 0.0;
-static double prevAvailableWatt = 0.0;
-static double prozent = 0.0;
-static boolean isNegative = false;
 #endif
-
-double PinManager::getWattBoundInRelays()
-{
-
-    double store = 0.0;
-    LOG_DEBUG("PinManager::getWattBoundInRelays");
-    for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
+    if (webSockData.setupData.forceHeating != HEATING_AUTOMATIC) // no pid controller, all is forced
     {
-        /*     DBGf("index: %d,isDigOn(): %d, tivationTimeElapsed(): %d", i, mOuts[i].isDigOn(), mOuts[i].hasActivationTimeElapsed()); */
-        if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-        {
-            store += onePhase;
-        }
-        // DBGf("getWattBoundInRelays store: %f", store);
+        LOG_DEBUG(TAG_PID, "PID  Manuelle Steuerung - keine Automatik");
+        powerIndex = 0;
+
+        return MODE_MANUAL; // nothing must be done due to overruling everything
     }
-    return store;
-}
 
-double PinManager::reduceRelayStorage()
-{
-    LOG_INFO("PidManager:reduceRelayStorage , storage: %.3f BEGIN", storage);
-    for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
-    {
-        if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-        {
-            mOuts[i].setValue(0);
-            if (availableWatt - onePhase > 0.0)
-            {
-                availableWatt -= onePhase;
-            }
-            else
-                availableWatt = 0.0;
-            storage -= onePhase;
-            LOG_DEBUG("PidManager:: reduceRelayStorage < 0 , Power Off DigiOut:%d, availableWatt %.3f", i, availableWatt);
-            break;
-        }
-    }
-    LOG_DEBUG("PidManager:reduceRelayStorage storage: %.3f EXIT", storage);
-    return storage;
-}
-
-double PinManager::addRelayStorage()
-{
-    LOG_DEBUG("PidManager:addRelayStorage storage: %.3f BEGIN", storage);
-    for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
-    {
-        if (!mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-        {
-            mOuts[i].setValue(1);
-            availableWatt -= onePhase;
-            storage += onePhase;
-            LOG_DEBUG("PidManager:: >  0,addRelayStorage >= onePhase: L %d active", i);
-            // return storage;
-            break;
-        }
-    }
-    LOG_DEBUG("PidManager:addRelayStorage storage: %.3f ExIT", storage);
-    return storage;
-}
-
-void PinManager::adjustPWM()
-{
-
-    if (mAnalogOut >= OUTPUT_MAX)
-    {
-        LOG_DEBUG("adustManager, nothing to do, mAnalogOut: %.3f", mAnalogOut);
-    }
-    if (availableWatt < onePhase)
-    {
-        LOG_DEBUG("adjustPWM:: >  0,mCurrentPower <= onePhas: pwm: %d, availableWatt: %f", (int)(OUTPUT_MAX * availableWatt / onePhase), availableWatt);
-        mAnalogOut = OUTPUT_MAX * availableWatt / onePhase;
-        mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
-        availableWatt = 0.0;
-    }
-    else
-    {
-        mAnalogOut = OUTPUT_MAX;
-        mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
-        LOG_DEBUG("adjustPWM - else mCurrentPower <= onePhas: pwm: %d", OUTPUT_MAX);
-    }
-}
-// true: nothing must be done, because temperature > allowed or temperature < allowed
-// false: loading is not handled by this methode!
-
-bool PinManager::prologTemperature(WEBSOCK_DATA &webSockData)
-{
-    LOG_INFO("prologTemperature BEGIN");
-    double boilerTemp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2.0;
-    LOG_DEBUG("boilerTemp %.3f  allowed degs: %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
-
-    if (boilerTemp > webSockData.setupData.tempMaxAllowedInGrad)
-    {
-        LOG_DEBUG("Nothing to do, boilerTemp %.3f >= allowed degs: %d", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
-
-        if (getStateOfDigPin(0))
-        {
-            LOG_DEBUG("SwitchOff L1");
-            reset();
-        }
-        if (getStateOfDigPin(1))
-        {
-            LOG_DEBUG("SwitchOff L2");
-            reset();
-        }
-        if (getStateOfAnaPin())
-        {
-            LOG_DEBUG("SwitchOff L3");
-            reset();
-        }
-        webSockData.states.boilerHeating = false;
-
-#ifdef INFLUX
-        influx_write_test(storage, availableWatt);
-#endif
-        LOG_INFO("prologTemperature eXIT true");
-        return true;
-    }
-    else if (boilerTemp < webSockData.setupData.tempMinInGrad)
-    {
-        LOG_DEBUG("Current boilerTemp Minimal underflow (%d), start heating %.3f < setup min temperature is: %d", webSockData.setupData.tempMinInGrad, boilerTemp);
-        webSockData.states.boilerHeating = true;
-        if (!getStateOfDigPin(0))
-        {
-            LOG_DEBUG("SwitchOnL1");
-            switchOnL1();
-        }
-        if (!getStateOfDigPin(1))
-        {
-            LOG_DEBUG("SwitchOnL2");
-            switchOnL2();
-        }
-        if (!getStateOfAnaPin())
-        {
-            LOG_DEBUG("SwitchOn AnalogOut");
-            switchOnL3();
-        }
-#ifdef INFLUX
-        influx_write_test(storage, availableWatt);
-#endif
-        LOG_INFO("prologTemperature eXIT true");
-        return true;
-    }
-    else
-    {
-        webSockData.states.boilerHeating = true;
-        LOG_DEBUG("BoilerTemp  %.3f < tempMaxAllowedInGrad %d, !!heat!!", boilerTemp, webSockData.setupData.tempMaxAllowedInGrad);
-    }
-    LOG_INFO("prologTemperature eXIT false");
-    return false;
-}
-bool PinManager::prologExternalBoilerSwitchHandling(WEBSOCK_DATA &webSockData)
-{
-    /* if (webSockData.states.froniusAPI)
-    {
-        if (storage > 0.0 || mAnalogOut > 0.0)
-        {
-            // p_load < 0 implies: consumtion of watt and if
-            // storage+mAnalogOut + current consumption > 0: hardware bimetal
-            // temperature of boiler switched off
-            if (webSockData.fronius_SOLAR_POWERFLOW.p_load + storage + mAnalogOut > 0.0)
-            {
-
-
-                    ++boilerSwitchExternalOn;
-                    storage = mAnalogOut = 0;
-                    if (boilerSwitchExternalOn > 100)
-                    {
-                        LOG_DEBUG("pidManager::task - boiler switch, counter > 100, timeSlot: %d", millis() - testForBoilerSwitch);
-                        boilerSwitchExternalOn = 0;
-                        testForBoilerSwitch = millis();
-                    }
-
-                return true;
-            }
-            else
-            {
-                // testForBoilerSwitch = 0;
-            }
-        }
-    } */
-    return true;
-}
-
-bool PinManager::task(WEBSOCK_DATA &webSockData)
-{
-
-    LOG_DEBUG("PinManager::task BEGIN");
-    // fetch temperature
-    if (prologTemperature(webSockData))
-        return true;
-    // prologExternalBoilerSwitchHandling(webSockData);
+    int availableWatt;
+    //  <0:  einspeisen, >0: Bezug
     if (webSockData.states.froniusAPI)
     {
         if (webSockData.fronius_SOLAR_POWERFLOW.p_akku < 20.0)
         { // <0: laden, >0 entladen
-            if (webSockData.setupData.externerSpeicherPriori == AKKU_PRIORITY_SUBORDINATED)
+            if (webSockData.setupData.akkuPriori == AKKU_PRIORITY_SUBORDINATED)
             {
-                availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_grid; // gird < 0: einspeisen, > 0 bezug
-                LOG_DEBUG("(Fronius) Akku priority subordinated (nachrangig), available Watt: %.3f", availableWatt);
+                availableWatt = (int)(webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_grid); // gird < 0: einspeisen, > 0 bezug
+
+                LOG_DEBUG(TAG_PID, "PID (Fronius) Akku priority subordinated (nachrangig), available Watt: %d", availableWatt);
             }
             else
             {
-                LOG_DEBUG("(Fronius) Akku priority primary (vorrangig)available Watt: %.3f", availableWatt);
-                availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
+
+                LOG_DEBUG(TAG_PID, "PID (Fronius) Akku priority primary (vorrangig)available Watt: %d", availableWatt);
+                availableWatt = (int)webSockData.fronius_SOLAR_POWERFLOW.p_grid;
             }
         }
         else
         {
-            availableWatt = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
-            LOG_DEBUG("(Fronius) Available Watt: %.3f", availableWatt);
-        }
+            availableWatt = (int)webSockData.fronius_SOLAR_POWERFLOW.p_grid;
 
-        gridWatt = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
-        /*   DBGf("fronisAPI: availableWatt: %.3f, gridWatt: %.3f, store: %.3f", availableWatt, gridWatt, getWattBoundInRelays());
-          DBGf("fronisAPI: p_pv: %.3f, p_akku: %.3f, p_load: %.3f", webSockData.fronius_SOLAR_POWERFLOW.p_pv, webSockData.fronius_SOLAR_POWERFLOW.p_akku, webSockData.fronius_SOLAR_POWERFLOW.p_load); */
-#ifdef INFLUX
-        influx_write_production(webSockData.fronius_SOLAR_POWERFLOW.p_pv, webSockData.fronius_SOLAR_POWERFLOW.p_akku, webSockData.fronius_SOLAR_POWERFLOW.p_load);
-#endif
+            LOG_DEBUG(TAG_PID, "PID (Fronius) Available Watt: %d", availableWatt);
+        }
     }
     else
     {
         // gwebSockData.mbContainer.meterValues.data.acCurrentPower < 0: export: else import
-        availableWatt = gridWatt = webSockData.mbContainer.meterValues.data.acCurrentPower; //  <0:  einspeisen, >0: Bezug
-        DBGf("No froniusAPI) AvailableWatt: %.3f, gridWatt: %.3f", availableWatt, gridWatt);
-        /*   DBGf("modbus: acCurrentPower: %.3f, acCurrentPower: %.3f", webSockData.mbContainer.inverterSumValues.data.acCurrentPower, webSockData.mbContainer.meterValues.data.acCurrentPower); */
-#ifdef INFLUX
-        influx_write_production(webSockData.mbContainer.inverterSumValues.data.acCurrentPower, 0.0, webSockData.mbContainer.meterValues.data.acCurrentPower);
-#endif
-    }
-    // reduce available watts if energy need not consumed by heating
-    availableWatt -= webSockData.setupData.pid_powerWhichNeedNotConsumed;
+        availableWatt = (int)webSockData.mbContainer.meterValues.data.acCurrentPower;
 
-    if (webSockData.states.heating != HEATING_AUTOMATIC) // no pid controller, all is forced
+        LOG_DEBUG(TAG_PID, "PID No froniusAPI) AvailableWatt: %d", availableWatt);
+    }
+
+    // WATT-Bias for testing - only for testing
+    if (webSockData.setupData.wattSetupForTest != 0)
     {
-        LOG_DEBUG("Heating: %d", webSockData.states.heating);
-#ifdef INFLUX
-        influx_write_test(storage, availableWatt);
-#endif
-        LOG_INFO("PinManager::task eXIT true, heating not automatic");
-        return true; // nothing must be done due to overruling everything
-    }
+        webSockData.states.wattBiasForTest = true;
+        availableWatt = webSockData.setupData.wattSetupForTest;
 
-#ifdef TEST_PID_WWWW
-    eprom_getSetup(d);
-    // eprom_show(d);
-    if (eprom_stammDataUpdate())
+        LOG_DEBUG(TAG_PID, "PID TEST MODE - AvailableWatt overridden by setup: %d", availableWatt);
+    }
+    else
     {
-        eprom_stammDataUpdateReset();
+        webSockData.states.wattBiasForTest = false;
     }
-
-    // availableWatt += (double)d.forceHeating;
-    //  availableWatt -= statusBoilerWatt;
-    availableWatt -= d.additionalLoad;
-    firstAvailableWatt = availableWatt;
-    DBGf("Abs: %f,  newAvailableWatt: %f, addLoad: %.3f", ABS(availableWatt), availableWatt, d.additionalLoad);
-
-/* if (prevAvailableWatt != START_VALUE_FOR_AIVALABLE_WATT)
-    availableWatt = prevAvailableWatt; */
-#endif
-
-    if (powerIndex < MAX_LEN_MEASURE)
+    // NO PV → minimal heating via RL
+    /*   if (availableWatt > 0.0)
+      {
+          LOG_DEBUG("PinManager::preCheck - Bezug <%.3f>", availableWatt);
+          return true;
+      } */
+    /* LOG_DEBUG(TAG_PID, "PinManager::after FRONIUS - powerindex: %d HYSTERESIS_WATT: %d", powerIndex, HYSTERESIS_WATT);
+     */
+    if (powerIndex < HYSTERESIS_WATT)
     {
         availablePower.push_back(availableWatt); // availablePower;
         ++powerIndex;
-        // DBGf("sIZEOF BUFFER. %d", availablePower.size());
-#ifdef TEST_PID_WWWW
-#ifdef INFLUX
-        influx_write_mean_val(availableWatt);
-        return true;
-#endif
-#endif
-        return true;
+        LOG_DEBUG(TAG_PID, "PinManager::preCheck - powerIndex < MAX_LEN_MEASUR: %d, powerIndex: %d", availableWatt, powerIndex);
     }
     else
     {
-        availableWatt = getMeanOfAvailAblePower();
-        LOG_INFO("Means of MAX_LEN_MEASURE-2 measures  %f", availableWatt);
+        // LOG_INFO("PinManager::preCheck - Means of HYSTERESIS_WATT-2 measures  %f", availableWatt);
         powerIndex = 0;
+        availablePower.push_back(availableWatt); // availablePower;
+        ++powerIndex;
     }
-#ifdef INFLUX
-    influx_write_test(storage, availableWatt);
-#endif
+    /* LOG_DEBUG(TAG_PID, "PinManager::preCheck - EXIT: %f, powerIndex: %d", availableWatt, powerIndex); */
+    return MODE_AUTO;
+}
 
-    if (ABS(availableWatt) < 20.0)
+#define ABS(N) ((N < 0) ? (-N) : (N))
+
+void inline PinManager::fillLogEntry(WEBSOCK_DATA &webSockData, LogEntry &logEntry)
+{
+    utils_logWrite(webSockData.logBuffer, logEntry);
+    // LOG_DEBUG(TAG_PID, "===> LogEntry ts: %lu, temp: %d, power: %d, pwm: %d, state: %d", logEntry.ts, logEntry.temp, logEntry.power, logEntry.pwm, logEntry.state);
+    webSockData.pidContainer.mAnalogOut = currentPWM;
+    webSockData.pidContainer.PID_PIN1 = digitalRead(pinL1) == HIGH ? 1 : 0;
+    webSockData.pidContainer.PID_PIN2 = digitalRead(pinL2) == HIGH ? 1 : 0;
+}
+
+void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
+{
+    unsigned long now = millis();
+    LogEntry logEntry;
+    time_t curT;
+    time(&curT);
+    webSockData.states.boilerHeating = false;
+
+    int temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2;
+    if (webSockData.temperature.sensor1 < 0)
     {
-#ifdef TEST_PID_WWWW
-        DBGf("ABS<20, PWM: %.3f", mAnalogOut);
-#endif
-        LOG_INFO("PinManager::task eXIT true, AvailableWatt < 20.0");
-        return true;
+        temp = webSockData.temperature.sensor2;
+    }
+    if (webSockData.temperature.sensor2 < 0)
+    {
+        temp = webSockData.temperature.sensor1;
+    }
+    if (temp <= 0)
+    {
+
+        LOG_ERROR(TAG_PID, "Ungültige Temperaturmessung: sensor1: %d, sensor2: %d", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+        return;
     }
 
-    if (availableWatt > 0.0) // bezug!
+    // logEntry.tag = "PID";
+    logEntry.temp = temp;
+    logEntry.ts = curT;
+    // LOG_ERROR(TAG_PID, "PinManager::BEFORE() - Task: %s", pcTaskGetName(NULL));
+    ControlMode currentMode = preCheck(webSockData, temp, now);
+    // LOG_ERROR(TAG_PID, "PinManager::AFTER() - Task: %s", pcTaskGetName(NULL));
+    int measuredPower = 0;
+    int targetPower = 0;
+    int action = 0;
+
+    bool doML = true;
+    LOG_ERROR(TAG_PID, "PinManager::update() - currentMode: %d, temperature %d, sensor1 %d, sensor2 %d", currentMode, temp, webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+
+    switch (currentMode)
     {
-#ifdef TEST_PID_WWWW
-        isNegative = true;
-#endif
+    case MODE_OFF:
+        targetPower = 0;
+        measuredPower = 0;
+        logEntry.power = 0;
+        logEntry.pwm = 0;
 
-        LOG_DEBUG("AvailableWatt: %f > 0, Consumation, analogOut: %.3f   ", availableWatt, mAnalogOut);
+        logEntry.state = 0;
+        targetPower = 0;
 
-        storage = getWattBoundInRelays();
-        LOG_DEBUG("storage: %.3f , availableWatt: %.3f ", storage, availableWatt);
-        if (storage > 0.0 && availableWatt >= onePhase)
-        {
-            LOG_DEBUG("1 availableWatt < storage: %.3f", storage);
-            /* if (storage >= onePhase)
-            { */
-            LOG_DEBUG("2 storage %.3f - availableWatt %.3f> onePhase: ", storage, availableWatt);
-            storage = reduceRelayStorage();
-            LOG_DEBUG("3 storage %.3f - availableWatt %.3f> onePhase: ", storage, availableWatt);
-            // }
-        }
-        if (availableWatt >= onePhase)
-        {
-            LOG_DEBUG("4 availableWatt >= onePhase %.3f", availableWatt);
-            mAnalogOut = OUTPUT_MIN;
-            mOuts[id_ANA_PWM].setValue(mAnalogOut);
-            LOG_DEBUG("5 availableWatt >= onePhase,pwm=0, analogOutput: %.3f", mAnalogOut);
-        }
-        else if (availableWatt < onePhase)
-        {
-            adjustPWM();
-            /* mAnalogOut = OUTPUT_MIN;
-            mOuts[id_ANA_PWM].setValue(mAnalogOut); */
-            LOG_DEBUG("6 availableWatt < onePhase, mAnalogOut: %.3f", mAnalogOut);
-        }
+        doML = false;
+        reset(); // Interne Zähler zurücksetzen
+        LOG_INFO(TAG_PID, "HEAT OFF (Sicherheit) - Alle Relais aus, PWM 0");
+        break;
 
-#ifdef HH
-        if (availableWatt >= onePhase)
-        {
+    case MODE_LEGIONELLA:
+    case MODE_MIN_TEMP:
+        targetPower = measuredPower = onePhase * 3; // Volle Kraft
+        doML = false;
+        logEntry.state = 3; // Spezieller Zustand für Legionella
+        logEntry.power = targetPower;
+        logEntry.pwm = 255;
 
-            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2 && availableWatt > onePhase; i++)
-            {
-                if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-                {
-                    mOuts[i].setValue(0.00);
-                    availableWatt -= onePhase;
-                    statusBoilerWatt -= onePhase;
-                    DBGf("PidManager:: availableWatt < 0 , Power Off DigiOut:%d", i);
-                }
-            }
-        }
-        if (availableWatt < onePhase && mAnalogOut > 0.00)
-        {
-            pwm = OUTPUT_MAX * availableWatt / onePhase;
-            DBGf("new pwm: %.3f, mAnalogOut: %.3f ", pwm, mAnalogOut);
-            prozent = 0.0;
-            if (pwm <= mAnalogOut)
-            {
-                prozent = pwm / mAnalogOut;
-                mAnalogOut -= pwm;
-                statusBoilerWatt *= prozent;
-            }
-            else
-            {
-                DBGf("new pwm > mAnalogOut, mAnalogOut: %.3f, pwm: %.3f, REsET", mAnalogOut, pwm);
-                mAnalogOut = 0.00;
-                statusBoilerWatt = 0.00;
-            }
+        LOG_INFO(TAG_PID, "HEAT ON (Sicherheit) - Alle Relais ein, PWM 254");
+        break;
 
-            DBGf("PidManager::task - new pwm: %.3f, prozent: %.3f, reduce anaOut %.3f", pwm, prozent, mAnalogOut);
-            mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
-        }
-        else if (mAnalogOut > 0.00)
-        {
-            mOuts[id_ANA_PWM].setValue(0.00); // [0..255]
-            mAnalogOut = 0.00;
-            availableWatt -= onePhase;
-            statusBoilerWatt -= onePhase;
-            DBGf("availableWatt < 0,mCurrentPower <= onePhase PWM: %d", 0);
-        }
-#endif
-    }
-    else // einspeisung, < 0!
+    case MODE_MANUAL:
+
+        // Hier einfach den aktuellen Ist-Wert lassen oder aus webSockData lesen
+        LOG_INFO(TAG_PID, "Manuelle Steuerung");
+        /*
+        logEntry.state = (digitalRead(pinL1) == HIGH) || (digitalRead(pinL2) == HIGH);
+        logEntry.pwm = (int)currentPWM;
+        logEntry.power = getMeanOfAvailAblePower();
+        */
+        doML = false;
+        // fillLogEntry(webSockData, logEntry);
+        targetPower = 15000;
+        availablePower.clear();
+        break;
+
+    case MODE_AUTO:
     {
-        availableWatt *= -1.0; // simpler for computing
-        LOG_DEBUG("AvilableWatt: %f > 0, production>Load, analogOut (PWM): %.3f", availableWatt, mAnalogOut);
-#ifdef TEST_PID_WWWW
-        isNegative = true;
-#endif
+        // Nur hier läuft deine RL-Logik!doML = false;
+        doML = true;
 
-        // storage = getWattBoundInRelays();
-        /*   if (availableWatt < storage)
-          {
-              DBGf("1 availableWatt < storage: %.3f", storage);
-              if (storage > 0.0)
-              {
-                  storage = reduceRelayStorage(storage);
-                  DBGf("2 storage - availableWatt %.3f > onePhase %.3f", availableWatt, storage);
-              }
-          } */
-        if (availableWatt > onePhase)
+        measuredPower = getMeanOfAvailAblePower();
+        LOG_DEBUG(TAG_PID, "RL AUTO - Gemessene Leistung: %d W ", measuredPower);
+        logEntry.power = measuredPower;
+        if (abs(measuredPower) < EPSILON_TEMP)
         {
-            LOG_DEBUG("3 Available storage (%.3f) > onePhase (%.3f)", availableWatt, storage);
-            storage = addRelayStorage();
-        }
-        adjustPWM();
-#ifdef HH
-        if (availableWatt <= onePhase)
-        {
+            targetPower = 0; // <--- DAS schaltet aus, wenn kein Strom da ist!
 
-            mAnalogOut = OUTPUT_MAX * availableWatt / onePhase;
-            mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
-            statusBoilerWatt += availableWatt;
-            availableWatt = 0.0;
-            DBGf(">  0,mCurrentPower <= onePhase: %f", mAnalogOut);
+            LOG_INFO(TAG_PID, "PID eXIT true, AvailableWatt: %d < %d (Epsilon)", (int)measuredPower, (int)EPSILON_TEMP);
+            targetPower = 0; // <--- DAS schaltet aus, wenn kein Strom da ist!
+            doML = false;
         }
         else
         {
 
-            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2 && availableWatt >= onePhase; i++)
+            // 1. Aktuelle Gesamtsituation erfassen
+            int heater = heaterPower();
+            doML = true;
+            // Was wir theoretisch verbrauchen könnten (Überschuss + aktueller Eigenverbrauch)
+            int effectiveAvailable = (-measuredPower) + heater;
+#ifdef BOILER
+           
+            // 2. Deterministische Basis (Wie viele Phasen sind VOLLSTÄNDIG deckbar?)
+            int fullPhases = (int)(effectiveAvailable / onePhase);
+            if (fullPhases > 2)
+                fullPhases = 2; // L1 und L2 sind Relais
+            if (fullPhases < 0)
+                fullPhases = 0;
+
+            // Was bleibt für die PWM-Phase (L3) übrig?
+            int remainingForPWM = effectiveAvailable - (fullPhases * onePhase);
+            if (remainingForPWM < 0)
+                remainingForPWM = 0;
+
+            // 3. 🧠 TinyNN entscheidet NUR über den variablen Anteil (die PWM-Phase)
+            action = tinyNN->chooseAction(temp, measuredPower);
+
+            // WICHTIG: factor als float, damit die Multiplikation unten nicht 0 ergibt!
+            float factors[5] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+            float chosenFactor = factors[action];
+
+            // 4. Zielwert berechnen
+            // Die Relais-Phasen nehmen wir fix (basierend auf Überschuss),
+            // die PWM-Phase wird vom ML-Agenten feinjustiert.
+            targetPower = (fullPhases * onePhase) + (int)(onePhase * chosenFactor);
+#endif
+#ifdef PHASEN2
+          
+            int fullPhases = effectiveAvailable / onePhase;
+            if (fullPhases > 1)
+                fullPhases = 1; // Nur ein Relais vorhanden!
+
+            action = tinyNN->chooseAction(temp, measuredPower);
+            float factors[5] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+
+            // TargetPower = (1000W wenn genug da) + (0-1000W per PWM)
+            targetPower = (fullPhases * onePhase) + (int)(onePhase * factors[action]);
+
+#endif
+            if (targetPower > effectiveAvailable + 50)
             {
-                if (!mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-                {
-                    mOuts[i].setValue(1);
-                    availableWatt -= onePhase;
-                    statusBoilerWatt += onePhase;
-                    DBGf("PidManager:: >  0,mCurrentPower >= onePhase: L %d active", i);
-                }
+                targetPower = effectiveAvailable;
             }
-            if (availableWatt < onePhase && mAnalogOut < 254)
-            {
-                DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * availableWatt / onePhase);
-                statusBoilerWatt += availableWatt;
-                mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * availableWatt / onePhase); // [0..255]
-                availableWatt = 0.0;
-            }
-            else if (mAnalogOut < 254)
-            {
-                mAnalogOut = OUTPUT_MAX;
-                mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
-                availableWatt -= onePhase;
-                statusBoilerWatt += onePhase;
+           /*  LOG_INFO(TAG_PID, "ML Calc: Avail: %dW, Ph: %d, PWM-Base: %dW, Factor: %.2f -> Target: %dW",
+                     effectiveAvailable, fullPhases, remainingForPWM, chosenFactor, targetPower); */
 
-                DBGf(">  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX);
-            }
-        }
-#endif
-    }
-    /* if (isNegative)
-        availableWatt *= -1.0; */
+         
 
-    LOG_DEBUG("Exit task::  mCurrPower (W): %.3f, storage: %.3f PWM: %.3f, Storage: %f, Dig1: %d, Dig2: %d", availableWatt, storage, mAnalogOut, getWattBoundInRelays(), this->getStateOfDigPin(0), this->getStateOfDigPin(1));
 
-#ifdef TEST_PID_WWWW
-#ifdef INFLUX
-    influx_write_test(storage, availableWatt, webSockData);
-#endif
+        } // else
 
-    DBGf("Available: %.3f, storage: %.3f", availableWatt, storage);
-    DBGf("=================PID End =======================");
-#endif
-#ifdef TEST_PID_WWWW
-    prevAvailableWatt = firstAvailableWatt;
-#endif
-    delay(15000);
-    return true;
-}
+        break;
+    } // case
+    } // switch
 
-#ifdef IIIIIIII
-
-if (currentAvailablePower < 0.0)
-{
-    // Einspeisung
-    mCurrentPower = currentAvailablePower * -1.00;
-    if (mCurrentPower <= (double)setup.phasen_leistung_in_watt)
+    LOG_INFO(TAG_PID, "before calling apply, AvailableWatt: %d ", (int)targetPower);
+    if (targetPower > 0)
     {
-        // leistung für 1 phase
-        DBGf("PID Manager:: %f steht zur Verfügung", mCurrentPower);
-        result = mPid.Compute();
-        DBGf("PID Manager - leistung für 1 phase per pwm: %f", mAnalogOut);
-        if (result)
-            DBGf("PID Manager: Recalculated value, Analog Out: %f, MidSetPoint: %f", mAnalogOut, mPidSetPoint);
-        else
-            DBGf("PID Manager: Nothing happened");
-        mOuts[id_ANA_PWM].setValue(mAnalogOut);
+        webSockData.states.boilerHeating = true;
     }
-    else
-    {
-        // leistung für eine volle phase (relay) + pwm
+    apply(logEntry, targetPower);
 
-        // turn on digital output if power suffices
-        for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
+    vTaskDelay(pdMS_TO_TICKS(50)); // "Atempause"
+
+    // Prüfe, wie viel Stack noch übrig ist (in Bytes)
+    UBaseType_t stackLeft = uxTaskGetStackHighWaterMark(NULL);
+    // LOG_INFO(TAG_PID, "Freier Stack vor Write: %u, Task: %s", stackLeft * sizeof(StackType_t), pcTaskGetTaskName(NULL));
+
+    if (stackLeft < 200)
+    { // Willkürliche Grenze
+        LOG_ERROR(TAG_PID, "STACK FAST VOLL! Aufruf wird wahrscheinlich crashen.");
+    };
+    fillLogEntry(webSockData, logEntry);
+
+    /*
+    Skalierte Strafe: Anstatt nur -2 zu geben, wenn Strom bezogen wird, bestrafst du hohen Bezug stärker. Das lehrt den Algorithmus, bei knapper PV-Leistung eher vorsichtig zu sein.
+
+    Sweet Spot Bonus: Der Agent bekommt eine hohe Belohnung, wenn measuredPower nahe bei 0 liegt. Das ist das Ziel: Den Hausanschluss auf 0W zu halten.
+
+    Vermeidung von Extremen: Wenn die Temperatur zu hoch wird, sinkt der Reward, sodass der Agent lernt, die Leistung rechtzeitig zu drosseln, bevor der preCheck (Sicherheit) hart abschaltet.
+    */
+    LOG_DEBUG(TAG_PID, "ENTER ML Task: %s", pcTaskGetTaskName(NULL));
+
+    /*    int ts = tempState(temp);
+       int ps = pvState(measuredPower);
+       int action = chooseAction(ts, ps);
+    */
+    if (doML)
+    {
+
+        float reward = 0.0; // Nutze float für feinere Abstufung
+
+        // 1. Der "Sweet Spot" (Netz-Null-Punkt)
+        // Wir bestrafen sowohl Einspeisung als auch Bezug,
+        // aber Bezug (Strom kaufen) ist teurer/schlechter.
+        if (measuredPower > 0)
         {
-            if (!(mOuts[i].isDigOn() || mOuts[i].hasActivationTimeElapsed()))
-            {
-                mOuts[i].setValue(1);
-                mCurrentPower -= (double)setup.phasen_leistung_in_watt;
-                mPid.Compute();
-                mOuts[id_ANA_PWM].setValue(mAnalogOut);
-                DBGf("PID MAnager: Switched on Relais: %d, PWM: %f", i, mAnalogOut);
-                break; // do not turn on the next output
-            }
+            // Netzbezug: Strafe skaliert mit der Leistung
+            reward -= (measuredPower / 50.0);
         }
-    }
-}
-else
-{
-    mCurrentPower = currentAvailablePower;
-    if (mCurrentPower <= (double)setup.phasen_leistung_in_watt)
-    {
-        // sache für pid, da schon strom bezogen werden muss (im unteren bereich)
-        double prev_mAnalogOut = mAnalogOut;
-        mPid.Compute();
-        mAnalogOut = (prev_mAnalogOut + mAnalogOut) / 2.0;
-        DBGf("PID Manager im Bezugsmodus (%f), previPWM %f calculatedPWM %f gemittelt %f", mCurrentPower, prev_mAnalogOut, mAnalogOut, (prev_mAnalogOut + mAnalogOut) / 2.0);
-        mOuts[id_ANA_PWM].setValue(mAnalogOut);
-    }
-    else
-    {
-        for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
+        else if (measuredPower < 0)
         {
-            if ((mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed()))
-            {
-                mOuts[i].setValue(1);
-                mCurrentPower -= (double)setup.phasen_leistung_in_watt;
-                if (mCurrentPower > (double)setup.phasen_leistung_in_watt)
-                {
-                    DBGf("PID Manager Switched Of relais: %d - still remains to much bezugspower: %f , set pwm to 0", i, mCurrentPower);
-                    mAnalogOut = 0.0;
-                }
-                else
-                {
-                    mPid.Compute();
-                    DBGf("PID Manager Switched Of relais: %d - remains power: %f , set pwm to %f", i, mCurrentPower, mAnalogOut);
-                }
-                mOuts[id_ANA_PWM].setValue(mAnalogOut);
-                break; // do not turn on the next output
-            }
+            // Überschuss vorhanden:
+            // Wenn wir nah an der Null sind (z.B. -10 bis -50W), gibt es einen Bonus.
+            if (measuredPower > -50)
+                reward += 10.0;
+            else
+                reward += 2.0; // Kleiner Bonus für generelle Nutzung von Überschuss
         }
-    }
-}
-#endif
 
-#ifdef II
-mCurrentPower = currentAvailablePower; // necessary ??
-DBGf("PID Manager:: current available power: %f", mCurrentPower);
-// mCurrentPower = pidContainer.mCurrentPower;
-/*     double gap = abs(mPidSetPoint - mCurrentPower); // distance away from setpoint
-    if (gap < 10)
-    { // we're close to setpoint, use conservative tuning parameters
-        mPid.SetTunings(consKp, consKi, consKd);
-    }
-    else
-    {
-        // we're far from setpoint, use aggressive tuning parameters
-        mPid.SetTunings(aggKp, aggKi, aggKd);
-    } */
-result = mPid.Compute();
-if (result)
-{
-    DBGf("PID Manager: Recalculated value, Analog Out: %f, MidSetPoint: %f", mAnalogOut, mPidSetPoint);
-}
-else
-{
-    DBGf("PID Manager: Nothing happened");
-}
-
-mOuts[id_ANA_PWM].setValue(mAnalogOut);
-
-// turn on digital output if power suffices
-if (mCurrentPower > mPidSetPoint && mAnalogOut > OUTPUT_MAX - 1)
-{
-    if (millis() - mDelayDigOutOn > setup.pid_min_time_without_contoller_inMS)
-    {
-        for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
+        // 2. Temperatur-Management
+        // Ziel: 57°C (dein Setpoint im Code)
+        float tempDiff = abs(temp - 57);
+        if (tempDiff < 2)
         {
-            if (!mOuts[i].isDigOn())
-            {
-                mOuts[i].setValue(1);
-                mDelayDigOutOn = millis(); // delay next output
-                break;                     // do not turn on the next output
-            }
-        }
-    }
-}
-else
-{
-    mDelayDigOutOn = millis();
-}
-// turn off digital output if power is low
-DBGf("PID Manager: Condition 1: %d, Cond 2: %d Cond3: %d", mCurrentPower < mPidSetPoint, mAnalogOut<OUTPUT_MIN + 1, mDelayDigOutOff> setup.pid_min_time_before_switch_off_channel_inMS);
-
-if (mCurrentPower < mPidSetPoint && mAnalogOut < OUTPUT_MIN + 1 && millis() - mDelayDigOutOff > setup.pid_min_time_before_switch_off_channel_inMS)
-{
-    for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
-    {
-        if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-        {
-            mOuts[i].setValue(0);
-            mDelayDigOutOff = millis();
-            break; // do not turn off the next output
-        }
-    }
-}
-
-// dbg("power:");
-// dbg(power);
-DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, mPidSetPoint: %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
-/*   pidContainer.mCurrentPower=mCurrentPower;
-  pidContainer.mAnalogOut=mAnalogOut;
-  pidContainer.powerNotUseable=mPidSetPoint;
-  pidContainer.PID_PIN1 = mOuts[id_DIG_PIN_1].isDigOn();
-  pidContainer.PID_PIN2 = mOuts[id_DIG_PIN_2].isDigOn(); */
-#endif
-
-#ifdef IIIIIIIIIII
-
-// DBGf("PID Params p: %f , i: %f,  d: %f", setup.pid_p, setup.pid_i, setup.pid_d);
-mPid.SetTunings(setup.pid_p, setup.pid_i, setup.pid_d);
-
-// setup.pidChanged = false;
-
-mCurrentPower = *currentAvailablePower < 0.0 ? *currentAvailablePower * -1.0 : setup.pid_powerWhichNeedNotConsumed;
-mPid.Compute();
-// DBGf("PID Manager:: %f steht zur Verfügung mit midsetPoint: %f", mCurrentPower, mPidSetPoint);
-/*     if (result)
-        DBGf("PID Manager: Recalculated value, Analog Out: %f.", mAnalogOut);
-    else
-        DBGf("PID Manager: Nothing happened"); */
-
-mOuts[id_ANA_PWM].setValue(mAnalogOut);
-if (*currentAvailablePower < 0.0)
-{
-    consumedPower = ((mAnalogOut - analogOutPrev) / 255.0) * setup.phasen_leistung_in_watt;
-    *currentAvailablePower += consumedPower;
-    // consumedPower = ((mAnalogOut - analogOutPrev) / 255.0) * setup.phasen_leistung_in_watt;
-    /* DBGf("PID Manager: EINSPEIS anaOutPref: %f, anaOut: %f consumedPower: %f after pwm remains: %f", analogOutPrev, mAnalogOut, consumedPower, *currentAvailablePower); */
-#ifdef MQTT
-    mqtt_publish_en(mAnalogOut, mCurrentPower);
-#endif
-}
-else
-{
-    consumedPower = ((analogOutPrev - mAnalogOut) / 255.0) * setup.phasen_leistung_in_watt;
-    *currentAvailablePower -= consumedPower;
-    /* DBGf("PID Manager: BEZUG anaOutPref: %f, anaOut: %f consumedPower: %f after pwm remains: %f", analogOutPrev, mAnalogOut, consumedPower, *currentAvailablePower); */
-#ifdef MQTT
-    mqtt_publish_en(mAnalogOut, mCurrentPower);
-#endif
-}
-// delay(4000);
-
-// turn on digital output if power suffices
-if (mCurrentPower > mPidSetPoint && mAnalogOut > OUTPUT_MAX - 1)
-{
-    if (millis() - mDelayDigOutOn > DELAY_DIG_OUT_ON)
-    {
-        for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2; i++)
-        {
-            DBGf("PID Manager: Search free digital output pin : %d", i);
-            if (!mOuts[i].isDigOn())
-            {
-                DBGf("PID Manager: found : %d", i);
-                mOuts[i].setValue(1);
-                mDelayDigOutOn = millis(); // delay next output
-                *currentAvailablePower += (double)setup.phasen_leistung_in_watt;
-                break; // do not turn on the next output
-            }
-        }
-    }
-}
-else
-{
-    mDelayDigOutOn = millis();
-    // DBGf("PID Manager: time delay ");
-}
-
-/*   double gap = abs(mPidSetPoint - mCurrentPower); // distance away from setpoint
-  if (gap < 10)
-  { // we're close to setpoint, use conservative tuning parameters
-      mPid.SetTunings(consKp, consKi, consKd);
-  }
-  else
-  {
-      // we're far from setpoint, use aggressive tuning parameters
-      mPid.SetTunings(aggKp, aggKi, aggKd);
-  }
-  */
-mPid.SetTunings(aggKp, aggKi, aggKd);
-// turn off digital output if power is low
-if (mCurrentPower < mPidSetPoint && mAnalogOut < OUTPUT_MIN + 1 && millis() - mDelayDigOutOff > DELAY_DIG_OUT_OFF)
-{
-    for (int i = id_DIG_PIN_2; i >= id_DIG_PIN_1; i--)
-    {
-        if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-        {
-            DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, mPidSetPoint: %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
-            mOuts[i].setValue(0);
-            mDelayDigOutOff = millis();
-            *currentAvailablePower -= (double)setup.phasen_leistung_in_watt;
-            break; // do not turn off the next output
-        }
-    }
-}
-/*     DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, mPidSetPoint: %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, mPidSetPoint, this->getStateOfDigPin(0), this->getStateOfDigPin(1)); */
-
-#endif
-
-#ifdef IIIII
-
-bool PinManager::task(Setup &setup, double currentP, TEMPERATURE &tempContainer)
-{
-    mCurrentPower = currentP + setup.pid_powerWhichNeedNotConsumed;
-    double onePhase = setup.heizstab_leistung_in_watt / 3.00;
-
-    if (mCurrentPower < 0.00)
-    {
-        mCurrentPower *= -1.00;
-        DBGf("PidManager:: <  0,onePhase: %f", onePhase);
-        if (mCurrentPower <= onePhase)
-        {
-            mAnalogOut = OUTPUT_MAX * mCurrentPower / onePhase;
-            mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
-            DBGf("PidManager:: <  0,mCurrentPower <= onePhase: %f", mAnalogOut);
+            reward += 5.0; // Voller Bonus bei Zieltemperatur
         }
         else
         {
-
-            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2 && mCurrentPower > onePhase; i++)
-            {
-                if (!mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-                {
-                    mOuts[i].setValue(1);
-                    mCurrentPower -= onePhase;
-                    DBGf("PidManager:: <  0,mCurrentPower >= onePhase: L %d active", i);
-                }
-            }
-            if (mCurrentPower <= onePhase)
-            {
-                DBGf("PidManager:: <  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX * mCurrentPower / onePhase);
-                mOuts[id_ANA_PWM].setValue(OUTPUT_MAX * mCurrentPower / onePhase); // [0..255]
-            }
-            else
-            {
-                mOuts[id_ANA_PWM].setValue(OUTPUT_MAX); // [0..255]
-                DBGf("PidManager:: <  0,mCurrentPower <= onePhas: pwm: %f", OUTPUT_MAX);
-            }
+            reward -= (tempDiff * 0.5); // Abzug, je weiter wir weg sind
         }
-    }
-    else // mCurrentPower>0, bezug
+
+        // 3. Hardware-Schonung (Relais-Check)
+        // Wenn die Action einen Phasenwechsel erzwingt, geben wir einen kleinen Abzug,
+        // damit das Netz lernt, nur zu schalten, wenn es sich wirklich lohnt.
+        static int lastActionPhases = 0;
+        int currentActionPhases = (int)(targetPower / onePhase);
+        if (currentActionPhases != lastActionPhases)
+        {
+            reward -= 5.0; // "Schaltkosten"
+        }
+        lastActionPhases = currentActionPhases;
+
+        // 4. Sicherheit (Extremwerte)
+        if (temp > (webSockData.setupData.tempMaxAllowedInGrad - 2))
+        {
+            reward -= 20.0; // Massive Strafe kurz vor Not-Aus
+        }
+
+        // Übergabe an das neuronale Netz
+        tinyNN->remember(temp, measuredPower, action, (int)reward);
+        tinyNN->trainReplay();
+        LOG_INFO(TAG_PID, "EXIT ML Task: %s", pcTaskGetTaskName(NULL));
+    } // doML
+}
+
+/*
+****** aPPLY
+*/
+
+void PinManager::apply(LogEntry &logEntry, int targetPower)
+{
+    LOG_INFO(TAG_PID, "PinManager::apply() - ENTER Task %s, available watt: %d", pcTaskGetName(NULL), targetPower);
+    unsigned long now = millis();
+
+
+    // 🔥 HARD STOP
+    if (targetPower < 50)
     {
-        int curSensorTmp = (int)trunc((tempContainer.sensor1 + tempContainer.sensor2) / 2.00 + 0.5);
-        DBGf("PidManager:: > 0, currSensorTemp: %d", curSensorTmp);
-        if (curSensorTmp < setup.tempMinInGrad)
+        digitalWrite(pinL1, LOW);
+        digitalWrite(pinL2, LOW);
+        analogWrite(pwmPin, 0);
+
+        logEntry.state = 0;
+        logEntry.pwm = 0;
+        logEntry.power = 0;
+        return;
+    }
+#ifdef BOILER
+    // 2. Phasen-Logik mit Hysterese
+    // Wir bestimmen, wie viele Phasen VOLL (per Relais) laufen sollen.
+    const int margin = onePhase * 0.05;
+    int currentActive = (digitalRead(pinL1) == HIGH ? 1 : 0) + (digitalRead(pinL2) == HIGH ? 1 : 0);
+    int desiredPhases = currentActive;
+
+    // Einschalt-Schwellen (mit 10% Puffer nach oben)
+    // --- Logik für Phase 1 (L1) ---
+    if (currentActive == 0 && targetPower > (onePhase + margin))
+    {
+        desiredPhases = 1; // Einschalten wenn über Schwelle + Puffer
+    }
+    else if (currentActive == 1 && targetPower < (onePhase - margin))
+    {
+        desiredPhases = 0; // Ausschalten wenn unter Schwelle - Puffer
+    }
+
+    // --- Logik für Phase 2 (L2) ---
+    if (currentActive == 1 && targetPower > (2 * onePhase + margin))
+    {
+        desiredPhases = 2;
+    }
+    else if (currentActive == 2 && targetPower < (2 * onePhase - margin))
+    {
+        desiredPhases = 1;
+    }
+
+    LOG_INFO(TAG_PID, "apply (1) - targetPower: %d, desiredPhases: %d, currentActive: %d", targetPower, desiredPhases, currentActive);
+
+    // 3. Relais schalten (mit Zeitverzögerung MIN_SWITCH gegen Verschleiß)
+    if (desiredPhases != currentActive && (now - lastSwitch > MIN_SWITCH))
+    {
+       /*  LOG_INFO(TAG_PID, "apply (1) write to port- targetPower: %d, desiredPhases: %d, currentActive: %d", targetPower, desiredPhases, currentActive); */
+        digitalWrite(pinL1, desiredPhases >= 1);
+        digitalWrite(pinL2, desiredPhases >= 2);
+        lastSwitch = now;
+        currentActive = desiredPhases;
+    }
+
+    // 4. PWM Berechnung für die REST-Leistung (L3)
+    // Wir ziehen die Leistung der eingeschalteten Relais von der Ziel-Leistung ab
+    int powerFromRelays = currentActive * onePhase;
+    int powerForPWM = targetPower - powerFromRelays;
+
+    // Begrenzung der PWM-Leistung auf eine Phasenstärke
+    if (powerForPWM < 0)
+        powerForPWM = 0;
+    if (powerForPWM > onePhase)
+        powerForPWM = onePhase;
+
+    // WICHTIG: Fließkomma-Berechnung oder erst multiplizieren, dann dividieren!
+    float pwmDutyCycle = ((float)powerForPWM / (float)onePhase) * OUTPUT_MAX;
+
+    // Glättung (optional)
+    currentPWM = (0.6 * currentPWM) + (0.4 * pwmDutyCycle);
+
+    analogWrite(pwmPin, (int)currentPWM);
+
+    // Logging
+    logEntry.pwm = (int)currentPWM;
+    int state = 0;
+    if (digitalRead(pinL1) == HIGH)
+        state |= 1; // Setzt Bit 0
+    if (digitalRead(pinL2) == HIGH)
+        state |= 2; // Setzt Bit 1
+    logEntry.state = state;
+
+    LOG_INFO(TAG_PID, "Relais 1→ %d, Relais 2→ %d, pwm→ %d", desiredPhases >= 1, desiredPhases >= 2, (int)currentPWM);
+    LOG_INFO(TAG_PID, "Status Bitmaske: %d (L1: %d, L2: %d)",
+             state, (state & 1), (state >> 1 & 1));
+#endif
+#ifdef PHASEN2
+    const float P_ph = (float)onePhase;
+    const float margin = P_ph * 0.10;       // 10% Hysterese (z.B. 100W bei 1000W Phase)
+    const unsigned long relayDelay = 10000; // 10 Sek. Beruhigungszeit
+
+    // 1. Relais-Logik (Hysterese)
+    // Wir nutzen 'targetPower' direkt als Entscheidungsgrundlage
+    if (!relayState)
+    {
+        // EINSCHALTEN: Wenn die Wunschleistung deutlich über einer Phase liegt
+        if (targetPower > (P_ph + margin))
         {
-            DBGf("MindesTemp unterschritten %d", setup.tempMinInGrad);
-            mAnalogOut = OUTPUT_MAX;
-            mOuts[id_ANA_PWM].setValue(OUTPUT_MAX); // [0..255]
-            return true;
+            if (relayCandidateTimer == 0)
+                relayCandidateTimer = now;
+            if (now - relayCandidateTimer > relayDelay)
+            {
+                relayState = true;
+                relayCandidateTimer = 0;
+                lastSwitch = now; // Zeitstempel für Hardware-Schutz
+            }
         }
-        DBGf("PidManager:: > 0,onePhase: %f", onePhase);
-        if (mCurrentPower <= onePhase) // Bezug < onePhase benötigt
+        else
         {
-            mAnalogOut = OUTPUT_MAX * mCurrentPower / onePhase;
-            mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
-            DBGf("PidManager:: > 0,PWM: %f", mAnalogOut);
+            relayCandidateTimer = 0;
         }
-        else // mCurrentPower > onePhase
+    }
+    else
+    {
+        // AUSSCHALTEN: Wenn die Wunschleistung unter die Phase minus Puffer fällt
+        if (targetPower < (P_ph - margin))
         {
-            for (int i = id_DIG_PIN_1; i <= id_DIG_PIN_2 && mCurrentPower > onePhase; i++)
+            if (relayCandidateTimer == 0)
+                relayCandidateTimer = now;
+            if (now - relayCandidateTimer > relayDelay)
             {
-                if (mOuts[i].isDigOn() && mOuts[i].hasActivationTimeElapsed())
-                {
-                    mOuts[i].setValue(0.00);
-                    mCurrentPower -= onePhase;
-                    DBGf("PidManager:: > 0, Power On DigiOut:%d", i);
-                }
+                relayState = false;
+                relayCandidateTimer = 0;
+                lastSwitch = now;
             }
-            if (mCurrentPower <= onePhase)
-            {
-                mAnalogOut = OUTPUT_MAX * mCurrentPower / onePhase;
-                mOuts[id_ANA_PWM].setValue(mAnalogOut); // [0..255]
-                DBGf("PidManager:: > 0,mCurrentPower <= onePhase PWM: %f", mAnalogOut);
-            }
-            else
-            {
-                mOuts[id_ANA_PWM].setValue(0.00); // [0..255]
-                mAnalogOut = 0.00;
-                DBGf("PidManager:: > 0,mCurrentPower <= onePhase PWM: %d", 0);
-            }
+        }
+        else
+        {
+            relayCandidateTimer = 0;
         }
     }
 
-    DBGf("PID  Manager  mCurrPower (W): %f, anaOutput(PWM) %f, Dig1: %d, Dig2: %d", mCurrentPower, mAnalogOut, this->getStateOfDigPin(0), this->getStateOfDigPin(1));
-    DBGf("PidManager --exit");
-    delay(2000);
-    return true;
+    // 2. PWM-Berechnung (Restwert-Regelung)
+    float P_for_pwm = 0;
+    if (relayState)
+    {
+        // Relais liefert die erste Phase (fix), PWM liefert den Rest
+        P_for_pwm = (float)targetPower - P_ph;
+    }
+    else
+    {
+        // Relais ist aus, PWM übernimmt die komplette targetPower (bis max P_ph)
+        P_for_pwm = (float)targetPower;
+    }
+
+    // Begrenzung auf 0 bis onePhase
+    P_for_pwm = constrain(P_for_pwm, 0, P_ph);
+
+    // Duty Cycle berechnen (0-255)
+    int finalPWM = (int)((P_for_pwm / P_ph) * 255);
+
+    // Hardware-Output
+    digitalWrite(pinL1, relayState); // Phase 1
+    analogWrite(pwmPin, finalPWM);   // Phase 3 (PWM)
+
+    // 3. LogEntry für das Frontend befüllen
+    logEntry.pwm = finalPWM;
+    logEntry.power = targetPower;
+
+    // Bitmaske: Bit 0 für Relais L1
+    int state = 0;
+    if (relayState)
+        state |= 1;
+    // Falls L2 dauerhaft an ist (Stern ohne N), könntest du hier Bit 1 setzen:
+    // state |= 2;
+    logEntry.state = state;
+
+    LOG_INFO(TAG_PID, "Apply Stern: Target %dW, Relay %s, PWM %d",
+             targetPower, relayState ? "AN" : "AUS", finalPWM);
+
+#endif
+
+    LOG_INFO(TAG_PID, "PinManager::apply() - EXIT Task %s", pcTaskGetName(NULL));
+}
+#ifdef PHASEN2
+void PinManager::setRelaySafe(int pin, bool state, unsigned long &lastSwitch)
+{
+    unsigned long now = millis();
+
+    if (digitalRead(pin) != state && (now - lastSwitch > MIN_RELAY_SWITCH))
+    {
+        digitalWrite(pin, state);
+        lastSwitch = now;
+    }
 }
 #endif
+/*
+******* HELPER
+*/
+int PinManager::heaterPower()
+{
+    int p = 0;
+
+    if (digitalRead(pinL1))
+        p += onePhase;
+    if (digitalRead(pinL2))
+        p += onePhase;
+
+    p += (currentPWM / OUTPUT_MAX) * onePhase;
+
+    return p;
+}
+
+void PinManager::reset()
+{
+    digitalWrite(pinL1, LOW);
+    digitalWrite(pinL2, LOW);
+    analogWrite(pwmPin, 0);
+    currentPWM = 0;
+}
+int PinManager::getStateOfDigPin(short pin)
+{
+    if (pin == 0)
+        return (digitalRead(pinL1) ? 1 : 0);
+    if (pin == 1)
+        return (digitalRead(pinL2) ? 1 : 0);
+
+    return -1;
+}
+
+int PinManager::getStateOfAnaPin()
+{
+    return (int)currentPWM;
+}
+
+void PinManager::allOn()
+{
+    digitalWrite(pinL1, HIGH);
+    digitalWrite(pinL2, HIGH);
+    analogWrite(pwmPin, (int)OUTPUT_MAX);
+
+    currentPhases = 2;
+    currentPWM = OUTPUT_MAX;
+}
+inline int PinManager::getMeanOfAvailAblePower()
+{
+    // 1. Fensterverwaltung: Ältesten Wert entfernen, wenn Puffer voll
+    // LOG_DEBUG(TAG_PID, "getMeanOfAvailAblePower - ENTER: %d", (int)availablePower.size());
+
+    if (availablePower.size() > HYSTERESIS_WATT)
+    {
+        availablePower.erase(availablePower.begin());
+    }
+
+    size_t n = availablePower.size();
+
+    // 2. Fallback: Zu wenig Daten für Ausreißer-Bereinigung
+    if (n < 3)
+    {
+        if (n == 0)
+            return 0.0;
+        int sum = 0;
+        for (int v : availablePower)
+            sum += v;
+        // LOG_DEBUG(TAG_PID, "SuM %d values", (int) sum, n);
+        return sum / n;
+    }
+
+    // 3. Kopie erstellen und sortieren (wir wollen das Originalfenster nicht zerstören)
+    std::vector<int> sortedValues = availablePower;
+    std::sort(sortedValues.begin(), sortedValues.end());
+
+    // 4. Trimmed Mean: Ersten und letzten Wert ignorieren
+    double sum = 0;
+    for (size_t i = 1; i < n - 1; i++)
+    {
+        sum += sortedValues[i];
+    }
+    // LOG_DEBUG(TAG_PID, "SuM 2  %d values", (int)sum, n);
+    //  Division durch (n - 2), da wir zwei Werte entfernt haben
+    return sum / (n - 2);
+}

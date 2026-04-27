@@ -30,8 +30,8 @@ static vector<DATE_TIME> table;
 bool time_init()
 {
     // esp_sntp_servermode_dhcp(1); // (optional)
-    LOG_INFO("time_init()");
-    configTime(gmtOffset_sec, daylightOffset_sec, NtpServer1, NtpServer2);
+    LOG_INFO(TAG_TIME, "time_init()");
+    configTzTime(EUROPE_VIENNA_TZ, NtpServer1, NtpServer2); 
     setenv("TZ", EUROPE_VIENNA_TZ, 1);
     tzset();
 
@@ -84,7 +84,7 @@ bool time_init()
     cell.hourFrom = 17;
     cell.hourTo = 8;
     table.push_back(cell); */
-    LOG_DEBUG("time_init()");
+    LOG_DEBUG(TAG_TIME, "time_init()");
 
     delay(2000);
     struct tm timeinfo;
@@ -92,13 +92,13 @@ bool time_init()
     // Warten, bis die Zeit erfolgreich abgerufen wurde
     if (!getLocalTime(&timeinfo))
     {
-        LOG_DEBUG("curTime::time_init() - Zeit konnte nicht abgerufen werden");
+        LOG_DEBUG(TAG_TIME, "curTime::time_init() - Zeit konnte nicht abgerufen werden");
         return false;
     }
     currentMonth = timeinfo.tm_mon + 1;
     currentSecs = timeinfo.tm_hour * 3600 + timeinfo.tm_min * 60 + timeinfo.tm_sec;
 
-    LOG_INFO("curTime::time_init() current month: %d, currSecs: %d", currentMonth, currentSecs);
+    LOG_INFO(TAG_TIME, "curTime::time_init() current month: %d, currSecs: %d", currentMonth, currentSecs);
     time_print();
     return true;
 }

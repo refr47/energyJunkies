@@ -116,11 +116,11 @@ bool isConnectedAndReconnect()
         success = mb.connect(remote);
         delay(1000);
         mb.client();
-        LOG_DEBUG("modbus do connect .... %x", success);
+        LOG_DEBUG(TAG_MODBUS,"modbus do connect .... %x", success);
 
         if (!success)
         {
-            LOG_ERROR("Error in connection to Inverter via Modbus: %s", strerror(errno));
+            LOG_ERROR(TAG_MODBUS,"Error in connection to Inverter via Modbus: %s", strerror(errno));
         }
     }
 
@@ -129,12 +129,12 @@ bool isConnectedAndReconnect()
 
 bool mb_init(Setup &setUpData)
 {
-    LOG_INFO("mb_init");
-    LOG_DEBUG(" Inverter Addr: %s", setUpData.inverter);
+    LOG_INFO(TAG_MODBUS,"mb_init");
+    LOG_DEBUG(TAG_MODBUS," Inverter Addr: %s", setUpData.inverter);
 
     if (!remote.fromString(setUpData.inverter))
     {
-        LOG_ERROR("mb_init:: - cannot convert IP-Adresse of Converter from string");
+        LOG_ERROR(TAG_MODBUS,"mb_init:: - cannot convert IP-Adresse of Converter from string");
         return false;
     }
 
@@ -149,14 +149,14 @@ bool mb_readInverterStatic()
     uint16_t transId = 0;
     if (!isConnectedAndReconnect())
         return false;
-    LOG_DEBUG("Modbus/TCP connected");
+    LOG_DEBUG(TAG_MODBUS,"Modbus/TCP connected");
 
     transId = mb.readHreg(remote, MODBUS_COMMMON, (uint16_t *)&inverterRegs, MODBUS_STATIC_LEN, NULL, INVERTER_ID); // Initiate Read Holding Register from Modbus Slave
 
     if (transId == 0)
     {
 
-        LOG_ERROR("Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", INVERTER_ID, MODBUS_COMMMON, MODBUS_STATIC_LEN);
+        LOG_ERROR(TAG_MODBUS,"Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", INVERTER_ID, MODBUS_COMMMON, MODBUS_STATIC_LEN);
         ;
         delay(5000);
         //    } else {
@@ -165,7 +165,7 @@ bool mb_readInverterStatic()
     }
     else
     {
-        LOG_DEBUG(" modbus done successfully ....");
+        LOG_DEBUG(TAG_MODBUS," modbus done successfully ....");
     }
 
     mb.task(); // Common local Modbus task
@@ -187,11 +187,11 @@ bool mb_readInverterStatic()
 
         makeString(offset, offset + MODBUS_INVERTER_SW_VERS, inverterRegs, &pText);
 
-        LOG_DEBUG("W-Version:: %s", pText);
+        LOG_DEBUG(TAG_MODBUS,"W-Version:: %s", pText);
     }
     else
     {
-        LOG_DEBUG("transid is 0");
+        LOG_DEBUG(TAG_MODBUS, LOG "transid is 0");
     }
     return true;
 }
@@ -220,7 +220,7 @@ Structure for Device Management; blockID is currently SmartMeter
 
 bool mb_readAll(Setup &setup, MB_CONTAINER &mContainer)
 {
-    LOG_DEBUG("modbusReader::mb_readAll");
+    LOG_DEBUG(TAG_MODBUS,"modbusReader::mb_readAll");
     if (!mb_readSmartMeterAndInverterOnly(setup, mContainer))
     {
         readIndex = 0;
@@ -293,7 +293,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
     uint16_t transId = 0;
     bool connected = mb.isConnected(remote);
 
-    LOG_DEBUG("mb_readInverterDynamic::MOdbus is connected  %d", connected);
+    LOG_DEBUG(TAG_MODBUS,"mb_readInverterDynamic::MOdbus is connected  %d", connected);
 
     if (mb.isConnected(remote))
     { // Check if connection to Modbus Slave is established
@@ -301,7 +301,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)&resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId); // Initiate Read Holding Register from Modbus Slave
         if (transId == 0)
         {
-            LOG_ERROR("mb_readInverterDynamic::Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", regsToRead[readIndex].deviceId,
+            LOG_ERROR(TAG_MODBUS,"mb_readInverterDynamic::Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", regsToRead[readIndex].deviceId,
                       regsToRead[readIndex].baseAddr, regsToRead[readIndex].count);
 
             delay(5000);

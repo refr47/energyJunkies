@@ -29,7 +29,7 @@ http://10.0.0.31/rpc/Switch.Set?id=0&on=false
 static WiFiUDP udp;
 
 static char packetBuffer[RECEIVE_BUFFER_LEN]; // Buffer for incoming packets
-static StaticJsonDocument<RECEIVE_BUFFER_LEN> doc;
+static DynamicJsonDocument doc(RECEIVE_BUFFER_LEN);
 static unsigned int shellyIndex = 0;
 static bool doListen = false;
 static unsigned int counter = 0;
@@ -74,13 +74,13 @@ void shelly_init(SHELLY_OBJ *shellyObj)
 bool shelly_resetShelly(unsigned int sIndex)
 {
     shellyIndex = sIndex;
-    LOG_INFO("shelly::resetShelly::\n");
+    LOG_INFO(TAG_SHELLY, "shelly::resetShelly::\n");
     pShellyObjArray[shellyIndex].received == false;
     sendShellyCommandWithOutParm(SHELLY_RESET_METHOD);
-    LOG_INFO("shelly::resetShelly - after sending, index: %d, retVal: %x\n", shellyIndex, pShellyObjArray[shellyIndex].received);
+    LOG_INFO(TAG_SHELLY, "shelly::resetShelly - after sending, index: %d, retVal: %x\n", shellyIndex, pShellyObjArray[shellyIndex].received);
     if (!pShellyObjArray[shellyIndex].received)
     {
-        LOG_ERROR("shelly::switchOnOff::Waiting for response from %s did not come\n", pShellyObjArray[shellyIndex].ip);
+        LOG_ERROR(TAG_SHELLY, "shelly::switchOnOff::Waiting for response from %s did not come\n", pShellyObjArray[shellyIndex].ip);
     }
     return pShellyObjArray[shellyIndex].received == true;
 }
@@ -89,13 +89,13 @@ bool shelly_switchOnOff(bool on, unsigned int ind)
 {
 
     shellyIndex = ind;
-    LOG_INFO("shelly::switchOnOff::%s\n", on ? "ON" : "OFF");
+    LOG_INFO(TAG_SHELLY, "shelly::switchOnOff::%s\n", on ? "ON" : "OFF");
     if (pShellyObjArray[shellyIndex].sent && pShellyObjArray[shellyIndex].received == false)
     {
-        LOG_ERROR("shelly::switchOnOff::Waiting for response from %s\n", pShellyObjArray[shellyIndex].ip);
+        LOG_ERROR(TAG_SHELLY, "shelly::switchOnOff::Waiting for response from %s\n", pShellyObjArray[shellyIndex].ip);
         return false;
     }
-    StaticJsonDocument<64> paramsDoc;
+    DynamicJsonDocument paramsDoc(64);
     JsonObject params = paramsDoc.to<JsonObject>();
     params["id"] = 0; // Relay ID
     if (!on)
@@ -109,12 +109,12 @@ bool shelly_switchOnOff(bool on, unsigned int ind)
 
     pShellyObjArray[shellyIndex].received == false;
     sendShellyCommandWithParm(SHELLY_SWITCH_METHOD, params);
-    LOG_INFO("shelly::switchOnOff - after sending, index: %d, retVal: %x, doListen: %x\n", shellyIndex, pShellyObjArray[shellyIndex].received, doListen);
+    LOG_INFO(TAG_SHELLY, "shelly::switchOnOff - after sending, index: %d, retVal: %x, doListen: %x\n", shellyIndex, pShellyObjArray[shellyIndex].received, doListen);
 
     // delay(TIME_TO_WAIT_FOR_UDP_RESPONSE);
     if (!pShellyObjArray[shellyIndex].received)
     {
-        LOG_ERROR("shelly::switchOnOff::Waiting for response from %s did not come\n", pShellyObjArray[shellyIndex].ip);
+        LOG_ERROR(TAG_SHELLY,"shelly::switchOnOff::Waiting for response from %s did not come\n", pShellyObjArray[shellyIndex].ip);
     }
     return pShellyObjArray[shellyIndex].received == true;
 }
@@ -124,16 +124,16 @@ bool shelly_getStatus(unsigned int sIndex)
     shellyIndex = sIndex;
     if (pShellyObjArray[shellyIndex].sent && pShellyObjArray[shellyIndex].received == false)
     {
-        LOG_ERROR("shelly::getStatus::Waiting for response from %s\n", pShellyObjArray[shellyIndex].ip);
+        LOG_ERROR(TAG_SHELLY, "shelly::getStatus::Waiting for response from %s\n", pShellyObjArray[shellyIndex].ip);
         return false;
     }
 
     pShellyObjArray[shellyIndex].received == false;
     sendShellyCommandWithOutParm(SHELLY_STATUS_METHOD);
-    LOG_INFO("shelly::getStatus - after sending, index: %d, retVal: %x\n", shellyIndex, pShellyObjArray[shellyIndex].received);
+    LOG_INFO(TAG_SHELLY, "shelly::getStatus - after sending, index: %d, retVal: %x\n", shellyIndex, pShellyObjArray[shellyIndex].received);
     if (!pShellyObjArray[shellyIndex].received)
     {
-        LOG_ERROR("shelly::shelly_getStatus::Waiting for response from %s did not come\n", pShellyObjArray[shellyIndex].ip);
+        LOG_ERROR(TAG_SHELLY, "shelly::shelly_getStatus::Waiting for response from %s did not come\n", pShellyObjArray[shellyIndex].ip);
     }
     return pShellyObjArray[shellyIndex].received == true;
 }
@@ -168,7 +168,7 @@ static bool clearListenFlag()
 static bool sendShellyCommandWithParm(const char *method, JsonObject &params)
 {
     // Prepare the JSON payload
-    StaticJsonDocument<256> doc;
+    DynamicJsonDocument doc(256);
     doc["id"] = pShellyObjArray[shellyIndex].id; // Unique message ID
     doc["src"] = method;                         // Source name
     doc["method"] = method;
@@ -182,7 +182,7 @@ static bool sendShellyCommandWithParm(const char *method, JsonObject &params)
     udp.print(payload);
     udp.endPacket();
     udp.flush();
-    LOG_INFO("shelly::sendShellyCommandWithParm: %s", payload);
+    LOG_INFO(TAG_SHELLY, "shelly::sendShellyCommandWithParm: %s", payload);
     pShellyObjArray[shellyIndex].sent = true;
     pShellyObjArray[shellyIndex].timestamp64Sent = millis();
     setListenFlag();
@@ -194,7 +194,7 @@ static bool sendShellyCommandWithParm(const char *method, JsonObject &params)
 static bool sendShellyCommandWithOutParm(const char *method)
 {
     // Prepare the JSON payload
-    StaticJsonDocument<256> doc;
+    DynamicJsonDocument doc(256);
     doc["id"] = pShellyObjArray[shellyIndex].id; // Unique message ID
     doc["src"] = method;                         // Source name
     doc["method"] = method;
@@ -206,7 +206,7 @@ static bool sendShellyCommandWithOutParm(const char *method)
     udp.beginPacket(pShellyObjArray[shellyIndex].ip, UDP_SHELLY_DEFAULT_PORT);
     udp.print(payload);
     udp.endPacket();
-    LOG_INFO("shelly::sendShellyCommandWithOutParm: %s", payload);
+    LOG_INFO(TAG_SHELLY, "shelly::sendShellyCommandWithOutParm: %s", payload);
     pShellyObjArray[shellyIndex].sent = true;
     pShellyObjArray[shellyIndex].timestamp64Sent = millis();
     setListenFlag();
@@ -250,7 +250,7 @@ static void taskListenForShellyCommand(void *pvParameters)
 
             if (error)
             {
-                LOG_ERROR("shelly::deserializeJson() failed: ", error.c_str());
+                LOG_ERROR(TAG_SHELLY, "shelly::deserializeJson() failed: %s", error.c_str());
                 pShellyObjArray[shellyIndex].received = false;
                 memset(&errorContainer, 0, sizeof(errorContainer));
                 errorContainer.errorHappend = true;
@@ -269,7 +269,7 @@ static void taskListenForShellyCommand(void *pvParameters)
             const char *err = doc["error"]["message"];
             if (err != NULL)
             {
-                LOG_ERROR("shelly::taskListenForShelly method: %s Error: %s\n", method, err);
+                LOG_ERROR(TAG_SHELLY, "shelly::taskListenForShelly method: %s Error: %s\n", method, err);
                 memset(&errorContainer, 0, sizeof(errorContainer));
                 errorContainer.errorHappend = true;
                 strncpy(errorContainer.errorMessage, err, SHELLY_ERROR_CONTAINER_LEN);
@@ -285,14 +285,14 @@ static void taskListenForShellyCommand(void *pvParameters)
                 if (strcmp(method, SHELLY_RESET_METHOD) == 0)
                 {
 
-                    LOG_INFO("Received packet: %s\n", packetBuffer);
+                    LOG_INFO(TAG_SHELLY, "Received packet: %s\n", packetBuffer);
                 }
                 if (strcmp(method, SHELLY_SWITCH_METHOD) == 0)
                 {
                     bool isOn = doc["result"]["was_on"];
                     // Serial.printf("Rela cvccv y is %s\n", isOn ? "ON" : "OFF");
                     pShellyObjArray[shellyIndex].response.switchStatus.wasOn = isOn;
-                    LOG_INFO("shelly::SwitchSet, received package%s\n", packetBuffer);
+                    LOG_INFO(TAG_SHELLY, "shelly::SwitchSet, received package%s\n", packetBuffer);
                 }
                 if (strcmp(method, SHELLY_STATUS_METHOD) == 0)
                 {
@@ -317,7 +317,7 @@ static void taskListenForShellyCommand(void *pvParameters)
             ++counter;
             if (counter % MAX_RETRIES_FOR_UDP_RESPONSE == 0)
             {
-                LOG_ERROR("shelly::taskListenForShellyCommand  max retries: %d  - for receiving answer reached\n", counter);
+                LOG_ERROR(TAG_SHELLY, "shelly::taskListenForShellyCommand  max retries: %d  - for receiving answer reached\n", counter);
                 counter = 0;
                 memset(&errorContainer, 0, sizeof(errorContainer));
                 errorContainer.errorHappend = true;
@@ -337,8 +337,8 @@ static void taskListenForShellyCommand(void *pvParameters)
 bool shelly_listAllDevices(ALL_SHELLY_DEVICES *allDevices, char *ipRange, unsigned upperLimit)
 {
     shellyIndex = 0;
-    LOG_INFO("shelly::listAllDevices\n");
-    DBG("shelly::listAllDevices\n");
+    LOG_INFO(TAG_SHELLY, "shelly::listAllDevices\n");
+    LOG_INFO(TAG_SHELLY, "shelly::listAllDevices\n");
     MAX_COUNTER = 5;
     for (int i = 1; i <= upperLimit; i++)
     {
@@ -369,7 +369,7 @@ bool shelly_listAllDevices(ALL_SHELLY_DEVICES *allDevices, char *ipRange, unsign
                 }
                 else
                 {
-                    LOG_ERROR("shelly::shelly_listAllDevices:: No memory available for errorContainer");
+                    LOG_ERROR(TAG_SHELLY, "shelly::shelly_listAllDevices:: No memory available for errorContainer");
                 }
             }
             else
@@ -391,7 +391,7 @@ bool shelly_listAllDevices(ALL_SHELLY_DEVICES *allDevices, char *ipRange, unsign
             }
             else
             {
-                LOG_ERROR("shelly::shelly_listAllDevices (2) -  No memory available for shelly device object");
+                LOG_ERROR(TAG_SHELLY, "shelly::shelly_listAllDevices (2) -  No memory available for shelly device object");
             }
 
             /*   Serial.printf("Device IP::%s Port: %d Name: %s\n", allDevices[i].shellyDevice->ip, allDevices[i].shellyDevice->port, allDevices[i].shellyDevice->name); */

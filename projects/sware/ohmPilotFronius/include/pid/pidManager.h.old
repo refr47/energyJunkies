@@ -1,0 +1,31 @@
+#pragma once
+
+
+class PinManager
+{
+public:
+    void config(double totalPower, int pinL1, int pinL2, int pwmPin);
+    void update(double measuredPower);
+    void reset();
+    void allOn();
+    int getStateOfDigPin(short pin) ;
+    int getStateOfAnaPin();
+
+private:
+    double onePhase;
+
+    int pinL1, pinL2, pwmPin;
+
+    int currentPhases = 0;
+    double currentPWM = 0;
+
+    unsigned long lastRelaySwitch = 0;
+
+    const double HYST_ON = 300.0;  // Watt
+    const double HYST_OFF = 300.0; // Watt
+    const unsigned long MIN_SWITCH_TIME = 5000;
+
+    double getHeaterPower();
+    void applyTargets(int targetPhases, double targetPWM);
+   
+};

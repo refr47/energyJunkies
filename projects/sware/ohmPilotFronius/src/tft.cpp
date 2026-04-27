@@ -1,9 +1,11 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include "debugConsole.h"
+#include "freertos/semphr.h"
+
 #include "defines.h"
 
-#ifdef ESP_LILY_GO
+#ifdef ESP_LILY_GO_
 
 #include "tft.h"
 #include "img/wlanPic24.h"
@@ -38,6 +40,9 @@ unsigned int currentLine = 0;
 
 static void tft_printTextToPos(int x, int y, int fontsize, const char *txt, u_int16_t colourText);
 static void tft_prinBlock(int offsetX1, int offsetX2, u_int16_t txtColor, const char *key, const char *value);
+
+// Erstelle einen Mutex-Handle
+static SemaphoreHandle_t tftMutex = xSemaphoreCreateMutex();
 
 void tft_init()
 {
@@ -363,7 +368,7 @@ void tft_drawInfoNoModbus(TEMPERATURE &temp)
     tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur", TFT_SKYBLUE);
     tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie", TFT_RED);
     ++currentLine;
-    sprintf(displayBuffer, "%.2f", temp.sensor1);
+    sprintf(displayBuffer, "%d", temp.sensor1);
     tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 1", displayBuffer);
     txtColor = TFT_RED;
     sprintf(displayBuffer, "%s", "Keine ");
@@ -384,124 +389,126 @@ void tft_drawInfoNoModbus(TEMPERATURE &temp)
 // TEMPERATURE &temp, MB_CONTAINER &modb, PID_CONTAINER &pidC
 void tft_drawInfo(WEBSOCK_DATA &webSockData)
 {
-
-    saveCurLine = currentLine;
-
-    char formatBuffer[25]; // format W | kW
-    u_int16_t txtColor = TFT_WHITE;
-    ++currentLine;
-    tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur", TFT_SKYBLUE);
-    tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie", TFT_SKYBLUE);
-    ++currentLine;
-    if (webSockData.temperature.alarm)
-        txtColor = TFT_RED;
-    sprintf(displayBuffer, "%.2f", webSockData.temperature.sensor1);
-    tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 1", displayBuffer);
-    txtColor = TFT_WHITE;
-    // production LINE 1
-    if (webSockData.mbContainer.inverterSumValues.data.acCurrentPower >= 0.0)
-        txtColor = TFT_WHITE;
-    else
-        txtColor = TFT_GREEN;
-    sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.inverterSumValues.data.acCurrentPower, formatBuffer));
-    tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Produktion", displayBuffer);
-    ++currentLine;
-    txtColor = TFT_WHITE;
-    // sensor 2 + Einspeisung/verbrauch LINE 2
-    if (webSockData.temperature.alarm)
-        txtColor = TFT_RED;
-    sprintf(displayBuffer, "%.2f", webSockData.temperature.sensor2);
-    tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 2", displayBuffer);
-    txtColor = TFT_WHITE;
-    // smart meter delivers sometimes not valid values like -32456 W einspeisung (!!)
-    if (webSockData.mbContainer.inverterSumValues.data.acCurrentPower > 0.0 || (webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower > 0))
+    if (xSemaphoreTake(tftMutex, pdMS_TO_TICKS(100)) == pdTRUE)
     {
+        saveCurLine = currentLine;
 
-        if (webSockData.mbContainer.meterValues.data.acCurrentPower > 0.0)
+        char formatBuffer[25]; // format W | kW
+        u_int16_t txtColor = TFT_WHITE;
+        ++currentLine;
+        tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Temperatur", TFT_SKYBLUE);
+        tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Energie", TFT_SKYBLUE);
+        ++currentLine;
+        if (webSockData.temperature.alarm)
+            txtColor = TFT_RED;
+        sprintf(displayBuffer, "%d", webSockData.temperature.sensor1);
+        tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 1", displayBuffer);
+        txtColor = TFT_WHITE;
+        // production LINE 1
+        if (webSockData.mbContainer.inverterSumValues.data.acCurrentPower >= 0.0)
+            txtColor = TFT_WHITE;
+        else
+            txtColor = TFT_GREEN;
+        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.inverterSumValues.data.acCurrentPower, formatBuffer));
+        tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Produktion", displayBuffer);
+        ++currentLine;
+        txtColor = TFT_WHITE;
+        // sensor 2 + Einspeisung/verbrauch LINE 2
+        if (webSockData.temperature.alarm)
+            txtColor = TFT_RED;
+        sprintf(displayBuffer, "%.2f", webSockData.temperature.sensor2);
+        tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Sensor 2", displayBuffer);
+        txtColor = TFT_WHITE;
+        // smart meter delivers sometimes not valid values like -32456 W einspeisung (!!)
+        if (webSockData.mbContainer.inverterSumValues.data.acCurrentPower > 0.0 || (webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower > 0))
+        {
+
+            if (webSockData.mbContainer.meterValues.data.acCurrentPower > 0.0)
+            {
+                txtColor = TFT_RED;
+                sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.meterValues.data.acCurrentPower, formatBuffer));
+                tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Bezug", displayBuffer);
+            }
+            else
+            {
+                txtColor = TFT_GREEN;
+                // more energy is produced then consumend - negative values - for display: remove "-"
+                sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.meterValues.data.acCurrentPower * -1.0, formatBuffer));
+                tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Einspeisung", displayBuffer);
+            }
+
+            // DBGf("=======================>>>============einspeiseTarif: %.2f  --- %s", modb.meterValues.data.acCurrentPower, displayBuffer);
+
+            ++currentLine;
+
+            // LINE 3 Verbrauch
+            if (webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower > 0.0)
+                txtColor = TFT_RED;
+            else
+                txtColor = TFT_GREEN;
+
+            // verbrauch
+            sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower, formatBuffer));
+            tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Verbrauch", displayBuffer);
+
+            sprintf(displayBuffer, "%.2f", webSockData.mbContainer.meterValues.data.acTotalEnergyImp);
+        }
+        else
+        {
+            sprintf(displayBuffer, "%s", util_format_Watt_kWatt(0.00, formatBuffer));
+            tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Einspeisung", displayBuffer);
+            ++currentLine;
+            sprintf(displayBuffer, "%s", util_format_Watt_kWatt(0.00, formatBuffer));
+            tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Verbrauch", displayBuffer);
+        }
+
+        currentLine += 1;
+
+        tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Speicher", TFT_SKYBLUE);
+        tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, "Pufferspeicher", TFT_SKYBLUE);
+        txtColor = TFT_WHITE;
+
+        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.akkuStr.data.maxChargePower, formatBuffer));
+        tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Kapazität", displayBuffer);
+        sprintf(displayBuffer, "%s", webSockData.pidContainer.PID_PIN1 == 1 ? "ein" : "aus");
+        tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Phase 1", displayBuffer);
+        ++currentLine;
+
+        sprintf(displayBuffer, "%.2lf %", webSockData.mbContainer.akkuStr.data.chargeRate); // Laderate
+        if (webSockData.mbContainer.akkuStr.data.chargeRate < 0.0)
+        {
+            txtColor = TFT_GREEN;
+            tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Laden", displayBuffer);
+        }
+        else
         {
             txtColor = TFT_RED;
-            sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.meterValues.data.acCurrentPower, formatBuffer));
-            tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Bezug", displayBuffer);
-        }
-        else
-        { 
-            txtColor = TFT_GREEN;
-            // more energy is produced then consumend - negative values - for display: remove "-"
-            sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.meterValues.data.acCurrentPower * -1.0, formatBuffer));
-            tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Einspeisung", displayBuffer);
+            tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Entladen", displayBuffer);
         }
 
-        // DBGf("=======================>>>============einspeiseTarif: %.2f  --- %s", modb.meterValues.data.acCurrentPower, displayBuffer);
-
+        sprintf(displayBuffer, "%s", webSockData.pidContainer.PID_PIN2 == 1 ? "ein" : "aus");
+        tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Phase 2", displayBuffer);
         ++currentLine;
 
-        // LINE 3 Verbrauch
-        if (webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower > 0.0)
+        sprintf(displayBuffer, "%.2lf %", webSockData.mbContainer.akkuStr.data.stateOfCharge);
+        tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Stand", displayBuffer);
+        if (webSockData.pidContainer.mAnalogOut > 0.0)
+            sprintf(displayBuffer, "%.2lf \%", (255.0 / webSockData.pidContainer.mAnalogOut) * 100.0);
+        else
+            sprintf(displayBuffer, "%.2lf \%", 0.00);
+        tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Phase 3", displayBuffer);
+        ++currentLine;
+        if (webSockData.mbContainer.akkuStr.data.dischargeRate > 0.0)
             txtColor = TFT_RED;
-        else
-            txtColor = TFT_GREEN;
-
-        // verbrauch
-        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower, formatBuffer));
-        tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Verbrauch", displayBuffer);
-
-        sprintf(displayBuffer, "%.2f", webSockData.mbContainer.meterValues.data.acTotalEnergyImp);
-    }
-    else
-    {
-        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(0.00, formatBuffer));
-        tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Einspeisung", displayBuffer);
+        sprintf(displayBuffer, "%.2lf \%", webSockData.mbContainer.akkuStr.data.dischargeRate);
+        tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Autonomie", displayBuffer);
+        txtColor = TFT_WHITE;
+        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.akkuStr.data.maxChargeRate, formatBuffer));
+        tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "EigenKonsum", displayBuffer);
         ++currentLine;
-        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(0.00, formatBuffer));
-        tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Verbrauch", displayBuffer);
+
+        currentLine = saveCurLine;
     }
-
-    currentLine += 1;
-
-    tft_printTextToPos(5, FONTSIZE_2_ONE_LINE * currentLine, FONTSIZE_2, "Speicher", TFT_SKYBLUE);
-    tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, "Pufferspeicher", TFT_SKYBLUE);
-    txtColor = TFT_WHITE;
-
-    sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.akkuStr.data.maxChargePower, formatBuffer));
-    tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Kapazität", displayBuffer);
-    sprintf(displayBuffer, "%s", webSockData.pidContainer.PID_PIN1 == 1 ? "ein" : "aus");
-    tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Phase 1", displayBuffer);
-    ++currentLine;
-
-    sprintf(displayBuffer, "%.2lf %", webSockData.mbContainer.akkuStr.data.chargeRate); // Laderate
-    if (webSockData.mbContainer.akkuStr.data.chargeRate < 0.0)
-    {
-        txtColor = TFT_GREEN;
-        tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Laden", displayBuffer);
-    }
-    else
-    {
-        txtColor = TFT_RED;
-        tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Entladen", displayBuffer);
-    }
-
-    sprintf(displayBuffer, "%s", webSockData.pidContainer.PID_PIN2 == 1 ? "ein" : "aus");
-    tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Phase 2", displayBuffer);
-    ++currentLine;
-
-    sprintf(displayBuffer, "%.2lf %", webSockData.mbContainer.akkuStr.data.stateOfCharge);
-    tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Stand", displayBuffer);
-    if (webSockData.pidContainer.mAnalogOut > 0.0)
-        sprintf(displayBuffer, "%.2lf \%", (255.0 / webSockData.pidContainer.mAnalogOut) * 100.0);
-    else
-        sprintf(displayBuffer, "%.2lf \%", 0.00);
-    tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Phase 3", displayBuffer);
-    ++currentLine;
-    if (webSockData.mbContainer.akkuStr.data.dischargeRate > 0.0)
-        txtColor = TFT_RED;
-    sprintf(displayBuffer, "%.2lf \%", webSockData.mbContainer.akkuStr.data.dischargeRate);
-    tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Autonomie", displayBuffer);
-    txtColor = TFT_WHITE;
-    sprintf(displayBuffer, "%s", util_format_Watt_kWatt(webSockData.mbContainer.akkuStr.data.maxChargeRate, formatBuffer));
-    tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "EigenKonsum", displayBuffer);
-    ++currentLine;
-
-    currentLine = saveCurLine;
 }
 
 #else

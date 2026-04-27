@@ -4,7 +4,7 @@
 #include "app_sync.h"
 
 #include "pin_config.h"
-#include "pidManager.h"
+#include "pinManager.h"
 #include "webSockets.h"
 #include "temp.h"
 #include "system.h"
@@ -47,7 +47,7 @@ typedef struct _APP_RUNTIME
 
     WEBSOCK_DATA webSockData;
     ALARM_CONTAINER alarmContainer;
-    PinManager pidPinManager;
+    PinManager pinManager;
     HEAP_SIZE heapSize[2];
     unsigned long secondsCounter;
 } APP_RUNTIME;
@@ -55,5 +55,5 @@ typedef struct _APP_RUNTIME
 extern APP_RUNTIME g_app;
 
 bool appStateInit();
-void appLock();
+bool appLock(uint32_t timeout_ms);
 void appUnlock();

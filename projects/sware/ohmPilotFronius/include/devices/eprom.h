@@ -9,20 +9,21 @@
 #define _INVERTER_IP "ip"
 #define _TEMP_MAX_IN_GRAD "ausT"
 #define _TEMP_MIN_IN_GRAD "einT"
-#define _EXTERNER_SPEICHER "eS"
-#define _EXTERNER_SPEICHER_PRIORI "esP"
+#define _AKKU "eS"
+#define _AKKU_PRIORI "esP"
 /* #define _PID_P "pid_p"
 #define _PID_I "pid_i"
 #define _PID_D "pid_d" */
-
-#define _PID_DIG_OUT_ON_DELAY_MS "doD" // power has to be above set point before controller is invoked
+#define _LEGIONELLEN_SCHWELLWERT_DELTA_TIME "legiTime"
+#define _LEGIONELLEN_SCHWELLWERT_DELTA_TEMP "legiTemp"
+////#define _PID_DIG_OUT_ON_DELAY_MS "doD" // power has to be above set point before controller is invoked
 /* #define _PID_DIG_OUT_OFF_DELAY_MS "ddms" // minimal time before pid controller turns off channel/pin
 #define _PID_MIN_ON_TIME_MS "dmin"       // minimal on time for digital output (in ms) */
-#define _PID_TARGET_POWER "tpow" // target power - max available power
+//#define _PID_TARGET_POWER "tpow" // target power - max available power
 
 /* #define _PID_TEST "pT" */
 #define _EN_FORCE_HEATING "eX"
-#define _EN_LOAD "enL"
+#define _EPSILON_PIN_MANAGER "enL"
 
 #define _AMIS_READER_HOST "arH"
 #define AMIS_READER_HOST_DEFAULT "AmisReader-Host"
@@ -39,11 +40,11 @@
 
 #define EMPTY_STRING "\0"
 void eprom_storeSetup(Setup &setup);
-void eprom_getSetup(Setup &setup);
+bool eprom_getSetup(Setup &setup);
 void eprom_isInit();
 // String& eprom_getInverter(Setup &setup, String &inverter);
 
-void eprom_test_write_Eprom(const char *, const char *);
+bool eprom_test_write_Eprom(const char *, const char *);
 void eprom_test_read_Eprom();
 void eprom_show(Setup &setup);
 

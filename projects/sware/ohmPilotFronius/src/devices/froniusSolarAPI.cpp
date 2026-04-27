@@ -30,44 +30,44 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
     char buf[70];
     memset(buf, 0, 70);
     int httpResponseCode = 0;
-    LOG_INFO("solar_init BEGIN ");
+    LOG_INFO(TAG_SOLAR ,"solar_init BEGIN ");
     // p_solarValid = &webSockData.states.froniusAPI;
 
     sprintf(buf, "http://%s%s", webSockData.setupData.inverter, PATH_NAME_FORECAST);
     uRL = buf;
-    LOG_DEBUG("solar_init() for %s", buf);
-    webSockData.setupData.externerSpeicher = false;
+    LOG_DEBUG(TAG_SOLAR,"solar_init() for %s", buf);
+    webSockData.setupData.akku = false;
     *akku = false;
     webSockData.states.froniusAPI = false;
 
     String json_array = util_GET_Request(uRL.c_str(), &httpResponseCode);
     if (httpResponseCode != 200)
     {
-        LOG_ERROR("solar_init:: Fronius API nicht erreichbar - kein Fronius Inverter?");
+        LOG_ERROR(TAG_SOLAR,"solar_init:: Fronius API nicht erreichbar - kein Fronius Inverter?");
         return false;
     }
 
     else
     {
-        LOG_DEBUG("solar_init:: Got json: %s", json_array.c_str());
+        LOG_DEBUG(TAG_SOLAR,"solar_init:: Got json: %s", json_array.c_str());
     }
 
     JSONVar my_obj = JSON.parse(json_array);
     if (JSON.typeof(my_obj) == "undefined")
     {
-        DBG("Parsing input failed!");
+         LOG_ERROR(TAG_SOLAR,"Parsing input failed!");
         return false;
     }
     webSockData.states.froniusAPI = true;
     if (JSON.typeof(my_obj["site"]["P_Akku"]) == "undefined")
     {
-        LOG_DEBUG("solar_init Akku is not available!!");
+        LOG_DEBUG(TAG_SOLAR,"solar_init Akku is not available!!");
     }
     else
     {
-        webSockData.setupData.externerSpeicher = true;
+        webSockData.setupData.akku = 1;
         *akku = true;
-        LOG_DEBUG("solar_init - akku  vorhanden!");
+        LOG_DEBUG(TAG_SOLAR,"solar_init - akku  vorhanden!");
     }
     return true;
 #ifdef CCC
@@ -98,14 +98,14 @@ bool solar_get_powerflow(WEBSOCK_DATA &webSockData)
     String json_array = util_GET_Request(uRL.c_str(), &htppResponse);
     if (htppResponse != 200)
     {
-        LOG_ERROR("solar_get_powerflow:: ResponsCode != 200");
+        LOG_ERROR(TAG_SOLAR,"solar_get_powerflow:: ResponsCode != 200");
         return false;
     }
     // DBGf("solar_get_powerFlow(): %s", json_array);
     JSONVar my_obj = JSON.parse(json_array);
     if (JSON.typeof(my_obj) == "undefined")
     {
-        DBG("Parsing input failed!");
+         LOG_ERROR(TAG_SOLAR,"Parsing input failed!");
         return false;
     }
 
@@ -135,8 +135,8 @@ bool solar_get_powerflow(WEBSOCK_DATA &webSockData)
 
 static void mapJsonValuesFronius(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_DATA &webSockData)
 {
-    StaticJsonDocument<512> jsonBuffer;
-    LOG_ERROR("froniusSolarAPI::mapJsonValuesFronius ENTER");
+    DynamicJsonDocument jsonBuffer(512);
+    LOG_ERROR(TAG_SOLAR,"froniusSolarAPI::mapJsonValuesFronius ENTER");
 
     // DBGf("mapJsonValues   ENTER  %s", jsonStart);
 
@@ -168,9 +168,9 @@ static void mapJsonValuesFronius(HTTP_REST_TARGET_t *target, char *jsonStart, WE
             webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption = jsonBuffer[target->mapping[i].key];
             break;
         default:
-            LOG_ERROR("solar_get_powerflow::mapJsonValues() no mapping found for index: %d", i);
+            LOG_ERROR(TAG_SOLAR,"solar_get_powerflow::mapJsonValues() no mapping found for index: %d", i);
         }
-        LOG_ERROR("froniusSolarAPI::mapJsonValuesFronius ExIT");
+        LOG_ERROR(TAG_SOLAR,"froniusSolarAPI::mapJsonValuesFronius ExIT");
     }
 }
 

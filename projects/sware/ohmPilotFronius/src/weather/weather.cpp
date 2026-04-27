@@ -80,28 +80,28 @@ const float w_sigma = 0.5; // Gewicht Unsicherheit (z. B. 0.5)
 const float w_T = 0.3;     // Gewicht Mittagsbonus (z. B. 0.3)
 const float sigma_T = 2.0; // Breite der Mittagsglocke
 
-static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, String &json_array, PROGNOSE &prognose);
+static void wheater_ladestrategie(DynamicJsonDocument &doc, String &json_array, PROGNOSE &prognose);
 
 //-- -Hilfsfunktionen-- -
 float deg2rad(float d) { return d * PI / 180.0; }
 float rad2deg(float r) { return r * 180.0 / PI; }
 
-static StaticJsonDocument<JSON_ARRAY_SIZE> doc;
+static DynamicJsonDocument doc(JSON_ARRAY_SIZE);
 
 bool wheater_fetch(PROGNOSE &prognose)
 {
 
     int httpResponseCode = 0;
 
-    LOG_INFO("wheater::wheater_fetch BEGIN")
+    LOG_INFO(TAG_WEATHER, "wheater::wheater_fetch BEGIN");
 
     String json_array = util_GET_Request(PARAM, &httpResponseCode);
     // LOG_INFO("URL: %s", PARAM);
 
     if (httpResponseCode != 200)
     {
-        LOG_ERROR("URL: %s is not available, ResponseCode: %d", PARAM, httpResponseCode);
-        LOG_INFO("wheater_fetch eXIT false");
+        LOG_ERROR(TAG_WEATHER, "URL: %s is not available, ResponseCode: %d", PARAM, httpResponseCode);
+        LOG_INFO(TAG_WEATHER, "wheater_fetch eXIT false");
         return false;
     }
     Serial.println(json_array);
@@ -115,12 +115,12 @@ bool wheater_fetch(PROGNOSE &prognose)
     }
     else
     {
-        LOG_DEBUG("wheater_fetch::JSON Fehler: %s", error.c_str());
-        LOG_INFO("wheater_fetch eXIT false");
+        LOG_DEBUG(TAG_WEATHER, "wheater_fetch::JSON Fehler: %s", error.c_str());
+        LOG_INFO(TAG_WEATHER, "wheater_fetch eXIT false");
 
         return false;
     }
-    LOG_INFO("wheater_fetch eXIT true");
+    LOG_INFO(TAG_WEATHER, "wheater_fetch eXIT true");
     return true;
 }
 
@@ -194,7 +194,7 @@ float pvEnergyPerHour(float G_tilt, float T_amb)
     return P_final_AC / 1000.0f;
 }
 
-static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, String &payload, PROGNOSE &prognose)
+static void wheater_ladestrategie(DynamicJsonDocument &doc, String &payload, PROGNOSE &prognose)
 {
     if (deserializeJson(doc, payload) == DeserializationError::Ok)
     {
@@ -257,7 +257,7 @@ static void wheater_ladestrategie(StaticJsonDocument<JSON_ARRAY_SIZE> &doc, Stri
     else
     {
         //Serial.println("JSON Fehler in wheater_ladestrategie");
-        LOG_ERROR("wheather:wheater_ladestrategie JSON Fehler");
+        LOG_ERROR(TAG_WEATHER,"wheather:wheater_ladestrategie JSON Fehler");
     }
 }
 

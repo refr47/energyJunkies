@@ -5,5 +5,6 @@
 #include "defines.h"
 
 AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA);
-String getJsonObj();
-void notifyClients(String jsonData);
+
+void notifyClients();
+void cleanupClients();

@@ -27,17 +27,17 @@ static void mapJsonValues(HTTP_REST_TARGET_t *target, char jsonString[], WEBSOCK
 // initialize the rest API targets
 bool amisReader_initRestTargets(WEBSOCK_DATA &webSockData)
 {
-    char buf[70];
+    char buf[70]; 
     memset(buf, 0, 70);
     int httpResponseCode = 0;
-    LOG_INFO("amisReader_initRestTargets , HOST: %s", webSockData.setupData.amisReaderHost);
+    LOG_INFO(TAG_AMIS,"amisReader_initRestTargets , HOST: %s", webSockData.setupData.amisReaderHost);
     sprintf(buf, "http://%s%s", webSockData.setupData.amisReaderHost, PATH_NAME_AMIS);
     uRL = buf;
     webSockData.states.amisReader = false;
     String json_array = util_GET_Request(uRL.c_str(), &httpResponseCode);
     if (httpResponseCode != 200)
     {
-        LOG_ERROR("solar_init:: AMIS Reader API nicht erreichbar - kein AMIS Reader?");
+        LOG_ERROR(TAG_AMIS,"amisReader_initRestTargets:: AMIS Reader API nicht erreichbar - kein AMIS Reader?");
         return false;
     }
     webSockData.states.amisReader = true;
@@ -52,14 +52,14 @@ bool amisReader_readRestTarget(WEBSOCK_DATA &webSockData)
     String json_array = util_GET_Request(uRL.c_str(), &htppResponse);
     if (htppResponse != 200)
     {
-        LOG_ERROR("amisReader_readRestTarget:: ResponsCode != 200");
+        LOG_ERROR(TAG_AMIS,"amisReader_readRestTarget:: ResponsCode != 200");
         return false;
     }
     // DBGf("solar_get_powerFlow(): %s", json_array);
     JSONVar my_obj = JSON.parse(json_array);
     if (JSON.typeof(my_obj) == "undefined")
     {
-        DBG("Parsing input failed!");
+        LOG_ERROR(TAG_AMIS,"Parsing input failed!");
         return false;
     }
 
@@ -73,41 +73,5 @@ bool amisReader_readRestTarget(WEBSOCK_DATA &webSockData)
     /* return utils_sock_readRestTarget(webSockData, AMIS_READER_INDEX, mapJsonValues); */
 }
 
-#ifdef NNNN
-/*
-static void mapJsonValues(HTTP_REST_TARGET_t *target, char *jsonStart, WEBSOCK_DATA &webSockData)
-{
-    StaticJsonDocument<512> jsonBuffer;
 
-    // DBGf("mapJsonValues   ENTER  %s", jsonStart);
-
-    deserializeJson(jsonBuffer, jsonStart);
-    // DBGf("mapJsonValues %s", jsonStart);
-
-    for (int i = 0; i < target->valueCount; i++)
-    {
-
-      /*   LOG_DEBUG("map, key: %s", target->mapping[i].key);
-        LOG_DEBUG("map, jsonObj: %d", jsonBuffer[target->mapping[i].key]);
- */
-switch (i)
-{
-case 0:
-    webSockData.amisReader.absolutImportInkWh = jsonBuffer[target->mapping[i].key];
-    break;
-case 1:
-    webSockData.amisReader.absolutExportInkWh = jsonBuffer[target->mapping[i].key];
-    break;
-case 2:
-    webSockData.amisReader.saldo = jsonBuffer[target->mapping[i].key];
-    break;
-default:
-    LOG_ERROR("amisReader::mapJsonValues() no mapping found for index: %d", i);
-}
-}
-
-LOG_DEBUG("mapJsonValues: Wirkleistung P+ %.3f", webSockData.amisReader.absolutImportInkWh);
-}
-*/
-#endif
 #endif

@@ -1,8 +1,9 @@
 #define __ACCESS_POINT_CPP
 
 #include <WiFi.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <mdns.h>
+#include <Update.h>
 
 #include "tft.h"
 #include "eprom.h"
@@ -41,27 +42,27 @@ static bool isAPModus = false; // only in APModus a reboot is required
 
 static void listDir(char *dir)
 {
-    LOG_INFO("www::listdir");
-    File root = SPIFFS.open(dir);
+    LOG_INFO(TAG_WEB, "www::listdir");
+    File root = LittleFS.open(dir);
 
     if (!root)
     {
-        LOG_ERROR("www::- failed to open directory");
+        LOG_ERROR(TAG_WEB, "www::- failed to open directory");
         return;
     }
     if (!root.isDirectory())
     {
-        LOG_ERROR("www:: - not a directory");
+        LOG_ERROR(TAG_WEB, "www:: - not a directory");
         return;
     }
 
-    LOG_INFO("www::%s", root);
+    LOG_INFO(TAG_WEB, "www::%s", root);
     File file = root.openNextFile();
 
     while (file)
     {
 
-        LOG_INFO("www::FILE: %s", file.name());
+        LOG_INFO(TAG_WEB, "www::FILE: %s", file.name());
 
         file = root.openNextFile();
     }
@@ -69,9 +70,9 @@ static void listDir(char *dir)
 
 static void sendHTML(String &path, AsyncWebServerRequest *request)
 {
-    if (SPIFFS.exists(path))
+    if (LittleFS.exists(path))
     {
-        AsyncWebServerResponse *response = request->beginResponse(SPIFFS, path, String(), true);
+        AsyncWebServerResponse *response = request->beginResponse(LittleFS, path, String(), true);
         response->addHeader("Cache-Control", "max-age=600");
         request->send(response);
     }
@@ -81,37 +82,29 @@ static void sendHTML(String &path, AsyncWebServerRequest *request)
     }
 }
 
-static void handleLogin(AsyncWebServerRequest *request)
+static void handleLogin(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
 {
 
-    bool standingData = false;
-    // Check if the request method is POST
-    if (request->method() == HTTP_POST)
-    {
-        // Check if the POST data matches the expected username and password
-        if (
-            request->hasParam("username", true) &&
-            request->hasParam("password", true) &&
-            // request->hasParam("standingData", true) &&
-            request->getParam("username", true)->value() == "admin" &&
-            request->getParam("password", true)->value() == "password")
-        {
-            isAuthenticated = true;
-            standingData = request->arg("standingData") == "true";
+    LOG_INFO(TAG_WEB, "handleLogin::begin");
+    JsonDocument doc;
+    deserializeJson(doc, data, len);
 
-            if (standingData)
-                request->send(SPIFFS, "/setupData.html", String(), false);
-            else
-                request->send(SPIFFS, "/index.html", String(), false);
-        }
-        else
-        {
-            request->send(401, "text/plain", "Login failed");
-        }
+    // Check if the request method is POST
+
+    const char *user = doc["user"] | "";
+    const char *pass = doc["password"] | "";
+    // LOG_INFO(TAG_WEB, "handleLogin::user: %s, pass: %s", user, pass);
+    //  Check if the POST data matches the expected username and password
+    if (strcmp(user, "admin") == 0 && strcmp(pass, "password") == 0)
+    {
+        isAuthenticated = true;
+        request->send(200, "application/json", "{\"authenticated\":true}");
+        LOG_INFO(TAG_WEB, "handleLogin::authenticated");
     }
     else
     {
-        request->send(405, "text/plain", "Method Not Allowed");
+        request->send(401, "application/json", "{\"error\":\"Benutzername oder Passwort falsch\"}");
+        LOG_INFO(TAG_WEB, "handleLogin::authentication failed");
     }
 }
 
@@ -120,164 +113,156 @@ static void handleRoot(AsyncWebServerRequest *request)
     // Check if the user is authenticated
 
     if (isAuthenticated)
-        request->send(SPIFFS, "/index.html", String(), false);
+        request->send(LittleFS, "/index.html", String(), false);
     else
-        request->send(SPIFFS, "/login.html", "text/html", false);
+        request->send(LittleFS, "/login.html", "text/html", false);
 }
 
 static void handleSetup(AsyncWebServerRequest *request)
 {
     // Check if the user is authenticated
     if (isAuthenticated)
-        request->send(SPIFFS, "/setupData.html", "text/html", false);
+        request->send(LittleFS, "/setupData.html", "text/html", false);
     else
-        request->send(SPIFFS, "/login.html", "text/html", false);
+        request->send(LittleFS, "/login.html", "text/html", false);
+}
+
+static inline bool helperForWWW()
+{
+    if (!LittleFS.begin(FORMAT_SPIFFS_IF_FAILED))
+    {
+        LOG_ERROR(TAG_WEB, "www_init::LITTLEFS Mount Failed");
+        return false;
+    }
+    // In deiner helperForWWW Funktion oder dort, wo du iterierst:
+    /*   File root = LittleFS.open("/");
+      File entry = root.openNextFile();
+
+      while (entry)
+      {
+          if (entry.isDirectory())
+          {
+              // Überspringe Ordner, da sie keine "Dateien" im herkömmlichen Sinne sind
+              entry = root.openNextFile();
+              continue;
+          }
+
+          // Nur wenn es KEIN Directory ist, darfst du auf Name/Size zugreifen
+          Serial.printf("Datei: %s, Größe: %u\n", entry.name(), entry.size());
+
+          entry = root.openNextFile();
+      }
+      root.close(); */
+    return true;
+}
+
+static void inline doCORS()
+{
+#ifdef CORS_DEBUG
+    // CORS Header global aktivieren
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
+#endif
 }
 
 bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_GET_DATA webSockData, CALLBACK_SET_SETUP_CHANGED setupChanged)
 {
-    // Initialize SPIFFS
-    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
+    // 1. LITTLEFS Initialisierung
+    LOG_INFO(TAG_WEB, "www_init::begin");
+    if (!helperForWWW())
     {
-        LOG_ERROR("www_init::SPIFFS Mount Failed");
-        tft_printKeyValue("Init Flash File", "Error", TFT_RED);
-        tft_printKeyValue("Cannot Start WebServer !!", "Error", TFT_RED);
         return false;
     }
-    tft_printKeyValue("Init Flash File", "OK", TFT_GREEN);
-    // listDir("/");
+
+    // 2. Netzwerk-Modus (AP oder Client)
     if (ipAddr == NULL)
     {
-        //  Connect to Wi-Fi network with SSID_FOR_ACCESS_POINT
-        LOG_INFO("www_init::Setting AP (Access Point) mode");
         isAPModus = true;
         WiFi.mode(WIFI_AP);
         WiFi.softAP(SSID_FOR_ACCESS_POINT, DEFAULT_IP_ACCESS_POINT);
-
-        ipAddr = DEFAULT_IP_ACCESS_POINT;
+        ipAddr = (char *)DEFAULT_IP_ACCESS_POINT;
         strcpy(setupData.currentIP, ipAddr);
-        LOG_INFO("www_init::AP IP address: %s", ipAddr);
-
-        tft_printKeyValue("ACCESS Point", "OK", TFT_GREEN);
-        tft_printKeyValue("SSID", SSID_FOR_ACCESS_POINT, TFT_GREEN);
-        tft_printKeyValue("IP", DEFAULT_IP_ACCESS_POINT, TFT_GREEN);
     }
     else
     {
-        LOG_INFO("www_init::Start Webserver with ip: %s", ipAddr);
         isAPModus = false;
-        // tft_printInfo("Start WWW on:");
-
-        tft_printKeyValue("SSID", wlanAsClientSSID, TFT_GREEN);
-        tft_printKeyValue("IP", ipAddr, TFT_GREEN);
     }
-
-    server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/about.html", "text/html", false, NULL); });
-    server.on("/shelly", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/shelly.html", "text/html", false, NULL); });
-    server.on("/headerF.html", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/headerF.html", "text/html"); });
-    server.on("/out", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/output.html", "text/html"); });
-    /* server.on("/logs", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(200, "text/html", "<!DOCTYPE html><html><head><title>Serial Monitor</title><script>function fetchData(){fetch('/serial').then(response => response.text()).then(data => {document.getElementById('output').innerText = data;});} setInterval(fetchData, 1000);</script></head><body><h1>ESP32 Serial Monitor</h1><pre id='output'></pre></body></html>"); });
- */
-    server.on("/serial", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(200, "text/plain", logReader_getBufferAsString()); });
-    server.on("/logOn", HTTP_GET, [](AsyncWebServerRequest *request)
-              { logReader_enDisableRedirect(true);
-                request->send(200, "text/plain", "Redirecting enabled"); });
-    server.on("/logOff", HTTP_GET, [](AsyncWebServerRequest *request)
-              { logReader_enDisableRedirect(false);
-                request->send(200, "text/plain", "Redirecting disabled"); });
-
-    server.on("/logs", HTTP_GET, [](AsyncWebServerRequest *request)
-              { logReader_enDisableRedirect(true);
-                    request->send(SPIFFS, "/logs.html", "text/html"); });
-
-    server.on("/setup", HTTP_GET, handleSetup);
-    server.on("/", HTTP_GET, handleRoot);
-    // Route for serving the login page and handling login requests
-    server.on("/login", HTTP_POST, handleLogin);
-
-    // Route for serving the root page  request->send(SPIFFS, "/index.html", String(), false, callBack);
-
+    doCORS();
+    /// AJAX & API Endpoints
+    server.on("/login", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+              { request->send(200); });
+    server.on("/login", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, handleLogin);
     server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
-    server.on("/buildAndGetShellyDevicesTree", HTTP_GET, ajaxCalls_handleBuildAndGetShelly);
-    server.on("/getOverview", HTTP_GET, ajaxCalls_handleGetOverview);
+    server.on("/storeSetup", HTTP_POST, [](AsyncWebServerRequest *request)
+              {
+                  // Dieser Teil bleibt leer, da wir den Body-Handler nutzen
+              },
+              NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+              {
 
-    // Route to load style.css file
-    server.on("/css/main.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/main.css", "text/css"); });
-    server.on("/css/menu.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/menu.css", "text/css"); });
-    server.on("/css/stammdaten.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/stammdaten.css", "text/css"); });
-    server.on("/css/shelly.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/shelly.css", "text/css"); });
-    server.on("/css/jquery-3.7.1.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/jquery-3.7.1.min.css", "text/css"); });
-    server.on("/css/datatables.min.css", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/css/datatables.min.css", "text/css"); });
+// 1. Prüfen, ob wir den Anfang des Pakets haben
+    if (index == 0) {
+        request->_tempObject = new String("");
+    }
+    String *body = (String *)request->_tempObject;
+    if (body)
+    {
+        for (size_t i = 0; i < len; i++)
+        {
+            body->concat((char)data[i]);
+        }
+    }
+    if (index + len == total)
+    {
+        // 2. JSON parsen (direkt aus dem 'data' Buffer)
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, data, len);
+        LOG_INFO(TAG_WEB, "/storeSetup: len: %u , index: %u, total: %u", len, index, total);
+        if (!error)
+        {
+            LOG_INFO(TAG_WEB, "/storeSetup: JSON OK");
+            
+            ajaxCalls_handleStoreSetup(doc, request, isAPModus);
+         //   request->send(200, "application/json", "{\"done\":true}");
+        }
+        else
+        { 
+            LOG_INFO(TAG_WEB, "/storeSetup: JSON Error");
+            request->send(400, "application/json", "{\"done\":false, \"msg\":\"JSON Error\"}");
+        }
+        // release mem
+        delete body;
+        
+        request->_tempObject = nullptr;
+    } });
 
-    server.on("/js/jquery-3.7.1.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/js/jquery-3.7.1.min.js", String()); });
-    server.on("/js/stammdaten.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/js/stammdaten.js", String()); });
-    server.on("/js/navigation.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/js/navigation.js", String()); });
-    server.on("/js/shelly.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/js/shelly.js", String()); });
-    server.on("/js/datatables.min.js", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/js/datatables.min.js", String()); });
+    server.serveStatic("/assets/", LittleFS, "/assets/")
+        .setCacheControl("max-age=600");
 
-    server.on("/img/icon.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/img/icon.jpg", "image/jpg"); });
-    server.on("/img/Energies.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/img/Energies.jpg", "image/jpg"); });
-    server.on("/img/harvester.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/img/harvester.jpg", "image/jpg"); });
+    // Falls du Bilder direkt im /img/ Ordner hast:
+    server.serveStatic("/img/", LittleFS, "/img/")
+        .setCacheControl("max-age=3600");
 
-    // https://github.com/me-no-dev/ESPAsyncWebServer
+    // WICHTIG: Die Root-Datei (index.html)
+    server.serveStatic("/", LittleFS, "/")
+        .setDefaultFile("index.html");
 
-    AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/storeSetup", [](AsyncWebServerRequest *request, JsonVariant &json)
-                                                                           { ajaxCalls_handleStoreSetup(request, json, isAPModus); });
-
-    // Start the server
-    server.addHandler(handler);
-    // Route for serving static files from SPIFFS
+    // --- FEHLER-HANDLING & AUTHENTIFIZIERUNG ---
     server.onNotFound([](AsyncWebServerRequest *request)
                       {
-        if (request->method() == HTTP_OPTIONS)
-        {
-            request->send(200);
-        } else {
-            String path = request->url();
-            LOG_ERROR("www_init::Path  %s !found ", path.c_str());
+    if (request->method() == HTTP_GET) {
+        request->send(LittleFS, "/index.html", "text/html");
+    } else {
+        request->send(404);
+    } });
 
-            if (!isAuthenticated) {
-            // Redirect to the login page if not authenticated
-            request->redirect("/login");
-            return;
-            }
-
-            if (SPIFFS.exists(path)) {
-            AsyncWebServerResponse* response = request->beginResponse(SPIFFS, path, String(), true);
-            response->addHeader("Cache-Control", "max-age=600");
-            request->send(response);
-            } else {
-            request->send(404, "text/plain", "File not found");
-            }
-        } });
-    tft_printKeyValue("Start WWW", "Done", TFT_GREEN);
-#ifdef CORS_DEBUG
-    DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Origin"), F("*"));
-    DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Headers"), F("content-type"));
-#endif
+    // Initialisierung abschließen
     ajaxCalls_init(webSockData, setupChanged);
     server.addHandler(webSockets_init(webSockData));
     server.begin();
+
+    LOG_INFO(TAG_WEB, "WebServer started. Free Heap: %u", ESP.getFreeHeap());
     return true;
 }
 

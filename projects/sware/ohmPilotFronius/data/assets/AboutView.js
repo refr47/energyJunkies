@@ -1,0 +1,1 @@
+import{h as e,x as t}from"./vendor.js";import{t as n}from"./index.js";var r={};function i(n,r){return t(),e(`h1`,null,`Über uns`)}var a=n(r,[[`render`,i]]);export{a as default};

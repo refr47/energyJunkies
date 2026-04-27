@@ -1,0 +1,38 @@
+---
+# 1. Welche Checks sollen aktiv sein?
+# Ein '-' vor dem Namen deaktiviert einen Check.
+# '*' ist ein Wildcard (Platzhalter).
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  performance-*,
+  readability-*,
+  modernize-*,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -readability-braces-around-statements
+
+# 2. Fehlerbehandlung
+# Behandle alle Warnungen als Fehler (bricht den Build/Scan ab bei Fund)
+WarningsAsErrors: 'bugprone-*,clang-analyzer-*'
+
+# 3. Header-Filter
+# Hiermit sagst du Clang-Tidy, dass es auch deine .h / .hpp Dateien 
+# prüfen soll, die in deinem Projekt liegen.
+HeaderFilterRegex: 'src/.*|include/.*'
+Checks: 'bugprone-*,clang-analyzer-*,performance-*,readability-*-stack-usage'
+CheckOptions:
+  - key: cppcoreguidelines-pro-type-member-init.CheckedFunctions
+    value: 'all'
+
+    
+# 4. Formatierung & Stil-Optionen
+CheckOptions:
+  - key:             readability-identifier-naming.VariableCase
+    value:           lower_case
+  - key:             readability-identifier-naming.FunctionCase
+    value:           camelBack
+  - key:             modernize-use-trailing-return-type.IgnoreMacros
+    value:           true
+---

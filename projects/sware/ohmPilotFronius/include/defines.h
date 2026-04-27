@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <WiFi.h>
 #include <arpa/inet.h>
 #include <lwip/sockets.h>
@@ -12,7 +14,8 @@
 #define NET_HOSTNAME "E-Junkies.at"
 
 #define LEN_WLAN 30
-#define MODBUS_PORT "502"
+#define MODBUS_PORT "502"   
+#define LEN_INVERTER 16
 
 #define AMIS_KEY_LEN 35
 #define AMIS_HOST_LEN 50
@@ -23,7 +26,7 @@
 #define INFLUX_TOKEN_LEN 95
 #define INFLUX_ORG_LEN 30
 #define INFLUX_BUCKET_LEN 30
-
+  
 #define HEATING_OFF 10
 #define HEATING_ON_PHASE_1 1
 #define HEATING_ON_PHASE_1_2 2
@@ -33,15 +36,16 @@
 #define AKKU_PRIORITY_PRIMARY '1'
 #define AKKU_PRIORITY_SUBORDINATED '2'
 
+
 #define EMPTY_VALUE_IN_SETUP "---"
 
 #define JSON_OBJECT_SETUP_LEN 1024 /// www.cpp,
 
 // #define INVERTER_DATA g_app.webSockData.mbContainer.inverterSumValues.data
 // #define METER_DATA g_app.webSockData.mbContainer.meterValues.data
-//#define AKKU_STATE g_app.webSockData.mbContainer.akkuState.data
-//#define AKKU_STRG g_app.webSockData.mbContainer.akkuStr.data
-//#define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
+// #define AKKU_STATE g_app.webSockData.mbContainer.akkuState.data
+// #define AKKU_STRG g_app.webSockData.mbContainer.akkuStr.data
+// #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
 
 /* ****************** SOCKETS *****************/
 // length of ip address string
@@ -78,7 +82,6 @@
 #include "debugConsole.h"
 #include "modbusRegister.h"
 
-
 #define DEFAULT_IP_ACCESS_POINT "192.168.4.1"
 
 #define UDP_LOCAL_PORT 5683
@@ -101,6 +104,8 @@
 #define TEMPERATURE_SIZE 100
 #define SUNDAY_LIGHT_SIZE 100
 #define DAILY_VALUES_SIZE 100
+
+#define LOG_BUFFER_SIZE 60
 // #defin
 
 typedef struct
@@ -109,45 +114,47 @@ typedef struct
     char passwd[LEN_WLAN + 1];
 
     unsigned int heizstab_leistung_in_watt;
-    unsigned int phasen_leistung_in_watt; // heizstab_leistung_in_watt  pre calculation @see: eprom_getSetup
+    unsigned int phasen_leistung_in_watt; // heizstab_leistung_in_watt  pre calculation #define LOG_BUFFER_SIZE 256@see: eprom_getSetup
     unsigned int tempMaxAllowedInGrad;
     unsigned int tempMinInGrad;
     // unsigned int ipInverter;
     char inverter[INET_ADDRSTRLEN + 1];
     char currentIP[INET_ADDRSTRLEN + 1];
 
-    bool externerSpeicher;
-    char externerSpeicherPriori;
-    unsigned int pid_min_time_without_contoller_inMS;
+    short akku;
+    short akkuPriori; // 1 oder 2, je nachdem, ob Akku vorrangig behandelt werden soll oder nicht
+    // unsigned int pid_min_time_without_contoller_inMS;
+    unsigned int legionellenDelta;
+    unsigned int legionellenMaxTemp;
 
-    unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
-    // bool pidChanged;
-    // unsigned int ipAmisReaderHost;
+    // unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
+    //  bool pidChanged;
+    //  unsigned int ipAmisReaderHost;
     char amisKey[AMIS_KEY_LEN + 1];
 
     char amisReaderHost[INET_ADDRSTRLEN + 1];
     char mqttHost[MQTT_HOST_LEN + 1];
     char mqttUser[MQTT_USER_LEN + 1];
     char mqttPass[MQTT_PASS_LEN + 1];
-
+ 
     char influxHost[INFLUX_HOST_LEN + 1];
     char influxToken[INFLUX_TOKEN_LEN + 1];
     char influxOrg[INFLUX_ORG_LEN + 1];
     char influxBucket[INFLUX_BUCKET_LEN + 1];
 
-    double additionalLoad;
+    double epsilonML_PinManager;
     int forceHeating;
-    bool setupChanged;
+    int wattSetupForTest;
+    bool setupChanged; 
 
 } Setup;
 
 typedef struct
 {
     bool alarm;
-    float sensor1;
-    float sensor2;
+    int sensor1;
+    int sensor2;
 } TEMPERATURE;
-
 
 typedef struct mbContainer
 {
@@ -156,12 +163,11 @@ typedef struct mbContainer
     METER_VALUE_t meterValues;
     AKKU_STATE_VALUE_t akkuState;
     AKKU_STRG_VALUE_t akkuStr;
-   
 
 } MB_CONTAINER;
 
 typedef struct pidContaienr
-{
+{ 
 
     double mCurrentPower;
     int mAnalogOut;
@@ -176,7 +182,7 @@ typedef struct _LIFE_DATA
     long heatingLastTime;
 
 } LIFE_DATA;
-
+ 
 typedef struct _STATES
 {
     bool cardWriterOK;
@@ -191,7 +197,8 @@ typedef struct _STATES
     bool influx;
     bool mqtt;
     bool boilerHeating; // on or off
-    unsigned int heating;
+    //unsigned int heating;
+    bool wattBiasForTest; // only for testing, overrides available watt in PinManager::preCheck
 } STATES;
 
 typedef struct _FRONIUS_SOLAR_POWERFLOW
@@ -267,6 +274,30 @@ typedef struct
     bool valid;
 } ALL_SHELLY_DEVICES;
 
+struct __attribute__((packed)) LogEntry 
+{ 
+    uint32_t ts;
+    uint8_t state;
+    int16_t power;
+    uint8_t pwm;
+    int16_t temp;
+}; 
+ 
+struct RingBuffer
+{
+    LogEntry buffer[LOG_BUFFER_SIZE];
+
+    volatile uint16_t writeIndex = 0;
+    volatile uint16_t readIndex = 0;
+    // Speicher für den letzten Zustand, der TATSÄCHLICH in den Buffer geschrieben wurde
+    LogEntry lastAddedEntry;
+    uint32_t lastAddedTime = 0;
+    bool firstEntryMade = false;
+
+    volatile bool active = true;
+    SemaphoreHandle_t mutex; // Mutex für thread-sicheren Zugriff
+};
+
 typedef struct _WEBSOCK
 {
     MB_CONTAINER mbContainer;
@@ -277,7 +308,7 @@ typedef struct _WEBSOCK
     Setup setupData;
 
     FRONIUS_SOLAR_POWERFLOW fronius_SOLAR_POWERFLOW;
-
+    RingBuffer logBuffer;
     AMIS_READER amisReader;
 #ifdef SHELLY
     SHELLY_OBJ shellyObj[SHELLY_DEVICES];

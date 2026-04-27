@@ -1,70 +1,16 @@
-<!DOCTYPE html>
-
-<html lang="de">
-
-<head>
-  <title>About</title>
-  <div id="backGr"></div>
-  <meta http-equiv="content-type" content="text/html; charset=utf-8">
-  <link rel="stylesheet" type="text/css" href="css/menu.css" />
-  <link rel="stylesheet" type="text/css" href="css/main.css" />
-  <link rel="stylesheet" type="text/css" href="css/datatables.min.css" />
-
-  <script src="js/navigation.js"></script>
-  <script src="js/jquery-3.7.1.min.js"></script>
-  <script src="js/datatables.min.js"></script>
-  <script src="js/index.js"></script>
-  <script>
-    document.title = 'Main';
-    $(document).ready(function () {
-      $('#navBar').load('headerF.html #navB');
-      $('#backGr').load('headerF.html #backG')
-
-      $('#myFooter').load('headerF.html #myFooter')
-      buildStaticTableI();
-      getData();
-
-
-    })
-  </script>
-
-</head>
-
-<body>
-  <header>
-    <div id="navBar"></div>
-  </header>
-  <div id="wsInfo">
-    <div id="a">
-      <div class="flex-container">
-        <ul id="errorL">
-          <li>Keine Fehler</li>
-
-          <!--   -->
-        </ul>
-      </div>
-    </div>
-    <h1>Übersicht</h1>
-
-    <div id="b">
-      <div class="wsBase">
-        <div class="row">
-          <div class="cel l textC">
-            Energy-Junkies
-          </div>
-          <div class="cell" id="wsHost"></div>
-        </div>
-        <div class="row">
-          <div class="cell textC">E-Harvester:</div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <table id="overview" class="stripe" style="width:80%">
-  </table>
-
-
-</body>
-<div id="myFooter"></div>
-
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>client-harvester-vue</title>
+    <script type="module" crossorigin src="/assets/index.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor.js">
+    <link rel="stylesheet" crossorigin href="/assets/index.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
 </html>

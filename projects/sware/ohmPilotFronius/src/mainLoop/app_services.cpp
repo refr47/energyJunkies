@@ -42,14 +42,16 @@
 
 static constexpr uint32_t TEMPERATURE_OVERHEATED_WAIT_IN_SECS = 300;
 
-static float averageTemp()
+static int averageTemp()
 {
-    return (g_app.webSockData.temperature.sensor1 + g_app.webSockData.temperature.sensor2) / 2.0f;
+    return (g_app.webSockData.temperature.sensor1 + g_app.webSockData.temperature.sensor2) / 2;
 }
 
 void serviceClock()
 {
-    appLock();
+    // appLock();
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceClock - update time and ip addr");
+
     if (getCurrentTime(g_app.formatBuffer, FORMAT_CHAR_BUFFER_LEN))
     {
         if (xSemaphoreTake(g_tftMutex, pdMS_TO_TICKS(50)) == pdTRUE)
@@ -69,6 +71,9 @@ void serviceClock()
 
     g_app.secondsCounter++;
     g_app.secondsCounter %= SECONDS_PER_DAY;
+    // char *ipBuffer = g_app.webSockData.setupData.currentIP;
+    String s = WiFi.localIP().toString();
+    LOG_INFO(TAG_APP_SERVICES, "Current IP: %s", s.c_str());
     ledHandler_blink();
 
 #ifdef MQTT
@@ -78,124 +83,97 @@ void serviceClock()
     }
 #endif
 
-    appUnlock();
+    // appUnlock();
 }
 
 void serviceNetworkSupervisor()
 {
-    appLock();
 
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceNetworkSupervisor ");
     if (!wifi_isStillConnected(g_app.webSockData.setupData))
     {
-        LOG_ERROR("Network down, try reconnecting");
-        g_app.webSockData.states.networkOK = false;
-        g_app.webSockData.states.mqtt = false;
-        WiFi.disconnect();
-    }
-    else
-    {
-        int rssi = 0;
-        esp_err_t result = esp_wifi_sta_get_rssi(&rssi);
-        if (result == ESP_OK)
+        LOG_ERROR(TAG_APP_SERVICES, "Network down, try reconnecting");
+        if (appLock(10))
         {
-            LOG_INFO("Network OK, SSID: %s, IP: %s, RSSI: %d",
-                     g_app.webSockData.setupData.ssid,
-                     g_app.webSockData.setupData.currentIP,
-                     rssi);
+            g_app.webSockData.states.networkOK = false;
+            g_app.webSockData.states.mqtt = false;
+            WiFi.disconnect();
+            appUnlock();
         }
-        g_app.webSockData.states.networkOK = true;
-#ifdef MQTT
-        g_app.webSockData.states.mqtt = true;
-#endif
+        else
+        {
+            LOG_DEBUG(TAG_APP_SERVICES, "Network seems down, but could not acquire lock to update state");
+        }
+        return; 
     }
+    
 
-    appUnlock();
+#ifdef FRONIUS_IV
+        if (!g_app.webSockData.states.modbusOK)
+        {
+            LOG_ERROR(TAG_APP_SERVICES, "Modbus connection to Fronius failed, try reconnecting");
+            if (appLock(10))
+            {
+                g_app.webSockData.states.modbusOK = mb_init(g_app.webSockData.setupData);
+                appUnlock();
+            }
+            else
+            {
+                LOG_DEBUG(TAG_APP_SERVICES, "Modbus connection seems down, but could not acquire lock to update state");
+            }
+        }
+#endif
+#ifdef AMIS_READER_DEV
+        if (!g_app.webSockData.states.amisReader)
+        {
+            LOG_ERROR(TAG_APP_SERVICES, "AmisReader connection failed, try reconnecting");
+            if (appLock(10))
+            {
+                g_app.webSockData.states.amisReader = amisReader_initRestTargets(g_app.webSockData);
+                appUnlock();
+            }
+            else
+            {
+                LOG_DEBUG(TAG_APP_SERVICES, "AmisReader connection seems down, but could not acquire lock to update state");
+            }
+        }
+#endif
+        
+        
+
+       
+        if (appLock(10))
+        {
+
+            g_app.webSockData.states.networkOK = true;
+#ifdef MQTT
+            g_app.webSockData.states.mqtt = true;
+#endif
+
+            appUnlock();
+        }
+        else
+        {
+            LOG_DEBUG(TAG_APP_SERVICES, "Network check passed, but could not acquire lock to update state");
+        }
+    
 }
 
 void serviceTemperature()
 {
-    appLock();
 
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceTemperature ");
     if (!temp_getTemperature(g_app.webSockData.temperature))
     {
-        g_app.webSockData.states.tempUnderflow = false;
-        g_app.webSockData.states.tempSensorOK = false;
-
-        if (g_app.webSockData.temperature.sensor1 < 0.0f &&
-            g_app.webSockData.temperature.sensor2 < 0.0f)
+        if (appLock(10))
         {
-#ifdef MQTT
-            if (g_app.webSockData.states.mqtt)
+
+            g_app.webSockData.states.tempUnderflow = false;
+            g_app.webSockData.states.tempSensorOK = false;
+
+            if (g_app.webSockData.temperature.sensor1 < 0 &&
+                g_app.webSockData.temperature.sensor2 < 0)
             {
-                mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
-                                        g_app.webSockData.temperature.sensor2);
-            }
-#endif
-            if (!g_app.webSockData.temperature.alarm)
-            {
-                LOG_ERROR("Temperature sensors failed - heater off");
-                g_app.pidPinManager.reset();
-                g_app.alarmContainer.alarmTemp.alarmTemp = true;
-                g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
-                g_app.webSockData.temperature.alarm = true;
-            }
-        }
-
-        appUnlock();
-        return;
-    }
-
-    g_app.webSockData.states.tempSensorOK = true;
-
-    const float tempAvg = averageTemp();
-
-    if (tempAvg < g_app.webSockData.setupData.tempMinInGrad)
-    {
-        g_app.webSockData.states.tempUnderflow = true;
-        g_app.pidPinManager.allOn();
-        LOG_INFO("Temp under minimum, heating full power");
-        appUnlock();
-        return;
-    }
-
-    g_app.webSockData.states.tempUnderflow = false;
-
-    if (tempAvg < g_app.webSockData.setupData.tempMaxAllowedInGrad)
-    {
-        g_app.webSockData.temperature.alarm = false;
-    }
-
-    if (!g_app.alarmContainer.alarmTemp.alarmTemp)
-    {
-        if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
-        {
-            LOG_ERROR("Temperature limit reached - heater off");
-            g_app.pidPinManager.reset();
-            g_app.alarmContainer.alarmTemp.alarmTemp = true;
-            g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
-            g_app.webSockData.temperature.alarm = true;
-            ledHandler_showTemperaturError(true);
-
-#ifdef MQTT
-            if (g_app.webSockData.states.mqtt)
-            {
-                mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
-                                        g_app.webSockData.temperature.sensor2);
-            }
-#endif
-        }
-    }
-    else
-    {
-        const time_t currT = time_getTimeStamp();
-        const double diffT = difftime(currT, g_app.alarmContainer.alarmTemp.overFlowHappenedAt);
-
-        if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
-        {
-            if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
-            {
-                g_app.alarmContainer.alarmTemp.overFlowHappenedAt = currT;
-                ledHandler_showTemperaturError(true);
 #ifdef MQTT
                 if (g_app.webSockData.states.mqtt)
                 {
@@ -203,27 +181,106 @@ void serviceTemperature()
                                             g_app.webSockData.temperature.sensor2);
                 }
 #endif
+                if (!g_app.webSockData.temperature.alarm)
+                {
+                    LOG_ERROR(TAG_APP_SERVICES, "Temperature sensors failed - heater off");
+                    g_app.pinManager.reset();
+                    g_app.alarmContainer.alarmTemp.alarmTemp = true;
+                    g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+                    g_app.webSockData.temperature.alarm = true;
+                }
             }
-            else
-            {
-                g_app.alarmContainer.alarmTemp.alarmTemp = false;
-                g_app.alarmContainer.alarmTemp.overFlowHappenedAt = 0;
-                ledHandler_showTemperaturError(false);
-                LOG_INFO("Temperature alarm reset");
-            }
+            appUnlock();
         }
+        else
+        {
+            LOG_DEBUG(TAG_APP_SERVICES, "Temperature sensor read failed, but could not acquire lock to update state");
+        }
+
+        return;
     }
 
-    appUnlock();
+    g_app.webSockData.states.tempSensorOK = true;
+
+    const int tempAvg = averageTemp();
+    g_app.webSockData.states.tempUnderflow = false;
+    if (tempAvg < g_app.webSockData.setupData.tempMinInGrad)
+    {
+        LOG_INFO(TAG_APP_SERVICES, "Temperature underflow detected: %d °C, setup: %d °C", tempAvg, g_app.webSockData.setupData.tempMinInGrad);
+        g_app.webSockData.states.tempUnderflow = true;
+        /*  if (appLock(10)) {
+             g_app.webSockData.states.tempUnderflow = true;
+             g_app.pinManager.allOn();
+             LOG_INFO(TAG_APP_SERVICES, "Temp under minimum, heating full power");
+             appUnlock();
+         } else {
+             LOG_DEBUG(TAG_APP_SERVICES, "Temperature underflow detected, but could not acquire lock to update state");
+         }
+
+         return; */
+    }
+
+    if (tempAvg < g_app.webSockData.setupData.tempMaxAllowedInGrad)
+
+        g_app.webSockData.temperature.alarm = false;
+
+    /*   if (!g_app.alarmContainer.alarmTemp.alarmTemp)
+      {
+          if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
+          {
+              LOG_ERROR(TAG_APP_SERVICES, "Temperature limit reached - heater off");
+              g_app.pinManager.reset();
+              g_app.alarmContainer.alarmTemp.alarmTemp = true;
+              g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
+              g_app.webSockData.temperature.alarm = true;
+              ledHandler_showTemperaturError(true);
+
+  #ifdef MQTT
+              if (g_app.webSockData.states.mqtt)
+              {
+                  mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
+                                          g_app.webSockData.temperature.sensor2);
+              }
+  #endif
+          }
+      }
+      else
+      {
+          const time_t currT = time_getTimeStamp();
+          const double diffT = difftime(currT, g_app.alarmContainer.alarmTemp.overFlowHappenedAt);
+
+          if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
+          {
+              if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
+              {
+                  g_app.alarmContainer.alarmTemp.overFlowHappenedAt = currT;
+                  ledHandler_showTemperaturError(true);
+  #ifdef MQTT
+                  if (g_app.webSockData.states.mqtt)
+                  {
+                      mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
+                                              g_app.webSockData.temperature.sensor2);
+                  }
+  #endif
+              }
+              else
+              {
+                  g_app.alarmContainer.alarmTemp.alarmTemp = false;
+                  g_app.alarmContainer.alarmTemp.overFlowHappenedAt = 0;
+                  // ledHandler_showTemperaturError(false);
+                  LOG_INFO(TAG_APP_SERVICES, "Temperature alarm reset");
+              }
+          }
+      }*/
 }
 
 void serviceEnergy()
 {
-    appLock();
-
+    // appLock();
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEnergy - ");
     if (!g_app.webSockData.states.tempSensorOK)
     {
-        appUnlock();
+        // appUnlock();
         return;
     }
 
@@ -248,7 +305,6 @@ void serviceEnergy()
         }
     }
 
-
     if (!g_app.webSockData.states.froniusAPI &&
         g_app.webSockData.states.modbusOK &&
         g_app.webSockData.states.networkOK)
@@ -263,7 +319,7 @@ void serviceEnergy()
         }
         else
         {
-            LOG_ERROR("Modbus read failed");
+            LOG_ERROR(TAG_APP_SERVICES, "Modbus read failed");
             g_app.webSockData.states.networkOK = false;
         }
     }
@@ -274,15 +330,24 @@ void serviceEnergy()
     {
         if (amisReader_readRestTarget(g_app.webSockData))
         {
-            g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower = g_app.webSockData.amisReader.exportInWatt;
-            g_app.webSockData.mbContainer.inverterSumValues.data.acTotalEnergy = 0.0;
-            g_app.webSockData.mbContainer.inverterSumValues.data.dcCurrentPower = 0.0;
-            g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyExp = g_app.webSockData.amisReader.absolutExportInkWh;
-            g_app.webSockData.mbContainer.meterValues.data.acCurrentPower = g_app.webSockData.amisReader.saldo;
+            if (appLock(10))
+            {
+                g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower = g_app.webSockData.amisReader.exportInWatt;
+                g_app.webSockData.mbContainer.inverterSumValues.data.acTotalEnergy = 0.0;
+                g_app.webSockData.mbContainer.inverterSumValues.data.dcCurrentPower = 0.0;
+                g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyExp = g_app.webSockData.amisReader.absolutExportInkWh;
+                g_app.webSockData.mbContainer.meterValues.data.acCurrentPower = g_app.webSockData.amisReader.saldo;
+                appUnlock();
+            }
+            else
+            {
+                LOG_DEBUG(TAG_APP_SERVICES, "AMIS reader read succeeded, but could not acquire lock to update state");
+            }
+            LOG_INFO(TAG_APP_SERVICES, "AMIS reader OK, Saldo: %ld, ", g_app.webSockData.amisReader.saldo);
         }
         else
         {
-            LOG_ERROR("AMIS reader failed");
+            LOG_ERROR(TAG_APP_SERVICES, "AMIS reader failed");
             g_app.webSockData.states.networkOK = false;
         }
     }
@@ -293,55 +358,77 @@ void serviceEnergy()
         tft_drawInfo(g_app.webSockData);
         xSemaphoreGive(g_tftMutex);
     }
-
-    appUnlock();
 }
 
 void servicePid()
 {
-    appLock();
 
-    if (g_app.webSockData.states.networkOK)
-    {
-        if (!g_app.alarmContainer.alarmTemp.alarmTemp)
-        {
-            g_app.pidPinManager.task(g_app.webSockData);
-            g_app.webSockData.pidContainer.mAnalogOut = g_app.pidPinManager.getStateOfAnaPin();
-            g_app.webSockData.pidContainer.PID_PIN1 = g_app.pidPinManager.getStateOfDigPin(0);
-            g_app.webSockData.pidContainer.PID_PIN2 = g_app.pidPinManager.getStateOfDigPin(1);
-        }
-        else
-        {
-            g_app.pidPinManager.reset();
-        }
-    }
+    LOG_INFO(TAG_APP_SERVICES, "app_services::servicePid - ");
+    g_app.pinManager.update(g_app.webSockData);
+    /* g_app.webSockData.pidContainer.mAnalogOut = g_app.pinManager.getStateOfAnaPin();
+    g_app.webSockData.pidContainer.PID_PIN1 = g_app.pinManager.getStateOfDigPin(0);
+    g_app.webSockData.pidContainer.PID_PIN2 = g_app.pinManager.getStateOfDigPin(1); */
 
-    appUnlock();
+    /*  if (g_app.webSockData.states.networkOK)
+     {
+         if (!g_app.alarmContainer.alarmTemp.alarmTemp)
+         {
+             LOG_INFO(TAG_APP_SERVICES, "Temperature OK, updating PID and heating state");
+             g_app.pinManager.update(g_app.webSockData);
+             g_app.webSockData.pidContainer.mAnalogOut = g_app.pinManager.getStateOfAnaPin();
+             g_app.webSockData.pidContainer.PID_PIN1 = g_app.pinManager.getStateOfDigPin(0);
+             g_app.webSockData.pidContainer.PID_PIN2 = g_app.pinManager.getStateOfDigPin(1);
+         }
+         else
+         {
+             LOG_INFO(TAG_APP_SERVICES, "Temperature alarm active, skipping PID update and set heating to 0");
+             g_app.pinManager.reset();
+         }
+     } */
 }
 
 void serviceWeb()
 {
-    appLock();
-    notifyClients(getJsonObj());
-
+    static uint32_t counter = 0;
+    if (counter++ % 10 == 0)
+    {
+        cleanupClients();
+        counter = 0;
+    }
+    notifyClients();
+    LOG_INFO(TAG_APP_SERVICES, "ServiceWeb - data changed? %d",g_app.webSockData.setupData.setupChanged);
     if (g_app.webSockData.setupData.setupChanged)
     {
-        if (!hotUpdate(g_app.webSockData, g_app.pidPinManager))
+        if (appLock(100))
         {
+            //g_app.webSockData.states.networkOK = false;
+
+            if (!hotUpdate(g_app.webSockData, g_app.pinManager))
+            {
+                appUnlock();
+                LOG_DEBUG(TAG_APP_SERVICES," Waiting for restart ....");
+                vTaskDelay(pdMS_TO_TICKS(3000));
+                esp_restart();
+                return;
+            }
+            else
+            {
+                LOG_INFO(TAG_APP_SERVICES, "Hot update applied successfully without reboot");
+            }
+            g_app.webSockData.setupData.setupChanged = false;
             appUnlock();
-            delay(1000);
-            esp_restart();
-            return;
         }
-        g_app.webSockData.setupData.setupChanged = false;
+        else
+        {
+            LOG_DEBUG(TAG_APP_SERVICES, "Setup changed, but could not acquire lock to apply hot update");
+        }
     }
-    appUnlock();
 }
 
 void serviceMaintenance()
 {
-    appLock();
 
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceMaintenance - ");
     g_app.heapSize[0].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     g_app.heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
 
@@ -353,7 +440,13 @@ void serviceMaintenance()
     }
 #endif
 
-    logReader_init();
+    // logReader_init();
+}
 
-    appUnlock();
+void serviceEpromStore(void *param)
+{
+    Setup *setup = (Setup *)param;
+    // er lokale Puffer, in den die Queue schreibt. Er wird dann in der Queue empfangen und in den Eprom geschrieben. So muss nicht die ganze Struktur in die Queue, sondern nur ein Zeiger auf den lokalen Puffer.
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEpromStore - started");
+    eprom_storeSetup(*setup);
 }
