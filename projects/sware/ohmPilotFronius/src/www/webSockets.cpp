@@ -11,7 +11,11 @@
 */
 #define PRODUKTION "solEr"
 #define EIGENVERBRAUCH "ev"
-#define EINSPEISUNG "netzBezug"
+#define NETZ_BEZUG "netzBezug"
+#define HEIZSTAB_LEISTUNG_PHASE "hsPhase"
+#define STROM_EXPORT_INS "SEI"
+#define STROM_IMPORT_INS "SII"
+
 #define TEMP_PUFFERSPEICHER "bTemp"
 
 #define HEIZPATRONE_L3 "L3"
@@ -94,7 +98,7 @@ static char *getJsonObj()
     if (data.states.froniusAPI)
     {
         live[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
-        live[EINSPEISUNG] = data.fronius_SOLAR_POWERFLOW.p_grid;
+        live[NETZ_BEZUG] = data.fronius_SOLAR_POWERFLOW.p_grid;
         live[EIGENVERBRAUCH] = data.fronius_SOLAR_POWERFLOW.p_load;
         // live[AKKU_AKKU] = (int)data.fronius_SOLAR_POWERFLOW.p_akku;
     }
@@ -105,23 +109,25 @@ static char *getJsonObj()
 
         if (data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
         {
-            live[EINSPEISUNG] = data.mbContainer.meterValues.data.acCurrentPower;
+            live[NETZ_BEZUG] = data.mbContainer.meterValues.data.acCurrentPower;
 
             live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower;
             prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
         }
         else
         {
-            live[EINSPEISUNG] = prevValueFromSmartMeter;
+            live[NETZ_BEZUG] = prevValueFromSmartMeter;
             live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter;
         }
     }
     else // amis reader
     {
 
-        live[EINSPEISUNG] = data.amisReader.saldo;
-        live[EIGENVERBRAUCH] = data.amisReader.consumptionInWatt;
+        live[NETZ_BEZUG] = data.amisReader.consumptionInWatt;
+        live[EIGENVERBRAUCH] = data.amisReader.saldo;
         live[PRODUKTION] = data.amisReader.exportInWatt;
+        live[STROM_EXPORT_INS] = data.amisReader.absolutExportInkWh;
+        live[STROM_IMPORT_INS] = data.amisReader.absolutImportInkWh;
         // live[AKKU_AKKU] = 0;
     }
     int avgTemp = (data.temperature.sensor1 + data.temperature.sensor2) / 2;
@@ -148,6 +154,7 @@ static char *getJsonObj()
     live[HEIZPATRONE_L2] = data.pidContainer.PID_PIN2;
     live[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;
     live[FORCE_HEIZPATRONE] = (int)data.setupData.forceHeating;
+    live[HEIZSTAB_LEISTUNG_PHASE] = floor(data.setupData.heizstab_leistung_in_watt / 3);
 
     live[AAKU_AVAILABLE] = data.setupData.akku;
     live[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
@@ -176,12 +183,12 @@ static char *getJsonObj()
 #ifdef MQTT
     if (!data.states.mqtt)
         bitMaster |= (1 << STATE_MQTT);
-#endif 
-    if (data.setupData.forceHeating==1) 
+#endif
+    if (data.setupData.forceHeating == 1)
         bitMaster |= (1 << STATE_FORCE_HEATING);
     if (data.states.wattBiasForTest)
         bitMaster |= (1 << STATE_WATT_BIAS);
-        
+
     live[FEHLER] = bitMaster;
 
     /*  live[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;

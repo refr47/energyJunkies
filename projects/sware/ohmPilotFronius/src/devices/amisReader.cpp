@@ -62,12 +62,12 @@ bool amisReader_readRestTarget(WEBSOCK_DATA &webSockData)
         LOG_ERROR(TAG_AMIS,"Parsing input failed!");
         return false;
     }
-
+ 
     webSockData.amisReader.saldo = my_obj["saldo"];
-    webSockData.amisReader.absolutExportInkWh = my_obj["2.8.0"];
-    webSockData.amisReader.absolutImportInkWh = my_obj["1.8.0"];
-    webSockData.amisReader.exportInWatt = my_obj["2.7.0"];
-    webSockData.amisReader.consumptionInWatt = my_obj["1.7.0"];
+    webSockData.amisReader.absolutExportInkWh = my_obj["2.8.0"]; // bissherige einspeisung insge
+    webSockData.amisReader.absolutImportInkWh = my_obj["1.8.0"]; // gesamter Strombezug
+    webSockData.amisReader.exportInWatt = my_obj["2.7.0"];  //wirkleistug P-, aktueller export
+    webSockData.amisReader.consumptionInWatt = my_obj["1.7.0"]; // aktueller bezug
     return true;
 
     /* return utils_sock_readRestTarget(webSockData, AMIS_READER_INDEX, mapJsonValues); */

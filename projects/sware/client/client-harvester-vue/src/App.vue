@@ -38,7 +38,7 @@
 
 
 
-<script setup>
+L<script setup>
 import { ref, onMounted, onUnmounted, provide } from "vue";
 import Navbar from "./components/TopNavbar.vue";
 import LoginForm from './components/LoginForm.vue';

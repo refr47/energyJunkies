@@ -48,7 +48,7 @@ Der ESP32 stellt intern ein FlashFilesystem (SPIFF) zur Verfügung, welche vom F
 
 Dementsprechend gibt es 2 verschiedene Flashvorgänge.
 
-- a) Flashen des SPIFF-Bereichs
+- a) Flashen des L-Bereichs
 - b) Flashen des Programm Images
 
 Beides sind separate Vorgänge. Wenn am Client keine Änderungen sind, braucht dieser Bereich auch nicht reflasht werden, sondern es genügt ein einmaliger Flashvorgang.

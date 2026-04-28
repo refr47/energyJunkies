@@ -61,7 +61,7 @@
           </div>
 
           <div class="hidden md:flex flex-col items-end mr-8">
-            <span class="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest">System Time</span>
+            <span class="text-[9px] font-black text-emerald-400 uppercase tracking-widest">System Time</span>
             <span class="font-mono text-xl font-bold text-slate-100 tabular-nums leading-none">
               {{ currentTime }}
             </span>
