@@ -31,7 +31,7 @@
                     </thead>
 
                     <tbody class="divide-y divide-slate-100">
-                        <tr v-for="(log, i) in filteredLogs" :key="i" class="hover:bg-blue-50/50 transition-colors">
+                        <tr v-for="(log, i) in paginatedLogs" :key="i" class="hover:bg-blue-50/50 transition-colors">
 
                             <td class="p-4 text-left">
                                 <div class="flex flex-col gap-1">
@@ -114,6 +114,21 @@
                     </div>
                     Monitoring Live
                 </div>
+                <div class="flex items-center gap-3">
+                    <button @click="prevPage" :disabled="currentPage === 1"
+                        class="px-3 py-1 rounded border bg-white disabled:opacity-30">
+                        ← Zurück
+                    </button>
+
+                    <span class="text-slate-600">
+                        Seite {{ currentPage }} / {{ totalPages }}
+                    </span>
+
+                    <button @click="nextPage" :disabled="currentPage === totalPages"
+                        class="px-3 py-1 rounded border bg-white disabled:opacity-30">
+                        Weiter →
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -149,6 +164,9 @@ const filterTag = ref("");
 const filterLevel = ref("");
 const displayLimit = ref(100);
 
+const currentPage = ref(1)
+const itemsPerPage = 20
+
 // Verfügbare Tags für das Dropdown
 const availableTags = computed(() => {
     if (!props.logs) return [];
@@ -156,17 +174,7 @@ const availableTags = computed(() => {
 });
 
 // Die kombinierte Filter-Logik
-const filteredLogs = computed(() => {
-    if (!props.logs) return [];
 
-    return props.logs
-        .filter(l => {
-            const tagMatch = !filterTag.value || l.tag === filterTag.value;
-            const lvlMatch = !filterLevel.value || l.level === filterLevel.value;
-            return tagMatch && lvlMatch;
-        })
-        .slice(0, displayLimit.value);
-});
 
 const getLevelClass = (lvl) => {
     switch (lvl) {
@@ -211,6 +219,39 @@ const getDuration = (first, last) => {
     const secs = diff % 60;
     return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
 };
+const filteredLogs = computed(() => {
+    if (!props.logs) return [];
+
+    return props.logs
+        .filter(l => {
+            const tagMatch = !filterTag.value || l.tag === filterTag.value;
+            const lvlMatch = !filterLevel.value || l.level === filterLevel.value;
+            return tagMatch && lvlMatch;
+        })
+        .slice(0, displayLimit.value);
+});
+
+const paginatedLogs = computed(() => {
+    const start = (currentPage.value - 1) * itemsPerPage
+    const end = start + itemsPerPage
+
+    return filteredLogs.value.slice(start, end)
+})
+const totalPages = computed(() => {
+    return Math.ceil(filteredLogs.value.length / itemsPerPage)
+})
+function nextPage() {
+    if (currentPage.value < totalPages.value) {
+        currentPage.value++
+    }
+}
+
+function prevPage() {
+    if (currentPage.value > 1) {
+        currentPage.value--
+    }
+}
+
 
 </script>
 
