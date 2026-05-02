@@ -274,8 +274,9 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         measuredPower = 0;
         logEntry.power = 0;
         logEntry.pwm = 0;
+        currentPWM =0;
 
-        logEntry.state = 0;
+            logEntry.state = 0;
         targetPower = 0;
 
         doML = false;
@@ -287,9 +288,11 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     case MODE_MIN_TEMP:
         targetPower = measuredPower = onePhase * 3; // Volle Kraft
         doML = false;
+        currentPWM = 255;
+
         logEntry.state = 3; // Spezieller Zustand für Legionella
         logEntry.power = targetPower;
-        logEntry.pwm = 255;
+        logEntry.pwm = currentPWM;
 
         LOG_INFO(TAG_PID, "HEAT ON (Sicherheit) - Alle Relais ein, PWM 254");
         break;
@@ -317,7 +320,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         measuredPower = getMeanOfAvailAblePower();
         LOG_DEBUG(TAG_PID, "RL AUTO - Gemessene Leistung: %d W ", measuredPower);
         logEntry.power = measuredPower;
-        if (abs(measuredPower) < EPSILON_TEMP)
+        if (abs(measuredPower) < EPSILON_TEMP || measuredPower > 0)
         {
             targetPower = 0; // <--- DAS schaltet aus, wenn kein Strom da ist!
 
@@ -367,12 +370,12 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
                 fullPhases = 1; // Nur ein Relais vorhanden!
 
             action = tinyNN->chooseAction(temp, measuredPower);
-            float factors[5] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+            // float factors[5] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
 
             // TargetPower = (1000W wenn genug da) + (0-1000W per PWM)
-            int restklasse=0;
+            int restklasse = 0;
 
-                if (effectiveAvailable - onePhase > 0)
+            if (effectiveAvailable - onePhase > 0)
             {
                 restklasse = onePhase;
             }
@@ -649,15 +652,15 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
     P_for_pwm = constrain(P_for_pwm, 0, P_ph);
 
     // Duty Cycle berechnen (0-255)
-    int finalPWM = (int)((P_for_pwm / P_ph) * 255);
+    currentPWM = (int)((P_for_pwm / P_ph) * 255);
 
-    LOG_DEBUG(TAG_PID, "apply (stern) - P_for_pwm: %f, finalPWM: %d, relayState: %d", P_for_pwm, finalPWM, relayState);
+    // LOG_DEBUG(TAG_PID, "apply (stern) - P_for_pwm: %f, finalPWM: %d, relayState: %d", P_for_pwm, finalPWM, relayState);
     // Hardware-Output
     digitalWrite(pinL1, relayState); // Phase 1
-    analogWrite(pwmPin, finalPWM);   // Phase 3 (PWM)
+    analogWrite(pwmPin, currentPWM); // Phase 3 (PWM)
 
     // 3. LogEntry für das Frontend befüllen
-    logEntry.pwm = finalPWM;
+    logEntry.pwm = currentPWM;
     logEntry.power = targetPower;
 
     // Bitmaske: Bit 0 für Relais L1
@@ -669,7 +672,7 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
     logEntry.state = state;
 
     LOG_INFO(TAG_PID, "Apply Stern: Target %dW, Relay %s, PWM %d",
-             targetPower, relayState ? "AN" : "AUS", finalPWM);
+             targetPower, relayState ? "AN" : "AUS", currentPWM);
 
 #endif
 
