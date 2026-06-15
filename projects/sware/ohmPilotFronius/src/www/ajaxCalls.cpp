@@ -13,6 +13,7 @@
 #include "templ.h"
 #include "ajaxConst.h"
 #include "setupFields.h"
+#include "loxone.h"
 /*
 extern const FieldBase<Setup>* setupFields[];
 extern const size_t setupFieldsCount;*/
@@ -69,7 +70,7 @@ static void ajaxCalls_unlock(SemaphoreHandle_t mutex);
 static void returnFromStoreSetup(bool inputCorrect,
                                  JsonDocument &result,
                                  AsyncWebServerRequest *request,
-                                char *caller);
+                                 char *caller);
 
 void delayedRestartTask(void *param);
 bool parseStruct(JsonObject obj,
@@ -396,8 +397,8 @@ void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request)
     request->send(200, "application/json", response);
 }
 
-
-void ajaxCalls_handleGetFullSetup(AsyncWebServerRequest *request) {
+void ajaxCalls_handleGetFullSetup(AsyncWebServerRequest *request)
+{
     Setup setup;
     eprom_getSetup(setup);
     JsonDocument data;
@@ -471,10 +472,45 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     serializeJson(data, response);
     LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
     request->send(httpCode, "application/json", response);
-
 }
 
 /* ---------- overview ---------- */
+
+void ajaxCalls_handleLoxone(AsyncWebServerRequest *request)
+{
+    ajaxCalls_ensureInitPrimitives();
+
+    if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
+    {
+       request->send(200, "application/json", "{\"error\":500,\"watt\":0,\"temp\":0}");
+        return;
+    }
+
+    CALLBACK_GET_DATA localGetData = g_getDataCallback;
+    ajaxCalls_unlock(g_ajaxMutex);
+
+    if (localGetData == nullptr)
+    {
+        request->send(200, "application/json", "{\"error\":501,\"watt\":0,\"temp\":0}");
+        return;
+    }
+
+    WEBSOCK_DATA webSockD = localGetData();
+    LOXONE_INFO loxone;
+
+    loxone_prepare(webSockD, loxone);
+    // 1. Puffer-Größe für das JSON festlegen (Groß genug für die Zahlen)
+    char json_buf[64]; 
+    
+    // 2. Variablen dynamisch in das JSON-Format einfügen
+    // %.1f rundet die Temperatur automatisch auf eine Nachkommastelle
+    snprintf(json_buf, sizeof(json_buf), 
+             "{\"error\":%d,\"watt\":%d,\"temp\":%d}", 
+             loxone.error, loxone.usedWatt, loxone.boilerTemp);
+    request->send(200, "application/json", json_buf);
+   
+  
+}
 
 void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 {
@@ -625,14 +661,11 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     UBaseType_t stackRemaining = uxTaskGetStackHighWaterMark(nullptr);
     LOG_INFO(TAG_AJAX, "jaxCallsHandleStoreSetup::free stack words: %u", (unsigned)stackRemaining);
     JsonDocument result;
-   
-  
+
     auto docPtr = my_make_unique<JsonDocument>();
     *docPtr = json;
     JsonObject jsonObj = docPtr->as<JsonObject>();
-    //JsonObject jsonObj = json.as<JsonObject>();
-
-
+    // JsonObject jsonObj = json.as<JsonObject>();
 
     CALLBACK_SET_SETUP_CHANGED cb = nullptr;
 
@@ -653,7 +686,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     bool allSuccessful = true;
 
     LOG_DEBUG(TAG_AJAX, "===========> before parseStruct");
-    
+
     for (size_t i = 0; i < setupFieldsCount; i++)
     {
         const char *key = setupFields[i]->getKey();
@@ -662,14 +695,14 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
             LOG_DEBUG(TAG_AJAX, "No Key available");
             jsonObj["error"] = "No Key available";
             allSuccessful = false;
-           
         }
         else
         {
             if (!json[key].isNull())
             {
                 // WICHTIG: *mySetup dereferenziert den Pointer zu einer Referenz
-                if (!setupFields[i]->update(*setup, json[key])) {
+                if (!setupFields[i]->update(*setup, json[key]))
+                {
                     allSuccessful = false;
                     /*char buf[50];
                     sprintf(buf, "Wrong type or null value for key: %s.", key);
@@ -680,33 +713,32 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
             }
         }
     }
-/*
- data["error"]["code"] = 0;
-        data["error"]["msg"] = "JsonDocument ist zu groß!";
-*/
+    /*
+     data["error"]["code"] = 0;
+            data["error"]["msg"] = "JsonDocument ist zu groß!";
+    */
 
     LOG_DEBUG(TAG_AJAX, "===========> after parseStruct");
     setup->phasen_leistung_in_watt = setup->heizstab_leistung_in_watt / 3;
-    
+
     LOG_DEBUG(TAG_AJAX, "after parseStruct, ok: ");
-    if (!allSuccessful) 
+    if (!allSuccessful)
     {
-        returnFromStoreSetup(false, result, request,"caller 1");
+        returnFromStoreSetup(false, result, request, "caller 1");
         return;
     }
 
-    
     LOG_DEBUG(TAG_AJAX, "Try to write Eprom in calling task.");
-   
+
     eprom_storeSetup(*setup);
 
-   /*  if (!appTask_epromWriter(std::move(setup)))
-    {
-        result["error"] = "queue full";
-        returnFromStoreSetup(false, result, request);
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        return;
-    } */
+    /*  if (!appTask_epromWriter(std::move(setup)))
+     {
+         result["error"] = "queue full";
+         returnFromStoreSetup(false, result, request);
+         vTaskDelay(pdMS_TO_TICKS(2000));
+         return;
+     } */
     returnFromStoreSetup(true, result, request, "caller 2");
     if (cb)
         cb(true);
@@ -730,7 +762,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         }
     }
 }
-  
+
 void delayedRestartTask(void *param)
 {
     uint32_t delayMs = (uint32_t)param;
@@ -748,7 +780,7 @@ void delayedRestartTask(void *param)
 static void returnFromStoreSetup(bool inputCorrect,
                                  JsonDocument &result,
                                  AsyncWebServerRequest *request,
-                                char *caller)
+                                 char *caller)
 {
     String response;
     unsigned httpCode = 200;
@@ -756,7 +788,7 @@ static void returnFromStoreSetup(bool inputCorrect,
     {
         result["done"] = 1;
         result["error"] = "";
-        LOG_INFO(TAG_AJAX, "ReturnFromStoreSetup - no errors, caller: %s",caller);
+        LOG_INFO(TAG_AJAX, "ReturnFromStoreSetup - no errors, caller: %s", caller);
     }
     else
     {
@@ -764,7 +796,7 @@ static void returnFromStoreSetup(bool inputCorrect,
         if (!result["error"].isNull())
         {
             result["error"] = "invalid input";
-        } 
+        }
         httpCode = 500;
         LOG_ERROR(TAG_AJAX, "ReturnFromStoreSetup(ERRORS) , caller: %s", caller);
     }

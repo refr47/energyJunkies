@@ -2,6 +2,13 @@ pio run --target erase
 
  /home/franz/.espressif/python_env/idf6.0_py3.12_env/bin/python3 -m esptool --chip esp32s3 --port /dev/ttyACM0 erase_flash
 
+platformio run -e lilygo-t-display-s3
+
+platformio run -e lilygo-t-display-s3  -t upload
+
+`platformio run -e lilygo-t-display-s -t clean`
+
+
 pio run --target buildfs --target uploadfs
 
 pio run --target erase

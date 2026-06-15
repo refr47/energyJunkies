@@ -14,6 +14,7 @@ void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupC
 
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);
 void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request);
+void ajaxCalls_handleLoxone(AsyncWebServerRequest *request);
 void ajaxCalls_handleStoreSetup(JsonDocument &json, AsyncWebServerRequest *request, bool isAPModus);
 void ajaxCalls_handleGetFullSetup(AsyncWebServerRequest *request);
 

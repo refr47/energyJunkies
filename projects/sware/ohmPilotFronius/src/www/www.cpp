@@ -185,7 +185,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
         strcpy(setupData.currentIP, ipAddr);
     }
     else
-    {
+    { 
         isAPModus = false;
     }
     doCORS();
@@ -194,6 +194,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               { request->send(200); });
     server.on("/login", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, handleLogin);
     server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
+    server.on("/getLoxone",HTTP_GET,ajaxCalls_handleLoxone); 
     server.on("/storeSetup", HTTP_POST, [](AsyncWebServerRequest *request)
               {
                   // Dieser Teil bleibt leer, da wir den Body-Handler nutzen

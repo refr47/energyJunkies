@@ -284,12 +284,49 @@ String util_GET_Request(const char *url, int *httpResponseCode)
 	return payload;
 }
 
+bool util_SendLoxone(char *url, char *loxone_user, char *loxone_pwd)
+{
+
+	// URL für den Webservice-Befehl zusammenbauen
+	HTTPClient http;
+	// HTTP-Verbindung initialisierenloxone_pwd
+	http.begin(url);
+
+	// Wichtig: Authentifizierung im HTTP-Header setzen
+	http.setAuthorization(loxone_user, loxone_pwd);
+
+	// GET-Request senden
+	int httpResponseCode = http.GET();
+
+	// Antwort auswerten
+	if (httpResponseCode > 0)
+	{
+		String response = http.getString();
+		LOG_DEBUG(TAG_UTILS, "Loxone send ok, Code: %d, Response:%s", httpResponseCode, response.c_str());
+		/* Serial.print("HTTP Code: ");
+		Serial.println(httpResponseCode);
+		Serial.print("Antwort vom Miniserver: ");
+		Serial.println(response); // Gibt XML-Antwort von Loxone aus */
+	}
+	else
+	{
+		LOG_DEBUG(TAG_UTILS, "Loxone sent false , Code: %d", httpResponseCode);
+		/* Serial.print("Fehler beim Senden. HTTP Code: ");
+		Serial.println(httpResponseCode); */
+	}
+
+	// Verbindung schließen
+	http.end();
+}
+
+
+
 // Initialisierung (einmalig aufrufen!)
 void utils_logInit(RingBuffer &rb)
 {
-	LOG_DEBUG(TAG_UTILS,"utils_logInit");
+	LOG_DEBUG(TAG_UTILS, "utils_logInit");
 	rb.mutex = xSemaphoreCreateBinary();
-	if(rb.mutex != NULL)
+	if (rb.mutex != NULL)
 	{
 		xSemaphoreGive(rb.mutex); // Macht den Semaphore "verfügbar"
 	}
@@ -310,7 +347,7 @@ void utils_logWrite(RingBuffer &rb, const LogEntry &e)
 					   e.temp != rb.lastAddedEntry.temp);
 
 	bool heartbeatDue = (now - rb.lastAddedTime >= heartbeatInterval);
-	
+
 	if (!rb.firstEntryMade || hasChanged || heartbeatDue)
 	{
 		if (xSemaphoreTake(rb.mutex, pdMS_TO_TICKS(10)) == pdTRUE)
@@ -388,15 +425,19 @@ int utils_logRead(RingBuffer &rb, JsonDocument &doc)
 	if (count > 0)
 	{
 		String encoded = base64::encode((uint8_t *)targetSpace, count * sizeof(LogEntry));
-		logObj["blob"] = encoded;	 // Der kompakte Datenblock
-		logObj["len"] = count;		 // Info für den Client, wie viele Entries drin stecken
-	}else if(rb.active== false) {
-		logObj["blob"] = "";	 // Leerer Datenblock
-		logObj["len"] = 0;		 // Info für den Client, wie viele Entries drin stecken
-	}else {
-		logObj["blob"] = "";	 // Leerer Datenblock
-		logObj["len"] = 0;		 // Info für den Client, wie viele Entries drin stecken
-		}
+		logObj["blob"] = encoded; // Der kompakte Datenblock
+		logObj["len"] = count;	  // Info für den Client, wie viele Entries drin stecken
+	}
+	else if (rb.active == false)
+	{
+		logObj["blob"] = ""; // Leerer Datenblock
+		logObj["len"] = 0;	 // Info für den Client, wie viele Entries drin stecken
+	}
+	else
+	{
+		logObj["blob"] = ""; // Leerer Datenblock
+		logObj["len"] = 0;	 // Info für den Client, wie viele Entries drin stecken
+	}
 
 	return count;
 }
@@ -517,7 +558,7 @@ bool isStreamingAllowed(bool &isHeartbeatDue)
 		{
 			lastNightlyHeartbeat = now;
 			isHeartbeatDue = true; // Einmaliges Senden erlauben
-		} 
+		}
 		else
 		{
 			isHeartbeatDue = false;

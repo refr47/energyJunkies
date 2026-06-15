@@ -95,17 +95,28 @@ bool temp_init()
     sensors.setResolution(11);
     sensors.begin();
     // Grab a count of devices on the wire
-    numberOfDevices = sensors.getDeviceCount();
 
+    int versuche = 0;
+    // Versuche bis zu 5 Mal, ein Gerät zu finden
+    while (sensors.getDeviceCount() == 0 && versuche < 10)
+    {
+        LOG_DEBUG(TAG_TEMP, "Kein Sensor gefunden. Suche erneut <%d>... ", versuche);
+        vTaskDelay(800);
+        sensors.begin(); // Bus zurücksetzen und neu starten
+        versuche++;
+    }
+    numberOfDevices = sensors.getDeviceCount();
     if (numberOfDevices == 0)
     {
-        LOG_ERROR(TAG_TEMP, "temp_init() - keine Temperatursensorik gefunden.");
-        printf("temp-init:: keine Sensorik gefunden\n");
+        LOG_DEBUG(TAG_TEMP, "Kritischer Fehler: Auch nach 10 Versuchen kein Sensor da.");
         return false;
     }
+    else
+    {
+        LOG_INFO(TAG_TEMP, "Erfolgreich gefundenen Geräte: %d", sensors.getDeviceCount());
+    }
 
-    // locate devices on the bus
-    LOG_INFO(TAG_TEMP, "temperature:Locating devices...Found :%d devices", numberOfDevices);
+  
 
     // Loop through each device, print out address
     for (int i = 0; i < numberOfDevices; i++)
@@ -177,15 +188,14 @@ bool temp_getTemperature(TEMPERATURE &container)
         }
     }
 
-    if (! (success1 && success2)) 
+    if (!(success1 && success2))
     {
         LOG_ERROR(TAG_TEMP, "Alle Messungen fehlgeschlagen. Reinit...");
         errorCounter++;
-        if(errorCounter < 5)
+        if (errorCounter < 5)
         {
             // Die Werte in container.sensor1/2 bleiben einfach die alten vom letzten Mal
-            return true;    
-            
+            return true;
         }
         else
         {
@@ -194,9 +204,10 @@ bool temp_getTemperature(TEMPERATURE &container)
             hardware_reset();
             temp_init();
             errorCounter = 0; // Reset counter um Endlosschleife zu vermeiden
-            
         }
-    } else {
+    }
+    else
+    {
         errorCounter = 0; // Reset counter bei erfolgreicher Messung
     }
     return success1 && success2;

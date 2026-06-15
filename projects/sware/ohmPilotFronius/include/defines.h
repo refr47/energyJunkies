@@ -133,6 +133,7 @@ typedef struct
     char amisKey[AMIS_KEY_LEN + 1];
 
     char amisReaderHost[INET_ADDRSTRLEN + 1];
+    //char loxoneHost[INET_ADDRSTRLEN + 1];
     char mqttHost[MQTT_HOST_LEN + 1];
     char mqttUser[MQTT_USER_LEN + 1];
     char mqttPass[MQTT_PASS_LEN + 1];
@@ -193,6 +194,7 @@ typedef struct _STATES
     bool tempUnderflow;
     bool froniusAPI;
     bool amisReader;
+    bool loxone;
     bool timeServer;
     bool influx;
     bool mqtt;

@@ -52,6 +52,7 @@ ESP_LOGV - verbose (highest)
 #define TAG_MODBUS "MODBUS" 
 #define TAG_FRONIUS "FRONIUS"
 #define TAG_AMIS "AMIS"
+#define TAG_LOXONE "LOXONE"
 #define TAG_WEATHER "WEATHER"
 #define TAG_INFLUX "INFLUX"
 #define TAG_APP_SERVICES "APP_SERVICE"

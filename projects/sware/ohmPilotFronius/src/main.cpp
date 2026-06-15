@@ -81,6 +81,7 @@ void logging_init()
     esp_log_level_set(TAG_AMIS, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_WEATHER, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_INFLUX, ESP_LOG_DEBUG);
+     esp_log_level_set(TAG_LOXONE, ESP_LOG_DEBUG);
 
     //  esp_log_set_vprintf(debug_LogOutput);
 

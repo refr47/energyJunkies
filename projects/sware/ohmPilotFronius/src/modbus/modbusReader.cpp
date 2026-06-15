@@ -9,13 +9,13 @@
 #include "modbusReader.h"
 #include "modbusRegister.h"
 #include "defines.h"
-
+ 
 /*
     *********************************************************
  DEFINES
  ************************************************************
            */
-
+ 
 #define TEXT_LEN 256
 #define MODBUS_WAIT_FOR_DATA_IN_MS 500
 
@@ -35,6 +35,7 @@ static ModbusIP mb;
 METER_VALUE_t meterValues;
 static int16_t inverterSumRegs[INVERTER_SUM_REGS_LEN];
 
++++
 // meter modbus register array
 static int16_t inverterStateRegs[INVERTER_STATE_REGS_LEN];
 // meter values
