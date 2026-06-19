@@ -24,6 +24,8 @@ static TaskHandle_t hTaskWeb = NULL;
 static TaskHandle_t hTaskMaintenance = NULL;
 static TaskHandle_t hTaskWatchdog = NULL;
 static TaskHandle_t hTaskWifi = NULL;
+static TaskHandle_t hTaskPhasenSchnittBlink = NULL;
+static TaskHandle_t hTaskErrorBlink = NULL;
 
 EventGroupHandle_t wifi_event_group = NULL;
 static QueueHandle_t setupQueue = nullptr;
@@ -51,6 +53,30 @@ static void taskClock(void *pvParameters)
         watchdogKick(wdId);
         serviceClock();
         vTaskDelay(pdMS_TO_TICKS(TASK_CLOCK_INTERVAL));
+    }
+}
+
+static void taskPhasenSchnittBlink(void *pvParameters)
+{
+    int wdId = watchdogRegister("PhasenSchnittBlink", TASK_BLINK_INTERVALL * 2);
+
+    for (;;)
+    {
+        watchdogKick(wdId);
+        unsigned delayTime = servicePhasenSchnittBlink();
+        vTaskDelay(pdMS_TO_TICKS(delayTime));
+    }
+}
+
+static void taskErrorBlink(void *pvParameters)
+{
+    int wdId = watchdogRegister("ErrorBlink", TASK_BLINK_INTERVALL * 2);
+
+    for (;;)
+    {
+        watchdogKick(wdId);
+        uint8_t delayT = serviceErrorBlink();
+        vTaskDelay(pdMS_TO_TICKS(delayT));
     }
 }
 
@@ -256,12 +282,13 @@ bool appTask_epromWriter(std::unique_ptr<Setup> setup)
         LOG_ERROR(TAG_APP_SERVICES, "Setup Queue is not initialized!");
         return false;
     }
-    if (!setup) {
-        LOG_ERROR(TAG_APP_SERVICES,"Setup pointer is null.");
+    if (!setup)
+    {
+        LOG_ERROR(TAG_APP_SERVICES, "Setup pointer is null.");
         return false;
     }
-    LOG_DEBUG(TAG_APP_SERVICES,"Start Queue - size: %d",sizeof(*setup));
-    Setup* rawPtr = setup.release();
+    LOG_DEBUG(TAG_APP_SERVICES, "Start Queue - size: %d", sizeof(*setup));
+    Setup *rawPtr = setup.release();
     if (xQueueSend(setupQueue, (const void *)setup.get(), pdMS_TO_TICKS(5000)) != pdPASS)
     {
         LOG_ERROR(TAG_APP_SERVICES, "Failed to send setup to queue");
@@ -274,7 +301,7 @@ bool appTask_epromWriter(std::unique_ptr<Setup> setup)
 
 static void taskEpromWriter(void *pv)
 {
-     // er lokale Puffer, in den die Queue schreibt. Er wird dann in der Queue empfangen und in den Eprom geschrieben. So muss nicht die ganze Struktur in die Queue, sondern nur ein Zeiger auf den lokalen Puffer.
+    // er lokale Puffer, in den die Queue schreibt. Er wird dann in der Queue empfangen und in den Eprom geschrieben. So muss nicht die ganze Struktur in die Queue, sondern nur ein Zeiger auf den lokalen Puffer.
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEpromStore - started");
     Setup *receivedPtr;
     while (true)
@@ -344,7 +371,7 @@ void createAppTasks(WifiCredentials &credentials)
     }
     if (setupQueue == nullptr)
     {
-        setupQueue = xQueueCreate(2, sizeof(Setup*));
+        setupQueue = xQueueCreate(2, sizeof(Setup *));
         if (!setupQueue)
         {
             LOG_ERROR(TAG_APP_SERVICES, "Queue creation failed");
@@ -427,6 +454,20 @@ void createAppTasks(WifiCredentials &credentials)
             LOG_ERROR(TAG_APP_TASKS, "Failed to create taskPid!");
         }
         registerTask("PID", hTaskPid);
+
+        res = xTaskCreatePinnedToCore(taskPhasenSchnittBlink, "taskPhasenSchnittBlink", 8192, nullptr, 2, &hTaskPhasenSchnittBlink, 1);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskBlinke!");
+        }
+        registerTask("phasenSchnitt", hTaskPhasenSchnittBlink);
+
+        res = xTaskCreatePinnedToCore(taskErrorBlink, "taskErrorBlink", 8192, nullptr, 2, &hTaskErrorBlink, 1);
+        if (res != pdPASS)
+        {
+            LOG_ERROR(TAG_APP_TASKS, "Failed to create task error blink!");
+        }
+        registerTask("errorBlink", hTaskErrorBlink);
 
         res = xTaskCreatePinnedToCore(
             taskEpromWriter,

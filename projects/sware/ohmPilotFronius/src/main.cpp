@@ -65,22 +65,23 @@ void logging_init()
 {
     DBGf("main::logging_init() - log level: %d", LOG_LEVEL_ESP);
 
-    esp_log_level_set("*", ESP_LOG_INFO);
-    esp_log_level_set(TAG_WLAN, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_TEMP, ESP_LOG_DEBUG);
+  esp_log_level_set("*", ESP_LOG_DEBUG); 
+
+   /*  esp_log_level_set(TAG_WLAN, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_TEMP, ESP_LOG_DEBUG) */
     esp_log_level_set(TAG_PID, ESP_LOG_INFO);
     esp_log_level_set(TAG_MQTT, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_APP_SERVICES, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_WEB_SOCKETS, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_WEB, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_WEB_SOCKETS, ESP_LOG_DEBUG); 
+ /*    esp_log_level_set(TAG_WEB, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_APP_TASKS, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_SHELLY, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_CARD, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_MODBUS, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_MODBUS, ESP_LOG_DEBUG); */
     esp_log_level_set(TAG_FRONIUS, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_AMIS, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_AMIS, ESP_LOG_DEBUG);/* 
     esp_log_level_set(TAG_WEATHER, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_INFLUX, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_INFLUX, ESP_LOG_DEBUG); */
      esp_log_level_set(TAG_LOXONE, ESP_LOG_DEBUG);
 
     //  esp_log_set_vprintf(debug_LogOutput);

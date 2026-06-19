@@ -41,33 +41,6 @@
 #include "modbusReader.h"
 
 static constexpr uint32_t TEMPERATURE_OVERHEATED_WAIT_IN_SECS = 300;
-static constexpr uint32_t NETWORK_RECOVERY_GRACE_CYCLES = 2;
-
-static bool networkIsAvailable()
-{
-    return WiFi.status() == WL_CONNECTED && g_app.webSockData.states.networkOK;
-}
-
-static void stopHeating(const char *reason)
-{
-    g_app.pinManager.reset();
-    g_app.webSockData.states.boilerHeating = false;
-    g_app.webSockData.pidContainer.mAnalogOut = 0;
-    g_app.webSockData.pidContainer.PID_PIN1 = 0;
-    g_app.webSockData.pidContainer.PID_PIN2 = 0;
-    LOG_ERROR(TAG_APP_SERVICES, "%s - heating disabled", reason);
-}
-
-static void markNetworkDown(const char *reason)
-{
-    LOG_ERROR(TAG_APP_SERVICES, "%s", reason);
-    ledHandler_showNetworkError(true);
-    g_app.webSockData.states.networkOK = false;
-#ifdef MQTT
-    g_app.webSockData.states.mqtt = false;
-#endif
-    stopHeating(reason);
-}
 
 static int averageTemp()
 {
@@ -127,39 +100,25 @@ uint8_t serviceErrorBlink()
 
 void serviceNetworkSupervisor()
 {
-    static uint32_t recoveryCycles = 0;
-
+ 
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceNetworkSupervisor ");
     if (!wifi_isStillConnected(g_app.webSockData.setupData))
     {
+        LOG_ERROR(TAG_APP_SERVICES, "Network down, try reconnecting");
+        ledHandler_showNetworkError(true);
         if (appLock(10))
         {
-            markNetworkDown("Network down, reconnect pending");
+            g_app.webSockData.states.networkOK = false;
+            g_app.webSockData.states.mqtt = false;
+            WiFi.disconnect();
             appUnlock();
         }
         else
         {
-            g_app.pinManager.reset();
-            LOG_DEBUG(TAG_APP_SERVICES, "Network down, but could not acquire lock to update shared state");
+            LOG_DEBUG(TAG_APP_SERVICES, "Network seems down, but could not acquire lock to update state");
         }
-        g_app.webSockData.states.networkOK = false;
         return;
     }
-
-    if (appLock(10))
-    {
-        g_app.webSockData.states.networkOK = true;
-#ifdef MQTT
-        g_app.webSockData.states.mqtt = true;
-#endif
-        appUnlock();
-    }
-    else
-    {
-        LOG_DEBUG(TAG_APP_SERVICES, "Network check passed, but could not acquire lock to update state");
-        return;
-    }
-
     ledHandler_showNetworkError(false);
 
 #ifdef FRONIUS_IV
@@ -192,6 +151,21 @@ void serviceNetworkSupervisor()
         }
     }
 #endif
+
+    if (appLock(10))
+    {
+
+        g_app.webSockData.states.networkOK = true;
+#ifdef MQTT
+        g_app.webSockData.states.mqtt = true;
+#endif
+
+        appUnlock();
+    }
+    else
+    {
+        LOG_DEBUG(TAG_APP_SERVICES, "Network check passed, but could not acquire lock to update state");
+    }
 }
 
 void serviceTemperature()
@@ -200,7 +174,7 @@ void serviceTemperature()
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceTemperature ");
     if (!temp_getTemperature(g_app.webSockData.temperature))
     {
-        ledHandler_showTemperaturError(true);
+         ledHandler_showTemperaturError(true);
         if (appLock(10))
         {
 
@@ -237,7 +211,8 @@ void serviceTemperature()
     }
 
     g_app.webSockData.states.tempSensorOK = true;
-    ledHandler_showTemperaturError(false);
+      ledHandler_showTemperaturError(false);
+    
 
     const int tempAvg = averageTemp();
     g_app.webSockData.states.tempUnderflow = false;
@@ -315,25 +290,9 @@ void serviceEnergy()
 {
     // appLock();
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEnergy - ");
-    if (!networkIsAvailable())
-    {
-        if (appLock(10))
-        {
-            markNetworkDown("Energy service skipped because network is unavailable");
-            appUnlock();
-        }
-        else
-        {
-            g_app.pinManager.reset();
-            LOG_DEBUG(TAG_APP_SERVICES, "Energy service skipped, but could not acquire lock to update network state");
-        }
-        return;
-    }
-
     if (!g_app.webSockData.states.tempSensorOK)
     {
         // appUnlock();
-        g_app.pinManager.reset();
         return;
     }
 
@@ -352,16 +311,8 @@ void serviceEnergy()
         }
         else
         {
-            if (appLock(10))
-            {
-                markNetworkDown("Fronius API read failed");
-                appUnlock();
-            }
-            else
-            {
-                g_app.pinManager.reset();
-                LOG_DEBUG(TAG_APP_SERVICES, "Fronius API failed, but could not acquire lock to update state");
-            }
+            g_app.webSockData.states.networkOK = false;
+            appUnlock();
             return;
         }
     }
@@ -381,16 +332,7 @@ void serviceEnergy()
         else
         {
             LOG_ERROR(TAG_APP_SERVICES, "Modbus read failed");
-            if (appLock(10))
-            {
-                markNetworkDown("Modbus read failed");
-                appUnlock();
-            }
-            else
-            {
-                g_app.pinManager.reset();
-                LOG_DEBUG(TAG_APP_SERVICES, "Modbus read failed, but could not acquire lock to update state");
-            }
+            g_app.webSockData.states.networkOK = false;
         }
     }
 #endif // #elif FRONIUS_IV
@@ -417,16 +359,8 @@ void serviceEnergy()
         }
         else
         {
-            if (appLock(10))
-            {
-                markNetworkDown("AMIS reader failed");
-                appUnlock();
-            }
-            else
-            {
-                g_app.pinManager.reset();
-                LOG_DEBUG(TAG_APP_SERVICES, "AMIS reader failed, but could not acquire lock to update state");
-            }
+            LOG_ERROR(TAG_APP_SERVICES, "AMIS reader failed");
+            g_app.webSockData.states.networkOK = false;
         }
     }
 #endif
@@ -442,37 +376,6 @@ void servicePid()
 {
 
     LOG_INFO(TAG_APP_SERVICES, "app_services::servicePid - ");
-    if (!networkIsAvailable())
-    {
-        if (appLock(10))
-        {
-            stopHeating("PID skipped because network is unavailable");
-            g_app.pinManager.reset();
-            appUnlock();
-        }
-        else
-        {
-            g_app.pinManager.reset();
-            LOG_DEBUG(TAG_APP_SERVICES, "PID skipped, but could not acquire lock to update heating state");
-        }
-        return;
-    }
-
-    if (!g_app.webSockData.states.tempSensorOK || g_app.webSockData.temperature.alarm)
-    {
-        if (appLock(10))
-        {
-            stopHeating("PID skipped because temperature state is unsafe");
-            appUnlock();
-        }
-        else
-        {
-            g_app.pinManager.reset();
-            LOG_DEBUG(TAG_APP_SERVICES, "PID skipped due to unsafe temperature state");
-        }
-        return;
-    }
-
     g_app.pinManager.update(g_app.webSockData);
     /* g_app.webSockData.pidContainer.mAnalogOut = g_app.pinManager.getStateOfAnaPin();
     g_app.webSockData.pidContainer.PID_PIN1 = g_app.pinManager.getStateOfDigPin(0);
@@ -499,12 +402,6 @@ void servicePid()
 void serviceWeb()
 {
     static uint32_t counter = 0;
-
-    if (!g_app.webSockData.states.networkOK) {
-        LOG_INFO(TAG_APP_SERVICES, "ServiceWeb cannot be executed due to network down state");
-        return;
-    }
-
     if (counter++ % 10 == 0)
     {
         cleanupClients();

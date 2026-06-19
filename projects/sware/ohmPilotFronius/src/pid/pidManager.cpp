@@ -1,6 +1,29 @@
 #include "pinManager.h"
 #include "app_state.h"
 #include "utils.h"
+#include "ledHandler.h"
+
+namespace
+{
+int clampInt(int value, int minValue, int maxValue)
+{
+    if (value < minValue)
+        return minValue;
+    if (value > maxValue)
+        return maxValue;
+    return value;
+}
+
+int wattToPwm(int watt, int onePhase)
+{
+    if (watt <= 0)
+        return 0;
+    if (watt >= onePhase)
+        return OUTPUT_MAX;
+
+    return (int)(((long)watt * OUTPUT_MAX) / onePhase);
+}
+}
 
 void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 {
@@ -95,6 +118,7 @@ void PinManager::testPins(int l1, int l2, int pwm)
     analogWrite(pwm, 0);
     LOG_INFO("GPIO", "testPins ExITT");
 }
+
 inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, int temp, unsigned long nowMS)
 {
     // SAFETY,
@@ -170,7 +194,6 @@ inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, int temp, uns
         else
         {
             availableWatt = (int)webSockData.fronius_SOLAR_POWERFLOW.p_grid;
-
             LOG_DEBUG(TAG_PID, "PID (Fronius) Available Watt: %d", availableWatt);
         }
     }
@@ -178,7 +201,6 @@ inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, int temp, uns
     {
         // gwebSockData.mbContainer.meterValues.data.acCurrentPower < 0: export: else import
         availableWatt = (int)webSockData.mbContainer.meterValues.data.acCurrentPower;
-
         LOG_DEBUG(TAG_PID, "PID No froniusAPI) AvailableWatt: %d", availableWatt);
     }
 
@@ -195,13 +217,7 @@ inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, int temp, uns
         webSockData.states.wattBiasForTest = false;
     }
     // NO PV → minimal heating via RL
-    /*   if (availableWatt > 0.0)
-      {
-          LOG_DEBUG("PinManager::preCheck - Bezug <%.3f>", availableWatt);
-          return true;
-      } */
-    /* LOG_DEBUG(TAG_PID, "PinManager::after FRONIUS - powerindex: %d HYSTERESIS_WATT: %d", powerIndex, HYSTERESIS_WATT);
-     */
+
     if (powerIndex < HYSTERESIS_WATT)
     {
         availablePower.push_back(availableWatt); // availablePower;
@@ -226,6 +242,7 @@ void inline PinManager::fillLogEntry(WEBSOCK_DATA &webSockData, LogEntry &logEnt
     utils_logWrite(webSockData.logBuffer, logEntry);
     // LOG_DEBUG(TAG_PID, "===> LogEntry ts: %lu, temp: %d, power: %d, pwm: %d, state: %d", logEntry.ts, logEntry.temp, logEntry.power, logEntry.pwm, logEntry.state);
     webSockData.pidContainer.mAnalogOut = currentPWM;
+    ledHandler_showPWM(currentPWM);
     webSockData.pidContainer.PID_PIN1 = digitalRead(pinL1) == HIGH ? 1 : 0;
     webSockData.pidContainer.PID_PIN2 = digitalRead(pinL2) == HIGH ? 1 : 0;
 }
@@ -274,9 +291,9 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         measuredPower = 0;
         logEntry.power = 0;
         logEntry.pwm = 0;
-        currentPWM =0;
+        currentPWM = 0;
 
-            logEntry.state = 0;
+        logEntry.state = 0;
         targetPower = 0;
 
         doML = false;
@@ -308,7 +325,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         */
         doML = false;
         // fillLogEntry(webSockData, logEntry);
-        targetPower = 15000;
+        targetPower = onePhase * 3;
         availablePower.clear();
         break;
 
@@ -339,29 +356,11 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
             LOG_DEBUG(TAG_PID, "RL AUTO - Effektive Leistung: %d W ", effectiveAvailable);
 #ifdef BOILER
 
-            // 2. Deterministische Basis (Wie viele Phasen sind VOLLSTÄNDIG deckbar?)
-            int fullPhases = (int)(effectiveAvailable / onePhase);
-            if (fullPhases > 2)
-                fullPhases = 2; // L1 und L2 sind Relais
-            if (fullPhases < 0)
-                fullPhases = 0;
-
-            // Was bleibt für die PWM-Phase (L3) übrig?
-            int remainingForPWM = effectiveAvailable - (fullPhases * onePhase);
-            if (remainingForPWM < 0)
-                remainingForPWM = 0;
-
-            // 3. 🧠 TinyNN entscheidet NUR über den variablen Anteil (die PWM-Phase)
-            action = tinyNN->chooseAction(temp, measuredPower);
-
-            // WICHTIG: factor als float, damit die Multiplikation unten nicht 0 ergibt!
-            float factors[5] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
-            float chosenFactor = factors[action];
-
-            // 4. Zielwert berechnen
-            // Die Relais-Phasen nehmen wir fix (basierend auf Überschuss),
-            // die PWM-Phase wird vom ML-Agenten feinjustiert.
-            targetPower = (fullPhases * onePhase) + (int)(onePhase * chosenFactor);
+            // BOILER: 2 Phasen werden per Relais geschaltet, die dritte Phase per PWM.
+            // Der komplette verfügbare Überschuss wird als Zielleistung genutzt;
+            // die Relais-Hysterese und der PWM-Rest werden in apply() umgesetzt.
+            targetPower = clampInt(effectiveAvailable, 0, onePhase * 3);
+            action = (int)(targetPower / onePhase);
 #endif
 #ifdef PHASEN2
 
@@ -499,6 +498,7 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
 {
     LOG_INFO(TAG_PID, "PinManager::apply() - ENTER Task %s, available watt: %d", pcTaskGetName(NULL), targetPower);
     unsigned long now = millis();
+    targetPower = clampInt(targetPower, 0, onePhase * 3);
 
     // 🔥 HARD STOP
     if (targetPower < 50)
@@ -506,6 +506,7 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
         digitalWrite(pinL1, LOW);
         digitalWrite(pinL2, LOW);
         analogWrite(pwmPin, 0);
+        currentPWM = 0;
 
         logEntry.state = 0;
         logEntry.pwm = 0;
@@ -513,29 +514,26 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
         return;
     }
 #ifdef BOILER
-    // 2. Phasen-Logik mit Hysterese
-    // Wir bestimmen, wie viele Phasen VOLL (per Relais) laufen sollen.
-    const int margin = onePhase * 0.05;
+    // 2 Relaisphasen plus eine PWM-Phase. Relais schalten nur bei voller
+    // Phasenleistung plus Hysterese, damit sie am Schwellwert nicht flattern.
+    const int margin = onePhase / 10;
     int currentActive = (digitalRead(pinL1) == HIGH ? 1 : 0) + (digitalRead(pinL2) == HIGH ? 1 : 0);
     int desiredPhases = currentActive;
 
-    // Einschalt-Schwellen (mit 10% Puffer nach oben)
-    // --- Logik für Phase 1 (L1) ---
-    if (currentActive == 0 && targetPower > (onePhase + margin))
+    if (desiredPhases < 1 && targetPower >= (onePhase + margin))
     {
-        desiredPhases = 1; // Einschalten wenn über Schwelle + Puffer
+        desiredPhases = 1;
     }
-    else if (currentActive == 1 && targetPower < (onePhase - margin))
+    else if (desiredPhases >= 1 && targetPower <= (onePhase - margin))
     {
-        desiredPhases = 0; // Ausschalten wenn unter Schwelle - Puffer
+        desiredPhases = 0;
     }
 
-    // --- Logik für Phase 2 (L2) ---
-    if (currentActive == 1 && targetPower > (2 * onePhase + margin))
+    if (desiredPhases < 2 && targetPower >= ((2 * onePhase) + margin))
     {
         desiredPhases = 2;
     }
-    else if (currentActive == 2 && targetPower < (2 * onePhase - margin))
+    else if (desiredPhases >= 2 && targetPower <= ((2 * onePhase) - margin))
     {
         desiredPhases = 1;
     }
@@ -546,33 +544,21 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
     if (desiredPhases != currentActive && (now - lastSwitch > MIN_SWITCH))
     {
         /*  LOG_INFO(TAG_PID, "apply (1) write to port- targetPower: %d, desiredPhases: %d, currentActive: %d", targetPower, desiredPhases, currentActive); */
-        digitalWrite(pinL1, desiredPhases >= 1);
-        digitalWrite(pinL2, desiredPhases >= 2);
+        digitalWrite(pinL1, desiredPhases >= 1 ? HIGH : LOW);
+        digitalWrite(pinL2, desiredPhases >= 2 ? HIGH : LOW);
         lastSwitch = now;
         currentActive = desiredPhases;
     }
 
-    // 4. PWM Berechnung für die REST-Leistung (L3)
-    // Wir ziehen die Leistung der eingeschalteten Relais von der Ziel-Leistung ab
     int powerFromRelays = currentActive * onePhase;
-    int powerForPWM = targetPower - powerFromRelays;
+    int powerForPWM = clampInt(targetPower - powerFromRelays, 0, onePhase);
 
-    // Begrenzung der PWM-Leistung auf eine Phasenstärke
-    if (powerForPWM < 0)
-        powerForPWM = 0;
-    if (powerForPWM > onePhase)
-        powerForPWM = onePhase;
-
-    // WICHTIG: Fließkomma-Berechnung oder erst multiplizieren, dann dividieren!
-    float pwmDutyCycle = ((float)powerForPWM / (float)onePhase) * OUTPUT_MAX;
-
-    // Glättung (optional)
-    currentPWM = (0.6 * currentPWM) + (0.4 * pwmDutyCycle);
-
-    analogWrite(pwmPin, (int)currentPWM);
+    currentPWM = wattToPwm(powerForPWM, onePhase);
+    analogWrite(pwmPin, currentPWM);
 
     // Logging
-    logEntry.pwm = (int)currentPWM;
+    logEntry.pwm = currentPWM;
+    logEntry.power = powerFromRelays + powerForPWM;
     int state = 0;
     if (digitalRead(pinL1) == HIGH)
         state |= 1; // Setzt Bit 0
@@ -580,7 +566,7 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
         state |= 2; // Setzt Bit 1
     logEntry.state = state;
 
-    LOG_INFO(TAG_PID, "Relais 1→ %d, Relais 2→ %d, pwm→ %d", desiredPhases >= 1, desiredPhases >= 2, (int)currentPWM);
+    LOG_INFO(TAG_PID, "Relais 1→ %d, Relais 2→ %d, pwm→ %d, pwmWatt→ %d", currentActive >= 1, currentActive >= 2, currentPWM, powerForPWM);
     LOG_INFO(TAG_PID, "Status Bitmaske: %d (L1: %d, L2: %d)",
              state, (state & 1), (state >> 1 & 1));
 #endif
@@ -702,7 +688,7 @@ int PinManager::heaterPower()
     if (digitalRead(pinL2))
         p += onePhase;
 
-    p += (currentPWM / OUTPUT_MAX) * onePhase;
+    p += (int)(((long)currentPWM * onePhase) / OUTPUT_MAX);
 
     return p;
 }
