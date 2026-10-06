@@ -67,7 +67,7 @@ void registerTask(const char *name, TaskHandle_t handle)
     if (taskCount < MAX_TASKS)
     {
         taskHandler[taskCount].name = name;
-        taskHandler[taskCount++].handle = handle;
+        taskHandler[taskCount].handle = handle;
         taskCount++;
         
     }

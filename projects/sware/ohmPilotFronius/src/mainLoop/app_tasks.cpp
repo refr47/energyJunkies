@@ -3,12 +3,22 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+
+#include "app_state.h"
+#include "app_sync.h"
 #include "esp_timer.h"
+#include "app_monitor.h" 
 #include "app_services.h"
-#include "app_tasks.h"
 #include "debugConsole.h"
+#include "app_tasks.h"
 #include "utils.h"
-#include "app_monitor.h"
+/*
+
+#include "app_services.h"
+
+#include "debugConsole.h"
+
+*/
 
 // Das Signal-Bit: 1 = Internet da, 0 = Funkstille
 #define WIFI_STA_CONNECTED_BIT BIT0 // Verbunden mit Router
@@ -44,7 +54,7 @@ extern "C" void vConfigureTimerForRunTimeStats(void)
     // nothing needed for ESP32
 }
 
-static void taskClock(void *pvParameters)
+static void taskClock(void* pvParameters)
 {
     int wdId = watchdogRegister("Clock", TASK_CLOCK_INTERVAL * 2);
 
@@ -56,7 +66,7 @@ static void taskClock(void *pvParameters)
     }
 }
 
-static void taskPhasenSchnittBlink(void *pvParameters)
+static void taskPhasenSchnittBlink(void* pvParameters)
 {
     int wdId = watchdogRegister("PhasenSchnittBlink", TASK_BLINK_INTERVALL * 2);
 
@@ -68,7 +78,7 @@ static void taskPhasenSchnittBlink(void *pvParameters)
     }
 }
 
-static void taskErrorBlink(void *pvParameters)
+static void taskErrorBlink(void* pvParameters)
 {
     int wdId = watchdogRegister("ErrorBlink", TASK_BLINK_INTERVALL * 2);
 
@@ -80,7 +90,7 @@ static void taskErrorBlink(void *pvParameters)
     }
 }
 
-static void taskNetwork(void *pvParameters)
+static void taskNetwork(void* pvParameters)
 {
     int wdId = watchdogRegister("Network", TASK_NETWORK_MONITOR_INTERVAL * 2);
 
@@ -98,19 +108,21 @@ static void taskNetwork(void *pvParameters)
     }
 }
 
-static void taskTemperature(void *pvParameters)
+static void taskTemperature(void* pvParameters)
 {
     int wdId = watchdogRegister("Temperature", TASK_TEMPERATURE_INTERVAL);
 
     for (;;)
     {
         watchdogKick(wdId);
+        appLock();
         serviceTemperature();
+        appUnlock();
         vTaskDelay(pdMS_TO_TICKS(TASK_TEMPERATURE_INTERVAL));
     }
 }
 
-static void taskEnergy(void *pvParameters)
+static void taskEnergy(void* pvParameters)
 {
 
     int wdId = watchdogRegister("Energy", TASK_MODBUS_AMISREADER_INTERVAL * 2);
@@ -118,24 +130,28 @@ static void taskEnergy(void *pvParameters)
     {
         watchdogKick(wdId);
         xEventGroupWaitBits(wifi_event_group, WIFI_STA_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
+        appLock();
         serviceEnergy();
+        appUnlock();
         vTaskDelay(pdMS_TO_TICKS(TASK_MODBUS_AMISREADER_INTERVAL));
     }
 }
 
-static void taskPid(void *pvParameters)
+static void taskPid(void* pvParameters)
 {
 
     int wdId = watchdogRegister("Pid", 10000);
     for (;;)
     {
         watchdogKick(wdId);
+        appLock();
         servicePid();
+        appUnlock();
         vTaskDelay(pdMS_TO_TICKS(TASK_PID_INTERVAL));
     }
 }
 
-static void taskWeb(void *pvParameters)
+static void taskWeb(void* pvParameters)
 {
     int wdId = watchdogRegister("Web", TASK_WEBSOCKET_INTERVAL * 50);
 
@@ -166,7 +182,7 @@ static void taskWeb(void *pvParameters)
     }
 }
 
-static void taskMaintenance(void *pvParameters)
+static void taskMaintenance(void* pvParameters)
 {
     int wdId = watchdogRegister("Maintenance", 100000);
     for (;;)
@@ -224,11 +240,11 @@ void appTask_setupSystemConfigMode()
     LOG_INFO(TAG_APP_TASKS, "appTask_setupSystemConfigMode: System-Config Mode aktiv, Warte auf Setup-Daten");
 }
 
-static void taskWiFi(void *pvParameters)
+static void taskWiFi(void* pvParameters)
 {
     // int wdId = watchdogRegister("WiFi", 10000);
 
-    WifiCredentials *creds = (WifiCredentials *)pvParameters;
+    WifiCredentials* creds = (WifiCredentials*)pvParameters;
     LOG_INFO(TAG_APP_TASKS, "WiFi-Manager gestartet auf Core 0");
 
     while (1)
@@ -288,8 +304,8 @@ bool appTask_epromWriter(std::unique_ptr<Setup> setup)
         return false;
     }
     LOG_DEBUG(TAG_APP_SERVICES, "Start Queue - size: %d", sizeof(*setup));
-    Setup *rawPtr = setup.release();
-    if (xQueueSend(setupQueue, (const void *)setup.get(), pdMS_TO_TICKS(5000)) != pdPASS)
+    Setup* rawPtr = setup.release();
+    if (xQueueSend(setupQueue, (const void*)rawPtr, pdMS_TO_TICKS(5000)) != pdPASS)
     {
         LOG_ERROR(TAG_APP_SERVICES, "Failed to send setup to queue");
         delete rawPtr;
@@ -299,11 +315,11 @@ bool appTask_epromWriter(std::unique_ptr<Setup> setup)
     return true;
 }
 
-static void taskEpromWriter(void *pv)
+static void taskEpromWriter(void* pv)
 {
     // er lokale Puffer, in den die Queue schreibt. Er wird dann in der Queue empfangen und in den Eprom geschrieben. So muss nicht die ganze Struktur in die Queue, sondern nur ein Zeiger auf den lokalen Puffer.
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEpromStore - started");
-    Setup *receivedPtr;
+    Setup* receivedPtr;
     while (true)
     {
 
@@ -316,7 +332,7 @@ static void taskEpromWriter(void *pv)
     }
 }
 
-static void taskSimpleMonitor(void *pv)
+static void taskSimpleMonitor(void* pv)
 {
     for (;;)
     {
@@ -361,7 +377,7 @@ static void taskSimpleMonitor(void *pv)
     }
 }
 
-void createAppTasks(WifiCredentials &credentials)
+void createAppTasks(WifiCredentials& credentials)
 {
     // Initialisierung der Gruppe
 
@@ -371,7 +387,7 @@ void createAppTasks(WifiCredentials &credentials)
     }
     if (setupQueue == nullptr)
     {
-        setupQueue = xQueueCreate(2, sizeof(Setup *));
+        setupQueue = xQueueCreate(2, sizeof(Setup*));
         if (!setupQueue)
         {
             LOG_ERROR(TAG_APP_SERVICES, "Queue creation failed");
@@ -387,14 +403,7 @@ void createAppTasks(WifiCredentials &credentials)
         // xEventGroupWaitBits(wifi_event_group, SYSTEM_CONFIG_MODE_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
         /// CORE 0
 
-        BaseType_t res = xTaskCreatePinnedToCore(taskNetwork, "taskNetwork", 4096, nullptr, 2, &hTaskNetwork, 0);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskNetwork!");
-        }
-        registerTask("Network", hTaskNetwork);
-
-        res = xTaskCreatePinnedToCore(taskWeb, "taskWeb", 16384, nullptr, 1, &hTaskWeb, 0);
+        BaseType_t  res = xTaskCreatePinnedToCore(taskWeb, "taskWeb", 16384, nullptr, 1, &hTaskWeb, 0);
         if (res != pdPASS)
         {
             LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWeb!");
@@ -407,7 +416,7 @@ void createAppTasks(WifiCredentials &credentials)
         }
         registerTask("Maintenance", hTaskMaintenance);
 
-        res = xTaskCreatePinnedToCore(taskWiFi, "taskWiFi", 8192, (void *)(&credentials), 2, &hTaskWifi, 0);
+        res = xTaskCreatePinnedToCore(taskWiFi, "taskWiFi", 8192, (void*)(&credentials), 2, &hTaskWifi, 0);
         if (res != pdPASS)
         {
             LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWiFi!");

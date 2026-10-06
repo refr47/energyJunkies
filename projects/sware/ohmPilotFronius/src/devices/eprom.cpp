@@ -1,6 +1,8 @@
 #define __EEPROM_CPP
 
 #include <Preferences.h>
+#include <atomic>
+#include <mutex>
 
 #include "utils.h"
 #include "eprom.h"
@@ -17,24 +19,32 @@
 // https://randomnerdtutorials.com/esp32-save-data-permanently-preferences/#example2
 
 static Preferences preferences;
-static bool stammDataUpdateWatch = false;
+
+// -------------------------------------------------------------------
+// THREAD-SAFETY: atomic statt freiem bool (ESP32 dual-core Data-Race!)
+// -------------------------------------------------------------------
+static std::mutex s_epromMutex;
+static std::atomic<bool> s_stammDataUpdateWatch{false};
 
 bool eprom_stammDataUpdate()
 {
-    return stammDataUpdateWatch;
+    return s_stammDataUpdateWatch.load();
 }
 void eprom_stammDataUpdateReset()
 {
-    stammDataUpdateWatch = false;
+    s_stammDataUpdateWatch.store(false);
 }
 
 void eprom_storeSetup(Setup &setup)
 {
     LOG_DEBUG("EEPROM","Store begin");
-    //preferences.clear();
-    //bool result = true;
-    stammDataUpdateWatch = true;
-    //uint32_t ipAsInt;
+    // preferences.clear();
+    // bool result = true;
+    s_stammDataUpdateWatch.store(true);
+    // uint32_t ipAsInt;
+
+    std::lock_guard<std::mutex> lock(s_epromMutex);
+
     preferences.begin(SETUP_CREDENTIALS, false);
     preferences.putBytes("setup_block", &setup, sizeof(Setup));
 
@@ -75,8 +85,10 @@ void eprom_storeSetup(Setup &setup)
 
 void eprom_isInit()
 {
-    preferences.begin(SETUP_CREDENTIALS, false);
-/* 
+    std::lock_guard<std::mutex> lock(s_epromMutex);
+
+    preferences.begin(SETUP_CREDENTIALS, true); // READ-ONLY – Flash schonen
+/*
     if (preferences.getString(_SSID, "") == NULL)
     {
         LOG_INFO(TAG_EPPROM,"epeprom_rom_isInit - flash hasn't been used never before ! - reinit ");
@@ -93,7 +105,10 @@ bool eprom_getSetup(Setup &setup)
 {
     LOG_DEBUG(TAG_EPPROM,"eprom_getSetup");
     memset(&setup, 0, sizeof(Setup));
-    preferences.begin(SETUP_CREDENTIALS, false);
+
+    std::lock_guard<std::mutex> lock(s_epromMutex);
+
+    preferences.begin(SETUP_CREDENTIALS, true); // READ-ONLY
     size_t len = preferences.getBytes("setup_block", &setup, sizeof(Setup));
     preferences.end();
     return (len == sizeof(Setup));
@@ -111,18 +126,6 @@ bool eprom_getSetup(Setup &setup)
         strcpy(setup.ssid, EMPTY_VALUE_IN_SETUP);
         strcpy(setup.passwd, "");
     }
-    elseString ssid, passwd;
-    // bool result = true;
-
-    ssid = preferences.getString(_SSID, "");
-    passwd = preferences.getString(_PASSWORD, "");
-
-    if (ssid == "" || passwd == "")
-    {
-        LOG_INFO(TAG_EPPROM, "eprom::eprom_getSetup No values saved for ssid or password");
-        strcpy(setup.ssid, EMPTY_VALUE_IN_SETUP);
-        strcpy(setup.passwd, "");
-    }
     else
     {
         strncpy(setup.ssid, (const char *)ssid.c_str(), LEN_WLAN - 1);
@@ -157,7 +160,7 @@ bool eprom_getSetup(Setup &setup)
     setup.akku = preferences.getChar(_AKKU);
     setup.akkuPriori = preferences.getChar(_AKKU_PRIORI);
     /* setup.pid_p = preferences.getFloat(_PID_P);
-    setup.pid_i = pL', '100', 'Strom, references.getFloat(_PID_I);
+    setup.pid_i = preferences.getFloat(_PID_I);
     setup.pid_d = preferences.getFloat(_PID_D); */
 
     setup.legionellenDelta = preferences.getUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TIME);
@@ -181,66 +184,7 @@ bool eprom_getSetup(Setup &setup)
 
     // DBGf("eprom_getSetup() .. AmisReaderHost: %s, Key: %s", setup.amisReaderHost, setup.amisKey);
     // DBGf("EPROM::   IP-Inverter %d as string: %s", setup.ipInverter, setup.inverter.c_str());
-
-    {
-        strncpy(setup.ssid, (const char *)ssid.c_str(), LEN_WLAN - 1);
-        strncpy(setup.passwd, passwd.c_str(), LEN_WLAN - 1);
-    }
-    //  DBGf("eprom_getSetup() .. WLAN: %s, Passwd: %s", setup.ssid, setup.passwd);
-    setup.heizstab_leistung_in_watt = preferences.getUInt(_HEIZSTAB_LEISTUNG_IN_WATT);
-    setup.phasen_leistung_in_watt = (unsigned int)setup.heizstab_leistung_in_watt / 3; // pre calculation
-    setup.tempMaxAllowedInGrad = preferences.getUInt(_TEMP_MAX_IN_GRAD);
-    setup.tempMinInGrad = preferences.getUInt(_TEMP_MIN_IN_GRAD);
-
-    strncpy(setup.amisReaderHost, preferences.getString(_AMIS_READER_HOST).c_str(), INET_ADDRSTRLEN);
-
-    /*  ipv4_int_to_string(setup.amisReaderHost, setup.ipAmisReaderHost, &result);
-     if (!result)
-         DBGf("ERPROM - Error in converting AmisReader IPAdress!!"); */
-    // DBGf("eprom_getSetup() .. AmisReaderHost:  %s", setup.amisReaderHost);
-
-    // String key = preferences.getString(_AMIS_READER_KEY);
-    strncpy(setup.amisKey, preferences.getString(_AMIS_READER_KEY).c_str(), AMIS_KEY_LEN - 1);
-
-    strncpy(setup.inverter, preferences.getString(_INVERTER_IP).c_str(), INET_ADDRSTRLEN);
-
-    /*
-    ipv4_int_to_string(setup.inverter, setup.ipInverter, &result);
-    if (!result)
-        DBGf("ERPROM - Error in converting Inverter IPAdress!!"); */
-
-    // DBGf("===>IP-Inverter eprom_getSetup: as string: %s ", setup.inverter);
-
-    // DBGf("EPROM::   IP-Inverter as string: %s", setup.inverter);
-    setup.akku = preferences.getChar(_AKKU);
-    setup.akkuPriori = preferences.getChar(_AKKU_PRIORI);
-    /* setup.pid_p = preferences.getFloat(_PID_P);
-    setup.pid_i = pL', '100', 'Strom, references.getFloat(_PID_I);
-    setup.pid_d = preferences.getFloat(_PID_D); */
-
-    setup.legionellenDelta = preferences.getUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TIME);
-    setup.legionellenMaxTemp = preferences.getUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TEMP);
-    /*   setup.pid_min_time_before_switch_off_channel_inMS = preferences.getUInt(_PID_DIG_OUT_OFF_DELAY_MS);
-      setup.pid_min_time_for_dig_output_inMS = preferences.getUInt(_PID_MIN_ON_TIME_MS);
-      setup.pid_powerWhichNeedNotConsumed = preferences.getUInt(_PID_TARGET_POWER);
-      setup.pidChanged = false; */
-
-    strncpy(setup.mqttHost, preferences.getString(_MQTT_HOST).c_str(), MQTT_HOST_LEN - 1);
-    strncpy(setup.mqttPass, preferences.getString(_MQTT_PASSWD).c_str(), MQTT_PASS_LEN - 1);
-    strncpy(setup.mqttUser, preferences.getString(_MQTT_USER).c_str(), MQTT_USER_LEN - 1);
-
-    strncpy(setup.influxHost, preferences.getString(_INFLUX_HOST).c_str(), INFLUX_HOST_LEN - 1);
-    strncpy(setup.influxBucket, preferences.getString(_INFLUX_BUCKET).c_str(), INFLUX_BUCKET_LEN - 1);
-    strncpy(setup.influxOrg, preferences.getString(_INFLUX_ORG).c_str(), INFLUX_ORG_LEN - 1);
-    strncpy(setup.influxToken, preferences.getString(_INFLUX_TOKEN).c_str(), INFLUX_TOKEN_LEN - 1);
-
-    setup.epsilonML_PinManager = preferences.getDouble(_EPSILON_PIN_MANAGER);
-    setup.forceHeating = preferences.getInt(_EN_FORCE_HEATING);
-
-    // DBGf("eprom_getSetup() .. AmisReaderHost: %s, Key: %s", setup.amisReaderHost, setup.amisKey);
-    // DBGf("EPROM::   IP-Inverter %d as string: %s", setup.ipInverter, setup.inverter.c_str());
-    #endif
-  
+#endif
 }
 
 bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
@@ -275,11 +219,11 @@ bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
     //strcpy(setup.influxHost, EMPTY_VALUE_IN_SETUP);
     strcpy(setup.influxBucket, "energieJunkies");
     strcpy(setup.influxOrg, "d727c1fb692f26f9");
-    strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="); 
+    strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q==");
     //strcpy(setup.influxToken, "---");
     strcpy(setup.amisReaderHost, "192.168.178.45");
     setup.epsilonML_PinManager=0.05;
-    
+
     strncpy(setup.amisKey, "9865888B5CC739E9F575053E7868BC34", AMIS_KEY_LEN - 1);
     setup.wattSetupForTest = 0;
 
@@ -287,6 +231,7 @@ bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
 
     LOG_DEBUG(TAG_EPPROM,"eprom::eprom_test_write_Eprom END");
 
+    // eprom_storeSetup() nimmt intern den Mutex – kein doppeltes lock_guard hier
     eprom_storeSetup(setup);
     return true;
 }
@@ -316,14 +261,12 @@ void eprom_show(Setup &setup)
 }
 /* *************************** SHELLY */
 
-#define SHELLY_DEVICE_NAME "sdn"
-#define SHELLY_MAC "smac"
-#define SHELLY_IP "sip"
-#define SHELLY_PORT "spt"
-
 void eprom_store_shelly(ALL_SHELLY_DEVICES *allDevices, unsigned upperLimit)
 {
     LOG_INFO(TAG_EPPROM,"eprom::eprom_store_shelly\n");
+
+    std::lock_guard<std::mutex> lock(s_epromMutex);
+
     preferences.begin(SHELLY_EPROM, false);
     preferences.clear();
     for (int i = 0; i < upperLimit; i++)
@@ -353,6 +296,8 @@ void eprom_store_shelly(ALL_SHELLY_DEVICES *allDevices, unsigned upperLimit)
 
 void eprom_clearLifeData()
 {
+    std::lock_guard<std::mutex> lock(s_epromMutex);
+
     preferences.begin(_LIFE_DATA, false);
     preferences.clear();
     preferences.putULong64(_TEMP_LIMIT_REACHED, 0.0);            // timestamp
@@ -363,7 +308,9 @@ void eprom_clearLifeData()
 
 void eprom_getLifeData(LIFE_DATA &data)
 {
-    preferences.begin(_LIFE_DATA, false);
+    std::lock_guard<std::mutex> lock(s_epromMutex);
+
+    preferences.begin(_LIFE_DATA, true); // READ-ONLY
     data.heatingLastTime = preferences.getULong64(_TEMP_LIMIT_REACHED);
     data.tempLimitReached = preferences.getULong64(_HEATING_SWITCHED_ON_LAST_TIME);
     preferences.end();

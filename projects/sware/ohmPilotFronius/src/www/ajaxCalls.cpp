@@ -51,8 +51,9 @@ struct FieldDescriptor
 static CALLBACK_GET_DATA g_getDataCallback = nullptr;
 static CALLBACK_SET_SETUP_CHANGED g_setSetupChangedCallback = nullptr;
 
-static SemaphoreHandle_t g_ajaxMutex = nullptr;
-static SemaphoreHandle_t g_shellyMutex = nullptr;
+// Mutexes werden zentral durch appSyncInit() erstellt → extern über ajaxCalls.h
+// extern SemaphoreHandle_t g_ajaxMutex;
+// extern SemaphoreHandle_t g_shellyMutex;
 
 static TaskHandle_t g_shellyTaskHandle = nullptr;
 static volatile bool g_shellyScanRunning = false;
@@ -63,7 +64,6 @@ static char g_shellyJsonCache[SHELLY_JSON_BUFFER_LEN] = {0};
 
 /* ---------- private helpers ---------- */
 
-static void ajaxCalls_ensureInitPrimitives();
 static bool ajaxCalls_lock(SemaphoreHandle_t mutex, TickType_t timeoutTicks);
 static void ajaxCalls_unlock(SemaphoreHandle_t mutex);
 
@@ -91,8 +91,6 @@ static void fillShellyJsonObjWithErrorMsg(const ALL_SHELLY_DEVICES &result, Json
 
 void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupCh)
 {
-    ajaxCalls_ensureInitPrimitives();
-
     if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
         LOG_ERROR(TAG_AJAX, "ajaxCalls_init - mutex lock failed");
@@ -105,26 +103,7 @@ void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupC
     ajaxCalls_unlock(g_ajaxMutex);
 }
 
-static void ajaxCalls_ensureInitPrimitives()
-{
-    if (g_ajaxMutex == nullptr)
-    {
-        g_ajaxMutex = xSemaphoreCreateMutex();
-    }
-
-    if (g_shellyMutex == nullptr)
-    {
-        g_shellyMutex = xSemaphoreCreateMutex();
-    }
-
-    if (g_shellyJsonCache[0] == '\0')
-    {
-        strncpy(g_shellyJsonCache,
-                "{\"done\":0,\"error\":\"scan not started\",\"DATA\":[]}",
-                sizeof(g_shellyJsonCache) - 1);
-        g_shellyJsonCache[sizeof(g_shellyJsonCache) - 1] = '\0';
-    }
-}
+// ajaxCalls_ensureInitPrimitives() entfallen – alle Mutexes werden zentral in appSyncInit() erstellt
 
 static bool ajaxCalls_lock(SemaphoreHandle_t mutex, TickType_t timeoutTicks)
 {
@@ -214,8 +193,6 @@ static void fillShellyJsonObjWithErrorMsg(const ALL_SHELLY_DEVICES &result, Json
 
 bool ajaxCalls_triggerShellyScan(void)
 {
-    ajaxCalls_ensureInitPrimitives();
-
     if (!ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
         LOG_ERROR(TAG_AJAX, "ajaxCalls_triggerShellyScan - mutex lock failed");
@@ -259,7 +236,6 @@ bool ajaxCalls_triggerShellyScan(void)
 static void shellyScanTask(void *parameter)
 {
     (void)parameter;
-    ajaxCalls_ensureInitPrimitives();
 
     JsonDocument doc;
     JsonArray array = doc["DATA"].to<JsonArray>();
@@ -373,8 +349,6 @@ static void shellyScanTask(void *parameter)
 
 void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request)
 {
-    ajaxCalls_ensureInitPrimitives();
-
     char response[SHELLY_JSON_BUFFER_LEN];
 
     if (!ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
@@ -478,8 +452,6 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 
 void ajaxCalls_handleLoxone(AsyncWebServerRequest *request)
 {
-    ajaxCalls_ensureInitPrimitives();
-
     if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
        request->send(200, "application/json", "{\"error\":500,\"watt\":0,\"temp\":0}");
@@ -514,8 +486,6 @@ void ajaxCalls_handleLoxone(AsyncWebServerRequest *request)
 
 void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
 {
-    ajaxCalls_ensureInitPrimitives();
-
     if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
         request->send(500, "application/json", "{\"done\":0,\"error\":\"mutex lock failed\"}");
@@ -656,8 +626,6 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
                                 AsyncWebServerRequest *request,
                                 bool isAPModus)
 {
-    ajaxCalls_ensureInitPrimitives();
-
     UBaseType_t stackRemaining = uxTaskGetStackHighWaterMark(nullptr);
     LOG_INFO(TAG_AJAX, "jaxCallsHandleStoreSetup::free stack words: %u", (unsigned)stackRemaining);
     JsonDocument result;

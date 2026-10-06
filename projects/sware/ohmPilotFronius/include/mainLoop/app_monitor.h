@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-#define MAX_TASKS 9
+#define MAX_TASKS 16
 
 
 #define T_NETWORK 0

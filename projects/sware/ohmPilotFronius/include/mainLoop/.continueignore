@@ -1,0 +1,13 @@
+# PlatformIO Build-Ordner (Enthält temporäre C++ Binärdateien)
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# VS Code & Git Internals
+.vscode/
+.git/
+
+# Dokumentation und Core-Dumps
+node_modules/
+*.json
+*.md

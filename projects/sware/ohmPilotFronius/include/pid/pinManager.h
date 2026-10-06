@@ -9,6 +9,7 @@
 
 const double OUTPUT_MAX = 255.0;
 #define DEAD_BAND_WATT 30.0
+#define HYSTERESIS_WATT 12
 
 enum ControlMode
 {
@@ -23,7 +24,8 @@ class PinManager
 {
 public:
     void config(WEBSOCK_DATA &data, int l1, int l2, int pwm);
-    void update(WEBSOCK_DATA &webSockData/*, double temp, int hour*/);
+    void update(WEBSOCK_DATA &webSockData);
+    ~PinManager();
     // helper
     void allOn();
     int getStateOfDigPin(short pin);
@@ -77,6 +79,25 @@ private:
    
  
 
+    // ── lokale Eingabedaten (thread-safe: aus appLock()-Kontext kopiert) ──
+    int   m_sensor1;
+    int   m_sensor2;
+    bool  m_froniusAPI;
+    bool  m_boilerHeating;
+    int   m_tempMaxAllowed;
+    int   m_tempMin;
+    int   m_legionellenMaxTemp;
+    unsigned long m_legionellenDelta;
+    int   m_akkuPriori;
+    float m_akkuLadung;
+    float m_gridPower;
+    float m_meterPower; // acCurrentPower
+    int   m_wattSetupForTest;
+
+    // ── lokale Ausgabedaten (unter appLock() zurückgeschrieben) ──
+    bool  m_out_boilerHeating;
+    bool  m_out_wattBiasForTest;
+
     // Internal 
     int tempState(double t);
     int pvState(double p);
@@ -85,20 +106,12 @@ private:
 
     int heaterPower();
     int basePower(int effectivePower);
-    ControlMode preCheck(WEBSOCK_DATA &webSockData, int temp, unsigned long nowMS);
-    void fillLogEntry(WEBSOCK_DATA& webSockData, LogEntry& logEntry);
+    ControlMode preCheck(int temp, unsigned long nowMS);
     int getMeanOfAvailAblePower();
-#ifdef PHASEN2
 
-    float P_actual_measured; // aktueller PV-Überschuss
-    float P_phase = 1000; // Leistung einer Heizphase in Watt
+    // Hilfs-Methoden für thread-safe lock/Unlock
+    void pidLockRead(WEBSOCK_DATA& webSockData);  // Werte aus g_app lesen
+    void pidLockWrite(WEBSOCK_DATA& webSockData); // Werte in g_app zurückschreiben
 
-    bool relayState = false;
-    const float margin = 150.0;
-    int pwmValue = 0;
-    unsigned long relayCandidateTimer = 0;
-    unsigned long relayDelay = 15000; // 10 Sekunden
-    void setRelaySafe(int pin, bool state, unsigned long &lastSwitch);
-#endif
 };
  

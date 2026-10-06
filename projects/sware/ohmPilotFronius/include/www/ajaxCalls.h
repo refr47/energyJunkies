@@ -1,5 +1,8 @@
 #pragma once
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
 /* Reihenfolge ist wichtig */
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
@@ -8,7 +11,9 @@
 #include "debugConsole.h"
 #include "defines.h"
 
-
+/* Globale Mutex-Handles (zentral durch appSyncInit() erstellt) */
+extern SemaphoreHandle_t g_ajaxMutex;
+extern SemaphoreHandle_t g_shellyMutex;
 
 void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupCh);
 

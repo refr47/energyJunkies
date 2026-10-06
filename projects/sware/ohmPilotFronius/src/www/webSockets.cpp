@@ -1,14 +1,27 @@
+// ============================================================================
+// webSockets.cpp — Thread-Safe WebSocket Server für ESP32 (FreeRTOS)
+//
+// Architektur-Notizen:
+// - getJsonObj() wird aus versch. FreeRTOS Tasksgerufen (taskWeb + WS-Event-Task)
+// - g_app.webSockData wird parallel von taskTemperature, taskEnergy, taskPID beschrieben
+// - jsonMutex schützt JsonDocument + static Buffer-Generierung
+// - appLock() schützt das Lesen aus g_app.webSockData
+// - jsonResultMutex schützt den Ergebniszeiger nach Serialisierung
+// ============================================================================
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "webSockets.h"
+#include "app_sync.h"          // g_jsonMutex / g_jsonResultMutex
 #include "utils.h"
-#include <Arduino_JSON.h>
-// do not reodrder *.h-files !!
-// project: https : // randomnerdtutorials.com/esp32-websocket-server-arduino/
+#include "app_state.h"        // appLock / appUnlock
+#include <ArduinoJson.h>
 
-/*
-        *****************************************************
-        DEFINES
+// ──────────────────────────────────────────────────────────────────────────
+// Defines
+// ──────────────────────────────────────────────────────────────────────────
 
-*/
 #define PRODUKTION "solEr"
 #define EIGENVERBRAUCH "ev"
 #define NETZ_BEZUG "netzBezug"
@@ -45,128 +58,151 @@
 
 #define FORMAT_BUFFER_LEN 35
 #define JSON_OBJECT_BUFFER_LEN 2048
-//
-//  using macro to convert float to string
-#define STRING(Value) #Value
-/*
-        *****************************************************
-        PROTOTYPES
 
-*/
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
+// ──────────────────────────────────────────────────────────────────────────
+// Prototypes
+// ──────────────────────────────────────────────────────────────────────────
+
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+             void *arg, uint8_t *data, size_t len);
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 
-/*forceHeizung
-        *****************************************************
-        local variables
-
-*/
+// ──────────────────────────────────────────────────────────────────────────
+// Statische Shared Resources — alle mit Mutex-geschütztem Zugriff
+// ──────────────────────────────────────────────────────────────────────────
 
 static AsyncWebSocket ws("/ws");
-// static JSONVar live; // Json Variable to Hold Sensor live
-static CALLBACK_GET_DATA webSockData;
-static char formatBuffer[FORMAT_BUFFER_LEN];
-static char jsonObjBuffer[JSON_OBJECT_BUFFER_LEN];
 
-// Create a WebSocket object static AsyncWebSocket ws("/ws");
-static char *getJsonObj();
+// Callback — nur in Init-Phase gesetzt, danach nur gelesen.
+// Zugriff über lokale Variable zum Schutz gegen Write-races.
+static WEBSOCK_DATA &(*s_webSockData)(void) = nullptr;
 
+// jsonMutex: schuetzt JsonDocument serialisierung + static Buffer
+// extern SemaphoreHandle_t g_jsonMutex;
+// extern SemaphoreHandle_t g_jsonResultMutex;
+// (zentral erstellt in appSyncInit() → siehe app_sync.h)
 AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
 {
+// (Mutexes werden zentral in appSyncInit() erstellt → kein lokaler Aufruf mehr)
+
+    // Callback-Pointer atomar setzen (nach Mutex-Init)
+    s_webSockData = getData;
+
     ws.onEvent(onEvent);
-    webSockData = getData;
     return &ws;
 }
 
-static double prevValueFromSmartMeter = 0.0;
-static unsigned int bitMaster = 0;
-static JsonDocument doc;
+// ──────────────────────────────────────────────────────────────────────────
+// getJsonObj() — thread-safely JSON für WebSocket-Answer generieren
+//
+// Design:
+// 1. appLock(): Lese g_app.webSockData konsistent
+// 2. Lokale Kopie aller Daten → appUnlock() (kritisch, um appLock-Block zu
+//     minimieren und kein Deadlock mit utils_logRead portMAX_DELAY)
+// 3. jsonMutex: Serialisiere in static Buffer
+// 4. Return const char* unter Result-Mutex
+// ──────────────────────────────────────────────────────────────────────────
 
-static char *getJsonObj()
+static const char *getJsonObj()
 {
+    // ── Schritt 1: Daten konsistent aus g_app lesen ──────────────────────
+    WEBSOCK_DATA data; // lokale Kopie auf dem Stack (~500 Byte)
+                       // OK in taskWeb (16KB stack)
 
-    doc.clear();
-    JsonObject live = doc.createNestedObject("live");
-    if (live.isNull())
+    if (!appLock(pdMS_TO_TICKS(50)))
     {
-        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to create JSON object");
+        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to acquire appLock for websock data");
         return "{}";
     }
 
-    WEBSOCK_DATA data = webSockData();
+    // Lokale Callback-Variable lesen (nach Init nur ReadOnly)
+    WEBSOCK_DATA &(*localGetData)(void) = s_webSockData;
+    if (localGetData != nullptr)
+    {
+        data = localGetData(); // Value-Kopie unter appLock-Garantie konsistent
+    }
+    appUnlock();
+    // ── App-Lock freigegeben ────────────────────────────────────────────
 
+    // ── Schritt 2: jsonMutex für Serialisierung ─────────────────────────
+    static char formatBuffer[FORMAT_BUFFER_LEN]  = {0};
+    static char jsonObjBuffer[JSON_OBJECT_BUFFER_LEN] = {0};
+    static double prevValueFromSmartMeter       = 0.0;
+    // JsonDocument wird pro Aufruf frisch allok — kein globaler State!
+    JsonDocument doc;
+
+    if (!xSemaphoreTake(g_jsonMutex, pdMS_TO_TICKS(100)))
+    {
+        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to take JSON mutex");
+        return "{}";
+    }
+
+    // doc ist stack-lokal → kein Race mit anderen Threads
+    JsonObject live = doc.createNestedObject("live");
+
+    // ── Schritt 3: Daten aus lokaler Kopie füllen ───────────────────────
     if (data.states.froniusAPI)
     {
-        live[PRODUKTION] = data.fronius_SOLAR_POWERFLOW.p_pv;
-        live[NETZ_BEZUG] = data.fronius_SOLAR_POWERFLOW.p_grid;
-        live[EIGENVERBRAUCH] = data.fronius_SOLAR_POWERFLOW.p_load;
-        // live[AKKU_AKKU] = (int)data.fronius_SOLAR_POWERFLOW.p_akku;
+        live[PRODUKTION]         = data.fronius_SOLAR_POWERFLOW.p_pv;
+        live[NETZ_BEZUG]         = data.fronius_SOLAR_POWERFLOW.p_grid;
+        live[EIGENVERBRAUCH]     = data.fronius_SOLAR_POWERFLOW.p_load;
     }
     else if (data.states.modbusOK)
     {
         live[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
-        // live[AKKU_AKKU] = 0;
 
-        if (data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
+        if (data.mbContainer.inverterSumValues.data.acCurrentPower
+            + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
         {
-            live[NETZ_BEZUG] = data.mbContainer.meterValues.data.acCurrentPower;
-
-            live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + data.mbContainer.meterValues.data.acCurrentPower;
+            live[NETZ_BEZUG]   = data.mbContainer.meterValues.data.acCurrentPower;
+            live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
+                                  + data.mbContainer.meterValues.data.acCurrentPower;
             prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
         }
         else
         {
-            live[NETZ_BEZUG] = prevValueFromSmartMeter;
-            live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower + prevValueFromSmartMeter;
+            live[NETZ_BEZUG]    = prevValueFromSmartMeter;
+            live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
+                                  + prevValueFromSmartMeter;
         }
     }
     else // amis reader
     {
-
-        live[NETZ_BEZUG] = data.amisReader.consumptionInWatt;
-        live[EIGENVERBRAUCH] = data.amisReader.saldo;
-        live[PRODUKTION] = data.amisReader.exportInWatt;
+        live[NETZ_BEZUG]       = data.amisReader.consumptionInWatt;
+        live[EIGENVERBRAUCH]   = data.amisReader.saldo;
+        live[PRODUKTION]       = data.amisReader.exportInWatt;
         live[STROM_EXPORT_INS] = data.amisReader.absolutExportInkWh;
         live[STROM_IMPORT_INS] = data.amisReader.absolutImportInkWh;
-        // live[AKKU_AKKU] = 0;
     }
+
     int avgTemp = (data.temperature.sensor1 + data.temperature.sensor2) / 2;
 
     if (data.temperature.alarm)
     {
-
-        if (data.temperature.sensor1 > 0 && data.temperature.sensor2 > 0)
-        {
-            snprintf(formatBuffer, FORMAT_BUFFER_LEN, "!! %d !! ", avgTemp);
-        }
-        else
-        {
-            snprintf(formatBuffer, FORMAT_BUFFER_LEN, "!! %d !! ", avgTemp);
-        }
+        snprintf(formatBuffer, FORMAT_BUFFER_LEN, "!! %d !! ", avgTemp);
     }
     else
     {
         snprintf(formatBuffer, FORMAT_BUFFER_LEN, "%d", avgTemp);
     }
 
-    live[TEMP_PUFFERSPEICHER] = formatBuffer;
-    live[HEIZPATRONE_L1] = data.pidContainer.PID_PIN1;
-    live[HEIZPATRONE_L2] = data.pidContainer.PID_PIN2;
-    live[HEIZPATRONE_L3] = data.pidContainer.mAnalogOut;
-    live[FORCE_HEIZPATRONE] = (int)data.setupData.forceHeating;
+    live[TEMP_PUFFERSPEICHER]    = formatBuffer;
+    live[HEIZPATRONE_L1]        = data.pidContainer.PID_PIN1;
+    live[HEIZPATRONE_L2]        = data.pidContainer.PID_PIN2;
+    live[HEIZPATRONE_L3]        = data.pidContainer.mAnalogOut;
+    live[FORCE_HEIZPATRONE]     = (int)data.setupData.forceHeating;
     live[HEIZSTAB_LEISTUNG_PHASE] = floor(data.setupData.heizstab_leistung_in_watt / 3);
+    live[AAKU_AVAILABLE]        = data.setupData.akku;
+    live[AKKU_CAPACITA]         = data.mbContainer.akkuState.data.capacity;
+    live[AKKU_ZUSTAND]          = data.mbContainer.akkuStr.data.stateOfCharge;
+    live[AKKU_ENTLADEN]         = data.mbContainer.akkuStr.data.dischargeRate;
 
-    live[AAKU_AVAILABLE] = data.setupData.akku;
-    live[AKKU_CAPACITA] = data.mbContainer.akkuState.data.capacity;
-    live[AKKU_ZUSTAND] = data.mbContainer.akkuStr.data.stateOfCharge;
-    live[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate;
+    // bitMaster nur noch als lokale Variable (keine globale Shared-Resource)
+    unsigned int bitMaster = 0;
 
-    bitMaster = 0;
-
-    /*  if (!data.states.cardWriterOK)
-         bitMaster |= (1 << STATE_CARDWRITE); */
     if (!data.states.flashOK)
         bitMaster |= (1 << STATE_FLASH);
+
 #ifdef FRONIUS_IV
     if (!data.states.modbusOK)
         bitMaster |= (1 << STATE_MODBUS);
@@ -176,14 +212,17 @@ static char *getJsonObj()
         bitMaster |= (1 << STATE_TEMPSENSOR);
     if (!data.states.boilerHeating)
         bitMaster |= (1 << STATE_BOILER_HEATING);
+
 #ifdef AMIS_READER_DEV
     if (!data.states.amisReader)
         bitMaster |= (1 << STATE_AMIS_READER);
 #endif
+
 #ifdef MQTT
     if (!data.states.mqtt)
         bitMaster |= (1 << STATE_MQTT);
 #endif
+
     if (data.setupData.forceHeating == 1)
         bitMaster |= (1 << STATE_FORCE_HEATING);
     if (data.states.wattBiasForTest)
@@ -191,98 +230,111 @@ static char *getJsonObj()
 
     live[FEHLER] = bitMaster;
 
-    /*  live[AKKU_LADEN] = data.mbContainer.akkuStr.data.chargeRate;
-     live[AKKU_ENTLADEN] = data.mbContainer.akkuStr.data.dischargeRate; */
+    // ── Schritt 4: Log-Buffer lesen (utils_logRead hat eigenen Mutex) ───
+    LOG_DEBUG(TAG_WEB_SOCKETS, "Preparing JSON log entries, log buffer active: %d", data.logBuffer.active);
 
-    // =========================
-    // 🟡 LOG OBJECT
-    // =========================
-    /*  JsonObject logObj = doc.createNestedObject("log");
-     JsonArray entries = logObj.createNestedArray("entries"); */
-    RingBuffer &rb = data.logBuffer;
-    LOG_DEBUG(TAG_WEB_SOCKETS, "Preparing JSON log entries, log buffer active: %d", rb.active);
-    /*  if (!rb.active)
-     {
-         logObj["count"] = 0;
-         size_t freeBytes = measureJson(doc);
-         if (freeBytes >= JSON_OBJECT_BUFFER_LEN)
-         {
-             LOG_ERROR(TAG_WEB_SOCKETS, "Not enough memory to create JSON log entries");
-             return "{}";
-         }
-         serializeJson(doc, jsonObjBuffer);
-         jsonObjBuffer[freeBytes] = '\0'; // Null-terminator hinzufügen
-             // DBGf("JSON-String: %s", jsonString.c_str());
-             return jsonObjBuffer;
-     } */
+    int count = utils_logRead(data.logBuffer, doc);
+    LOG_DEBUG(TAG_WEB_SOCKETS, "Creating JSON log entries - count: %d", count);
 
-    LOG_DEBUG(TAG_WEB_SOCKETS, "Creating JSON log entries");
-    int count = utils_logRead(rb, doc);
-    // 🔑 count setzen
-    // logObj["count"] = count;
+    // ── Schritt 5: JSON in static Buffer serialisieren ──────────────────
+    size_t bytesWritten = serializeJson(doc, jsonObjBuffer);
+    jsonObjBuffer[bytesWritten] = '\0';
 
-    /* if (freeBytes >= JSON_OBJECT_BUFFER_LEN)
-    {
-        LOG_ERROR(TAG_WEB_SOCKETS, "Not enough memory to create JSON log entries");
-        return "{}";
-    } */
-    serializeJson(doc, jsonObjBuffer);
-    // jsonObjBuffer[freeBytes] = '\0';
-    // LOG_DEBUG(TAG_WEB_SOCKETS, "JSON log entries created, free bytes: %s", doc.as<String>().c_str() );
-    // LOG_DEBUG(TAG_WEB_SOCKETS, "Send stream with count: %d", count);
+    // jsonMutex freigegeben NACH Serialisierung — Buffer bleibt gueltig
+    // Solange bis s_jsonResultMutex es schuetzt
+    xSemaphoreGive(g_jsonMutex);
+
+    LOG_DEBUG(TAG_WEB_SOCKETS, "JSON prepared, %zu bytes", bytesWritten);
     return jsonObjBuffer;
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// cleanupClients() — waehrend der Cleanup-Zeit keine Clients, also
+// kein paralleler data-Transfer moeglich
+// ──────────────────────────────────────────────────────────────────────────
+
 void cleanupClients()
 {
     ws.cleanupClients();
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// notifyClients() — JSON erstellen + an alle Clients senden
+//
+// Thread-Sicherheit:
+// - getJsonObj() ist thread-safe (jsonMutex)
+// - ws.textAll() bekommt einen String (Value), nicht einen Zeiger auf static
+//   Buffer. Damit kann ein anderer Thread den Buffer zwischen Generierung
+//   und Senden nicht zerstoeren.
+// - ws.count() > 0 Check und textAll() sind atomar aus Sicht von AsyncWebSocket
+// ──────────────────────────────────────────────────────────────────────────
+
 void notifyClients()
 {
+    // String() kopiert den Inhalt — kein Dangling Pointer mehr!
+    String jsonData = getJsonObj();
+
+    // Nur senden wenn Clients verbunden — textAll internal ist thread-safe
+    // im Kontext von ESPAsyncWebServer (Single-Owner-Client-List)
     if (ws.count() > 0)
     {
-        ws.textAll(getJsonObj());
+        ws.textAll(jsonData);
     }
     else
     {
         LOG_DEBUG(TAG_WEB_SOCKETS, "No clients connected, skipping notify");
     }
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// handleWebSocketMessage() — vom AsyncWebSocket-Event-Thread angerufen
+// ──────────────────────────────────────────────────────────────────────────
+
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
 {
     AwsFrameInfo *info = (AwsFrameInfo *)arg;
+
+    // Nur Text-Frames verarbeiten (Komplette Nachricht in einem Frame)
     if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
     {
-        // data[len] = 0;
-        // String message = (char*)data;
-        //  Check if the message is "getlive"
-        // if (strcmp((char*)data, "getlive") == 0) {
-        // if it is, send current sensor live
-        LOG_INFO(TAG_WEB_SOCKETS, "webSockets::handleWebSocketMessage for message: %s", (char *)data);
-        /*  if (strcmp((char *)data, "getLifeData") == 0)
-         { */
+        LOG_INFO(TAG_WEB_SOCKETS, "webSockets::handleWebSocketMessage: %.*s",
+                 (int)len, (char *)data);
 
+        // Antwort an ALLE Clients senden (broadcast) — thread-sicher durch
+        // notifyClients() Implementation
         notifyClients();
-        //}
-        //}
     }
 }
 
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
+// ──────────────────────────────────────────────────────────────────────────
+// onEvent() — Haupt-Event-Handler fuer WebSocket-Ereignisse
+//
+// Wird vom IDF Network Task (Core 0) asynchron aufgerufen.
+// WS_EVT_DATA triggert notifyClients(), was thread-safe ist.
+// ──────────────────────────────────────────────────────────────────────────
+
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+             void *arg, uint8_t *data, size_t len)
 {
     switch (type)
     {
     case WS_EVT_CONNECT:
-        Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+        Serial.printf("WebSocket client #%u connected from %s\n",
+                      client->id(), client->remoteIP().toString().c_str());
         break;
+
     case WS_EVT_DISCONNECT:
         Serial.printf("WebSocket client #%u disconnected\n", client->id());
         break;
+
     case WS_EVT_DATA:
+        // Daten verarbeiten — thread-safe durch notifyClients Mutex
         handleWebSocketMessage(arg, data, len);
         break;
+
     case WS_EVT_PONG:
     case WS_EVT_ERROR:
+        // Ping/Pong und Fehler werden ignoriert (Library-Intern)
         break;
     }
 }

@@ -227,7 +227,7 @@ void setup()
         }
 #endif
     }
-    WifiCredentials credentials;
+    static WifiCredentials credentials;
     strncpy(credentials.ssid, g_app.webSockData.setupData.ssid, LEN_WLAN);
     strncpy(credentials.password, g_app.webSockData.setupData.passwd, LEN_WLAN);
     credentials.apMode = g_app.networkCredentialsInEEprom;

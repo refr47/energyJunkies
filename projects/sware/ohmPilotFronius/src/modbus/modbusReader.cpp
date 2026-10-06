@@ -197,8 +197,8 @@ bool mb_readInverterStatic()
     return true;
 }
 
-// index into modbus read block array
-static int readIndex = 0;
+// index into modbus read block array (thread-local per Task, R02 fix)
+static thread_local int readIndex = 0;
 #ifdef MODBUS_VERBOSE
 // character array to prepare mesages
 static char text[TEXT_LEN];

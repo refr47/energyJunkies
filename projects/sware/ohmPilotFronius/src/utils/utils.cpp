@@ -27,15 +27,21 @@
 // in seconds
 #define RECV_TIMEOUT 1
 
+static const unsigned long RESPONSE_TIMEOUT_MS = 3000;
+static const unsigned long READ_POLL_INTERVAL_MS = 10;
+static const size_t MAX_RESPONSE_LENGTH = 1024;
+
+
+
 /* socket variables , defined in amisReader and froniusSolarAPI*/
 extern KEY_VALUE_MAP_t amisKeyValueMap;
 extern KEY_VALUE_MAP_t froniusKeyValueMap;
 
 static HTTP_REST_TARGET_t restTarget[REST_TARGET_COUNT] = {
-	{"Amis reader", "amisreader", {0}, 80, "/rest", "GET /rest HTTP/1.0\r\n\r\n", -1, AMIS_VALUE_COUNT, &amisKeyValueMap},
-	{"Fronius Solar API", "fronius rest", {0}, 80, "/status/powerflow", "GET /status/powerflow HTTP/1.0\r\n\r\n", -1, FRONIUS_VALUE_COUNT, &froniusKeyValueMap}};
+	{ "Amis reader", "amisreader",{ 0 }, 80, "/rest", "GET /rest HTTP/1.0\r\n\r\n", -1, AMIS_VALUE_COUNT, &amisKeyValueMap },
+	{ "Fronius Solar API", "fronius rest",{ 0 }, 80, "/status/powerflow", "GET /status/powerflow HTTP/1.0\r\n\r\n", -1, FRONIUS_VALUE_COUNT, &froniusKeyValueMap } };
 
-static bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData, GET_JSON_DATA getJson);
+static bool readJsonResponse(HTTP_REST_TARGET_t* target, WEBSOCK_DATA& webSockData, GET_JSON_DATA getJson);
 int pingloop = 1;
 
 // ping packet structure
@@ -89,7 +95,7 @@ void printHWInfo()
 	esp_chip_info(&chip_info);
 
 	LOG_DEBUG(TAG_UTILS, "Hardware info: %d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-			  (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+		(chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
 	LOG_DEBUG(TAG_UTILS, "Silicon revision: %d\n", chip_info.revision);
 
 	// get chip id
@@ -107,9 +113,9 @@ bool isNumber(char s[])
 	return true;
 }
 
-bool floatNum(char *s)
+bool floatNum(char* s)
 {
-	const char *ptr = s;
+	const char* ptr = s;
 	double x = strtod(ptr, &s);
 
 	// check if converted to long int
@@ -125,7 +131,7 @@ bool floatNum(char *s)
 }
 
 // char ret[INET_ADDRSTRLEN]
-void ipv4_int_to_string(char *ret, uint32_t in, bool *const success)
+void ipv4_int_to_string(char* ret, uint32_t in, bool* const success)
 {
 	// char ret[INET_ADDRSTRLEN];
 	in = htonl(in);
@@ -143,7 +149,7 @@ void ipv4_int_to_string(char *ret, uint32_t in, bool *const success)
 	}
 	else
 	{
-		char buf[BUFFER_LEN_FOR_ARG_CHECK] = {0};
+		char buf[BUFFER_LEN_FOR_ARG_CHECK] = { 0 };
 		strerror_r(errno, buf, sizeof(buf));
 		LOG_ERROR(TAG_UTILS, "utils::ipv4_int_to_string() Error inipv4_int_to_string  %s", strerror(errno));
 
@@ -153,7 +159,7 @@ void ipv4_int_to_string(char *ret, uint32_t in, bool *const success)
 }
 // return is native-endian
 // when an error occurs: if success ptr is given, it's set to false, otherwise a std::runtime_error is thrown.
-uint32_t ipv4_string_to_int(char *in, bool *const success)
+uint32_t ipv4_string_to_int(char* in, bool* const success)
 {
 	uint32_t ret;
 	const bool _success = (1 == inet_pton(AF_INET, in, &ret));
@@ -164,7 +170,7 @@ uint32_t ipv4_string_to_int(char *in, bool *const success)
 	}
 	else if (!_success)
 	{
-		char buf[BUFFER_LEN_FOR_ARG_CHECK] = {0};
+		char buf[BUFFER_LEN_FOR_ARG_CHECK] = { 0 };
 		strerror_r(errno, buf, sizeof(buf));
 		LOG_ERROR(TAG_UTILS, "utils::ipv4_string_to_int() Error in ipv4_string_to_int %s", strerror(errno));
 		ret = -1;
@@ -173,7 +179,7 @@ uint32_t ipv4_string_to_int(char *in, bool *const success)
 	}
 	return ret;
 }
-bool util_isFieldFilled(const char *key, const char *argument, DynamicJsonDocument &data)
+bool util_isFieldFilled(const char* key, const char* argument, DynamicJsonDocument& data)
 {
 	if (strlen(argument) == 0)
 	{
@@ -187,7 +193,7 @@ bool util_isFieldFilled(const char *key, const char *argument, DynamicJsonDocume
 	return true;
 }
 
-bool util_checkParamInt(const char *key, const char *argument, DynamicJsonDocument &data, int *result)
+bool util_checkParamInt(const char* key, const char* argument, DynamicJsonDocument& data, int* result)
 {
 	if (util_isFieldFilled(key, argument, data))
 		*result = atoi(argument);
@@ -210,7 +216,7 @@ bool util_checkParamInt(const char *key, const char *argument, DynamicJsonDocume
 	return true;
 }
 
-bool util_checkParamFloat(const char *key, const char *argument, /* const JsonObject &jsonObj, */ DynamicJsonDocument &data, float *result)
+bool util_checkParamFloat(const char* key, const char* argument, /* const JsonObject &jsonObj, */ DynamicJsonDocument& data, float* result)
 {
 	if (util_isFieldFilled(key, argument, data))
 		*result = atof(argument);
@@ -240,10 +246,10 @@ void util_pHW()
 
 	LOG_DEBUG(TAG_UTILS, "Hardware info");
 	LOG_DEBUG(TAG_UTILS, "%d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-			  (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+		(chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
 	LOG_DEBUG(TAG_UTILS, "Silicon revision: %d\n", chip_info.revision);
 	LOG_DEBUG(TAG_UTILS, "%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-			  (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embeded" : "external");
+		(chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embeded" : "external");
 
 	// get chip id
 	String chipId = String((uint32_t)ESP.getEfuseMac(), HEX);
@@ -252,7 +258,7 @@ void util_pHW()
 	LOG_DEBUG(TAG_UTILS, "Chip id: %s\n", chipId.c_str());
 }
 
-char *util_format_Watt_kWatt(double val, char *formatBuf)
+char* util_format_Watt_kWatt(double val, char* formatBuf)
 {
 	if (fabs(val) > 1000.0)
 		sprintf(formatBuf, "%.2lf kW", val / 1000);
@@ -261,7 +267,7 @@ char *util_format_Watt_kWatt(double val, char *formatBuf)
 	return formatBuf;
 }
 
-String util_GET_Request(const char *url, int *httpResponseCode)
+String util_GET_Request(const char* url, int* httpResponseCode)
 {
 	HTTPClient http;
 	http.begin(url);
@@ -284,7 +290,7 @@ String util_GET_Request(const char *url, int *httpResponseCode)
 	return payload;
 }
 
-bool util_SendLoxone(char *url, char *loxone_user, char *loxone_pwd)
+bool util_SendLoxone(char* url, char* loxone_user, char* loxone_pwd)
 {
 
 	// URL für den Webservice-Befehl zusammenbauen
@@ -322,29 +328,24 @@ bool util_SendLoxone(char *url, char *loxone_user, char *loxone_pwd)
 
 
 // Initialisierung (einmalig aufrufen!)
-void utils_logInit(RingBuffer &rb)
+void utils_logInit(RingBuffer& rb)
 {
 	LOG_DEBUG(TAG_UTILS, "utils_logInit");
-	rb.mutex = xSemaphoreCreateBinary();
-	if (rb.mutex != NULL)
-	{
-		xSemaphoreGive(rb.mutex); // Macht den Semaphore "verfügbar"
-	}
-	else
-	{
-		LOG_ERROR(TAG_UTILS, "Failed to create mutex for log buffer");
-	}
+	rb.mutex = xSemaphoreCreateMutex();  // ← Correct type
+    if (rb.mutex == NULL) {
+        LOG_ERROR(TAG_UTILS, "Failed to create mutex for log buffer");
+    }
 }
 
-void utils_logWrite(RingBuffer &rb, const LogEntry &e)
+void utils_logWrite(RingBuffer& rb, const LogEntry& e)
 {
 	uint32_t now = millis();
 	const uint32_t heartbeatInterval = LOG_DELTA_FORCE_WRITE;
 
 	bool hasChanged = (e.state != rb.lastAddedEntry.state ||
-					   e.power != rb.lastAddedEntry.power ||
-					   e.pwm != rb.lastAddedEntry.pwm ||
-					   e.temp != rb.lastAddedEntry.temp);
+		e.power != rb.lastAddedEntry.power ||
+		e.pwm != rb.lastAddedEntry.pwm ||
+		e.temp != rb.lastAddedEntry.temp);
 
 	bool heartbeatDue = (now - rb.lastAddedTime >= heartbeatInterval);
 
@@ -390,13 +391,17 @@ void utils_logWrite(RingBuffer &rb, const LogEntry &e)
   }
 }
 */
-int utils_logRead(RingBuffer &rb, JsonDocument &doc)
+int utils_logRead(RingBuffer& rb, JsonDocument& doc)
 { // 1. Speicher sicher auf dem Heap statt auf dem Stack allokieren
 	static LogEntry targetSpace[LOG_BUFFER_SIZE];
 
 	int count = 0;
+	bool bufferedActive = false; // thread-safe: unter Mutex gelesen
+
 	if (xSemaphoreTake(rb.mutex, portMAX_DELAY) == pdTRUE)
 	{
+		bufferedActive = rb.active; // ── race-free ──
+
 		if (rb.readIndex != rb.writeIndex)
 		{
 			if (rb.readIndex < rb.writeIndex)
@@ -413,22 +418,21 @@ int utils_logRead(RingBuffer &rb, JsonDocument &doc)
 				count = firstPart + secondPart;
 			}
 
-			// WICHTIG: Wir setzen den readIndex hier NOCH NICHT.
-			// Wir geben nur die Kopie frei.
+			// Puffer ausräumen: Read-Index auf Write-Index setzen
+			rb.readIndex = rb.writeIndex;
 		}
 		xSemaphoreGive(rb.mutex);
 	}
-
 	// --- KRITISCHER BEREICH ENDE ---
 	JsonObject logObj = doc["log"].to<JsonObject>();
 	// 2. JSON-Generierung außerhalb der Semaphore
 	if (count > 0)
 	{
-		String encoded = base64::encode((uint8_t *)targetSpace, count * sizeof(LogEntry));
+		String encoded = base64::encode((uint8_t*)targetSpace, count * sizeof(LogEntry));
 		logObj["blob"] = encoded; // Der kompakte Datenblock
 		logObj["len"] = count;	  // Info für den Client, wie viele Entries drin stecken
 	}
-	else if (rb.active == false)
+	else if (bufferedActive == false)
 	{
 		logObj["blob"] = ""; // Leerer Datenblock
 		logObj["len"] = 0;	 // Info für den Client, wie viele Entries drin stecken
@@ -455,14 +459,14 @@ bool utils_shouldLog(bool l1, bool l2, uint8_t pwm, bool legionella, bool minTem
 	return false;
 }
 
-char *utils_floatToString(float value)
+char* utils_floatToString(float value)
 {
 	static char buf[20];
 	dtostrf(value, 1, 2, buf);
 	return buf;
 }
 
-bool utils_sock_initRestTargets(Setup &setupData, int index)
+bool utils_sock_initRestTargets(Setup& setupData, int index)
 {
 	LOG_INFO(TAG_UTILS, "util::utils_sock_initRestTargets()");
 	strcpy(restTarget[index].hostname, setupData.amisReaderHost);
@@ -487,7 +491,7 @@ bool utils_sock_initRestTargets(Setup &setupData, int index)
 	return false;
 }
 
-bool utils_sock_readRestTarget(WEBSOCK_DATA &webSockData, int index, GET_JSON_DATA getJson)
+bool utils_sock_readRestTarget(WEBSOCK_DATA& webSockData, int index, GET_JSON_DATA getJson)
 {
 	if (!restTarget[index].localClient.connected())
 	{
@@ -510,20 +514,32 @@ bool utils_sock_readRestTarget(WEBSOCK_DATA &webSockData, int index, GET_JSON_DA
 	return true;
 }
 
-#define RESPONSE_LENGTH 1024
 
-bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData, GET_JSON_DATA getJson)
+bool readJsonResponse(HTTP_REST_TARGET_t* target, WEBSOCK_DATA& webSockData, GET_JSON_DATA getJson)
 {
 	// int bytes, sent, received, total;
-	char response[RESPONSE_LENGTH];
+	char response[MAX_RESPONSE_LENGTH];
 	// int responseLen = sizeof(response);
-	char *jsonStart;
+	char* jsonStart;
+	unsigned long timeoutStart = millis();
 	while (!target->localClient.available())
-		; // wait for response
+	{
+		if (millis() - timeoutStart > RESPONSE_TIMEOUT_MS)
+		{
+			LOG_ERROR(TAG_UTILS, "utils::readJsonResponse() - Timeout waiting for response from %s",
+				target->hostname);
+			return false;
+		}
+		vTaskDelay(pdMS_TO_TICKS(READ_POLL_INTERVAL_MS));
+	}
 
 	String str = target->localClient.readStringUntil('\n'); // read entire response
 	LOG_INFO(TAG_UTILS, "utils::readJsonResponse() - str: %s", str.c_str());
-	strcpy(response, str.c_str());
+
+	// Kopieren mit explizitem Null-Terminator am buffer-end
+	strncpy(response, str.c_str(), sizeof(response) - 1);
+	response[sizeof(response) - 1] = '\0';
+
 	jsonStart = strchr(response, '{');
 	LOG_INFO(TAG_UTILS, "utils::readJsonResponse() - payload: %s", response);
 	if (jsonStart != NULL)
@@ -534,7 +550,7 @@ bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData, GET
 	return true;
 }
 
-bool isStreamingAllowed(bool &isHeartbeatDue)
+bool isStreamingAllowed(bool& isHeartbeatDue)
 {
 	static uint32_t lastNightlyHeartbeat = 0;
 	uint32_t now = millis();
@@ -574,16 +590,16 @@ struct ping_pkt
 	char msg[PING_PKT_S - sizeof(struct icmphdr)];
 };
 // Calculating the Check Sum
-unsigned short checksum(void *b, int len)
+unsigned short checksum(void* b, int len)
 {
-	unsigned short *buf = b;
+	unsigned short* buf = b;
 	unsigned int sum = 0;
 	unsigned short result;
 
 	for (sum = 0; len & gt; 1; len -= 2)
 		sum += *buf++;
 	if (len == 1)
-		sum += *(unsigned char *)buf;
+		sum += *(unsigned char*)buf;
 	sum = (sum & gt; > 16) + (sum & amp; 0xFFFF);
 	sum += (sum & gt; > 16);
 	result = ~sum;
@@ -594,11 +610,11 @@ unsigned short checksum(void *b, int len)
 void intHandler(int dummy) { pingloop = 0; }
 
 // Performs a DNS lookup
-char *dns_lookup(char *addr_host,
-				 struct sockaddr_in *addr_con)
+char* dns_lookup(char* addr_host,
+	struct sockaddr_in* addr_con)
 {
 	printf("\nResolving DNS..\n & quot;);
-	struct hostent* host_entity;
+		struct hostent* host_entity;
 	char* ip = (char*)malloc(NI_MAXHOST * sizeof(char));
 	int i;
 
@@ -610,47 +626,47 @@ char *dns_lookup(char *addr_host,
 	// filling up address structure
 	strcpy(ip,
 		inet_ntoa(*(struct in_addr*)host_entity - >
-					h_addr));
+			h_addr));
 
 	(*addr_con).sin_family = host_entity - >
-	h_addrtype;
+		h_addrtype;
 	(*addr_con).sin_port = htons(PORT_NO);
 	(*addr_con).sin_addr.s_addr = *(long*)host_entity - >
-	h_addr;
+		h_addr;
 
 	return ip;
 }
 
 // Resolves the reverse lookup of the hostname
-char *reverse_dns_lookup(char *ip_addr)
+char* reverse_dns_lookup(char* ip_addr)
 {
 	struct sockaddr_in temp_addr;
 	socklen_t len;
-	char buf[NI_MAXHOST], *ret_buf;
+	char buf[NI_MAXHOST], * ret_buf;
 
 	temp_addr.sin_family = AF_INET;
 	temp_addr.sin_addr.s_addr = inet_addr(ip_addr);
 	len = sizeof(struct sockaddr_in);
 
-	if (getnameinfo((struct sockaddr *)&temp_addr, len, buf, sizeof(buf), NULL,
-					0, NI_NAMEREQD))
+	if (getnameinfo((struct sockaddr*)&temp_addr, len, buf, sizeof(buf), NULL,
+		0, NI_NAMEREQD))
 	{
 		printf(
 			"
-				Could not resolve reverse lookup of hostname\n &
-				quot;);
+			Could not resolve reverse lookup of hostname\n &
+			quot;);
 		return NULL;
 	}
-	ret_buf = (char *)malloc((strlen(buf) + 1) * sizeof(char));
+	ret_buf = (char*)malloc((strlen(buf) + 1) * sizeof(char));
 	strcpy(ret_buf, buf);
 	return ret_buf;
 }
 
 // make a ping request
 void send_ping(int ping_sockfd,
-			   struct sockaddr_in *ping_addr,
-			   char *ping_dom, char *ping_ip,
-			   char *rev_host)
+	struct sockaddr_in* ping_addr,
+	char* ping_dom, char* ping_ip,
+	char* rev_host)
 {
 	int ttl_val = 64, msg_count = 0, i, addr_len, flag = 1,
 		msg_received_count = 0;
@@ -659,7 +675,7 @@ void send_ping(int ping_sockfd,
 	// ip header is included when receiving
 	// from raw socket
 	char rbuffer[128];
-	struct ping_pkt *r_pckt;
+	struct ping_pkt* r_pckt;
 
 	struct ping_pkt pckt;
 	struct sockaddr_in r_addr;
@@ -677,7 +693,7 @@ void send_ping(int ping_sockfd,
 	{
 		printf(
 			"\nSetting socket options to TTL failed !\n
-				& quot;);
+			& quot;);
 		return;
 	}
 
@@ -688,7 +704,7 @@ void send_ping(int ping_sockfd,
 
 	// setting timeout of recv setting
 	setsockopt(ping_sockfd, SOL_SOCKET, SO_RCVTIMEO,
-			   (const char *)&tv_out, sizeof tv_out);
+		(const char*)&tv_out, sizeof tv_out);
 
 	// send icmp packet in an infinite loop
 	while (pingloop)
@@ -714,12 +730,12 @@ void send_ping(int ping_sockfd,
 		// send packet
 		clock_gettime(CLOCK_MONOTONIC, &time_start);
 		if (sendto(ping_sockfd, &pckt, sizeof(pckt), 0,
-				   (struct sockaddr *)ping_addr,
-				   sizeof(*ping_addr)) &lt;
+			(struct sockaddr*)ping_addr,
+			sizeof(*ping_addr)) & lt;
 			= 0)
 		{
 			printf("\nPacket Sending Failed !\n
-					   & quot;);
+				& quot;);
 			flag = 0;
 		}
 
@@ -727,12 +743,12 @@ void send_ping(int ping_sockfd,
 		addr_len = sizeof(r_addr);
 
 		if (recvfrom(ping_sockfd,
-					 rbuffer, sizeof(rbuffer), 0,
-					 (struct sockaddr *)&r_addr, &addr_len) &lt;
+			rbuffer, sizeof(rbuffer), 0,
+			(struct sockaddr*)&r_addr, &addr_len) & lt;
 			= 0 & amp; &msg_count & gt; 1)
 		{
 			printf("\nPacket receive failed !\n
-					   & quot;);
+				& quot;);
 		}
 
 		else
@@ -747,19 +763,19 @@ void send_ping(int ping_sockfd,
 				if (!(r_pckt->hdr.type == 0 & amp; &r_pckt->hdr.code == 0))
 				{
 					printf(" Error..Packet received
-								   with ICMP type %
-								   d code % d\n &
-							   quot;
-						   , r_pckt->hdr.type, r_pckt->hdr.code);
+						with ICMP type %
+						d code % d\n &
+						quot;
+					, r_pckt->hdr.type, r_pckt->hdr.code);
 				}
 				else
 				{
 					printf(" % d bytes from
-							   % s(h : % s)(% s) msg_seq = % d ttl = % d rtt =
-																		 % Lf ms.\n & quot;
-						   , PING_PKT_S, ping_dom, rev_host,
-						   ping_ip, msg_count, ttl_val,
-						   rtt_msec);
+						% s(h : % s)(% s) msg_seq = % d ttl = % d rtt =
+						% Lf ms.\n & quot;
+					, PING_PKT_S, ping_dom, rev_host,
+						ping_ip, msg_count, ttl_val,
+						rtt_msec);
 
 					msg_received_count++;
 				}
@@ -771,22 +787,22 @@ void send_ping(int ping_sockfd,
 
 	total_msec = (tfe.tv_sec - tfs.tv_sec) * 1000.0 + timeElapsed
 
-														  printf("\n == = % s ping statistics ==
-																 =\n & quot;
-																 , ping_ip);
+		printf("\n == = % s ping statistics ==
+			= \n & quot;
+	, ping_ip);
 	printf("\n % d packets sent, % d packets received,
-				   % f percent packet loss.Total time : % Lf ms.\n\n &
-			   quot;
-		   , msg_count, msg_received_count,
-		   ((msg_count - msg_received_count) / msg_count) * 100.0,
-		   total_msec);
+		% f percent packet loss.Total time : % Lf ms.\n\n &
+		quot;
+	, msg_count, msg_received_count,
+		((msg_count - msg_received_count) / msg_count) * 100.0,
+		total_msec);
 }
 
 // Driver Code
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
 	int sockfd;
-	char *ip_addr, *reverse_hostname;
+	char* ip_addr, * reverse_hostname;
 	struct sockaddr_in addr_con;
 	int addrlen = sizeof(addr_con);
 	char net_buf[NI_MAXHOST];
@@ -794,9 +810,9 @@ int main(int argc, char *argv[])
 	if (argc != 2)
 	{
 		printf("\nFormat % s & lt;
-				   address &
-				   gt;\n & quot;
-			   , argv[0]);
+			address &
+			gt;\n & quot;
+		, argv[0]);
 		return 0;
 	}
 
@@ -805,36 +821,36 @@ int main(int argc, char *argv[])
 	{
 		printf(
 			"\nDNS lookup
-				failed !Could not resolve hostname !\n &
-				quot;);
+			failed !Could not resolve hostname !\n &
+			quot;);
 		return 0;
 	}
 
 	reverse_hostname = reverse_dns_lookup(ip_addr);
 	printf("\nTrying to connect to '%s' IP
-				   : %
-				   s\n &
-			   quot;
-		   , argv[1], ip_addr);
+		: %
+		s\n &
+		quot;
+	, argv[1], ip_addr);
 	printf("\nReverse Lookup domain
-				   : %
-				   s &
-			   quot;
-		   , reverse_hostname);
+		: %
+		s &
+		quot;
+	, reverse_hostname);
 
 	// socket()
 	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-	if (sockfd &lt; 0)
+	if (sockfd& lt; 0)
 	{
 		printf(
 			"\nSocket file descriptor not received !!\n
-				& quot;);
+			& quot;);
 		return 0;
 	}
 	else
 		printf("\nSocket file descriptor % d received\n
-				   & quot;
-			   , sockfd);
+			& quot;
+	, sockfd);
 
 	signal(SIGINT, intHandler); // catching interrupt
 

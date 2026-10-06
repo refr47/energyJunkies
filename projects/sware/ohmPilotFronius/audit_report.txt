@@ -1,0 +1,411 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# FreRTOS/ESP32 mainloop – Thread-Safety & Konsistenz-Audit
+# ═══════════════════════════════════════════════════════════════════════════
+
+Analysierte Dateien:
+  include/defines.h
+  include/mainLoop/app_monitor.h / src/mainLoop/app_monitor.cpp
+  include/mainLoop/app_services.h / src/mainLoop/app_services.cpp
+  include/mainLoop/app_state.h   / src/mainLoop/app_state.cpp
+  include/mainLoop/app_sync.h    / src/mainLoop/app_sync.cpp
+  include/mainLoop/app_tasks.h   / src/mainLoop/app_tasks.cpp
+  include/www/webSockets.h     / src/www/webSockets.cpp
+  src/main.cpp
+  src/pid/pidManager.cpp
+  src/devices/wlan.cpp
+  src/modbus/modbusReader.cpp
+
+Globale Laufzeitstruktur: WEBSOCK_DATA (≈ 5 KB) in g_app, geschützt durch
+  g_appMutex (appLock / appUnlock).  g_tftMutex für TFT-Darstellung.
+  Custom-Watchdog über utils_app_watchdog() / utils_app_monitor().
+
+────────────────────────────────────────────────────────────────────────────
+# KRITISCHES RISIKO-REGISTER (priorisiert)
+────────────────────────────────────────────────────────────────────────────
+
+R01  │ BLOCKIERUNG DER PID-LUPE OHNE appLock-Freigabe
+R02  │ GLOBALE STATISCHE VARIABLE OHNE SYNCHRONISIERUNG (modbus readIndex)
+R03  │ DIREKTER ZUGRIFF AUF WEBSOCK_DATA AUS PID-TASK OHNE MUTEX
+R04  │ PORTMAX_DELAY – BLOCKIERENDE SEMAPHORE-ANFRAGEN (mehrfach)
+R05  │ UNPAIRED appLock / appUnlock – KEINE RAII (Ausnahme = Deadlock)
+R06  │ UTILS_LOG WRITE/READ RACE CONDITION
+R07  │ WEB SOCKETS JSON-STATIC BUFFER DANGLING POINTER POTENZIAL
+R08  │ WLAN RECONNECT STATE RACE (static bool in ISR & Task)
+R09  │ PID-AVAILABLEPOWER VECTOR KONKURENZ-SCHREIBUNGEN
+R10  │ MODBUS DELAY(…) IN TASK-KONTEXT BLOCKIERT ANDERE TASKS
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+R01  BLOCKIERUNG DER PID-LUPE OHNE appLock-FREIGABE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Datei: src/pid/pidManager.cpp  –  Methode PinManager::update()
+       src/mainLoop/app_services.cpp  –  taskPID()
+
+Problem:
+  PinManager::update() wird aus taskPID() aufgerufen und schreibt direkt
+  in webSockData.pidContainer, webSockData.states.boilerHeating und
+  füllt den Logbuffer via utils_logWrite().  Wenn update() den appMutex
+  hält UND utils_logWrite() intern auf einen eigenen Mutex wartet,
+  der gleichzeitig vom WebSocket-Notify-Task (Core 0) gehalten wird,
+  → Deadlock.  Auch ohne Deadlock blockiert die PID-Regelschleife den
+  gesamten appMutex während der kompletten update()-Laufzeit (Relais,
+  ML-Training, Logging) – andere Tasks (temp, modbus, web) können
+  nichts schreiben.
+
+Konkret:
+  utils_logWrite() in webSockets.cpp::getJsonObj() via utils_logRead()
+  nutzt einen eigenen Mutex.  Wenn der WebSocket-Task diesen hält und
+  gleichzeitig auf appLock() wartet (Step 1 in getJsonObj()), und die
+  PID-Tausrichtung appLock() hält und auf utils_logWrite() wartet,
+  ist das ein klassischer ABBA-Deadlock.
+
+Empfehlung:
+  a) appLock()-Scope in PinManager::update() strikt MINIMAL halten.
+     Alle Lesezugriffe auf webSockData zuerst kopieren, dann Unlock,
+     dann arbeiten, dann kurzem Lock nur für Schreib-Updates.
+  b) utils_logWrite() darf NICHT innerhalb eines appLock()-Blocks
+     aufgerufen werden (oder umgekehrt).  Reihenfolge der Mutex-Akquise
+     global vereinheitlichen: IMMER zuerst appMutex, dann logMutex.
+  c) PinManager::update() komplett aus appLock herausnehmen.  Daten
+     in lokale Variable kopieren BEFORE Lock, THEN arbeiten.
+
+────────────────────────────────────────────────────────────────────────────
+R02  GLOBALE STATISCHE VARIABLE OHNE SYNCHRONISIERUNG – modbus readIndex
+────────────────────────────────────────────────────────────────────────────
+
+Datei: src/modbus/modbusReader.cpp
+
+Problem:
+  static int readIndex = 0;  (ca. Zeile 158)
+  wird in mb_readInverterDynamic() gelesen und inkrementiert:
+      readIndex = (readIndex + 1) % REG_BLOCK_COUNT;
+
+  mb_readSmartMeter() / mb_readInverter() / mb_readAkkuOnly() speichern
+  und wiederherstellen den readIndex, ABER diese Funktionen werden aus
+  taskEnergy/Modbus-Task aufgerufen.  Falls ein anderer Thread
+  mb_readInverterDynamic() parallet aufruft (z.B. durch Retry-Logik oder
+  Fehler-Wiederverucht), wird readIndex race-besetzt.
+
+Empfehlung:
+  a) readIndex als Member von MB_CONTAINER oder lokaler Stack-Variable
+     machen – keine globale statische Variable.
+  b) Oder: task-lokal (Thread-local) deklarieren.
+  c) Alternativ: Mutex um readIndex-Akzess in modbusReader.cpp.
+
+────────────────────────────────────────────────────────────────────────────
+R03  DIREKTER ZUGRIFF AUF WEBSOCK_DATA AUS PID-TASK OHNE MUTEX
+────────────────────────────────────────────────────────────────────────────
+
+Datei: src/pid/pidManager.cpp – preCheck() und update()
+
+Problem:
+  preCheck() liest massiv aus webSockData:
+    webSockData.setupData.tempMaxAllowedInGrad
+    webSockData.setupData.tempMinInGrad
+    webSockData.setupData.legionellenDelta
+    webSockData.fronius_SOLAR_POWERFLOW.p_akku / .p_grid
+    webSockData.mbContainer.meterValues.data.acCurrentPower
+    webSockData.temperature.sensor1 / .sensor2
+
+  update() schreibt in:
+    webSockData.states.boilerHeating
+    webSockData.pidContainer.PID_PIN1 / .PID_PIN2 / .mAnalogOut
+
+  ALL diese Zugriffe erfolgen OHNE appLock().  Wenn taskTemperature
+  parallel temperature.sensor1 aktualisiert während PID liest, wird
+  ein inkonsistenter Snapshot gelesen.
+
+Empfehlung:
+  a) Vor Lesezugriff: appLock() → lokale Kopie → appUnlock() → arbeiten.
+  b) Schreibzugriff auf pidContainer/states: kurzen appLock()-Scope
+     NUR für den Schreib-Teil, nicht für die gesamte Berechnung.
+  c) Alternativ: Copy-on-Write-Pattern – taskPID schreibt in einen
+     lokalen Buffer, und ein dedizierter Sync-Task kopiert regelmäßig
+     unter appLock.
+
+────────────────────────────────────────────────────────────────────────────
+R04  portMAX_DELAY – BLOCKIERENDE SEMAPHORE-ANFRAGEN (mehrfach)
+────────────────────────────────────────────────────────────────────────────
+
+Datei: src/mainLoop/app_state.cpp    –  appLock() / appUnlock()
+       src/mainLoop/app_sync.cpp       –  utils_logRead() / utils_logWrite()
+       src/mainLoop/app_services.cpp   –  taskTemperature()
+       src/www/webSockets.cpp          –  getJsonObj()
+
+Problem:
+  appLock() hat Timeout pdMS_TO_TICKS(50) → OK (50ms).
+  ABER: in utils_logWrite() und utils_logRead() in app_sync.cpp steht:
+      xSemaphoreTake(g_logMutex, portMAX_DELAY);
+  → UNENDLICHE WAHRNEHME.  Wenn g_logMutex nie freigegeben wird
+  (z.B. wegen Crash im holder Thread), friert der aufrufende Task
+  permanent ein – auch der Watchdog hilft nicht, weil er nur die
+  Monitor-Tausichtung prüft, nicht den lockierenden Task.
+
+  taskTemperature() in app_services.cpp:
+      xSemaphoreTake(g_appMutex, portMAX_DELAY);
+
+  webSockets.cpp::getJsonObj() nutzt appLock(50ms) → gut.
+  Wenn appLock() aber portMAX_DELAY hätte → Deadlock mit Timeout=∞.
+
+Empfehlung:
+  a) ALLE xSemaphoreTake/-Give MUST einen endlichen Timeout haben.
+     Globale Regel: MAX 500ms pro Mutex-Akquise.
+  b) utils_logWrite / utils_logRead auf pdMS_TO_TICKS(200) ändern.
+  c) taskTemperature: xSemaphoreTake(g_appMutex, pdMS_TO_TICKS(100)).
+  d) Timeout-Fehler müssen geloggt + sicher abgeschaltet werden
+     (z.B. Relais AUS bei Time-out).
+
+────────────────────────────────────────────────────────────────────────────
+R05  UNPAIRED appLock / appUnlock – KEINE RAII
+────────────────────────────────────────────────────────────────────────────
+
+Datei: src/mainLoop/app_state.h / .cpp
+
+Problem:
+  appLock() / appUnlock() sind normale C-Funktionen.  Bei frühzeitiger
+  Rückkehr (return, throw, goto) wird appUnlock() übersprungen →
+  Mutex bleibt ewig gesperrt → system-weiter Deadlock.
+
+  Beispiel aus pidManager.cpp:
+      if (temp <= 0) {
+          reset();
+          fillLogEntry(webSockData, logEntry);
+          return;  // ← falls hier appLock() gehalten → Deadlock!
+      }
+
+  Auch in webSockets.cpp::getJsonObj():
+      if (!appLock(pdMS_TO_TICKS(50))) { return "{}"; }
+      data = localGetData();
+      appUnlock();    // ✅ hier ist es OK, aber nur zufällig.
+
+Empfehlung:
+  a) RAII-Wrapper erstellen:
+     class AppLockGuard {
+         AppLockGuard()  { xSemaphoreTake(g_appMutex, pdMS_TO_TICKS(50)); }
+         ~AppLockGuard() { xSemaphoreGive(g_appMutex); }
+     };
+  b) ALLE appLock() / appUnlock()-Aufrufe durch Guard ersetzen.
+  c) Ggf. für logMutex und tftMutex analoge Guards.
+
+────────────────────────────────────────────────────────────────────────────
+R06  UTILS_LOG WRITE/READ RACE CONDITION
+────────────────────────────────────────────────────────────────────────────
+
+Datei: src/mainLoop/app_sync.cpp
+
+Problem:
+  utils_logRead() iteriert über den RingBuffer und liest logBuffer.entries[i].
+  utils_logWrite() schreibt logBuffer.entries[logBuffer.index] und inkrementiert
+  logBuffer.index und logBuffer.active.
+
+  Der Zugriff auf logBuffer.active und logBuffer.index ist NICHT atomar
+  und NICHT durch g_logMutex geschützt (oder der Schutz ist lückenhaft).
+  Wenn taskPID (via fillLogEntry → utils_logWrite) und taskWeb
+  (via utils_logRead in getJsonObj) parallel laufen:
+  - taskWeb liest entries[i], taskPID überschreibt gerade entry[i] →
+    korrupte JSON-Antworten.
+  - active-Zähler wird inkrementiert ohne volatile / atomic → Compiler
+    kann Optimierung vornehmen, die zu veralteten Werten führt.
+
+Empfehlung:
+  a) logBuffer.index und logBuffer.active als atomic<T> deklarieren.
+  b) utils_logRead() und utils_logWrite() MÜSSEN den gleichen Mutex
+     (g_logMutex) für den GESENTEITEN Zugriff auf entries[] + index
+     + active nutzen – nicht nur zum Schreiben.
+  c) Ringbuffer-Größe fest + volatile/atomic Index.
+
+────────────────────────────────────────────────────────────────────────────
+R07  WEB SOCKETS JSON-STATIC BUFFER DANGLING POINTER POTENZIAL
+────────────────────────────────────────────────────────────────────────────
+
+Datei: src/www/webSockets.cpp – getJsonObj()
+
+Problem:
+  static char jsonObjBuffer[JSON_OBJECT_BUFFER_LEN]  (Thread-unsafe global)
+  wird unter s_jsonMutex serialisiert und dann per const char* zurückgegeben.
+  s_jsonResultMutex soll den Buffer schützen bis ws.textAll() ihn kopiert.
+
+  ABER: In notifyClients() steht:
+      String jsonData = getJsonObj();
+      if (ws.count() > 0) ws.textAll(jsonData);
+
+  String(jsonData) kopiert den String-Inhalt.  OK.
+  ABER: s_jsonResultMutex wird in getJsonObj() NIE taken oder given.
+  Der Mutex existiert nur (webSockets_init_mutex() erstellt ihn), wird
+  aber NUTZ nicht.  → Bei parallelen getJsonObj()-Aufrufen (von
+  taskWeb UND WebSocket-Event-Handler) wird jsonObjBuffer korrupt.
+
+mpfehlung:
+  a) s_jsonResultMutex korrekt nutzen: in getJsonObj() nach
+     serializeJson() take() → return → in aufrufendem Code give().
+  b) Besser: JsonDocument und Buffer lokal halten, String zurückgeben
+     statt const char*, um gar keinen static Buffer zu needen.
+  c) Oder: Thread-lokale Buffers (__thread / ThreadLocal) statt static.
+
+────────────────────────────────────────────────────────────────────────────
+R08  WLAN RECONNECT STATE RACE (static bool in ISR & Task)
+────────────────────────────────────────────────────────────────────────────
+
+Datei: src/devices/wlan.cpp
+
+Problem:
+  static bool connected = false;
+  static bool reconnectRequested = false;
+  static int reconnectAttempts = 0;
+
+  Diese Variablen werden aus WLAN-Event-Callbacks (ISR-Context des
+  WiFi-Stacks) UND aus dem taskWiFi/taskMonitor-Loop geändert.
+  Keiner ist volatile, atomic oder mutex-geschützt.
+
+  WiFiEvent() setzt connected = false / true aus einem Hintergrund-Task
+  der IDF, während handleWiFiReconnect() im Application-Loop liest.
+  Compiler-Optimierungen können zu veralteten Werten führen.
+
+  Zudem: wifi_init() setzt die globalen static-Zeiger:
+      ssid = setup.ssid;        // Zeiger auf stack-lokalen String
+      password = setup.passwd;
+  Wenn setup in einem höheren Scope zerstört wird → dangling pointers.
+
+Empfehlung:
+  a) connected, reconnectRequested, reconnectAttempts als
+     std::atomic<bool> / std::atomic<int> machen.
+  b) SSID/Passwort als feste Strings oder heap-allokiert halten –
+     NICHT als Zeiger auf stack-Variable.
+  c) WLAN-State-Zugriffe in einem eigenen WLAN-Mutex kapseln.
+
+────────────────────────────────────────────────────────────────────────────
+R09  PID-AVAILABLEPOWER VECTOR KONKURRENZ-SCHREIBUNGEN
+────────────────────────────────────────────────────────────────────────────
+
+Datei: src/pid/pidManager.cpp – update() / getMeanOfAvailAblePower()
+
+Problem:
+  std::vector<int> availablePower ist ein Member von PinManager.
+  In update():  availablePower.push_back(availableWatt);
+  In getMeanOfAvailAblePower(): availablePower.erase(begin()); + Kopie
+                                + std::sort() auf Kopie.
+
+  Wenn PinManager::update() aus NUR EINER Task aufgerufen wird, ist
+  das intern OK.  ABER: testPins() kann parallel laufen (wird aus
+  initialer Konfiguration aufgerufen) und ändert den gleichen Pin-Status.
+  Zudem ist currentPWM, powerIndex, tinyNN etc. NICHT thread-safe.
+
+Empfehlung:
+  a) availablePower auf maximale fixe Größe cappen + ring-buffer.
+  b) PinManager::apply(), ::reset(), ::testPins() als thread-safe
+     markieren (mutex um GPIO-Zugriffe).
+  c) tinyNN->remember() / ->trainReplay() muss thread-safe sein –
+     ggf. eigenen NN-Mutex innerhalb von PinManager.
+
+────────────────────────────────────────────────────────────────────────────
+R10  MODBUS DELAY(…) IN TASK-KONTEXT BLOCKIERT ANDERE TASKS
+────────────────────────────────────────────────────────────────────────────
+
+Datei: src/modbus/modbusReader.cpp – mb_readInverterDynamic()
+       src/devices/wlan.cpp – wifi_scan_network() / wifi_init()
+
+Problem:
+  delay(MODBUS_WAIT_FOR_DATA_IN_MS) mit MODBUS_WAIT_FOR_DATA_IN_MS = 500
+  delay(5000) bei Modbus-Fehler
+  delay(1000) bei Reconnect
+
+  delay() in Arduino-ESP32 ist ein blocking delay (kein vTaskDelay).
+  → Der gesamte Thread wird für 5 SEKUNden blockiert.  Kein anderer
+  Task auf dem gleichen Core kann laufen.  Watchdog schlägt nicht
+  an, weil er nur die Monitor-Funktion prüft, nicht die Modbus-Tasks.
+
+  wifi_init(): while (WiFi.status() != WL_CONNECTED && retry < 30)
+                  vTaskDelay(pdMS_TO_TICKS(500));   → 15s blockierend
+              in Setup-Phase OK, aber während des Laufs kritisch.
+
+Empfehlung:
+  a) ALLE delay(…) durch vTaskDelay(pdMS_TO_TICKS(...)) ersetzen.
+  b) Modbus-Wartezeite auf 200ms reduzieren.
+  c) Exponentieller Backoff bei modbus-Fehlern (200 → 400 → 800ms).
+  d) Watchdog auch task-level prüfen, nicht nur app_monitor.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ÜBERGRIFFENDE ARCHITEKTURPROBLEME
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A1  Keine Core-Affinity für kritische Tasks
+  - taskPID sollte auf Core 1 (Prozessoren-Core) pinned sein – PID-Loop
+    darf NICHT durch WiFi-ISR/Core-0-Events unterbrochen werden.
+    xTaskCreatePinnedToCore(..., 1) bei allen Steuerungs-Tasks.
+
+A2  Watchdog deckt nur app_monitor-Tasks, nicht individuelle Tasks
+  - utils_app_watchdog() prüft nur, ob app_monitor tickt.
+    taskTemperature-Crash wird erst nach full-watchdog-Timeout gemeldet.
+    → Pro-Task-watchdog: Jeder Task setzt ein eigenes atomic-flag.
+
+A3  Fehlerausbreitung
+  - Wenn Modbus disconnectet, wird g_app.states.modbusOK = false gesetzt,
+    ABER PID-Logik liest weiterhin mbContainer-Werte (R03).
+    Keine Validierung, ob Daten aktuall sind.
+    → timestamps in WEBSOCK_DATA für jede Sub-Struktur;
+      PID prüft "alter > 5s → nicht verwenden".
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DATEI-SPEZIFISCHE EMPFEHLUNGEN (konkret, sortiert nach Priorität)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌──────┬──────────────────────────────┬──────────────────────────────────────┐
+│ #    │ Datei                        │ Maßnahme                             │
+├──────┼──────────────────────────────┼──────────────────────────────────────┤
+│ A    │ mainLoop/app_state.cpp       │ RAII-AppLockGuard implementieren.    │
+│      │                              │ g_appMutex-Take auf 50ms Timeout     │
+│      │                              │ + Null-Check bei Create.             │
+├──────┼──────────────────────────────┼──────────────────────────────────────┤
+│ B    │ mainLoop/app_sync.cpp        │ utils_logRead/Write: portMAX_DELAY   │
+│      │                              │ → 200ms Timeout.  Mutex um GESAMTEN  │
+│      │                              │ RingBuffer-Zugriff (index + entries).│
+│      │                              │ active/index → atomic.               │
+├──────┼──────────────────────────────┼──────────────────────────────────────┤
+│ C    │ pid/pidManager.cpp           │ webSockData nur unter appLock lesen; │
+│      │                              │ lokale Kopie arbeiten.  write-back   │
+│      │                              │ kurz unter new Lock.  testPins() nur │
+│      │                              │ in Init, nicht zur Runtime.           │
+├──────┼──────────────────────────────┼──────────────────────────────────────┤
+│ D    │ modbus/modbusReader.cpp      │ readIndex → Member / thread-local.   │
+│      │                              │ ALLE delay() → vTaskDelay().         │
+│      │                              │ Timeout-Werte < 500ms.               │
+├──────┼──────────────────────────────┼──────────────────────────────────────┤
+│ E    │ www/webSockets.cpp           │ s_jsonResultMutex nutzer oder static │
+│      │                              │ Buffer durch lokale String-Return    │
+│      │                              │ ersetzen.                            │
+├──────┼──────────────────────────────┼──────────────────────────────────────┤
+│ F    │ devices/wlan.cpp             │ connected/reconnectRequested → atomic│
+│      │                              │ SSID/Password heap, nicht stack-Ptr. │
+│      │                              │ delay() in scan → vTaskDelay.        │
+├──────┼──────────────────────────────┼──────────────────────────────────────┤
+│ G    │ mainLoop/app_services.cpp    │ Task-Core-Pinning (Core 1 für PID/   │
+│      │                              │ Temp/Energy).  portMAX_DELAY → 100ms.│
+│      │                              │ Datenfeshness-Timestamps prüfen.     │
+├──────┼──────────────────────────────┼──────────────────────────────────────┤
+│ H    │ mainLoop/app_monitor.cpp     │ Pro-Task-Heartbeat-Flag statt        │
+│      │                              │ nur globalem tick.                   │
+├──────┼──────────────────────────────┼──────────────────────────────────────┤
+│ I    │ mainLoop/app_tasks.cpp       │ Task-Erstellungs-Fehler prüfen       │
+│      │                              │ (xTaskCreate == pdPASS). Stack-Size  │
+│      │                              │ dokumentieren.                       │
+└──────┴──────────────────────────────┴──────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━──────────────────────────
+# ZUSAMMENFASSUNG
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━──────────────────────────
+
+Kritikalste Risiken:  R01 (Deadlock-Potenzial), R03 (Data-Race PID),
+                      R04 (unendliche Blockierung), R05 (Deadlock bei
+                      Exception/early-return).
+
+Höhepunkt-Intervention:
+  1. RAII-Mutex-Guards (R05) – löscht gleichzeig R01.
+  2. pidManager thread-safe umschreiben (R03 + R09).
+  3. portMAX_DELAY entfernen (R04) – system-wide Suche:
+       grep -rn "portMAX_DELAY" src/ include/
+  4. Atomic-WLAN-State (R08) + SSID-Pointer fixen.
+
+────────────────────────────────────────────────────────────────────────────
+# END OF AUDIT
+────────────────────────────────────────────────────────────────────────────

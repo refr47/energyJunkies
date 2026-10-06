@@ -2,6 +2,7 @@
 #include "app_state.h"
 #include "utils.h"
 #include "ledHandler.h"
+#include "app_sync.h"  // g_appMutex Timeout
 
 namespace
 {
@@ -25,8 +26,22 @@ int wattToPwm(int watt, int onePhase)
 }
 }
 
+PinManager::~PinManager()
+{
+    delete tinyNN;
+    tinyNN = nullptr;
+}
+
 void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 {
+    // Vermeide Speicherleck bei wiederholtem Aufruf:
+    if (tinyNN != nullptr)
+    {
+        LOG_DEBUG(TAG_PID, "PinManager::config - TinyNN wird freigegeben vor Neukonfiguration");
+        delete tinyNN;
+        tinyNN = nullptr;
+    }
+
     onePhase = data.setupData.heizstab_leistung_in_watt / 3;
 
     LOG_INFO(TAG_PID, "PinManager::config:: - Heizpatrone Leistung %d Watt,", data.setupData.heizstab_leistung_in_watt);
@@ -44,6 +59,60 @@ void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
     int delta = data.setupData.tempMaxAllowedInGrad - data.setupData.tempMinInGrad;
 
     tinyNN = new TinyNN(data.setupData.heizstab_leistung_in_watt, delta / 2.0, delta);
+}
+
+/*
+ * ── Thread-safe Lock/Unlock helpers ─────────────────────────────
+ * pidLockRead()  : Under appLock(), copy all input fields from
+ *                  WEBSOCK_DATA into local m_* members.
+ * pidLockWrite() : Under appLock(), write all output fields (output
+ *                  bias, boilerHeating state, pidContainer) back.
+ * utils_logWrite() is deliberately OUTSIDE the lock to prevent
+ * an ABBA-deadlock (R01) with its own rb.mutex.
+ ************************************************************************/
+
+void PinManager::pidLockRead(WEBSOCK_DATA &data)
+{
+    if (!appLock(50)) // R02: fail-fast, do not block forever
+    {
+        LOG_ERROR(TAG_PID, "pidLockRead: appLock failed! Using stale local copy.");
+        return;
+    }
+
+    // ── input fields ──
+    m_sensor1               = data.temperature.sensor1;
+    m_sensor2               = data.temperature.sensor2;
+    m_froniusAPI            = data.states.froniusAPI;
+    m_boilerHeating         = data.setupData.forceHeating;
+    m_tempMaxAllowed        = (int)data.setupData.tempMaxAllowedInGrad;
+    m_tempMin               = (int)data.setupData.tempMinInGrad;
+    m_legionellenMaxTemp    = (int)data.setupData.legionellenMaxTemp;
+    m_legionellenDelta      = data.setupData.legionellenDelta;
+    m_akkuPriori            = data.setupData.akkuPriori;
+    m_akkuLadung            = data.mbContainer.akkuStr.data.chargeRate;
+    m_gridPower             = data.mbContainer.inverterSumValues.data.acCurrentPower;
+    m_meterPower            = data.mbContainer.meterValues.data.acCurrentPower;
+    m_wattSetupForTest      = data.setupData.wattSetupForTest;
+
+    appUnlock();
+}
+
+void PinManager::pidLockWrite(WEBSOCK_DATA &data)
+{
+    if (!appLock(50))
+    {
+        LOG_ERROR(TAG_PID, "pidLockWrite: appLock failed! Output values lost.");
+        return;
+    }
+
+    // ── output fields ──
+    data.states.boilerHeating             = m_out_boilerHeating;
+    data.states.wattBiasForTest             = m_out_wattBiasForTest;
+    data.pidContainer.mAnalogOut          = currentPWM;
+    data.pidContainer.PID_PIN1           = digitalRead(pinL1) == HIGH ? 1 : 0;
+    data.pidContainer.PID_PIN2           = digitalRead(pinL2) == HIGH ? 1 : 0;
+
+    appUnlock();
 }
 
 /*
@@ -119,33 +188,31 @@ void PinManager::testPins(int l1, int l2, int pwm)
     LOG_INFO("GPIO", "testPins ExITT");
 }
 
-inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, int temp, unsigned long nowMS)
+inline ControlMode PinManager::preCheck(int temp, unsigned long nowMS)
 {
-    // SAFETY,
+    // thread-safe: arbeitet AUF mit lokalen Kopien (aus pidLockRead())
     LOG_DEBUG("PinManager::PID: : %s", pcTaskGetName(NULL));
     // allowed boiler temp
-    if (temp >= webSockData.setupData.tempMaxAllowedInGrad)
+    if (temp >= m_tempMaxAllowed)
     {
-
-        LOG_DEBUG(TAG_PID, "PID: Max Temperatur <%d> erreicht: <%d>, abschalten", webSockData.setupData.tempMaxAllowedInGrad, temp);
+        LOG_DEBUG(TAG_PID, "PID: Max Temperatur <%d> erreicht: <%d>, abschalten", m_tempMaxAllowed, temp);
         reset();
-
         return MODE_OFF;
     }
 #ifdef BOILER
     // LEGIONELLA
-    if (nowMS - lastLegionella > webSockData.setupData.legionellenDelta /*7UL * 24 * 3600 * 1000*/)
+    if (nowMS - lastLegionella > m_legionellenDelta /*7UL * 24 * 3600 * 1000*/)
         legionella = true;
 
     if (legionella)
     {
-        if (temp >= webSockData.setupData.legionellenMaxTemp /*LEG_TEMP*/)
+        if (temp >= m_legionellenMaxTemp /*LEG_TEMP*/)
         {
             legionella = false;
             lastLegionella = nowMS;
             char tempBuf[10];  // Platz für "-123.45\0"
             char tempBuf1[10]; // Platz für "-123.45\0"
-            LOG_DEBUG(TAG_PID, "PID: Legionellen Temperatur <%s> erreicht: <%s>", fToStr(webSockData.setupData.legionellenMaxTemp, 5, 1, tempBuf), fToStr(temp, 5, 1, tempBuf1));
+            LOG_DEBUG(TAG_PID, "PID: Legionellen Temperatur <%s> erreicht: <%s>", fToStr(m_legionellenMaxTemp, 5, 1, tempBuf), fToStr(temp, 5, 1, tempBuf1));
             return MODE_OFF;
         }
         else
@@ -155,69 +222,64 @@ inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, int temp, uns
             return MODE_LEGIONELLA;
         }
     }
-    if (temp < webSockData.setupData.tempMinInGrad)
+    if (temp < m_tempMin)
     {
-
-        LOG_DEBUG(TAG_PID, "PID: Min Temperatur <%d> erreicht: <%d>, einschalten", webSockData.setupData.tempMinInGrad, temp);
+        LOG_DEBUG(TAG_PID, "PID: Min Temperatur <%d> erreicht: <%d>, einschalten", m_tempMin, temp);
         powerIndex = 0;
         return MODE_MIN_TEMP;
     }
 #endif
-    if (webSockData.states.boilerHeating != HEATING_AUTOMATIC)
+    if (m_boilerHeating != HEATING_AUTOMATIC)
     // LEGIONELLetupData.forceHeating != HEATING_AUTOMATIC) // no pid controller, all is forced
     {
         LOG_DEBUG(TAG_PID, "PID  Manuelle Steuerung - keine Automatik");
         powerIndex = 0;
-
         return MODE_MANUAL; // nothing must be done due to overruling everything
     }
 
     int availableWatt;
     //  <0:  einspeisen, >0: Bezug
-    if (webSockData.states.froniusAPI)
+    if (m_froniusAPI)
     {
-        if (webSockData.fronius_SOLAR_POWERFLOW.p_akku < 20.0)
+        if (m_akkuLadung < 20.0f)
         { // <0: laden, >0 entladen
-            if (webSockData.setupData.akkuPriori == AKKU_PRIORITY_SUBORDINATED)
+            if (m_akkuPriori == AKKU_PRIORITY_SUBORDINATED)
             {
-                availableWatt = (int)(webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_grid); // gird < 0: einspeisen, > 0 bezug
-
+                availableWatt = (int)(m_akkuLadung + m_gridPower); // gird < 0: einspeisen, > 0 bezug
                 LOG_DEBUG(TAG_PID, "PID (Fronius) Akku priority subordinated (nachrangig), available Watt: %d", availableWatt);
             }
             else
             {
-
                 LOG_DEBUG(TAG_PID, "PID (Fronius) Akku priority primary (vorrangig)available Watt: %d", availableWatt);
-                availableWatt = (int)webSockData.fronius_SOLAR_POWERFLOW.p_grid;
+                availableWatt = (int)m_gridPower;
             }
         }
         else
         {
-            availableWatt = (int)webSockData.fronius_SOLAR_POWERFLOW.p_grid;
+            availableWatt = (int)m_gridPower;
             LOG_DEBUG(TAG_PID, "PID (Fronius) Available Watt: %d", availableWatt);
         }
     }
     else
     {
-        // gwebSockData.mbContainer.meterValues.data.acCurrentPower < 0: export: else import
-        availableWatt = (int)webSockData.mbContainer.meterValues.data.acCurrentPower;
+        // Modbus-Messwert
+        availableWatt = (int)m_meterPower;
         LOG_DEBUG(TAG_PID, "PID No froniusAPI) AvailableWatt: %d", availableWatt);
     }
 
     // WATT-Bias for testing - only for testing
-    if (webSockData.setupData.wattSetupForTest != 0)
+    if (m_wattSetupForTest != 0)
     {
-        webSockData.states.wattBiasForTest = true;
-        availableWatt = webSockData.setupData.wattSetupForTest;
-
+        m_out_wattBiasForTest = true;
+        availableWatt = m_wattSetupForTest;
         LOG_DEBUG(TAG_PID, "PID TEST MODE - AvailableWatt overridden by setup: %d", availableWatt);
     }
     else
     {
-        webSockData.states.wattBiasForTest = false;
+        m_out_wattBiasForTest = false;
     }
-    // NO PV → minimal heating via RL
 
+    // NO PV → minimal heating via RL
     if (powerIndex < HYSTERESIS_WATT)
     {
         availablePower.push_back(availableWatt); // availablePower;
@@ -237,52 +299,44 @@ inline ControlMode PinManager::preCheck(WEBSOCK_DATA &webSockData, int temp, uns
 
 #define ABS(N) ((N < 0) ? (-N) : (N))
 
-void inline PinManager::fillLogEntry(WEBSOCK_DATA &webSockData, LogEntry &logEntry)
-{
-    utils_logWrite(webSockData.logBuffer, logEntry);
-    // LOG_DEBUG(TAG_PID, "===> LogEntry ts: %lu, temp: %d, power: %d, pwm: %d, state: %d", logEntry.ts, logEntry.temp, logEntry.power, logEntry.pwm, logEntry.state);
-    webSockData.pidContainer.mAnalogOut = currentPWM;
-    ledHandler_showPWM(currentPWM);
-    webSockData.pidContainer.PID_PIN1 = digitalRead(pinL1) == HIGH ? 1 : 0;
-    webSockData.pidContainer.PID_PIN2 = digitalRead(pinL2) == HIGH ? 1 : 0;
-}
-
 void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 {
     unsigned long now = millis();
-    LogEntry logEntry;
+    LogEntry logEntry{};
     time_t curT;
     time(&curT);
-    webSockData.states.boilerHeating = false;
 
-    int temp = (webSockData.temperature.sensor1 + webSockData.temperature.sensor2) / 2;
-    if (webSockData.temperature.sensor1 < 0)
-    {
-        temp = webSockData.temperature.sensor2;
-    }
-    if (webSockData.temperature.sensor2 < 0)
-    {
-        temp = webSockData.temperature.sensor1;
-    }
+    // ── STEP 1: thread-safe read all inputs into local members ──
+    pidLockRead(webSockData);
+
+    m_out_boilerHeating = false; // default: heater off
+
+    // ── TEMPERATURVALIDIERUNG (thread-safe: local copies) ──
+    int temp = (m_sensor1 + m_sensor2) / 2;
+    if (m_sensor1 < 0) temp = m_sensor2;
+    if (m_sensor2 < 0) temp = m_sensor1;
     if (temp <= 0)
     {
-
-        LOG_ERROR(TAG_PID, "Ungültige Temperaturmessung: sensor1: %d, sensor2: %d", webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+        LOG_ERROR(TAG_PID, "Ungültige Temperaturmessung: sensor1: %d, sensor2: %d", m_sensor1, m_sensor2);
+        reset();
+        pidLockWrite(webSockData);
+        utils_logWrite(webSockData.logBuffer, logEntry); // outside appLock → no R01 deadlock
         return;
     }
+    // ── ENDE TEMPERATURVALIDIERUNG ──
 
-    // logEntry.tag = "PID";
     logEntry.temp = temp;
     logEntry.ts = curT;
-    // LOG_ERROR(TAG_PID, "PinManager::BEFORE() - Task: %s", pcTaskGetName(NULL));
-    ControlMode currentMode = preCheck(webSockData, temp, now);
-    // LOG_ERROR(TAG_PID, "PinManager::AFTER() - Task: %s", pcTaskGetName(NULL));
+
+    // ── STEP 2: core logic (thread-safe: only local members) ──
+    ControlMode currentMode = preCheck(temp, now);
     int measuredPower = 0;
     int targetPower = 0;
     int action = 0;
 
     bool doML = true;
-    LOG_ERROR(TAG_PID, "PinManager::update() - currentMode: %d, temperature %d, sensor1 %d, sensor2 %d", currentMode, temp, webSockData.temperature.sensor1, webSockData.temperature.sensor2);
+    LOG_ERROR(TAG_PID, "PinManager::update() - currentMode: %d, temperature %d, sensor1 %d, sensor2 %d",
+              currentMode, temp, m_sensor1, m_sensor2);
 
     switch (currentMode)
     {
@@ -354,38 +408,15 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
             // Was wir theoretisch verbrauchen könnten (Überschuss + aktueller Eigenverbrauch)
             int effectiveAvailable = (-measuredPower) + heater;
             LOG_DEBUG(TAG_PID, "RL AUTO - Effektive Leistung: %d W ", effectiveAvailable);
-#ifdef BOILER
+
 
             // BOILER: 2 Phasen werden per Relais geschaltet, die dritte Phase per PWM.
             // Der komplette verfügbare Überschuss wird als Zielleistung genutzt;
             // die Relais-Hysterese und der PWM-Rest werden in apply() umgesetzt.
             targetPower = clampInt(effectiveAvailable, 0, onePhase * 3);
             action = (int)(targetPower / onePhase);
-#endif
-#ifdef PHASEN2
 
-            int fullPhases = effectiveAvailable / onePhase;
-            if (fullPhases > 1)
-                fullPhases = 1; // Nur ein Relais vorhanden!
 
-            action = tinyNN->chooseAction(temp, measuredPower);
-            // float factors[5] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
-
-            // TargetPower = (1000W wenn genug da) + (0-1000W per PWM)
-            int restklasse = 0;
-
-            if (effectiveAvailable - onePhase > 0)
-            {
-                restklasse = onePhase;
-            }
-            else
-            {
-                restklasse = onePhase - effectiveAvailable;
-            }
-            targetPower = (fullPhases * onePhase) + restklasse; // (int)(onePhase * factors[action]);
-            LOG_DEBUG(TAG_PID, "RL AUTO - Effektive Leistung 2: %d W , restklasse %d", targetPower, restklasse);
-
-#endif
             if (targetPower > effectiveAvailable + 50)
             {
                 targetPower = effectiveAvailable;
@@ -402,7 +433,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     LOG_INFO(TAG_PID, "before calling apply, AvailableWatt: %d ", (int)targetPower);
     if (targetPower > 0)
     {
-        webSockData.states.boilerHeating = true;
+        m_out_boilerHeating = true;
     }
     apply(logEntry, targetPower);
 
@@ -416,7 +447,10 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     { // Willkürliche Grenze
         LOG_ERROR(TAG_PID, "STACK FAST VOLL! Aufruf wird wahrscheinlich crashen.");
     };
-    fillLogEntry(webSockData, logEntry);
+
+    // ── STEP 3: thread-safe write outputs, then log outside lock ──
+    pidLockWrite(webSockData);               // writes pidContainer + boilerHeating under appLock
+    utils_logWrite(webSockData.logBuffer, logEntry); // outside appLock → prevents R01 ABBA deadlock
 
     /*
     Skalierte Strafe: Anstatt nur -2 zu geben, wenn Strom bezogen wird, bestrafst du hohen Bezug stärker. Das lehrt den Algorithmus, bei knapper PV-Leistung eher vorsichtig zu sein.
@@ -478,7 +512,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
         lastActionPhases = currentActionPhases;
 
         // 4. Sicherheit (Extremwerte)
-        if (temp > (webSockData.setupData.tempMaxAllowedInGrad - 2))
+        if (temp > (m_tempMaxAllowed - 2))
         {
             reward -= 20.0; // Massive Strafe kurz vor Not-Aus
         }

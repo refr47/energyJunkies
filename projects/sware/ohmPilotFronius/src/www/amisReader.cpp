@@ -35,7 +35,7 @@ static uint32_t read32BitRegister(uint32_t startReg)
     if (mb.readHreg(remote, startReg - 1, res, 2, nullptr, 1))
     {
         mb.task();
-        delay(100);
+        vTaskDelay(pdMS_TO_TICKS(100));
         return (uint32_t)res[0] << 16 | res[1];
     }
     return 0;
@@ -47,7 +47,7 @@ static bool amiReader_isConnectedAndReconnect()
     if (!mb.isConnected(remote))
     {
         success = mb.connect(remote, AMISREADER_SMART_METER_PORT);
-        delay(1000);
+        vTaskDelay(pdMS_TO_TICKS(1000));
         mb.client();
         LOG_DEBUG(TAG_AMIS, "amisreader smartmeter do connect .... %x", success);
 
@@ -139,7 +139,7 @@ bool amisReader_readRestTarget(WEBSOCK_DATA &webSockData)
 
     mb.readHreg(remote, 40097, &saldoWatt, 1, nullptr, 1);
     mb.task();
-    delay(100);
+    vTaskDelay(pdMS_TO_TICKS(100));
     LOG_INFO(TAG_AMIS, "SaldoWatt: %d", saldoWatt);
 
     einspeisung = read32BitRegister(40130);

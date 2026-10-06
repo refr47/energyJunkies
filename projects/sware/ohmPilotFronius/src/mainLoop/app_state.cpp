@@ -14,13 +14,15 @@ bool appStateInit()
     return true;
 }
 
-bool appLock(uint32_t timeout_ms=100)
+bool appLock(uint32_t timeout_ms)
 {
-    if (g_appMutex != nullptr)
+    if (g_appMutex == nullptr)
     {
-        return xSemaphoreTake(g_appMutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
+        LOG_DEBUG("MUTEX", "Versuchter Lock ohne initialisierten Mutex!");
+        return false;
     }
-    return false;
+
+    return xSemaphoreTake(g_appMutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
 }
 
 void appUnlock()
@@ -35,7 +37,7 @@ void appUnlock()
         else
         {
             // Optional: Logge eine Warnung, aber crashe nicht!
-             LOG_DEBUG("MUTEX", "Versuchter Unlock ohne Besitz!");
+            LOG_DEBUG("MUTEX", "Versuchter Unlock ohne Besitz!");
         }
     }
 }
