@@ -73,7 +73,7 @@ void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 
 void PinManager::pidLockRead(WEBSOCK_DATA &data)
 {
-    if (!appLock(50)) // R02: fail-fast, do not block forever
+    if (!appLock(150)) // R02: fail-fast, do not block forever
     {
         LOG_ERROR(TAG_PID, "pidLockRead: appLock failed! Using stale local copy.");
         return;
