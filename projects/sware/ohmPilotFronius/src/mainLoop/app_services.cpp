@@ -5,6 +5,7 @@
 
 #include "app_state.h"
 #include "app_sync.h"
+#include "data/WebSockDataAccess.h"
 
 #include "debugConsole.h"
 #include "wlan.h"
@@ -45,25 +46,16 @@ static constexpr uint32_t NETWORK_RECOVERY_GRACE_CYCLES = 2;
 
 static bool networkIsAvailable()
 {
-    return WiFi.status() == WL_CONNECTED && g_app.webSockData.states.networkOK;
+    return WiFi.status() == WL_CONNECTED && ws_getNetworkOK();
 }
 
-static void stopHeatingLocked()
+static void stopHeating(const char *reason)
 {
     g_app.pinManager.reset();
     g_app.webSockData.states.boilerHeating = false;
     g_app.webSockData.pidContainer.mAnalogOut = 0;
     g_app.webSockData.pidContainer.PID_PIN1 = 0;
     g_app.webSockData.pidContainer.PID_PIN2 = 0;
-}
-
-static void stopHeating(const char *reason)
-{
-    if (appLock(1000))
-    {
-        stopHeatingLocked();
-        appUnlock();
-    }
     LOG_ERROR(TAG_APP_SERVICES, "%s - heating disabled", reason);
 }
 
@@ -71,26 +63,16 @@ static void markNetworkDown(const char *reason)
 {
     LOG_ERROR(TAG_APP_SERVICES, "%s", reason);
     ledHandler_showNetworkError(true);
-    if (appLock(1000))
-    {
-        g_app.webSockData.states.networkOK = false;
+    g_app.webSockData.states.networkOK = false;
 #ifdef MQTT
-        g_app.webSockData.states.mqtt = false;
+    g_app.webSockData.states.mqtt = false;
 #endif
-        stopHeatingLocked();
-        appUnlock();
-    }
+    stopHeating(reason);
 }
 
 static int averageTemp()
 {
-    int result = 0;
-    if (appLock(50))
-    {
-        result = (g_app.webSockData.temperature.sensor1 + g_app.webSockData.temperature.sensor2) / 2;
-        appUnlock();
-    }
-    return result;
+    return (ws_getSensor1() + ws_getSensor2()) / 2;
 }
 
 void serviceClock()
@@ -280,54 +262,7 @@ void serviceTemperature()
 
         g_app.webSockData.temperature.alarm = false;
 
-    /*   if (!g_app.alarmContainer.alarmTemp.alarmTemp)
-      {
-          if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
-          {
-              LOG_ERROR(TAG_APP_SERVICES, "Temperature limit reached - heater off");
-              g_app.pinManager.reset();
-              g_app.alarmContainer.alarmTemp.alarmTemp = true;
-              g_app.alarmContainer.alarmTemp.overFlowHappenedAt = time_getTimeStamp();
-              g_app.webSockData.temperature.alarm = true;
-              ledHandler_showTemperaturError(true);
 
-  #ifdef MQTT
-              if (g_app.webSockData.states.mqtt)
-              {
-                  mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
-                                          g_app.webSockData.temperature.sensor2);
-              }
-  #endif
-          }
-      }
-      else
-      {
-          const time_t currT = time_getTimeStamp();
-          const double diffT = difftime(currT, g_app.alarmContainer.alarmTemp.overFlowHappenedAt);
-
-          if (diffT > TEMPERATURE_OVERHEATED_WAIT_IN_SECS)
-          {
-              if (tempAvg > g_app.webSockData.setupData.tempMaxAllowedInGrad)
-              {
-                  g_app.alarmContainer.alarmTemp.overFlowHappenedAt = currT;
-                  ledHandler_showTemperaturError(true);
-  #ifdef MQTT
-                  if (g_app.webSockData.states.mqtt)
-                  {
-                      mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
-                                              g_app.webSockData.temperature.sensor2);
-                  }
-  #endif
-              }
-              else
-              {
-                  g_app.alarmContainer.alarmTemp.alarmTemp = false;
-                  g_app.alarmContainer.alarmTemp.overFlowHappenedAt = 0;
-                  // ledHandler_showTemperaturError(false);
-                  LOG_INFO(TAG_APP_SERVICES, "Temperature alarm reset");
-              }
-          }
-      }*/
 }
 
 static void handleLockFailure(const char *context)

@@ -46,6 +46,7 @@
 #include "app_sync.h"
 #include "app_state.h"
 #include "app_tasks.h"
+#include "data/WebSockDataAccess.h"
 // #include "app_tasksfroniusSolarAPI.h"
 
 static RTC_DATA_ATTR int bootCount = 0;
@@ -57,7 +58,7 @@ WEBSOCK_DATA &getDataForWebSocket()
 
 bool &setSetupChanged(bool didSetupChanged)
 {
-    g_app.webSockData.setupData.setupChanged = didSetupChanged;
+    ws_setSetupChanged(didSetupChanged);
     return g_app.webSockData.setupData.setupChanged;
 }
 
