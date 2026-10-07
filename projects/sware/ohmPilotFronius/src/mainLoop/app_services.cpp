@@ -43,6 +43,12 @@
 
 static constexpr uint32_t TEMPERATURE_OVERHEATED_WAIT_IN_SECS = 300;
 static constexpr uint32_t NETWORK_RECOVERY_GRACE_CYCLES = 2;
+static void handleLockFailure(const char *context);
+// --- Helper: mark network down with lock, fail-safe otherwise ---
+static void tryMarkNetworkDown(const char *reason, const char *failMsg);
+
+
+
 
 static bool networkIsAvailable()
 {
