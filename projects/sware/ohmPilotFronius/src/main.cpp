@@ -10,8 +10,7 @@
 #ifdef FRONIUS_IV
 #include "modbusReader.h"
 #include "froniusSolarAPI.h"
-#elif HUAWEI_IV
-#include "huawei.h"
+
 #endif
 #ifdef CARD_READER
 #include "cardRW.h"

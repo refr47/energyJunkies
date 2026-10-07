@@ -27,9 +27,9 @@
 #include "influx.h"
 #endif
 
-#ifdef FRONIUS_SOLAR_API
+
 #include "froniusSolarAPI.h"
-#endif
+
 
 #ifdef AMIS_READER_DEV
 #include "amisReader.h"
@@ -43,9 +43,9 @@
 
 static constexpr uint32_t TEMPERATURE_OVERHEATED_WAIT_IN_SECS = 300;
 static constexpr uint32_t NETWORK_RECOVERY_GRACE_CYCLES = 2;
-static void handleLockFailure(const char *context);
+static void handleLockFailure(const char* context);
 // --- Helper: mark network down with lock, fail-safe otherwise ---
-static void tryMarkNetworkDown(const char *reason, const char *failMsg);
+static void tryMarkNetworkDown(const char* reason, const char* failMsg);
 
 
 
@@ -55,7 +55,7 @@ static bool networkIsAvailable()
     return WiFi.status() == WL_CONNECTED && ws_getNetworkOK();
 }
 
-static void stopHeating(const char *reason)
+static void stopHeating(const char* reason)
 {
     if (!appLock(10))
     {
@@ -73,7 +73,7 @@ static void stopHeating(const char *reason)
     LOG_ERROR(TAG_APP_SERVICES, "%s - heating disabled", reason);
 }
 
-static void markNetworkDown(const char *reason)
+static void markNetworkDown(const char* reason)
 {
     if (!appLock(10))
     {
@@ -179,7 +179,7 @@ void serviceNetworkSupervisor()
     if (!wifi_isStillConnected(localSetup))
     {
         tryMarkNetworkDown("Network down, reconnect pending",
-                           "Network down, but could not acquire lock to update state");
+            "Network down, but could not acquire lock to update state");
         return;
     }
 
@@ -260,7 +260,7 @@ void serviceTemperature()
                 if (g_app.webSockData.states.mqtt)
                 {
                     mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
-                                            g_app.webSockData.temperature.sensor2);
+                        g_app.webSockData.temperature.sensor2);
                 }
 #endif
                 if (!g_app.webSockData.temperature.alarm)
@@ -301,14 +301,14 @@ void serviceTemperature()
     }
 }
 
-static void handleLockFailure(const char *context)
+static void handleLockFailure(const char* context)
 {
     g_app.pinManager.reset();
     LOG_DEBUG(TAG_APP_SERVICES, "%s", context);
 }
 
 // --- Helper: mark network down with lock, fail-safe otherwise ---
-static void tryMarkNetworkDown(const char *reason, const char *failMsg)
+static void tryMarkNetworkDown(const char* reason, const char* failMsg)
 {
     if (!appLock(10))
     {
@@ -327,8 +327,8 @@ void serviceEnergy()
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEnergy - ");
     if (!networkIsAvailable())
     {
-       tryMarkNetworkDown("Energy service skipped because network is unavailable",
-                           "Energy service skipped, but could not acquire lock to update network state");
+        tryMarkNetworkDown("Energy service skipped because network is unavailable",
+            "Energy service skipped, but could not acquire lock to update network state");
         return;
     }
 
@@ -354,7 +354,7 @@ void serviceEnergy()
     }
 
     // -- Energie-Quelle unter Lock ermitteln --
-    enum EnergySource { SRC_NONE, SRC_FRONIUS, SRC_MODBUS, SRC_AMIS };
+    enum EnergySource { SRC_NONE, SRC_FRONIUS, SRC_AMIS };
     EnergySource energySource = SRC_NONE;
     {
         if (appLock(10))
@@ -362,19 +362,13 @@ void serviceEnergy()
 #ifdef FRONIUS_IV
             if (g_app.webSockData.states.froniusAPI && g_app.webSockData.states.networkOK)
                 energySource = SRC_FRONIUS;
-            else
 #endif
-            {
-#ifdef FRONIUS_IV
-                if (g_app.webSockData.states.modbusOK && g_app.webSockData.states.networkOK)
-                    energySource = SRC_MODBUS;
 
 #ifdef AMIS_READER_DEV
-                else if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
-                    energySource = SRC_AMIS;
+            if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
+                energySource = SRC_AMIS;
+
 #endif
-#endif
-            }
             appUnlock();
         }
         else
@@ -383,14 +377,15 @@ void serviceEnergy()
         }
     }
 
+
     // -- I/O und Cache-Update je nach Quelle --
     if (energySource == SRC_FRONIUS)
     {
-#ifdef FRONIUS_IV
+
         if (!solar_get_powerflow(g_app.webSockData))
         {
             tryMarkNetworkDown("Fronius API read failed",
-                               "Fronius API failed, but could not acquire lock to update state");
+                "Fronius API failed, but could not acquire lock to update state");
             return;
         }
 
@@ -411,15 +406,11 @@ void serviceEnergy()
         {
             handleLockFailure("Fronius API succeeded, but could not acquire lock to cache results");
         }
-#endif
-    }
-    else if (energySource == SRC_MODBUS)
-    {
-#ifdef FRONIUS_IV
+
         if (!mb_readInverter(g_app.webSockData.setupData, g_app.webSockData.mbContainer))
         {
             tryMarkNetworkDown("Modbus read failed",
-                               "Modbus read failed, but could not acquire lock to update state");
+                "Modbus read failed, but could not acquire lock to update state");
             return;
         }
 
@@ -437,15 +428,15 @@ void serviceEnergy()
 #ifdef INFLUX
         influx_write(g_app.webSockData);
 #endif
-#endif
+
     }
     else if (energySource == SRC_AMIS)
     {
-#ifdef AMIS_READER_DEV
+
         if (!amisReader_readRestTarget(g_app.webSockData))
         {
             tryMarkNetworkDown("AMIS reader failed",
-                               "AMIS reader failed, but could not acquire lock to update state");
+                "AMIS reader failed, but could not acquire lock to update state");
             return;
         }
 
@@ -465,7 +456,6 @@ void serviceEnergy()
         {
             handleLockFailure("AMIS reader succeeded, but could not acquire lock to update state");
         }
-#endif
     }
 
     // -- Display aktualisieren unter Lock --
@@ -567,9 +557,9 @@ void serviceMaintenance()
 #endif
 }
 
-void serviceEpromStore(void *param)
+void serviceEpromStore(void* param)
 {
-    Setup *setup = (Setup *)param;
+    Setup* setup = (Setup*)param;
     // er lokale Puffer, in den die Queue schreibt. Er wird dann in der Queue empfangen und in den Eprom geschrieben. So muss nicht die ganze Struktur in die Queue, sondern nur ein Zeiger auf den lokalen Puffer.
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEpromStore - started");
     eprom_storeSetup(*setup);

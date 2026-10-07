@@ -1,4 +1,4 @@
-#ifdef FRONIUS_IV
+
 
 #define __MODBUS_REGISTER_CPP
 
@@ -83,6 +83,13 @@ u8_t getLowByte(uint16_t b)
 {
     return b & 0xff;
 }
+
+/// @brief 
+/// @param indexF 
+/// @param indexT 
+/// @param regArr 
+/// @param stringBase 
+
 void makeString(int indexF, int indexT, int16_t *regArr, char **stringBase)
 {
     char *base = *stringBase;
@@ -100,5 +107,3 @@ void makeString(int indexF, int indexT, int16_t *regArr, char **stringBase)
         *(++base) = 0;
     }
 }
-
-#endif

@@ -1,4 +1,4 @@
-#ifdef FRONIUS_IV
+
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #else
@@ -35,7 +35,7 @@ static ModbusIP mb;
 METER_VALUE_t meterValues;
 static int16_t inverterSumRegs[INVERTER_SUM_REGS_LEN];
 
-+++
+
 // meter modbus register array
 static int16_t inverterStateRegs[INVERTER_STATE_REGS_LEN];
 // meter values
@@ -192,7 +192,7 @@ bool mb_readInverterStatic()
     }
     else
     {
-        LOG_DEBUG(TAG_MODBUS, LOG "transid is 0");
+        LOG_DEBUG(TAG_MODBUS, "transid is 0");
     }
     return true;
 }
@@ -318,7 +318,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         if (success)
         {
             transId = mb.readHreg(remote, regsToRead[readIndex].baseAddr, (uint16_t *)&resArr[readIndex], regsToRead[readIndex].count, NULL, regsToRead[readIndex].deviceId); // Initiate Read Holding Register from Modbus Slave
-            LOG_DEBUG("Modbus read susccessfully ...");
+            LOG_DEBUG(TAG_MODBUS,"Modbus read susccessfully ...");
         }
         else
             return false;
@@ -402,7 +402,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
         // make a line feed at the last block
         if (readIndex == REG_BLOCK_COUNT - 1)
         {
-            LOG_DEBUG("  ");
+            LOG_DEBUG(TAG_MODBUS, "  ");
 
             // delay(1000);
         }
@@ -420,4 +420,3 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
     // DBGf("mb_readInverterDynamic EXit for readIndex: %d", readIndex);
 }
 
-#endif

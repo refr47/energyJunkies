@@ -335,7 +335,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     int action = 0;
 
     bool doML = true;
-    LOG_ERROR(TAG_PID, "PinManager::update() - currentMode: %d, temperature %d, sensor1 %d, sensor2 %d",
+    LOG_INFO(TAG_PID, "PinManager::update() - currentMode: %d, temperature %d, sensor1 %d, sensor2 %d",
               currentMode, temp, m_sensor1, m_sensor2);
 
     switch (currentMode)
