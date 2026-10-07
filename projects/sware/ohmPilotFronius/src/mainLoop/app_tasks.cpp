@@ -115,9 +115,7 @@ static void taskTemperature(void* pvParameters)
     for (;;)
     {
         watchdogKick(wdId);
-        appLock();
         serviceTemperature();
-        appUnlock();
         vTaskDelay(pdMS_TO_TICKS(TASK_TEMPERATURE_INTERVAL));
     }
 }
@@ -130,9 +128,7 @@ static void taskEnergy(void* pvParameters)
     {
         watchdogKick(wdId);
         xEventGroupWaitBits(wifi_event_group, WIFI_STA_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
-        appLock();
         serviceEnergy();
-        appUnlock();
         vTaskDelay(pdMS_TO_TICKS(TASK_MODBUS_AMISREADER_INTERVAL));
     }
 }
@@ -144,9 +140,7 @@ static void taskPid(void* pvParameters)
     for (;;)
     {
         watchdogKick(wdId);
-        appLock();
         servicePid();
-        appUnlock();
         vTaskDelay(pdMS_TO_TICKS(TASK_PID_INTERVAL));
     }
 }
