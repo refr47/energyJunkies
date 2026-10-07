@@ -51,23 +51,42 @@ static bool networkIsAvailable()
 
 static void stopHeating(const char *reason)
 {
+    if (!appLock(10))
+    {
+        LOG_DEBUG(TAG_APP_SERVICES, "stopHeating: could not acquire lock for: %s", reason);
+        return;
+    }
+
     g_app.pinManager.reset();
     g_app.webSockData.states.boilerHeating = false;
     g_app.webSockData.pidContainer.mAnalogOut = 0;
     g_app.webSockData.pidContainer.PID_PIN1 = 0;
     g_app.webSockData.pidContainer.PID_PIN2 = 0;
+    appUnlock();
+
     LOG_ERROR(TAG_APP_SERVICES, "%s - heating disabled", reason);
 }
 
 static void markNetworkDown(const char *reason)
 {
+    if (!appLock(10))
+    {
+        LOG_DEBUG(TAG_APP_SERVICES, "markNetworkDown: could not acquire lock for: %s", reason);
+        return;
+    }
+
     LOG_ERROR(TAG_APP_SERVICES, "%s", reason);
     ledHandler_showNetworkError(true);
     g_app.webSockData.states.networkOK = false;
+    g_app.pinManager.reset();
+    g_app.webSockData.states.boilerHeating = false;
+    g_app.webSockData.pidContainer.mAnalogOut = 0;
+    g_app.webSockData.pidContainer.PID_PIN1 = 0;
+    g_app.webSockData.pidContainer.PID_PIN2 = 0;
 #ifdef MQTT
     g_app.webSockData.states.mqtt = false;
 #endif
-    stopHeating(reason);
+    appUnlock();
 }
 
 static int averageTemp()
@@ -77,7 +96,6 @@ static int averageTemp()
 
 void serviceClock()
 {
-    // appLock();
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceClock - update time and ip addr");
 
     if (getCurrentTime(g_app.formatBuffer, FORMAT_CHAR_BUFFER_LEN))
@@ -105,13 +123,19 @@ void serviceClock()
     ledHandler_blink();
 
 #ifdef MQTT
-    if (g_app.webSockData.states.mqtt)
     {
-        mqtt_loop();
+        bool mqttActive = false;
+        if (appLock(10))
+        {
+            mqttActive = g_app.webSockData.states.mqtt;
+            appUnlock();
+        }
+        if (mqttActive)
+        {
+            mqtt_loop();
+        }
     }
 #endif
-
-    // appUnlock();
 }
 
 unsigned servicePhasenSchnittBlink()
@@ -131,19 +155,25 @@ void serviceNetworkSupervisor()
     static uint32_t recoveryCycles = 0;
 
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceNetworkSupervisor ");
-    if (!wifi_isStillConnected(g_app.webSockData.setupData))
+
+    // -- Netzwerkpruefung: setupData unter Lock kopieren --
+    Setup localSetup;
     {
         if (appLock(10))
         {
-            markNetworkDown("Network down, reconnect pending");
+            localSetup = g_app.webSockData.setupData;
             appUnlock();
         }
         else
         {
-            g_app.pinManager.reset();
-            LOG_DEBUG(TAG_APP_SERVICES, "Network down, but could not acquire lock to update shared state");
+            handleLockFailure("Could not acquire lock to read setup data for network check");
+            return;
         }
-        g_app.webSockData.states.networkOK = false;
+    }
+    if (!wifi_isStillConnected(localSetup))
+    {
+        tryMarkNetworkDown("Network down, reconnect pending",
+                           "Network down, but could not acquire lock to update state");
         return;
     }
 
@@ -155,41 +185,52 @@ void serviceNetworkSupervisor()
 #endif
         appUnlock();
     }
-    else
-    {
-        LOG_DEBUG(TAG_APP_SERVICES, "Network check passed, but could not acquire lock to update state");
-        return;
-    }
 
     ledHandler_showNetworkError(false);
 
 #ifdef FRONIUS_IV
-    if (!g_app.webSockData.states.modbusOK)
     {
-        LOG_ERROR(TAG_APP_SERVICES, "Modbus connection to Fronius failed, try reconnecting");
+        bool modbusOK = true;
         if (appLock(10))
         {
-            g_app.webSockData.states.modbusOK = mb_init(g_app.webSockData.setupData);
+            modbusOK = g_app.webSockData.states.modbusOK;
             appUnlock();
         }
-        else
+        if (!modbusOK)
         {
-            LOG_DEBUG(TAG_APP_SERVICES, "Modbus connection seems down, but could not acquire lock to update state");
+            LOG_ERROR(TAG_APP_SERVICES, "Modbus connection to Fronius failed, try reconnecting");
+            if (appLock(10))
+            {
+                g_app.webSockData.states.modbusOK = mb_init(g_app.webSockData.setupData);
+                appUnlock();
+            }
+            else
+            {
+                LOG_DEBUG(TAG_APP_SERVICES, "Modbus connection seems down, but could not acquire lock to update state");
+            }
         }
     }
 #endif
 #ifdef AMIS_READER_DEV
-    if (!g_app.webSockData.states.amisReader)
     {
-        LOG_ERROR(TAG_APP_SERVICES, "AmisReader connection failed, try reconnecting");
+        bool amisOK = false;
         if (appLock(10))
         {
-            g_app.webSockData.states.amisReader = amisReader_initRestTargets(g_app.webSockData);
+            amisOK = g_app.webSockData.states.amisReader;
             appUnlock();
         }
-        else
+        if (!amisOK)
         {
-            LOG_DEBUG(TAG_APP_SERVICES, "AmisReader connection seems down, but could not acquire lock to update state");
+            LOG_ERROR(TAG_APP_SERVICES, "AmisReader connection failed, try reconnecting");
+            if (appLock(10))
+            {
+                g_app.webSockData.states.amisReader = amisReader_initRestTargets(g_app.webSockData);
+                appUnlock();
+            }
+            else
+            {
+                LOG_DEBUG(TAG_APP_SERVICES, "AmisReader connection seems down, but could not acquire lock to update state");
+            }
         }
     }
 #endif
@@ -197,14 +238,12 @@ void serviceNetworkSupervisor()
 
 void serviceTemperature()
 {
-
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceTemperature ");
     if (!temp_getTemperature(g_app.webSockData.temperature))
     {
         ledHandler_showTemperaturError(true);
         if (appLock(10))
         {
-
             g_app.webSockData.states.tempUnderflow = false;
             g_app.webSockData.states.tempSensorOK = false;
 
@@ -229,40 +268,31 @@ void serviceTemperature()
             }
             appUnlock();
         }
-        else
-        {
-            LOG_DEBUG(TAG_APP_SERVICES, "Temperature sensor read failed, but could not acquire lock to update state");
-        }
 
         return;
     }
 
-    g_app.webSockData.states.tempSensorOK = true;
     ledHandler_showTemperaturError(false);
 
     const int tempAvg = averageTemp();
-    g_app.webSockData.states.tempUnderflow = false;
-    if (tempAvg < g_app.webSockData.setupData.tempMinInGrad)
+    if (appLock(10))
     {
-        LOG_INFO(TAG_APP_SERVICES, "Temperature underflow detected: %d °C, setup: %d °C", tempAvg, g_app.webSockData.setupData.tempMinInGrad);
-        g_app.webSockData.states.tempUnderflow = true;
-        /*  if (appLock(10)) {
-             g_app.webSockData.states.tempUnderflow = true;
-             g_app.pinManager.allOn();
-             LOG_INFO(TAG_APP_SERVICES, "Temp under minimum, heating full power");
-             appUnlock();
-         } else {
-             LOG_DEBUG(TAG_APP_SERVICES, "Temperature underflow detected, but could not acquire lock to update state");
-         }
+        g_app.webSockData.states.tempSensorOK = true;
+        g_app.webSockData.states.tempUnderflow = false;
 
-         return; */
+        if (tempAvg < g_app.webSockData.setupData.tempMinInGrad)
+        {
+            LOG_INFO(TAG_APP_SERVICES, "Temperature underflow detected: %d °C, setup: %d °C", tempAvg, g_app.webSockData.setupData.tempMinInGrad);
+            g_app.webSockData.states.tempUnderflow = true;
+        }
+
+        if (tempAvg < g_app.webSockData.setupData.tempMaxAllowedInGrad)
+        {
+            g_app.webSockData.temperature.alarm = false;
+        }
+
+        appUnlock();
     }
-
-    if (tempAvg < g_app.webSockData.setupData.tempMaxAllowedInGrad)
-
-        g_app.webSockData.temperature.alarm = false;
-
-
 }
 
 static void handleLockFailure(const char *context)
@@ -272,22 +302,22 @@ static void handleLockFailure(const char *context)
 }
 
 // --- Helper: mark network down with lock, fail-safe otherwise ---
-static bool tryMarkNetworkDown(const char *reason, const char *failMsg)
+static void tryMarkNetworkDown(const char *reason, const char *failMsg)
 {
-    if (appLock(10))
+    if (!appLock(10))
     {
-        markNetworkDown(reason);
-        appUnlock();
-        return true;
+        g_app.pinManager.reset();
+        LOG_DEBUG(TAG_APP_SERVICES, "%s", failMsg);
+        return;
     }
-    handleLockFailure(failMsg);
-    return false;
+
+    markNetworkDown(reason);
+    appUnlock();
 }
 
 
 void serviceEnergy()
 {
-    // appLock();
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEnergy - ");
     if (!networkIsAvailable())
     {
@@ -296,6 +326,7 @@ void serviceEnergy()
         return;
     }
 
+    // -- tempOK check unter Lock --
     {
         bool tempOK = true;
         if (appLock(10))
@@ -316,9 +347,40 @@ void serviceEnergy()
         }
     }
 
-#ifdef FRONIUS_IV
-    if (g_app.webSockData.states.froniusAPI && g_app.webSockData.states.networkOK)
+    // -- Energie-Quelle unter Lock ermitteln --
+    enum EnergySource { SRC_NONE, SRC_FRONIUS, SRC_MODBUS, SRC_AMIS };
+    EnergySource energySource = SRC_NONE;
     {
+        if (appLock(10))
+        {
+#ifdef FRONIUS_IV
+            if (g_app.webSockData.states.froniusAPI && g_app.webSockData.states.networkOK)
+                energySource = SRC_FRONIUS;
+            else
+#endif
+            {
+#ifdef FRONIUS_IV
+                if (g_app.webSockData.states.modbusOK && g_app.webSockData.states.networkOK)
+                    energySource = SRC_MODBUS;
+
+#ifdef AMIS_READER_DEV
+                else if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
+                    energySource = SRC_AMIS;
+#endif
+#endif
+            }
+            appUnlock();
+        }
+        else
+        {
+            handleLockFailure("Could not acquire lock to select energy source");
+        }
+    }
+
+    // -- I/O und Cache-Update je nach Quelle --
+    if (energySource == SRC_FRONIUS)
+    {
+#ifdef FRONIUS_IV
         if (!solar_get_powerflow(g_app.webSockData))
         {
             tryMarkNetworkDown("Fronius API read failed",
@@ -343,9 +405,11 @@ void serviceEnergy()
         {
             handleLockFailure("Fronius API succeeded, but could not acquire lock to cache results");
         }
+#endif
     }
-    else if (g_app.webSockData.states.modbusOK && g_app.webSockData.states.networkOK)
+    else if (energySource == SRC_MODBUS)
     {
+#ifdef FRONIUS_IV
         if (!mb_readInverter(g_app.webSockData.setupData, g_app.webSockData.mbContainer))
         {
             tryMarkNetworkDown("Modbus read failed",
@@ -367,12 +431,11 @@ void serviceEnergy()
 #ifdef INFLUX
         influx_write(g_app.webSockData);
 #endif
-    }
 #endif
-
-#ifdef AMIS_READER_DEV
-    if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
+    }
+    else if (energySource == SRC_AMIS)
     {
+#ifdef AMIS_READER_DEV
         if (!amisReader_readRestTarget(g_app.webSockData))
         {
             tryMarkNetworkDown("AMIS reader failed",
@@ -396,15 +459,17 @@ void serviceEnergy()
         {
             handleLockFailure("AMIS reader succeeded, but could not acquire lock to update state");
         }
-
-        LOG_INFO(TAG_APP_SERVICES, "AMIS reader OK, Saldo: %ld", g_app.webSockData.amisReader.saldo);
-    }
 #endif
+    }
 
-    // 4) Refresh display
+    // -- Display aktualisieren unter Lock --
     if (xSemaphoreTake(g_tftMutex, pdMS_TO_TICKS(100)) == pdTRUE)
     {
-        tft_drawInfo(g_app.webSockData);
+        if (appLock(10))
+        {
+            tft_drawInfo(g_app.webSockData);
+            appUnlock();
+        }
         xSemaphoreGive(g_tftMutex);
     }
 }
@@ -419,7 +484,14 @@ void serviceWeb()
 {
     static uint32_t counter = 0;
 
-    if (!g_app.webSockData.states.networkOK) {
+    bool networkOK = false;
+    if (appLock(10))
+    {
+        networkOK = g_app.webSockData.states.networkOK;
+        appUnlock();
+    }
+    if (!networkOK)
+    {
         LOG_INFO(TAG_APP_SERVICES, "ServiceWeb cannot be executed due to network down state");
         return;
     }
@@ -430,31 +502,36 @@ void serviceWeb()
         counter = 0;
     }
     notifyClients();
-    LOG_INFO(TAG_APP_SERVICES, "ServiceWeb - data changed? %d", g_app.webSockData.setupData.setupChanged);
-    if (g_app.webSockData.setupData.setupChanged)
-    {
-        if (appLock(100))
-        {
-            // g_app.webSockData.states.networkOK = false;
 
-            if (!hotUpdate(g_app.webSockData, g_app.pinManager))
+    if (appLock(10))
+    {
+        bool changed = g_app.webSockData.setupData.setupChanged;
+        appUnlock();
+
+        LOG_INFO(TAG_APP_SERVICES, "ServiceWeb - data changed? %d", changed);
+        if (changed)
+        {
+            if (appLock(100))
             {
+                if (!hotUpdate(g_app.webSockData, g_app.pinManager))
+                {
+                    appUnlock();
+                    LOG_DEBUG(TAG_APP_SERVICES, " Waiting for restart ....");
+                    vTaskDelay(pdMS_TO_TICKS(3000));
+                    esp_restart();
+                    return;
+                }
+                else
+                {
+                    LOG_INFO(TAG_APP_SERVICES, "Hot update applied successfully without reboot");
+                }
+                g_app.webSockData.setupData.setupChanged = false;
                 appUnlock();
-                LOG_DEBUG(TAG_APP_SERVICES, " Waiting for restart ....");
-                vTaskDelay(pdMS_TO_TICKS(3000));
-                esp_restart();
-                return;
             }
             else
             {
-                LOG_INFO(TAG_APP_SERVICES, "Hot update applied successfully without reboot");
+                LOG_DEBUG(TAG_APP_SERVICES, "Setup changed, but could not acquire lock to apply hot update");
             }
-            g_app.webSockData.setupData.setupChanged = false;
-            appUnlock();
-        }
-        else
-        {
-            LOG_DEBUG(TAG_APP_SERVICES, "Setup changed, but could not acquire lock to apply hot update");
         }
     }
 }
@@ -463,20 +540,25 @@ void serviceWeb()
 
 void serviceMaintenance()
 {
-
     LOG_INFO(TAG_APP_SERVICES, "app_services::serviceMaintenance - ");
     g_app.heapSize[0].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     g_app.heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
 
 #ifdef CARD_READER
-    if (g_app.webSockData.states.cardWriterOK)
     {
-        cardRW_flushLoggingFile();
-        cardRW_closeLoggingFile();
+        bool cardOK = false;
+        if (appLock(10))
+        {
+            cardOK = g_app.webSockData.states.cardWriterOK;
+            appUnlock();
+        }
+        if (cardOK)
+        {
+            cardRW_flushLoggingFile();
+            cardRW_closeLoggingFile();
+        }
     }
 #endif
-
-    // logReader_init();
 }
 
 void serviceEpromStore(void *param)
