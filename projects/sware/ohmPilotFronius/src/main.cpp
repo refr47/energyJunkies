@@ -268,7 +268,7 @@ void setup()
         }
        
         tft_clearScreen();
-        delay(5000);
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 
 

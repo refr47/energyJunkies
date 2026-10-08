@@ -109,9 +109,10 @@ static const char *getJsonObj()
     WEBSOCK_DATA data; // lokale Kopie auf dem Stack (~500 Byte)
                        // OK in taskWeb (16KB stack)
 
-    if (!appLock(pdMS_TO_TICKS(50)))
+    // KR-2: reads from webSockData (DATA domain)
+    if (!appLockData(pdMS_TO_TICKS(50)))
     {
-        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to acquire appLock for websock data");
+        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to acquire data lock for websock data");
         return "{}";
     }
 
@@ -121,7 +122,7 @@ static const char *getJsonObj()
     {
         data = localGetData(); // Value-Kopie unter appLock-Garantie konsistent
     }
-    appUnlock();
+    appUnlockData();
     // ── App-Lock freigegeben ────────────────────────────────────────────
 
     // ── Schritt 2: jsonMutex für Serialisierung ─────────────────────────

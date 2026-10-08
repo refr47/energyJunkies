@@ -1,10 +1,9 @@
-#include "ajaxCalls.h"
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
+#include <atomic>
 #include "app_tasks.h"
 
 #include "eprom.h"
@@ -14,6 +13,7 @@
 #include "ajaxConst.h"
 #include "setupFields.h"
 #include "loxone.h"
+#include "ajaxCalls.h"
 /*
 extern const FieldBase<Setup>* setupFields[];
 extern const size_t setupFieldsCount;*/
@@ -56,8 +56,8 @@ static CALLBACK_SET_SETUP_CHANGED g_setSetupChangedCallback = nullptr;
 // extern SemaphoreHandle_t g_shellyMutex;
 
 static TaskHandle_t g_shellyTaskHandle = nullptr;
-static volatile bool g_shellyScanRunning = false;
-static volatile bool g_shellyScanDone = false;
+bool g_shellyScanRunning{false};
+static std::atomic<bool> g_shellyScanDone{false};
 
 /* letzter Snapshot des Shelly-Scans */
 static char g_shellyJsonCache[SHELLY_JSON_BUFFER_LEN] = {0};
@@ -196,7 +196,7 @@ bool ajaxCalls_triggerShellyScan(void)
     if (!ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
         LOG_ERROR(TAG_AJAX, "ajaxCalls_triggerShellyScan - mutex lock failed");
-        return false;
+        return false; 
     }
 
     if (g_shellyScanRunning)

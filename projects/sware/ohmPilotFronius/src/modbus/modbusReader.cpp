@@ -6,6 +6,8 @@
 #endif
 #include <ModbusIP_ESP8266.h>
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include "modbusReader.h"
 #include "modbusRegister.h"
 #include "defines.h"
@@ -115,7 +117,7 @@ bool isConnectedAndReconnect()
     if (!mb.isConnected(remote))
     {
         success = mb.connect(remote);
-        delay(1000);
+        vTaskDelay(pdMS_TO_TICKS(1000));
         mb.client();
         LOG_DEBUG(TAG_MODBUS,"modbus do connect .... %x", success);
 
@@ -159,7 +161,7 @@ bool mb_readInverterStatic()
 
         LOG_ERROR(TAG_MODBUS,"Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", INVERTER_ID, MODBUS_COMMMON, MODBUS_STATIC_LEN);
         ;
-        delay(5000);
+        vTaskDelay(pdMS_TO_TICKS(5000));
         //    } else {
         //      DBGln("Modbus/TCP register read succeeded");
         //      Serial2.println("Modbus/TCP register read succeeded");
@@ -305,7 +307,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
             LOG_ERROR(TAG_MODBUS,"mb_readInverterDynamic::Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", regsToRead[readIndex].deviceId,
                       regsToRead[readIndex].baseAddr, regsToRead[readIndex].count);
 
-            delay(5000);
+            vTaskDelay(pdMS_TO_TICKS(5000));
             //    } else {
             //      Serial.println("Modbus/TCP register read succeeded");
         }

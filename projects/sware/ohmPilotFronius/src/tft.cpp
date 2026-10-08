@@ -74,7 +74,7 @@ void tft_init()
             tft.setTextColor(TFT_YELLOW);
         // delay(3000);
     }
-    delay(4000);
+    vTaskDelay(pdMS_TO_TICKS(4000));
     tft.setTextColor(TFT_WHITE);
     tft_clearScreen();
 }

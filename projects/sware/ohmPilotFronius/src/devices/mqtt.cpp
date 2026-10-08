@@ -4,6 +4,8 @@
 
 #include <PubSubClient.h>
 #include <WiFi.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include "debugConsole.h"
 
@@ -165,7 +167,7 @@ static void reconnect()
             if (reconnectTries > MAX_RECONNECT)
                 return;
             // Wait 5 seconds before retrying
-            delay(5000);
+            vTaskDelay(pdMS_TO_TICKS(5000));
         }
     }
 }

@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include "ledHandler.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #define MODBUS_ERROR 0
 #define CARD_READ_ERROR 1
@@ -15,15 +17,15 @@ void ledHandler_init()
     pinMode(LED_ERROR2, OUTPUT);
     digitalWrite(LED_ERROR1, LOW);
     digitalWrite(LED_ERROR2, LOW);
-    delay(200);
+    vTaskDelay(pdMS_TO_TICKS(200));
     for (int jj = 0; jj < 10; jj++)
     {
         digitalWrite(LED_ERROR1, HIGH);
         digitalWrite(LED_ERROR2, HIGH);
-        delay(200);
+        vTaskDelay(pdMS_TO_TICKS(200));
         digitalWrite(LED_ERROR1, LOW);
         digitalWrite(LED_ERROR2, LOW);
-        delay(200);
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
 

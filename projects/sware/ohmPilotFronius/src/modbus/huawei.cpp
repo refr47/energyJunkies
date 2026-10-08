@@ -1,6 +1,8 @@
 #ifdef HUAWEI_IV
 
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #else
@@ -86,7 +88,7 @@ bool isConnectedAndReconnect()
     if (!mb.isConnected(remote))
     {
         success = mb.connect(remote);
-        delay(1000);
+        vTaskDelay(pdMS_TO_TICKS(1000));
         DBGf("modbus do connect .... %x", success);
 
         if (!success)
@@ -210,7 +212,7 @@ bool mb_readInverterDynamic(Setup &setup, MB_CONTAINER &container)
             DBGf("Modbus/TCP register read failed (Device: %d, Register: %d, Count: %d)", regsToRead[readIndex].deviceId,
                  regsToRead[readIndex].baseAddr, regsToRead[readIndex].count);
 
-            delay(5000);
+            vTaskDelay(pdMS_TO_TICKS(5000));
             //    } else {
             //      Serial.println("Modbus/TCP register read succeeded");
         }
@@ -231,7 +233,7 @@ bool mb_readInverterDynamic(Setup &setup, MB_CONTAINER &container)
     mb.task(); // Common local Modbus task
     if (transId != 0)
     {
-        delay(MODBUS_WAIT_FOR_DATA_IN_MS); // Pulling interval
+        vTaskDelay(pdMS_TO_TICKS(MODBUS_WAIT_FOR_DATA_IN_MS)); // Pulling interval
 #ifdef MODBUS_VERBOSE
         text[0] = '\0'; // reset text to empty
 #endif

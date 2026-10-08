@@ -67,7 +67,7 @@ void shelly_init(SHELLY_OBJ *shellyObj)
     doListenSemaphore = xSemaphoreCreateBinary();
     xSemaphoreGive(doListenSemaphore);
     udp.begin(UDP_SHELLY_DEFAULT_PORT);
-    delay(2000);
+    vTaskDelay(pdMS_TO_TICKS(2000));
     xTaskCreatePinnedToCore(&taskListenForShellyCommand, "UDPResponseHandler", STACK_SIZE_FOR_UDP_TASK, NULL, 1, NULL, USE_CORE_FOR_UDP_TASK);
 }
 

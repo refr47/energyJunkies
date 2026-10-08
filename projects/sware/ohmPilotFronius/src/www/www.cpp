@@ -5,6 +5,9 @@
 #include <mdns.h>
 #include <Update.h>
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
 #include "tft.h"
 #include "eprom.h"
 #include "utils.h"
@@ -383,7 +386,7 @@ void www_run()
         DBGln("Client disconnected.");
         DBGln("");
     }
-    delay(1000);
+    vTaskDelay(pdMS_TO_TICKS(1000));
 }
 #endif
 

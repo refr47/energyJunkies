@@ -13,6 +13,7 @@
 #define SHELLY_MAC "smac"
 #define SHELLY_IP "sip"
 #define SHELLY_PORT "spt"
+#define SHELLY_COUNT_KEY "scnt"
 
 // #include "tft.h"
 
@@ -268,18 +269,39 @@ void eprom_store_shelly(ALL_SHELLY_DEVICES *allDevices, unsigned upperLimit)
     std::lock_guard<std::mutex> lock(s_epromMutex);
 
     preferences.begin(SHELLY_EPROM, false);
-    preferences.clear();
+
+    // H-1 FIX: remove only stale suffixed keys above new upperLimit (instead of destructive clear())
+    unsigned int prevCount = preferences.getUInt(SHELLY_COUNT_KEY, 0);
+    char key[16];
+    for (unsigned int i = upperLimit; i < prevCount; i++)
+    {
+        sprintf(key, "%s_%d", SHELLY_DEVICE_NAME, i);
+        preferences.remove(key);
+        sprintf(key, "%s_%d", SHELLY_MAC, i);
+        preferences.remove(key);
+        sprintf(key, "%s_%d", SHELLY_IP, i);
+        preferences.remove(key);
+        sprintf(key, "%s_%d", SHELLY_PORT, i);
+        preferences.remove(key);
+    }
+
     for (int i = 0; i < upperLimit; i++)
     {
         if (allDevices[i].valid == true)
         {
             if (allDevices[i].errorContainer == NULL)
             {
+                // H-1 FIX: suffix keys with device index to prevent NVS collision
+                char key[16];
                 LOG_INFO(TAG_EPPROM,"eprom:: index: %d, device name: %s, mac: %s, ip: %s, port: %d\n", i, allDevices[i].shellyDevice->name, allDevices[i].shellyDevice->mac, allDevices[i].shellyDevice->ip, allDevices[i].shellyDevice->port);
-                preferences.putString(SHELLY_DEVICE_NAME, allDevices[i].shellyDevice->name);
-                preferences.putString(SHELLY_MAC, allDevices[i].shellyDevice->mac);
-                preferences.putString(SHELLY_IP, allDevices[i].shellyDevice->ip);
-                preferences.putUInt(SHELLY_PORT, allDevices[i].shellyDevice->port);
+                sprintf(key, "%s_%d", SHELLY_DEVICE_NAME, i);
+                preferences.putString(key, allDevices[i].shellyDevice->name);
+                sprintf(key, "%s_%d", SHELLY_MAC, i);
+                preferences.putString(key, allDevices[i].shellyDevice->mac);
+                sprintf(key, "%s_%d", SHELLY_IP, i);
+                preferences.putString(key, allDevices[i].shellyDevice->ip);
+                sprintf(key, "%s_%d", SHELLY_PORT, i);
+                preferences.putUInt(key, allDevices[i].shellyDevice->port);
                 free(allDevices[i].shellyDevice);
             }
             else
@@ -289,6 +311,7 @@ void eprom_store_shelly(ALL_SHELLY_DEVICES *allDevices, unsigned upperLimit)
             }
         }
     }
+    preferences.putUInt(SHELLY_COUNT_KEY, upperLimit);
     preferences.end();
 }
 

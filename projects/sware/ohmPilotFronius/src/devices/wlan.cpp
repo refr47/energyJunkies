@@ -2,6 +2,8 @@
 
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <tft.h>
 #include "wlan.h"
 #include "defines.h"
@@ -306,7 +308,7 @@ void wifi_scan_network()
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
-    delay(500);
+    vTaskDelay(pdMS_TO_TICKS(500));
     tft_printInfo("Scan for Wlan ...");
     int16_t n = WiFi.scanNetworks();
 
@@ -367,7 +369,7 @@ void wifi_scan_network()
     tft_printInfo(" ");
     tft_printInfo("Switch to AP-Mode!!");
 
-    delay(3000);
+    vTaskDelay(pdMS_TO_TICKS(3000));
     tft_clearScreen();
 }
 

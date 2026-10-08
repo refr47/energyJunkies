@@ -63,21 +63,18 @@ void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 
 /*
  * ── Thread-safe Lock/Unlock helpers ─────────────────────────────
- * pidLockRead()  : Under appLock(), copy all input fields from
- *                  WEBSOCK_DATA into local m_* members.
- * pidLockWrite() : Under appLock(), write all output fields (output
- *                  bias, boilerHeating state, pidContainer) back.
+ * pidLockRead()  : Copy input fields from WEBSOCK_DATA into local m_* members.
+ *                  Caller must hold dataMutex + pidOutMutex (KR-2: fine-grained).
+ * pidLockWrite() : Write output fields (wattBias, boilerHeating, pidContainer) back.
+ *                  Caller must hold dataMutex + pidOutMutex (KR-2: fine-grained).
  * utils_logWrite() is deliberately OUTSIDE the lock to prevent
  * an ABBA-deadlock (R01) with its own rb.mutex.
  ************************************************************************/
 
 void PinManager::pidLockRead(WEBSOCK_DATA &data)
 {
-    if (!appLock(150)) // R02: fail-fast, do not block forever
-    {
-        LOG_ERROR(TAG_PID, "pidLockRead: appLock failed! Using stale local copy.");
-        return;
-    }
+    // KR-2: Caller (update/webSockets.cpp) must already hold dataMutex + pidOutMutex.
+    // This function does NOT lock itself to avoid redundant locking + deadlock risk.
 
     // ── input fields ──
     // Harmonisierte Werte – egal ob Fronius oder AMIS-Reader
@@ -93,17 +90,12 @@ void PinManager::pidLockRead(WEBSOCK_DATA &data)
     m_gridPower             = data.mbContainer.inverterSumValues.data.acCurrentPower;
     m_meterPower            = data.mbContainer.meterValues.data.acCurrentPower;
     m_wattSetupForTest      = data.setupData.wattSetupForTest;
-
-    appUnlock();
 }
 
 void PinManager::pidLockWrite(WEBSOCK_DATA &data)
 {
-    if (!appLock(50))
-    {
-        LOG_ERROR(TAG_PID, "pidLockWrite: appLock failed! Output values lost.");
-        return;
-    }
+    // KR-2: Caller (update/webSockets.cpp) must already hold dataMutex + pidOutMutex.
+    // This function does NOT lock itself to avoid redundant locking + deadlock risk.
 
     // ── output fields ──
     data.states.boilerHeating             = m_out_boilerHeating;
@@ -111,8 +103,6 @@ void PinManager::pidLockWrite(WEBSOCK_DATA &data)
     data.pidContainer.mAnalogOut          = currentPWM;
     data.pidContainer.PID_PIN1           = digitalRead(pinL1) == HIGH ? 1 : 0;
     data.pidContainer.PID_PIN2           = digitalRead(pinL2) == HIGH ? 1 : 0;
-
-    appUnlock();
 }
 
 /*

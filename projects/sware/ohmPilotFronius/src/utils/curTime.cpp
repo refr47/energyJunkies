@@ -8,6 +8,8 @@
 #include "curTime.h"
 // #include "debugConsole.h"
 #include "defines.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 using namespace std;
 
@@ -86,7 +88,7 @@ bool time_init()
     table.push_back(cell); */
     LOG_DEBUG(TAG_TIME, "time_init()");
 
-    delay(2000);
+    vTaskDelay(pdMS_TO_TICKS(2000));
     struct tm timeinfo;
 
     // Warten, bis die Zeit erfolgreich abgerufen wurde

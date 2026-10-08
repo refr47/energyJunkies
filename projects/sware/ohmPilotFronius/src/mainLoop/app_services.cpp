@@ -57,9 +57,13 @@ static bool networkIsAvailable()
 
 static void stopHeating(const char* reason)
 {
-    if (!appLock(10))
+    // KR-2: needs dataMutex (webSockData) + pidOutMutex (pinManager)
+    // Lock ordering: Data > PidOut
+    if (!appLockData(10) || !appLockPidOut(10))
     {
-        LOG_DEBUG(TAG_APP_SERVICES, "stopHeating: could not acquire lock for: %s", reason);
+        if (appLockData(10)) appUnlockData();
+        if (appLockPidOut(10)) appUnlockPidOut();
+        LOG_DEBUG(TAG_APP_SERVICES, "stopHeating: could not acquire locks for: %s", reason);
         return;
     }
 
@@ -68,19 +72,16 @@ static void stopHeating(const char* reason)
     g_app.webSockData.pidContainer.mAnalogOut = 0;
     g_app.webSockData.pidContainer.PID_PIN1 = 0;
     g_app.webSockData.pidContainer.PID_PIN2 = 0;
-    appUnlock();
+    appUnlockPidOut();
+    appUnlockData();
 
     LOG_ERROR(TAG_APP_SERVICES, "%s - heating disabled", reason);
 }
 
 static void markNetworkDown(const char* reason)
 {
-    if (!appLock(10))
-    {
-        LOG_DEBUG(TAG_APP_SERVICES, "markNetworkDown: could not acquire lock for: %s", reason);
-        return;
-    }
-
+    // NOTE: call only after appLockData() + appLockPidOut() acquired by caller.
+    // Does NOT call locks itself to avoid nested-lock deadlock (KR-1/KR-2).
     LOG_ERROR(TAG_APP_SERVICES, "%s", reason);
     ledHandler_showNetworkError(true);
     g_app.webSockData.states.networkOK = false;
@@ -92,7 +93,6 @@ static void markNetworkDown(const char* reason)
 #ifdef MQTT
     g_app.webSockData.states.mqtt = false;
 #endif
-    appUnlock();
 }
 
 static int averageTemp()
@@ -130,11 +130,12 @@ void serviceClock()
 
 #ifdef MQTT
     {
+        // KR-2: states.mqtt is DATA domain
         bool mqttActive = false;
-        if (appLock(10))
+        if (appLockData(10))
         {
             mqttActive = g_app.webSockData.states.mqtt;
-            appUnlock();
+            appUnlockData();
         }
         if (mqttActive)
         {
@@ -165,10 +166,11 @@ void serviceNetworkSupervisor()
     // -- Netzwerkpruefung: setupData unter Lock kopieren --
     Setup localSetup;
     {
-        if (appLock(10))
+        // KR-2: setupData is CONFIG domain
+        if (appLockConfig(10))
         {
             localSetup = g_app.webSockData.setupData;
-            appUnlock();
+            appUnlockConfig();
         }
         else
         {
@@ -183,13 +185,14 @@ void serviceNetworkSupervisor()
         return;
     }
 
-    if (appLock(10))
+    // KR-2: states.networkOK/mqtt are DATA domain
+    if (appLockData(10))
     {
         g_app.webSockData.states.networkOK = true;
 #ifdef MQTT
         g_app.webSockData.states.mqtt = true;
 #endif
-        appUnlock();
+        appUnlockData();
     }
 
     ledHandler_showNetworkError(false);
@@ -197,18 +200,19 @@ void serviceNetworkSupervisor()
 #ifdef FRONIUS_IV
     {
         bool modbusOK = true;
-        if (appLock(10))
+        // KR-2: states.modbusOK is DATA domain, mb_init needs setupData (also DATA)
+        if (appLockData(10))
         {
             modbusOK = g_app.webSockData.states.modbusOK;
-            appUnlock();
+            appUnlockData();
         }
         if (!modbusOK)
         {
             LOG_ERROR(TAG_APP_SERVICES, "Modbus connection to Fronius failed, try reconnecting");
-            if (appLock(10))
+            if (appLockData(10))
             {
                 g_app.webSockData.states.modbusOK = mb_init(g_app.webSockData.setupData);
-                appUnlock();
+                appUnlockData();
             }
             else
             {
@@ -220,18 +224,19 @@ void serviceNetworkSupervisor()
 #ifdef AMIS_READER_DEV
     {
         bool amisOK = false;
-        if (appLock(10))
+        // KR-2: states.amisReader is DATA domain
+        if (appLockData(10))
         {
             amisOK = g_app.webSockData.states.amisReader;
-            appUnlock();
+            appUnlockData();
         }
         if (!amisOK)
         {
             LOG_ERROR(TAG_APP_SERVICES, "AmisReader connection failed, try reconnecting");
-            if (appLock(10))
+            if (appLockData(10))
             {
                 g_app.webSockData.states.amisReader = amisReader_initRestTargets(g_app.webSockData);
-                appUnlock();
+                appUnlockData();
             }
             else
             {
@@ -248,7 +253,8 @@ void serviceTemperature()
     if (!temp_getTemperature(g_app.webSockData.temperature))
     {
         ledHandler_showTemperaturError(true);
-        if (appLock(10))
+        // KR-2: this section accesses states/temperature (DATA) + pinManager/alarmContainer (PIDOUT)
+        if (appLockData(10) && appLockPidOut(10))
         {
             g_app.webSockData.states.tempUnderflow = false;
             g_app.webSockData.states.tempSensorOK = false;
@@ -272,7 +278,8 @@ void serviceTemperature()
                     g_app.webSockData.temperature.alarm = true;
                 }
             }
-            appUnlock();
+            appUnlockPidOut();
+            appUnlockData();
         }
 
         return;
@@ -281,7 +288,8 @@ void serviceTemperature()
     ledHandler_showTemperaturError(false);
 
     const int tempAvg = averageTemp();
-    if (appLock(10))
+    // KR-2: this section only accesses states/temperature/setupData (DATA)
+    if (appLockData(10))
     {
         g_app.webSockData.states.tempSensorOK = true;
         g_app.webSockData.states.tempUnderflow = false;
@@ -297,20 +305,26 @@ void serviceTemperature()
             g_app.webSockData.temperature.alarm = false;
         }
 
-        appUnlock();
+        appUnlockData();
     }
 }
 
 static void handleLockFailure(const char* context)
 {
-    g_app.pinManager.reset();
+    // KR-2: pinManager is PIDOUT domain
+    if (appLockPidOut(10))
+    {
+        g_app.pinManager.reset();
+        appUnlockPidOut();
+    }
     LOG_DEBUG(TAG_APP_SERVICES, "%s", context);
 }
 
 // --- Helper: mark network down with lock, fail-safe otherwise ---
 static void tryMarkNetworkDown(const char* reason, const char* failMsg)
 {
-    if (!appLock(10))
+    // KR-2: needs Data + PidOut for markNetworkDown
+    if (!appLockData(10) || !appLockPidOut(10))
     {
         g_app.pinManager.reset();
         LOG_DEBUG(TAG_APP_SERVICES, "%s", failMsg);
@@ -318,7 +332,8 @@ static void tryMarkNetworkDown(const char* reason, const char* failMsg)
     }
 
     markNetworkDown(reason);
-    appUnlock();
+    appUnlockPidOut();
+    appUnlockData();
 }
 
 
@@ -335,10 +350,11 @@ void serviceEnergy()
     // -- tempOK check unter Lock --
     {
         bool tempOK = true;
-        if (appLock(10))
+        // KR-2: states.tempSensorOK is DATA domain
+        if (appLockData(10))
         {
             tempOK = g_app.webSockData.states.tempSensorOK;
-            appUnlock();
+            appUnlockData();
         }
         else
         {
@@ -357,7 +373,8 @@ void serviceEnergy()
     enum EnergySource { SRC_NONE, SRC_FRONIUS, SRC_AMIS };
     EnergySource energySource = SRC_NONE;
     {
-        if (appLock(10))
+        // KR-2: states fields are DATA domain
+        if (appLockData(10))
         {
 #ifdef FRONIUS_IV
             if (g_app.webSockData.states.froniusAPI && g_app.webSockData.states.networkOK)
@@ -369,7 +386,7 @@ void serviceEnergy()
                 energySource = SRC_AMIS;
 
 #endif
-            appUnlock();
+            appUnlockData();
         }
         else
         {
@@ -389,7 +406,7 @@ void serviceEnergy()
             return;
         }
 
-        if (appLock(10))
+        if (appLockData(10))
         {
             g_app.webSockData.mbContainer.akkuStr.data.chargeRate = g_app.webSockData.fronius_SOLAR_POWERFLOW.p_akku;
             g_app.webSockData.mbContainer.akkuStr.data.dischargeRate = g_app.webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
@@ -400,7 +417,7 @@ void serviceEnergy()
                 g_app.webSockData.fronius_SOLAR_POWERFLOW.p_pv;
             g_app.webSockData.mbContainer.meterValues.data.acCurrentPower =
                 g_app.webSockData.fronius_SOLAR_POWERFLOW.p_load;
-            appUnlock();
+            appUnlockData();
         }
         else
         {
@@ -414,11 +431,11 @@ void serviceEnergy()
             return;
         }
 
-        if (appLock(10))
+        if (appLockData(10))
         {
             g_app.webSockData.pidContainer.mCurrentPower =
                 g_app.webSockData.mbContainer.meterValues.data.acCurrentPower;
-            appUnlock();
+            appUnlockData();
         }
         else
         {
@@ -440,7 +457,7 @@ void serviceEnergy()
             return;
         }
 
-        if (appLock(10))
+        if (appLockData(10))
         {
             g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower =
                 g_app.webSockData.amisReader.exportInWatt;
@@ -450,7 +467,7 @@ void serviceEnergy()
                 g_app.webSockData.amisReader.absolutExportInkWh;
             g_app.webSockData.mbContainer.meterValues.data.acCurrentPower =
                 g_app.webSockData.amisReader.saldo;
-            appUnlock();
+            appUnlockData();
         }  
         else 
         {
@@ -461,10 +478,11 @@ void serviceEnergy()
     // -- Display aktualisieren unter Lock --
     if (xSemaphoreTake(g_tftMutex, pdMS_TO_TICKS(100)) == pdTRUE)
     {
-        if (appLock(10))
+        // KR-2: webSockData is DATA domain
+        if (appLockData(10))
         {
             tft_drawInfo(g_app.webSockData);
-            appUnlock();
+            appUnlockData();
         }
         xSemaphoreGive(g_tftMutex);
     }
@@ -473,7 +491,13 @@ void serviceEnergy()
 void servicePid()
 {
     LOG_INFO(TAG_APP_SERVICES, "app_services::servicePid - ");
-    g_app.pinManager.update(g_app.webSockData);
+    // KR-2: pinManager.update accesses both DATA (webSockData) + PIDOUT (pinManager)
+    if (appLockData(10) && appLockPidOut(10))
+    {
+        g_app.pinManager.update(g_app.webSockData);
+        appUnlockPidOut();
+        appUnlockData();
+    }
 }
 
 void serviceWeb()
@@ -481,10 +505,11 @@ void serviceWeb()
     static uint32_t counter = 0;
 
     bool networkOK = false;
-    if (appLock(10))
+    // KR-2: states.networkOK is DATA domain
+    if (appLockData(10))
     {
         networkOK = g_app.webSockData.states.networkOK;
-        appUnlock();
+        appUnlockData();
     }
     if (!networkOK)
     {
@@ -499,19 +524,21 @@ void serviceWeb()
     }
     notifyClients();
 
-    if (appLock(10))
+    if (appLockData(10))
     {
         bool changed = g_app.webSockData.setupData.setupChanged;
-        appUnlock();
+        appUnlockData();
 
         LOG_INFO(TAG_APP_SERVICES, "ServiceWeb - data changed? %d", changed);
         if (changed)
         {
-            if (appLock(100))
+            // KR-2: hotUpdate accesses DATA (webSockData) + PIDOUT (pinManager)
+            if (appLockData(100) && appLockPidOut(100))
             {
                 if (!hotUpdate(g_app.webSockData, g_app.pinManager))
                 {
-                    appUnlock();
+                    appUnlockPidOut();
+                    appUnlockData();
                     LOG_DEBUG(TAG_APP_SERVICES, " Waiting for restart ....");
                     vTaskDelay(pdMS_TO_TICKS(3000));
                     esp_restart();
@@ -522,7 +549,8 @@ void serviceWeb()
                     LOG_INFO(TAG_APP_SERVICES, "Hot update applied successfully without reboot");
                 }
                 g_app.webSockData.setupData.setupChanged = false;
-                appUnlock();
+                appUnlockPidOut();
+                appUnlockData();
             }
             else
             {
@@ -543,10 +571,11 @@ void serviceMaintenance()
 #ifdef CARD_READER
     {
         bool cardOK = false;
-        if (appLock(10))
+        // KR-2: states.cardWriterOK is DATA domain
+        if (appLockData(10))
         {
             cardOK = g_app.webSockData.states.cardWriterOK;
-            appUnlock();
+            appUnlockData();
         }
         if (cardOK)
         {

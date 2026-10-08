@@ -57,3 +57,15 @@ extern APP_RUNTIME g_app;
 bool appStateInit();
 bool appLock(uint32_t timeout_ms=100);
 void appUnlock();
+
+// KR-2: Fine-grained domain locks for g_app sub-structures
+// Lock ordering: g_dataMutex > g_configMutex > g_pidOutMutex (always acquire in this order)
+
+bool appLockData(uint32_t timeout_ms=100);   // webSockData telemetry
+void appUnlockData();
+
+bool appLockConfig(uint32_t timeout_ms=100); // webSockData.setupData
+void appUnlockConfig();
+
+bool appLockPidOut(uint32_t timeout_ms=100); // pinManager + alarmContainer
+void appUnlockPidOut();

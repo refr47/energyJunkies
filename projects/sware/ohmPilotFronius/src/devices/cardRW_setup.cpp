@@ -11,6 +11,8 @@
 #include "pin_config.h"
 
 #include "debugConsole.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 // https://randomnerdtutorials.com/esp32-spi-communication-arduino/
 
 #ifdef LOGFILE_SYS
@@ -46,7 +48,7 @@ bool cardRW_setup(bool logToCard, bool logInverter)
     while (!SD.begin(SS))
     {
 
-        delay(2000);
+        vTaskDelay(pdMS_TO_TICKS(2000));
         DBGf("Try to mount card (%d)", counter);
         if (++counter > COUNTER_MAX_FOR_MOUNT)
         {
