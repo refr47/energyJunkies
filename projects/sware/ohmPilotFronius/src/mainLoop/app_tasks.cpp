@@ -432,7 +432,7 @@ void createAppTasks(WifiCredentials& credentials)
 
         // ── CORE 1 ────────────────────────────────────────────────────────
         createTask("Clock",         taskClock,              "taskClock",               8192, nullptr, 1, &hTaskClock, 1);
-        createTask("Network",       taskNetwork,            "taskNetwork",             4096, nullptr, 2, &hTaskNetwork, 0);
+        createTask("Network",       taskNetwork,            "taskNetwork",             8192, nullptr, 2, &hTaskNetwork, 0);
         createTask("Temperature",   taskTemperature,        "taskTemperature",         4096, nullptr, 2, &hTaskTemperature, 1);
         createTask("Energy",        taskEnergy,             "taskEnergy",              8192, nullptr, 2, &hTaskEnergy, 1);
         createTask("PID",           taskPid,                "taskPid",                16384, nullptr, 2, &hTaskPid, 1);
