@@ -398,7 +398,7 @@ int utils_logRead(RingBuffer& rb, JsonDocument& doc)
 	int count = 0;
 	bool bufferedActive = false; // thread-safe: unter Mutex gelesen
 
-	if (xSemaphoreTake(rb.mutex, portMAX_DELAY) == pdTRUE)
+	if (xSemaphoreTake(rb.mutex, pdMS_TO_TICKS(500)) == pdTRUE) // FIX: timeout instead of portMAX_DELAY — prevent watchdog hang
 	{
 		bufferedActive = rb.active; // ── race-free ──
 

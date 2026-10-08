@@ -175,7 +175,7 @@ bool mb_readInverterStatic()
     if (transId != 0)
     {
 
-        delay(MODBUS_WAIT_FOR_DATA_IN_MS); // Pulling interval
+        vTaskDelay(pdMS_TO_TICKS(MODBUS_WAIT_FOR_DATA_IN_MS)); // Pulling interval
 
         int offset = 0;
         makeString(0, MODBUS_INVERTER_MANUFACTURER_LEN, inverterRegs, &pText);
@@ -328,7 +328,7 @@ bool mb_readInverterDynamic(Setup &setUpData, MB_CONTAINER &container)
     mb.task(); // Common local Modbus task
     if (transId != 0)
     {
-        delay(MODBUS_WAIT_FOR_DATA_IN_MS); // Pulling interval
+        vTaskDelay(pdMS_TO_TICKS(MODBUS_WAIT_FOR_DATA_IN_MS)); // Pulling interval
 #ifdef MODBUS_VERBOSE
         text[0] = '\0'; // reset text to empty
 #endif

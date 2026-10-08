@@ -114,6 +114,7 @@ bool eprom_getSetup(Setup &setup)
     preferences.end();
     return (len == sizeof(Setup));
 
+// --- DEAD CODE: everything below is unreachable due to return above ---
 #ifdef DEBUG_DEBUG
     String ssid, passwd;
     // bool result = true;

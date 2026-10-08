@@ -110,7 +110,7 @@ static const char *getJsonObj()
                        // OK in taskWeb (16KB stack)
 
     // KR-2: reads from webSockData (DATA domain)
-    if (!appLockData(pdMS_TO_TICKS(50)))
+    if (!appLockData(50))
     {
         LOG_ERROR(TAG_WEB_SOCKETS, "Failed to acquire data lock for websock data");
         return "{}";

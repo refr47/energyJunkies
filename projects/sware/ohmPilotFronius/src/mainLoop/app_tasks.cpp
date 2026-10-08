@@ -371,6 +371,35 @@ static void taskSimpleMonitor(void* pv)
     }
 }
 
+// KR-2: Reliable task creation helper with retry + fallback
+static bool createTask(const char* name, TaskFunction_t func, const char* taskName,
+                      uint32_t stackSize, void* params, UBaseType_t priority,
+                      TaskHandle_t* handle, BaseType_t coreID, bool critical = true)
+{
+    for (int attempt = 1; attempt <= 3; attempt++)
+    {
+        if (xTaskCreatePinnedToCore(func, taskName, stackSize, params, priority, handle, coreID) == pdPASS)
+        {
+            if (handle) registerTask(name, *handle);
+            LOG_INFO(TAG_APP_TASKS, "  [OK] %s created (%s core %d)", taskName, name, (int)coreID);
+            return true;
+        }
+        LOG_WARNING(TAG_APP_TASKS, "  [Retry %d/3] %s creation failed — %d bytes free heap",
+                    attempt, taskName, (int)esp_get_free_heap_size());
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+
+    LOG_ERROR(TAG_APP_TASKS, "FATAL: %s (%s) could not be created after 3 attempts — heap: %d bytes",
+              taskName, name, (int)esp_get_free_heap_size());
+    if (critical)
+    {
+        LOG_ERROR(TAG_APP_TASKS, "System restart scheduled ...");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        esp_restart();
+    }
+    return false;
+}
+
 void createAppTasks(WifiCredentials& credentials)
 {
     // Initialisierung der Gruppe
@@ -393,106 +422,27 @@ void createAppTasks(WifiCredentials& credentials)
         LOG_INFO(TAG_APP_TASKS, "main:: Creating App Tasks, but waiting 3 seconds for setup to be done");
         vTaskDelay(pdMS_TO_TICKS(3000));
         // WARTEN, bis setup() fertig ist
-        LOG_INFO(TAG_APP_TASKS, "main:: Creating App Tasks, waiting for setup to be done");
-        // xEventGroupWaitBits(wifi_event_group, SYSTEM_CONFIG_MODE_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
-        /// CORE 0
+        LOG_INFO(TAG_APP_TASKS, "main:: Creating App Tasks");
 
-        BaseType_t  res = xTaskCreatePinnedToCore(taskWeb, "taskWeb", 16384, nullptr, 1, &hTaskWeb, 0);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWeb!");
-        }
-        registerTask("Web", hTaskWeb);
-        res = xTaskCreatePinnedToCore(taskMaintenance, "taskMaintenance", 8192, nullptr, 1, &hTaskMaintenance, 0);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskMaintenance!");
-        }
-        registerTask("Maintenance", hTaskMaintenance);
+        // ── CORE 0 ────────────────────────────────────────────────────────
+        createTask("Web",           taskWeb,                "taskWeb",               16384, nullptr, 1, &hTaskWeb, 0);
+        createTask("Maintenance",   taskMaintenance,        "taskMaintenance",         8192, nullptr, 1, &hTaskMaintenance, 0);
+        createTask("WiFi",          taskWiFi,               "taskWiFi",                8192, (void*)(&credentials), 2, &hTaskWifi, 0);
+        createTask("Watchdog",      taskWatchdog,           "taskWatchdog",            4096, nullptr, 1, &hTaskWatchdog, 0);
 
-        res = xTaskCreatePinnedToCore(taskWiFi, "taskWiFi", 8192, (void*)(&credentials), 2, &hTaskWifi, 0);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWiFi!");
-        }
-        registerTask("WiFi", hTaskWifi);
+        // ── CORE 1 ────────────────────────────────────────────────────────
+        createTask("Clock",         taskClock,              "taskClock",               8192, nullptr, 1, &hTaskClock, 1);
+        createTask("Network",       taskNetwork,            "taskNetwork",             4096, nullptr, 2, &hTaskNetwork, 0);
+        createTask("Temperature",   taskTemperature,        "taskTemperature",         4096, nullptr, 2, &hTaskTemperature, 1);
+        createTask("Energy",        taskEnergy,             "taskEnergy",              8192, nullptr, 2, &hTaskEnergy, 1);
+        createTask("PID",           taskPid,                "taskPid",                16384, nullptr, 2, &hTaskPid, 1);
 
-        res = xTaskCreatePinnedToCore(taskWatchdog, "taskWatchdog", 4096, nullptr, 1, &hTaskWatchdog, 0);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskWatchdog!");
-        }
-        registerTask("Watchdog", hTaskWatchdog);
+        // ── Blink-Tasks ───────────────────────────────────────────────────
+        createTask("PhasenSchnitt", taskPhasenSchnittBlink,  "taskPhasenSchnittBlink", 8192, nullptr, 2, &hTaskPhasenSchnittBlink, 1);
+        createTask("ErrorBlink",    taskErrorBlink,          "taskErrorBlink",          8192, nullptr, 2, &hTaskErrorBlink, 1);
 
-        // CORE 1
-
-        res = xTaskCreatePinnedToCore(taskClock, "taskClock", 8192, nullptr, 1, &hTaskClock, 1);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskTemperature!");
-        }
-
-        res = xTaskCreatePinnedToCore(taskNetwork, "taskNetwork", 4096, nullptr, 2, &hTaskNetwork, 0);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskNetwork!");
-        }
-        registerTask("Clock", hTaskClock);
-        res = xTaskCreatePinnedToCore(taskTemperature, "taskTemperature", 4096, nullptr, 2, &hTaskTemperature, 1);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskTemperature!");
-        }
-        registerTask("Temperature", hTaskTemperature);
-        res = xTaskCreatePinnedToCore(taskEnergy, "taskEnergy", 8192, nullptr, 2, &hTaskEnergy, 1);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskEnergy!");
-        }
-        registerTask("Energy", hTaskEnergy);
-
-        res = xTaskCreatePinnedToCore(taskPid, "taskPid", 16384, nullptr, 2, &hTaskPid, 1);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskPid!");
-        }
-        registerTask("PID", hTaskPid);
-
-        res = xTaskCreatePinnedToCore(taskPhasenSchnittBlink, "taskPhasenSchnittBlink", 8192, nullptr, 2, &hTaskPhasenSchnittBlink, 1);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create taskBlinke!");
-        }
-        registerTask("phasenSchnitt", hTaskPhasenSchnittBlink);
-
-        res = xTaskCreatePinnedToCore(taskErrorBlink, "taskErrorBlink", 8192, nullptr, 2, &hTaskErrorBlink, 1);
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create task error blink!");
-        }
-        registerTask("errorBlink", hTaskErrorBlink);
-
-        res = xTaskCreatePinnedToCore(
-            taskEpromWriter,
-            "epromWorker",
-            4096,
-            nullptr,
-            1,
-            nullptr,
-            tskNO_AFFINITY);
-
-        if (res != pdPASS)
-        {
-            LOG_ERROR(TAG_APP_TASKS, "Failed to create epromWorker!");
-        }
-
-        xTaskCreatePinnedToCore(
-            taskSimpleMonitor,
-            "RuntimeMon",
-            8192,
-            nullptr,
-            1,
-            nullptr,
-            0);
+        // ── Support-Tasks (non-critical) ──────────────────────────────────
+        createTask("EpromWriter",   taskEpromWriter,         "taskEpromWriter",         4096, nullptr, 1, nullptr, tskNO_AFFINITY, false);
+        createTask("RuntimeMon",    taskSimpleMonitor,       "taskRuntimeMon",          8192, nullptr, 1, nullptr, tskNO_AFFINITY, false);
     }
 }

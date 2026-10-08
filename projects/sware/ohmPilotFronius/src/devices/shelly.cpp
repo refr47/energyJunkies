@@ -65,10 +65,24 @@ void shelly_init(SHELLY_OBJ *shellyObj)
 
     package_received_semaphore = xSemaphoreCreateBinary();
     doListenSemaphore = xSemaphoreCreateBinary();
+    if (!package_received_semaphore || !doListenSemaphore)
+    {
+        LOG_ERROR(TAG_SHELLY, "CRITICAL: shelly semaphore creation failed!");
+        return;
+    }
     xSemaphoreGive(doListenSemaphore);
     udp.begin(UDP_SHELLY_DEFAULT_PORT);
     vTaskDelay(pdMS_TO_TICKS(2000));
-    xTaskCreatePinnedToCore(&taskListenForShellyCommand, "UDPResponseHandler", STACK_SIZE_FOR_UDP_TASK, NULL, 1, NULL, USE_CORE_FOR_UDP_TASK);
+
+    if (xTaskCreatePinnedToCore(&taskListenForShellyCommand, "UDPResponseHandler",
+                                     STACK_SIZE_FOR_UDP_TASK, NULL, 1, NULL, USE_CORE_FOR_UDP_TASK) != pdPASS)
+    {
+        LOG_ERROR(TAG_SHELLY, "Failed to create UDPResponseHandler task — retry not possible in init");
+    }
+    else
+    {
+        LOG_INFO(TAG_SHELLY, "UDPResponseHandler task created on core %d", USE_CORE_FOR_UDP_TASK);
+    }
 }
 
 bool shelly_resetShelly(unsigned int sIndex)
@@ -186,7 +200,13 @@ static bool sendShellyCommandWithParm(const char *method, JsonObject &params)
     pShellyObjArray[shellyIndex].sent = true;
     pShellyObjArray[shellyIndex].timestamp64Sent = millis();
     setListenFlag();
-    xSemaphoreTake(package_received_semaphore, portMAX_DELAY);
+    if (xSemaphoreTake(package_received_semaphore, pdMS_TO_TICKS(5000)) != pdTRUE) // FIX: 5s timeout instead of portMAX_DELAY
+    {
+        LOG_ERROR(TAG_SHELLY, "UDP response timeout for shelly command with parm");
+        clearListenFlag();
+        pShellyObjArray[shellyIndex].sent = false;
+        return false;
+    }
     clearListenFlag();
     pShellyObjArray[shellyIndex].sent = false;
     return true;
@@ -210,7 +230,13 @@ static bool sendShellyCommandWithOutParm(const char *method)
     pShellyObjArray[shellyIndex].sent = true;
     pShellyObjArray[shellyIndex].timestamp64Sent = millis();
     setListenFlag();
-    xSemaphoreTake(package_received_semaphore, portMAX_DELAY); // wait for response
+    if (xSemaphoreTake(package_received_semaphore, pdMS_TO_TICKS(5000)) != pdTRUE) // FIX: 5s timeout instead of portMAX_DELAY
+    {
+        LOG_ERROR(TAG_SHELLY, "UDP response timeout for shelly command without parm");
+        pShellyObjArray[shellyIndex].sent = false;
+        clearListenFlag();
+        return false;
+    }
     pShellyObjArray[shellyIndex].sent = false;
     clearListenFlag();
     return true;

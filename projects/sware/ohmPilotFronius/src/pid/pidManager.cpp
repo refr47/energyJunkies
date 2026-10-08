@@ -444,8 +444,8 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     };
 
     // ── STEP 3: thread-safe write outputs, then log outside lock ──
-    pidLockWrite(webSockData);               // writes pidContainer + boilerHeating under appLock
-    utils_logWrite(webSockData.logBuffer, logEntry); // outside appLock → prevents R01 ABBA deadlock
+    pidLockWrite(webSockData);               // writes pidContainer + boilerHeating (caller holds dataMutex + pidOutMutex, KR-2)
+    utils_logWrite(webSockData.logBuffer, logEntry); // outside locks → prevents R01 ABBA deadlock
 
     /*
     Skalierte Strafe: Anstatt nur -2 zu geben, wenn Strom bezogen wird, bestrafst du hohen Bezug stärker. Das lehrt den Algorithmus, bei knapper PV-Leistung eher vorsichtig zu sein.
