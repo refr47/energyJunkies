@@ -90,8 +90,8 @@ private:
     unsigned long m_legionellenDelta;
     int   m_akkuPriori;
     float m_akkuLadung;
-    float m_gridPower;
-    float m_meterPower; // acCurrentPower
+    float m_gridPower;       // Fronius / Modbus Inverter-Wert
+    float m_meterPower;      // harmonisiert: Fronius p_load oder AMIS consumptionInWatt
     int   m_wattSetupForTest;
 
     // ── lokale Ausgabedaten (unter appLock() zurückgeschrieben) ──

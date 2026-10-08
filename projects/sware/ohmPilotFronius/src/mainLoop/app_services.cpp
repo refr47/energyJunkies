@@ -451,8 +451,8 @@ void serviceEnergy()
             g_app.webSockData.mbContainer.meterValues.data.acCurrentPower =
                 g_app.webSockData.amisReader.saldo;
             appUnlock();
-        }
-        else
+        }  
+        else 
         {
             handleLockFailure("AMIS reader succeeded, but could not acquire lock to update state");
         }

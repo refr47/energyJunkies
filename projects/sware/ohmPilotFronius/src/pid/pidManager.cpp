@@ -80,9 +80,9 @@ void PinManager::pidLockRead(WEBSOCK_DATA &data)
     }
 
     // ── input fields ──
+    // Harmonisierte Werte – egal ob Fronius oder AMIS-Reader
     m_sensor1               = data.temperature.sensor1;
     m_sensor2               = data.temperature.sensor2;
-    m_froniusAPI            = data.states.froniusAPI;
     m_boilerHeating         = data.setupData.forceHeating;
     m_tempMaxAllowed        = (int)data.setupData.tempMaxAllowedInGrad;
     m_tempMin               = (int)data.setupData.tempMinInGrad;
@@ -199,7 +199,8 @@ inline ControlMode PinManager::preCheck(int temp, unsigned long nowMS)
         reset();
         return MODE_OFF;
     }
-#ifdef BOILER
+
+    #ifdef LEGIONELLA
     // LEGIONELLA
     if (nowMS - lastLegionella > m_legionellenDelta /*7UL * 24 * 3600 * 1000*/)
         legionella = true;
@@ -222,13 +223,14 @@ inline ControlMode PinManager::preCheck(int temp, unsigned long nowMS)
             return MODE_LEGIONELLA;
         }
     }
+    #endif
     if (temp < m_tempMin)
     {
         LOG_DEBUG(TAG_PID, "PID: Min Temperatur <%d> erreicht: <%d>, einschalten", m_tempMin, temp);
         powerIndex = 0;
         return MODE_MIN_TEMP;
     }
-#endif
+
     if (m_boilerHeating != HEATING_AUTOMATIC)
     // LEGIONELLetupData.forceHeating != HEATING_AUTOMATIC) // no pid controller, all is forced
     {
@@ -239,32 +241,34 @@ inline ControlMode PinManager::preCheck(int temp, unsigned long nowMS)
 
     int availableWatt;
     //  <0:  einspeisen, >0: Bezug
+    // m_meterPower ist harmonisiert (Fronius p_load oder AMIS consumptionInWatt)
+    // Fronius mit Akku-Prioritäten: extra Logik für Ladezustand
     if (m_froniusAPI)
     {
         if (m_akkuLadung < 20.0f)
         { // <0: laden, >0 entladen
             if (m_akkuPriori == AKKU_PRIORITY_SUBORDINATED)
             {
-                availableWatt = (int)(m_akkuLadung + m_gridPower); // gird < 0: einspeisen, > 0 bezug
-                LOG_DEBUG(TAG_PID, "PID (Fronius) Akku priority subordinated (nachrangig), available Watt: %d", availableWatt);
+                availableWatt = (int)(m_akkuLadung + m_gridPower);
+                LOG_DEBUG(TAG_PID, "PID (Fronius) Akku nachrangig, available Watt: %d", availableWatt);
             }
             else
             {
-                LOG_DEBUG(TAG_PID, "PID (Fronius) Akku priority primary (vorrangig)available Watt: %d", availableWatt);
                 availableWatt = (int)m_gridPower;
+                LOG_DEBUG(TAG_PID, "PID (Fronius) Akku vorrangig, available Watt: %d", availableWatt);
             }
         }
         else
         {
             availableWatt = (int)m_gridPower;
-            LOG_DEBUG(TAG_PID, "PID (Fronius) Available Watt: %d", availableWatt);
+            LOG_INFO(TAG_PID, "PID (Fronius) Available Watt: %d", availableWatt);
         }
     }
     else
     {
-        // Modbus-Messwert
+        // Harmonisierter Wert – kommt vom AMIS-Reader (<0: Einspeisung, >0: Bezug)
         availableWatt = (int)m_meterPower;
-        LOG_DEBUG(TAG_PID, "PID No froniusAPI) AvailableWatt: %d", availableWatt);
+        LOG_INFO(TAG_PID, "PID Harmonisiert (AMIS/Modbus) AvailableWatt: %d", availableWatt);
     }
 
     // WATT-Bias for testing - only for testing
@@ -328,6 +332,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
     logEntry.temp = temp;
     logEntry.ts = curT;
 
+    m_froniusAPI = webSockData.states.froniusAPI; // Fronius API verfügbar?
     // ── STEP 2: core logic (thread-safe: only local members) ──
     ControlMode currentMode = preCheck(temp, now);
     int measuredPower = 0;
@@ -547,7 +552,7 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
         logEntry.power = 0;
         return;
     }
-#ifdef BOILER
+
     // 2 Relaisphasen plus eine PWM-Phase. Relais schalten nur bei voller
     // Phasenleistung plus Hysterese, damit sie am Schwellwert nicht flattern.
     const int margin = onePhase / 10;
@@ -603,113 +608,12 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
     LOG_INFO(TAG_PID, "Relais 1→ %d, Relais 2→ %d, pwm→ %d, pwmWatt→ %d", currentActive >= 1, currentActive >= 2, currentPWM, powerForPWM);
     LOG_INFO(TAG_PID, "Status Bitmaske: %d (L1: %d, L2: %d)",
              state, (state & 1), (state >> 1 & 1));
-#endif
-#ifdef PHASEN2
-    const float P_ph = (float)onePhase;
-    const float margin = P_ph * 0.10;       // 10% Hysterese (z.B. 100W bei 1000W Phase)
-    const unsigned long relayDelay = 10000; // 10 Sek. Beruhigungszeit
 
-    // 1. Relais-Logik (Hysterese)
-    // Wir nutzen 'targetPower' direkt als Entscheidungsgrundlage
-    LOG_DEBUG(TAG_PID, "apply (stern) - targetPower: %d, relayState: %d ,P_ph: %f", targetPower, relayState, P_ph);
 
-    if (!relayState)
-    {
-        LOG_DEBUG(TAG_PID, "apply (stern) - !relayState: ,relayCandidateTimer: %lu, relayDelay: %lu, targetPower: %d, P_ph: %f", targetPower, relayCandidateTimer);
-        // EINSCHALTEN: Wenn die Wunschleistung deutlich über einer Phase liegt
-        if (targetPower > (P_ph + margin))
-        {
-            if (relayCandidateTimer == 0)
-                relayCandidateTimer = now;
-            LOG_DEBUG(TAG_PID, "apply (stern) - now - relayCandidateTimer: %d, relayDelay: %d ", (now - relayCandidateTimer), relayDelay);
-            if (now - relayCandidateTimer > relayDelay)
-            {
-                relayState = true;
-                relayCandidateTimer = 0;
-                lastSwitch = now; // Zeitstempel für Hardware-Schutz
-                LOG_DEBUG(TAG_PID, "apply (stern) - targetPower > (P_ph + margin: %d, relayState: %d ,P_ph: %f", targetPower, relayState, P_ph);
-            }
-        }
-        else
-        {
-            relayCandidateTimer = 0;
-        }
-    }
-    else
-    {
-        // AUSSCHALTEN: Wenn die Wunschleistung unter die Phase minus Puffer fällt
-        if (targetPower < (P_ph - margin))
-        {
-            if (relayCandidateTimer == 0)
-                relayCandidateTimer = now;
-            if (now - relayCandidateTimer > relayDelay)
-            {
-                relayState = false;
-                relayCandidateTimer = 0;
-                lastSwitch = now;
-            }
-        }
-        else
-        {
-            relayCandidateTimer = 0;
-        }
-    }
-
-    // 2. PWM-Berechnung (Restwert-Regelung)
-    float P_for_pwm = 0;
-    if (relayState)
-    {
-        // Relais liefert die erste Phase (fix), PWM liefert den Rest
-        P_for_pwm = (float)targetPower - P_ph;
-    }
-    else
-    {
-        // Relais ist aus, PWM übernimmt die komplette targetPower (bis max P_ph)
-        P_for_pwm = (float)targetPower;
-    }
-
-    // Begrenzung auf 0 bis onePhase
-    P_for_pwm = constrain(P_for_pwm, 0, P_ph);
-
-    // Duty Cycle berechnen (0-255)
-    currentPWM = (int)((P_for_pwm / P_ph) * 255);
-
-    // LOG_DEBUG(TAG_PID, "apply (stern) - P_for_pwm: %f, finalPWM: %d, relayState: %d", P_for_pwm, finalPWM, relayState);
-    // Hardware-Output
-    digitalWrite(pinL1, relayState); // Phase 1
-    analogWrite(pwmPin, currentPWM); // Phase 3 (PWM)
-
-    // 3. LogEntry für das Frontend befüllen
-    logEntry.pwm = currentPWM;
-    logEntry.power = targetPower;
-
-    // Bitmaske: Bit 0 für Relais L1
-    int state = 0;
-    if (relayState)
-        state |= 1;
-    // Falls L2 dauerhaft an ist (Stern ohne N), könntest du hier Bit 1 setzen:
-    // state |= 2;
-    logEntry.state = state;
-
-    LOG_INFO(TAG_PID, "Apply Stern: Target %dW, Relay %s, PWM %d",
-             targetPower, relayState ? "AN" : "AUS", currentPWM);
-
-#endif
 
     LOG_INFO(TAG_PID, "PinManager::apply() - EXIT Task %s", pcTaskGetName(NULL));
 }
-#ifdef PHASEN2
-void PinManager::setRelaySafe(int pin, bool state, unsigned long &lastSwitch)
-{
-    unsigned long now = millis();
 
-    if (digitalRead(pin) != state && (now - lastSwitch > MIN_RELAY_SWITCH))
-    {
-        digitalWrite(pin, state);
-        lastSwitch = now;
-    }
-}
-#endif
 /*
 ******* HELPER
 */

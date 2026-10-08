@@ -50,12 +50,12 @@
 
 static RTC_DATA_ATTR int bootCount = 0;
 
-WEBSOCK_DATA &getDataForWebSocket()
+WEBSOCK_DATA& getDataForWebSocket()
 {
     return g_app.webSockData;
 }
 
-bool &setSetupChanged(bool didSetupChanged)
+bool& setSetupChanged(bool didSetupChanged)
 {
     ws_setSetupChanged(didSetupChanged);
     return g_app.webSockData.setupData.setupChanged;
@@ -65,24 +65,24 @@ void logging_init()
 {
     DBGf("main::logging_init() - log level: %d", LOG_LEVEL_ESP);
 
-  esp_log_level_set("*", ESP_LOG_DEBUG); 
+    esp_log_level_set("*", ESP_LOG_DEBUG);
 
-   /*  esp_log_level_set(TAG_WLAN, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_TEMP, ESP_LOG_DEBUG) */
+    /*  esp_log_level_set(TAG_WLAN, ESP_LOG_DEBUG);
+     esp_log_level_set(TAG_TEMP, ESP_LOG_DEBUG) */
     esp_log_level_set(TAG_PID, ESP_LOG_INFO);
     esp_log_level_set(TAG_MQTT, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_APP_SERVICES, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_WEB_SOCKETS, ESP_LOG_DEBUG); 
- /*    esp_log_level_set(TAG_WEB, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_APP_TASKS, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_SHELLY, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_CARD, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_MODBUS, ESP_LOG_DEBUG); */
+    esp_log_level_set(TAG_WEB_SOCKETS, ESP_LOG_DEBUG);
+    /*    esp_log_level_set(TAG_WEB, ESP_LOG_DEBUG);
+       esp_log_level_set(TAG_APP_TASKS, ESP_LOG_DEBUG);
+       esp_log_level_set(TAG_SHELLY, ESP_LOG_DEBUG);
+       esp_log_level_set(TAG_CARD, ESP_LOG_DEBUG);
+       esp_log_level_set(TAG_MODBUS, ESP_LOG_DEBUG); */
     esp_log_level_set(TAG_FRONIUS, ESP_LOG_DEBUG);
-    esp_log_level_set(TAG_AMIS, ESP_LOG_DEBUG);/* 
+    esp_log_level_set(TAG_AMIS, ESP_LOG_DEBUG);/*
     esp_log_level_set(TAG_WEATHER, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_INFLUX, ESP_LOG_DEBUG); */
-     esp_log_level_set(TAG_LOXONE, ESP_LOG_DEBUG);
+    esp_log_level_set(TAG_LOXONE, ESP_LOG_DEBUG);
 
     //  esp_log_set_vprintf(debug_LogOutput);
 
@@ -153,7 +153,7 @@ void setup()
         }
         else
         {
-            char *pBuf = g_app.globalStringBuffer;
+            char* pBuf = g_app.globalStringBuffer;
 
             LOG_DEBUG(TAG_MAIN, "main:: set app task to normal mode, because wifi connected");
             wifi_getLocalIP(&pBuf);
@@ -188,6 +188,10 @@ void setup()
 #endif
 
         g_app.webSockData.states.tempSensorOK = temp_init();
+        g_app.webSockData.states.froniusAPI = false;
+        g_app.webSockData.states.amisReader = false;
+
+
 
 #ifdef FRONIUS_IV
         bool akkuAvailable = false;
@@ -257,11 +261,17 @@ void setup()
         LOG_INFO(TAG_MAIN, "ForceHeating: %d", g_app.webSockData.setupData.forceHeating);
         LOG_INFO(TAG_MAIN, "LogReader: y");
         LOG_INFO(TAG_MAIN, "HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
+
+        if (! (g_app.webSockData.states.amisReader  || g_app.webSockData.states.froniusAPI))
+        {
+            LOG_ERROR(TAG_MAIN, "No data source configured. Please configure at least one data source. AmisReader: %d, Fronius", g_app.webSockData.states.amisReader, g_app.webSockData.states.froniusAPI);
+        }
+       
         tft_clearScreen();
         delay(5000);
     }
 
-    
+
     createAppTasks(credentials);
 
     LOG_INFO(TAG_MAIN, "Setup done - RTOS tasks started");
@@ -274,9 +284,9 @@ void loop()
     vTaskDelay(pdMS_TO_TICKS(10000));
     // Alle 5 Sekunden auf Serial ausgeben:
     LOG_INFO(TAG_MAIN, "Free Heap: %u | Max Alloc: %u | Connects: %d | Free Stack: %d bytes",
-             ESP.getFreeHeap(),
-             ESP.getMaxAllocHeap(),
-             WiFi.softAPgetStationNum(),
-             uxTaskGetStackHighWaterMark(NULL)); // Falls im AP Modus
-                                                 // Zeigt an, wie viele Bytes der Stack vom "Abgrund" (Canary) noch entfernt ist
+        ESP.getFreeHeap(),
+        ESP.getMaxAllocHeap(),
+        WiFi.softAPgetStationNum(),
+        uxTaskGetStackHighWaterMark(NULL)); // Falls im AP Modus
+    // Zeigt an, wie viele Bytes der Stack vom "Abgrund" (Canary) noch entfernt ist
 }
