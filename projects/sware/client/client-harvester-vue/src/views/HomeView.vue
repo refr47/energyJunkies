@@ -430,7 +430,7 @@ const tinyNNBufferPct = computed(() => hasTinyNN.value ? Math.round(props.liveDa
 // ── Stacked-Bar: Heizer-Leistung-Zusammensetzung ──
 const basePowerVal = computed(() => {
   // Basis-Leistung ≈ 25% (Regelung ohne Bonus)
-  return Math.max(0, Math.round(props.liveData?.hsPhase || 0));
+  return Math.max(0, Math.round(props.liveData?.ev || 0));
 });
 const weatherPowerBonus = computed(() => Math.round(weatherBonus.value * 5)); // grobe Konvertierung °C → W
 const nnPowerAdjust = computed(() => hasTinyNN.value ? Math.round((props.liveData.tinyNN_preheat - 0.5) * 200) : 0);
