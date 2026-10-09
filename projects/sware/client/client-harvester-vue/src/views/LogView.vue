@@ -6,7 +6,7 @@
                 <h2 class="font-black uppercase italic text-slate-800 text-lg tracking-tighter">System Analysis</h2>
                 <span
                     class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-bold border border-blue-100">
-                    {{ logs.length }} LOGS TOTAL
+                    {{ logs.length }} LOGS TOTAL / {{ maxLogs }}
                 </span>
             </div>
             <button @click="clearLogs"
@@ -162,7 +162,6 @@ const emit = defineEmits(['clear', 'update-max']); // Falls du das Limit nach ob
 
 const filterTag = ref("");
 const filterLevel = ref("");
-const displayLimit = ref(100);
 
 const currentPage = ref(1)
 const itemsPerPage = 20
@@ -188,10 +187,7 @@ const getLevelClass = (lvl) => {
 
 const clearLogs = () => {
     if (confirm("Alle Logs im Browser löschen?")) {
-        // Da props eigentlich nicht direkt verändert werden sollten:
-        // Falls logEntries in App.vue ein ref ist, ist das hier ein schneller Hack.
-        // Sauberer wäre: emit('clear');
-        props.logs.splice(0, props.logs.length);
+        emit('clear');
     }
 };
 
@@ -222,13 +218,11 @@ const getDuration = (first, last) => {
 const filteredLogs = computed(() => {
     if (!props.logs) return [];
 
-    return props.logs
-        .filter(l => {
-            const tagMatch = !filterTag.value || l.tag === filterTag.value;
-            const lvlMatch = !filterLevel.value || l.level === filterLevel.value;
-            return tagMatch && lvlMatch;
-        })
-        .slice(0, displayLimit.value);
+    return props.logs.filter(l => {
+        const tagMatch = !filterTag.value || l.tag === filterTag.value;
+        const lvlMatch = !filterLevel.value || l.level === filterLevel.value;
+        return tagMatch && lvlMatch;
+    });
 });
 
 const paginatedLogs = computed(() => {

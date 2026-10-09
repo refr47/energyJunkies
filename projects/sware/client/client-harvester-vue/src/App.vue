@@ -38,7 +38,7 @@
 
 
 
-L<script setup>
+<script setup>
 import { ref, onMounted, onUnmounted, provide } from "vue";
 import Navbar from "./components/TopNavbar.vue";
 import LoginForm from './components/LoginForm.vue';
@@ -50,7 +50,7 @@ const weather = ref({ temp: '--', label: 'Lade...', icon: 'Loading' });
 let socket = null;
 const isClearing = ref(false);
 const logEntries = ref([]);
-const maxLogs = ref(50); // Einstellbar
+const maxLogs = ref(2000); // Erhöht: 50 → 2000 (ESP32 RingBuffer=60, IndexedDB persistent)
 
 const isLoggedIn = ref(false);
 const liveData = ref({
@@ -120,8 +120,10 @@ VariableC-TypBytesSummetsuint32_t44stateuint8_t15powerint16_t27pwmuint8_t18tempi
   */
 
   const structSize = 10;
+  // FIX #1: count auf verfügbare Bytes begrenzen (verhindert DataView-Crash)
+  const safeCount = Math.min(count, Math.floor(bytes.byteLength / structSize));
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < safeCount; i++) {
     let offset = i * structSize;
     entries.push({
       ts: view.getUint32(offset + 0, true), // Byte 0, 1, 2, 3
@@ -141,64 +143,66 @@ VariableC-TypBytesSummetsuint32_t44stateuint8_t15powerint16_t27pwmuint8_t18tempi
 
 const handleWebSockData = async (data) => {
   if (isClearing.value) return;
-  console.log("handleWebSockData aufgerufen mit Daten:", data);
 
   // 1. Prüfen, ob der neue 'blob' vorhanden ist
-  if (data.log && data.log.blob && data.log.len > 0) {
+  if (!data?.log?.blob || data.log.len <= 0) {
+    // Kein Log-Blob: nur liveData aktualisieren
+    if (data?.live) liveData.value = data.live;
+    return;
+  }
 
-    // 2. Den Blob in ein Array von Objekten umwandeln
-    const decodedEntries = await parseLogBlob(data.log.blob, data.log.len);
-    //console.table(decodedEntries);
-    // 3. Bestehende Deduplizierungs-Logik anwenden
-    decodedEntries.forEach((newEntry) => {
-      const exists = logEntries.value.some(e => e.ts === newEntry.ts);
-      if (exists) return;
-      const last = logEntries.value[0]; // Der aktuell neueste im Speicher
+  // 2. Den Blob in ein Array von Objekten umwandeln
+  const decodedEntries = await parseLogBlob(data.log.blob, data.log.len);
 
-      // Ähnlichkeitscheck (angepasst an die neuen Feldnamen im Struct)
-      const isIdentical = last &&
-        newEntry.state === last.state &&
-        newEntry.power === last.power &&
-        newEntry.pwm === last.pwm &&
-        newEntry.temp === last.temp;
+  // 3. liveData aktualisieren
+  if (data?.live) liveData.value = data.live;
 
-      if (isIdentical) {
-        // Nur Zeitstempel aktualisieren
-        last.lastSeen = newEntry.ts;
-      } else {
-        // Neu oder geändert -> vorne einfügen
-        logEntries.value.unshift({
-          ...newEntry,
-          firstSeen: newEntry.ts,
-          lastSeen: newEntry.ts
-        });
-      }
-    });
+  // 4. Deduplizierungs-Logik anwenden (korrekt: 'last' neu bei jedem Durchlauf lesen!)
+  for (const newEntry of decodedEntries) {
+    const exists = logEntries.value.some(e => e.ts === newEntry.ts);
+    if (exists) continue;
 
-    // 4. Speicherlimit einhalten (Slice)
-    if (logEntries.value.length > maxLogs.value) {
-      logEntries.value = logEntries.value.slice(0, maxLogs.value);
+    // AKTUELLEN letzten Eintrag lesen (nicht vor der Schleife!)
+    const last = logEntries.value[0];
+
+    // Ähnlichkeitscheck
+    const isIdentical = last &&
+      newEntry.state === last.state &&
+      newEntry.power === last.power &&
+      newEntry.pwm === last.pwm &&
+      newEntry.temp === last.temp;
+
+    if (isIdentical) {
+      last.lastSeen = newEntry.ts;
+    } else {
+      logEntries.value.unshift({
+        ...newEntry,
+        firstSeen: newEntry.ts,
+        lastSeen: newEntry.ts
+      });
     }
+  }
+
+  // 5. Speicherlimit einhalten (Slice)
+  if (logEntries.value.length > maxLogs.value) {
+    logEntries.value = logEntries.value.slice(0, maxLogs.value);
   }
 };
 
 const initWebSocket = () => {
-  let simTimer = null; // WICHTIG: Hier oben parken
   const isLocal = import.meta.env.DEV ||
     window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1';
-  console.log("WebSocket Init: Ist lokale Entwicklung?", isLocal);
 
+  // FIX #3: Kein Doppel-Socket wenn bereits verbunden
+  if (socket && socket.readyState <= 1) {
+    return;
+  }
 
-
-  if (isLocal && !simTimer) {
-    console.log("🛠️ Dev-Mode: Simuliere ESP32 Daten...");
-    simTimer = setInterval(simulateData, 3000);
-
+  if (isLocal) {
     isConnected.value = true;
     return;
   }
-  console.log("🔌 Verbinde mit ESP32 WebSocket...");
 
   const gateway = `ws://${window.location.hostname}/ws`;
   socket = new WebSocket(gateway);
@@ -206,19 +210,26 @@ const initWebSocket = () => {
   socket.onopen = () => {
     isConnected.value = true;
   };
+  // FIX #4: onerror-Handler für stille Verbindungsabbrüche
+  socket.onerror = (err) => {
+    isConnected.value = false;
+    console.error("WebSocket Fehler:", err);
+  };
   socket.onclose = () => {
     isConnected.value = false;
+    // Reconnect nur wenn Socket wirklich geschlossen
+    if (socket && socket.readyState !== 3) return;
     setTimeout(initWebSocket, 3000);
   };
   socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    isConnected.value = true;
-    liveData.value = data.live;
-    //logEntries.value = data.log.entries;
-    handleWebSockData(data);
-
-
-
+    try {
+      const data = JSON.parse(event.data);
+      isConnected.value = true;
+      liveData.value = data.live;
+      handleWebSockData(data);
+    } catch (err) {
+      console.error("WebSocket Message Parse Error:", err);
+    }
   };
 };
 
@@ -226,12 +237,15 @@ const initWebSocket = () => {
 
 
 const startApplication = async () => {
-  console.log("Starte App-Dienste...");
+  // FIX #3: Sauberes Socket-Shutdown (Handler erst vor close deaktivieren)
   if (socket) {
-    console.log("WebSocket bereits offen, schließe alten Socket...");
     socket.onclose = null;
-    socket.close();
-    socket = null; // Speicher freigeben
+    socket.onerror = null;
+    socket.onmessage = null;
+    if (socket.readyState <= 1) {
+      socket.close();
+    }
+    socket = null;
   }
 
   // 1. Zuerst lokale Daten laden (Sorgt für sofortige Anzeige)
@@ -239,8 +253,12 @@ const startApplication = async () => {
     await cleanOldLogs();
     const savedLogs = await db.logs.orderBy('ts').toArray();
     if (savedLogs.length > 0) {
-
-      logEntries.value = savedLogs;
+      // firstSeen/lastSeen anreichern (fehlen bei reinem DB-Ladestand)
+      logEntries.value = savedLogs.map(entry => ({
+        ...entry,
+        firstSeen: entry.firstSeen ?? entry.ts,
+        lastSeen: entry.lastSeen ?? entry.ts
+      }));
       console.log(`${savedLogs.length} Logs aus IndexedDB geladen.`);
     }
   } catch (err) {
@@ -253,17 +271,27 @@ const startApplication = async () => {
 
 
 
+// FIX #2: Timer-IDs speichern für sauberes onUnmounted-Cleanup
+let weatherTimer = null;
 // Referenz auf den Socket, damit wir ihn überall im Script erreichen
 
 
 
 // --- HIER DER WICHTIGE TEIL ---
 onUnmounted(() => {
+  // FIX #2+#3: Sauberes Socket- und Timer-Cleanup
   if (socket) {
-    console.log("Schließe WebSocket vor dem Unmount...");
     socket.onclose = null;
-    socket.close();
-    socket = null; // Speicher freigeben
+    socket.onerror = null;
+    socket.onmessage = null;
+    if (socket.readyState <= 1) {
+      socket.close();
+    }
+    socket = null;
+  }
+  if (weatherTimer) {
+    clearInterval(weatherTimer);
+    weatherTimer = null;
   }
 });
 
@@ -383,9 +411,9 @@ onMounted(async () => {
     isLoggedIn.value = true;
     startApplication();
     fetchWeather();
-    setInterval(fetchWeather, 1000 * 60 * 15); // Alle 15 Min aktualisiere
+    // FIX #2: Timer-ID speichern für Cleanup
+    weatherTimer = setInterval(fetchWeather, 1000 * 60 * 15);
   }
-  //initWebSocket()
 });
 
 // Simulation für die Entwicklung am PC

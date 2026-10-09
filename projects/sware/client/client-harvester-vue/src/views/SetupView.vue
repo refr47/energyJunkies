@@ -174,11 +174,7 @@ const load = async () => {
     notify("Konfiguration erfolgreich geladen!", "success");
   } catch (e) {
     statusMsg.value = "Konnte Daten vom ESP32 nicht laden.";
-
     notify("Fehler beim Laden der Konfiguration!", "error");
-    if (data.error.code == 1) {
-      console.log("Error in fetching data (setup): " + data.error.msg)
-    }
   }
 };
 
@@ -199,7 +195,7 @@ const pushToESP = async () => {
     } else {
       notify("Fehler beim Speichern der Konfiguration!", "error");
       if (data.error) {
-        console.log.error("Error in storing setup ", data.error)
+        console.error("Error in storing setup: ", data.error);
       }
     }
   } catch (e) {
