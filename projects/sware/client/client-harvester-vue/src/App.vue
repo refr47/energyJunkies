@@ -17,9 +17,8 @@
         <router-view :logs="logEntries" :isConnected="isConnected" :maxLogs="maxLogs" @update-max="v => maxLogs = v" /> -->
       </main>
 
-      <footer class="w-full flex items-center border-t border-slate-200 bg-white overflow-hidden p-0 m-0">
-        <img src="/img/Energies.jpg" alt="Footer Logo" class="h-20 block m-0 p-0 object-fill"
-          style="width: 2000px !important;" />
+      <footer class="w-full flex flex-col sm:flex-row items-center border-t border-slate-200 bg-white overflow-hidden p-0 m-0">
+        <img src="/img/Energies.jpg" alt="Footer Logo" class="h-12 sm:h-20 w-full sm:w-auto block m-0 p-0 object-cover" />
         <div class="flex-grow text-right pr-5">
           <p class="text-slate-400 text-[10px] uppercase m-0">
             &copy; 2024-2026 Energie Junkies
