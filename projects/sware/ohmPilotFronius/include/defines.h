@@ -175,6 +175,17 @@ typedef struct pidContaienr
     int powerNotUseable; // power, die nicht verbraucht werden darf
     int PID_PIN1;
     int PID_PIN2;
+
+    // ── Wetter-Prediction (immer vorhanden, Dummy-Werte wenn WEATHER_API aus) ──
+    int weatherBonus;        // Preheat-Bonus in °C (0..WEATHER_PREHEAT_MAX_BONUS)
+    float weatherPvRatio;    // heute/morgen PV-Verhältnis [0..2]
+    float weatherCloudAvg;   // Wolken-Mittelwert [0..1]  (0=klar, 1=bedeckt)
+    float weatherOutTemp;    // Aussentemperatur [°C]
+
+#ifdef TINYNN_ENABLE
+    float tinyNN_preheat_score;  // NN Preheat-Wahrscheinlichkeit [0.0..1.0] 
+    float tinyNN_buffer_pct;     // NN Energiebudget-Füllung [0.0..1.0]
+#endif
 } PID_CONTAINER;
 
 typedef struct _LIFE_DATA

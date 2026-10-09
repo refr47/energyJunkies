@@ -156,6 +156,19 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
     live[HEIZPATRONE_L3]         = data.pidContainer.mAnalogOut;
     live[FORCE_HEIZPATRONE]      = (int)data.setupData.forceHeating;
     live[HEIZSTAB_LEISTUNG_PHASE] = floor(data.setupData.heizstab_leistung_in_watt / 3);
+
+    // ── Wetter-Forecast ── (immer vorhanden, Dummy-Werte wenn WEATHER_API aus)
+    live["weatherBonus"]       = data.pidContainer.weatherBonus;
+    live["weatherPvRatio"]     = data.pidContainer.weatherPvRatio;
+    live["weatherCloudAvg"]    = data.pidContainer.weatherCloudAvg;
+    live["weatherOutTemp"]     = data.pidContainer.weatherOutTemp;
+
+#ifdef TINYNN_ENABLE
+    // ── TinyNN-Neural-Network Prediction ──
+    live["tinyNN_preheat"]     = data.pidContainer.tinyNN_preheat_score;
+    live["tinyNN_buffer"]      = data.pidContainer.tinyNN_buffer_pct;
+#endif
+
     live[AAKU_AVAILABLE]         = data.setupData.akku;
     live[AKKU_CAPACITA]          = data.mbContainer.akkuState.data.capacity;
     live[AKKU_ZUSTAND]           = data.mbContainer.akkuStr.data.stateOfCharge;

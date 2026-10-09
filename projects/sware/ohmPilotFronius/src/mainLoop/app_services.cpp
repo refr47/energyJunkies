@@ -116,8 +116,6 @@ static int averageTemp()
 
 void serviceClock()
 {
-    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceClock - update time and ip addr");
-
     if (getCurrentTime(g_app.formatBuffer, FORMAT_CHAR_BUFFER_LEN))
     {
         if (xSemaphoreTake(g_tftMutex, pdMS_TO_TICKS(50)) == pdTRUE)
@@ -137,10 +135,11 @@ void serviceClock()
 
     g_app.secondsCounter++;
     g_app.secondsCounter %= SECONDS_PER_DAY;
-    // char *ipBuffer = g_app.webSockData.setupData.currentIP;
-    String s = WiFi.localIP().toString();
-    LOG_INFO(TAG_APP_SERVICES, "Current IP: %s", s.c_str());
     ledHandler_blink();
+
+    // IP-Adresse nur bei Fehler loggen
+    // String s = WiFi.localIP().toString();
+    // LOG_INFO(TAG_APP_SERVICES, "Current IP: %s", s.c_str());
 
 #ifdef MQTT
     {
@@ -173,8 +172,6 @@ uint8_t serviceErrorBlink()
 
 void serviceNetworkSupervisor()
 {
-    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceNetworkSupervisor ");
-
     // -- Netzwerkpruefung: setupData unter Lock kopieren --
     Setup localSetup;
     {
@@ -290,7 +287,6 @@ void serviceNetworkSupervisor()
 
 void serviceTemperature()
 {
-    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceTemperature ");
     if (!temp_getTemperature(g_app.webSockData.temperature))
     {
         ledHandler_showTemperaturError(true);
@@ -662,8 +658,6 @@ static float weatherGetTempOutside()     { return 20.0f; }// default
 // =============================================================================
 void serviceEnergy()
 {
-    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEnergy - ");
-
     if (!networkIsAvailable())
     {
         tryMarkNetworkDown(
@@ -693,7 +687,6 @@ void serviceEnergy()
 
 void servicePid()
 {
-    LOG_INFO(TAG_APP_SERVICES, "app_services::servicePid - ");
     // KR-2: pinManager.update accesses both DATA (webSockData) + PIDOUT (pinManager)
     if (appLockData(LOCK_TIMEOUT_DATA_MS) && appLockPidOut(LOCK_TIMEOUT_PIDOUT_MS))
     {
@@ -729,7 +722,6 @@ void serviceWeb()
     }
     if (!networkOK)
     {
-        LOG_INFO(TAG_APP_SERVICES, "ServiceWeb cannot be executed due to network down state");
         return;
     }
 
@@ -745,7 +737,6 @@ void serviceWeb()
         bool changed = g_app.webSockData.setupData.setupChanged;
         appUnlockData();
 
-        LOG_INFO(TAG_APP_SERVICES, "ServiceWeb - data changed? %d", changed);
         if (changed)
         {
             // KR-2: hotUpdate accesses DATA (webSockData) + PIDOUT (pinManager)
@@ -780,7 +771,6 @@ void serviceWeb()
 
 void serviceMaintenance()
 {
-    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceMaintenance - ");
     g_app.heapSize[0].heapSize = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     g_app.heapSize[0].heapSizeMax = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
 

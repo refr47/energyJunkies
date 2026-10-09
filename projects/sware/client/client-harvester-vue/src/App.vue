@@ -433,6 +433,14 @@ const simulateData = () => {
   liveData.value.aakStat = Math.random() > 0.5 ? 20 : 40; // Simuliere Export/
   liveData.value.aakPower = Math.random() > 0.5 ? 3000 : 2000; // Simuisliere Export/
   liveData.value.aakEntladen = Math.random() > 0.5 ? -1 : 1; // Simuliere Entladen/
+  // Wetter-Forecast (immer vorhanden, auch wenn ESP32 WEATHER_API aus)
+  liveData.value.weatherBonus = Math.random() > 0.5 ? 3 : 0;
+  liveData.value.weatherPvRatio = (Math.random() * 1.5 + 0.5).toFixed(2);
+  liveData.value.weatherCloudAvg = (Math.random() * 0.6).toFixed(2);
+  liveData.value.weatherOutTemp = (Math.random() * 30 + 5).toFixed(1);
+  // TinyNN (optional – nur wenn ESP32 TINYNN_ENABLE aktiv hat)
+  liveData.value.tinyNN_preheat = (Math.random()).toFixed(2);
+  liveData.value.tinyNN_buffer = (Math.random()).toFixed(2);
   console.log("isLoggedIn:", isLoggedIn.value);
   if (isLoggedIn.value) {
     console.log("Simuliere Log-Daten... mockPayload wird erstellt und verarbeitet");

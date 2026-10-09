@@ -297,7 +297,6 @@ bool appTask_epromWriter(std::unique_ptr<Setup> setup)
         LOG_ERROR(TAG_APP_SERVICES, "Setup pointer is null.");
         return false;
     }
-    LOG_DEBUG(TAG_APP_SERVICES, "Start Queue - size: %d", sizeof(*setup));
     Setup* rawPtr = setup.release();
     if (xQueueSend(setupQueue, (const void*)rawPtr, pdMS_TO_TICKS(5000)) != pdPASS)
     {
@@ -305,7 +304,6 @@ bool appTask_epromWriter(std::unique_ptr<Setup> setup)
         delete rawPtr;
         return false;
     }
-    LOG_DEBUG(TAG_APP_SERVICES, "Start Queue - done: ");
     return true;
 }
 
@@ -349,9 +347,6 @@ static void taskSimpleMonitor(void* pv)
                     LOG_DEBUG("MON", "Checking task: %s", entry.name);
                     uint32_t stack = uxTaskGetStackHighWaterMark(h) * 4;
 
-                    LOG_INFO("MON", "%s stack: %u bytes",
-                             entry.name,
-                             stack);
 
                     if (stack < 300)
                     {
@@ -364,8 +359,6 @@ static void taskSimpleMonitor(void* pv)
                 LOG_ERROR("MON", "%s NOT RUNNING", entry.name);
             }
         } */
-
-        LOG_INFO("MON", "Free Heap: %u", esp_get_free_heap_size());
 
         vTaskDelay(pdMS_TO_TICKS(3000));
     }

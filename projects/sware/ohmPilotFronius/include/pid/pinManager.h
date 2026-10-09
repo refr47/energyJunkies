@@ -103,6 +103,16 @@ private:
     bool  m_out_boilerHeating;
     bool  m_out_wattBiasForTest;
 
+    // ── Prediction-Member (für pidLockWrite → WebSocket → Client) ──
+    int   m_weatherBonus;
+    float m_weatherPvRatio;
+    float m_weatherCloudAvg;
+    float m_weatherOutTemp;
+#ifdef TINYNN_ENABLE
+    float m_tinyNN_preheat;
+    float m_tinyNN_buffer;
+#endif
+
     // Internal 
     int tempState(double t);
     int pvState(double p);

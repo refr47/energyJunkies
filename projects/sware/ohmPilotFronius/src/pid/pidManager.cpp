@@ -112,6 +112,16 @@ void PinManager::pidLockWrite(WEBSOCK_DATA &data)
     data.pidContainer.mAnalogOut   = currentPWM;
     data.pidContainer.PID_PIN1     = digitalRead(pinL1) == HIGH ? 1 : 0;
     data.pidContainer.PID_PIN2     = digitalRead(pinL2) == HIGH ? 1 : 0;
+
+    // ── Weather + TinyNN Prediction ──
+    data.pidContainer.weatherBonus     = m_weatherBonus;       
+    data.pidContainer.weatherPvRatio   = m_weatherPvRatio;  
+    data.pidContainer.weatherCloudAvg  = m_weatherCloudAvg;
+    data.pidContainer.weatherOutTemp   = m_weatherOutTemp;
+#ifdef TINYNN_ENABLE
+    data.pidContainer.tinyNN_preheat_score = m_tinyNN_preheat;
+    data.pidContainer.tinyNN_buffer_pct    = m_tinyNN_buffer;
+#endif
 }
 
 /*
@@ -344,6 +354,16 @@ void PinManager::update(WEBSOCK_DATA &webSockData, int tempMaxBonusC,
     pidLockRead(webSockData);
     m_out_boilerHeating = false;
 
+    // ── Prediction-Member initialisieren (für pidLockWrite, auch bei early-return) ──
+    m_weatherBonus     = tempMaxBonusC;
+    m_weatherPvRatio   = pvRatio;
+    m_weatherCloudAvg  = cloudAvg;
+    m_weatherOutTemp   = tempOutside;
+#ifdef TINYNN_ENABLE
+    m_tinyNN_preheat   = 0.0f;      // wird unten durch predict() überschrieben
+    m_tinyNN_buffer    = 0.0f;
+#endif
+
     // ── Wetter-Bonus: tempMaxAllowed dynamisch anpassen ──
     //    bonus>0 → boiler heizt bis setupMax + bonus (capped bei MAX_SAFE)
 #ifdef WEATHER_API
@@ -394,6 +414,16 @@ void PinManager::update(WEBSOCK_DATA &webSockData, int tempMaxBonusC,
              pred.preheat_score, pred.buffer_pct,
              tempNorm, pvNorm, cloudNorm, outNorm);
 
+#endif
+
+    // ── Prediction → Member für pidLockWrite → WebSocket → Client ──
+    m_weatherBonus     = tempMaxBonusC;
+    m_weatherPvRatio   = pvRatio;
+    m_weatherCloudAvg  = cloudAvg;
+    m_weatherOutTemp   = tempOutside;
+#ifdef TINYNN_ENABLE
+    m_tinyNN_preheat   = pred.preheat_score;
+    m_tinyNN_buffer    = pred.buffer_pct;
 #endif
 
 
