@@ -1,7 +1,9 @@
 #pragma once
 #include <Arduino.h>
 #include "defines.h"
+#ifdef TINYNN_ENABLE
 #include "TinyNN.h"
+#endif
 
 #include <vector>
 #include <iostream>
@@ -24,7 +26,8 @@ class PinManager
 {
 public:
     void config(WEBSOCK_DATA &data, int l1, int l2, int pwm);
-    void update(WEBSOCK_DATA &webSockData, int tempMaxBonusC = 0);
+    void update(WEBSOCK_DATA &webSockData, int tempMaxBonusC,
+                float pvRatio, float cloudAvg, float tempOutside);
     ~PinManager();
     // helper
     void allOn();
@@ -55,7 +58,9 @@ private:
     int lastTargetPower = 0;    // Speicher für den letzten Sollwert
     int rest = 0;
 
+#ifdef TINYNN_ENABLE
     TinyNN *tinyNN;
+#endif
 
     // RL
    /*  static const int S_T = 5;

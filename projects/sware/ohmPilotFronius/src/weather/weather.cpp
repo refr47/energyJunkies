@@ -136,19 +136,25 @@ static void computeForecast(PROGNOSE &prognose)
 
     int n = time_GetDayOfYear();
 
-    float energyToday    = 0; // Wh, risk-adjustiert
-    float energyTomorrow = 0;
+    float energyToday     = 0; // Wh, risk-adjustiert
+    float energyTomorrow  = 0;
+    float cloudSum        = 0; // für Wolkenmittel
+    float tempOutsideSum  = 0; // für Aussentemp-Mittel
 
     // ── 48 Hours durchrechnen ──
     //    Stunden 00-23  → heute
     //    Stunden 24-47 → morgen
     for (int h = 0; h < 48; h++)
     {
-        float G     = G_arr[h] | 0;
-        float cc    = cloud[h] | 0;
-        float pr    = precip[h] | 0;
-        float sdur  = sunsec[h] | 0;
-        float T_amb = Tamb[h] | 20;
+        float G         = G_arr[h] | 0;
+        float cc        = cloud[h] | 0;
+        float pr        = precip[h] | 0;
+        float sdur      = sunsec[h] | 0;
+        float T_amb     = Tamb[h] | 20;
+
+        // ── TinyNN Features ──
+        cloudSum     += cc;
+        tempOutsideSum+= T_amb;
 
         // ── Effektive Globalstrahlung (Sonnenschein-Dauer Skala) ──
         float G_eff = G * (sdur / 3600.0f);
@@ -177,12 +183,15 @@ static void computeForecast(PROGNOSE &prognose)
     prognose.forecastToday   = (int)(energyToday    * 1000.0f + 0.5f);
     prognose.forecastTomorow = (int)(energyTomorrow * 1000.0f + 0.5f);
 
+    // ── TinyNN Features ─────────────────────────────────────────────────
+    prognose.cloudAverage   = (cloudSum     / 48.0f) / 100.0f;  // [0..1]
+    prognose.tempOutside    = tempOutsideSum / 48.0f;           // [°C]
+    prognose.pvRatio        = (prognose.forecastTomorow > 10)
+                            ? (float)prognose.forecastToday / (float)prognose.forecastTomorow
+                            : 1.0f;
+
     // ── Preheat-Bonus aus ratio ─────────────────────────────────────────
-    float ratio = 0;
-    if (prognose.forecastTomorow > 10) // Guard: keine Division durch 0
-    {
-        ratio = (float)prognose.forecastToday / (float)prognose.forecastTomorow;
-    }
+    float ratio = prognose.pvRatio;
 
     int bonus = 0;
     if (ratio >= 2.5f)

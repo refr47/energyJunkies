@@ -135,7 +135,7 @@ void setup()
         LOG_DEBUG(TAG_MAIN, "main:: Network credentials in eeprom, trying to connect to wifi");
         g_app.networkCredentialsInEEprom = true;
         appTasks_init(false); // ap-mode false, because wifi found
-    }
+    } 
 
     if (g_app.networkCredentialsInEEprom)
     {

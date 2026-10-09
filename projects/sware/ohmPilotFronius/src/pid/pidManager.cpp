@@ -3,6 +3,10 @@
 #include "utils.h"
 #include "ledHandler.h"
 #include "app_sync.h"
+#ifdef TINYNN_ENABLE
+#include "TinyNN.h"
+
+#endif
 #ifdef WEATHER_API
 #include "weather.h"
 #endif
@@ -29,20 +33,27 @@ int wattToPwm(int watt, int onePhase)
 }
 }
 
+#ifdef TINYNN_ENABLE
 PinManager::~PinManager()
 {
     delete tinyNN;
     tinyNN = nullptr;
 }
+#else
+PinManager::~PinManager()
+{}
+#endif
 
 void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 {
+#ifdef TINYNN_ENABLE
     if (tinyNN != nullptr)
     {
         LOG_DEBUG(TAG_PID, "PinManager::config - TinyNN wird freigegeben vor Neukonfiguration");
         delete tinyNN;
         tinyNN = nullptr;
     }
+#endif
 
     onePhase = data.setupData.heizstab_leistung_in_watt / 3;
 
@@ -58,9 +69,12 @@ void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
     legionella = false;
     availablePower.clear();
     reset();
-    int delta = data.setupData.tempMaxAllowedInGrad - data.setupData.tempMinInGrad;
 
-    tinyNN = new TinyNN(data.setupData.heizstab_leistung_in_watt, delta / 2.0, delta);
+#ifdef TINYNN_ENABLE
+    tinyNN = new TinyNN(data.setupData.heizstab_leistung_in_watt,
+                       (float)data.setupData.tempMinInGrad,
+                       (float)data.setupData.tempMaxAllowedInGrad);
+#endif
 }
 
 /*
@@ -301,48 +315,6 @@ int PinManager::handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doM
     return target;
 }
 
-/*
-****** computeMLReward – RL-Belohnung für den aktuellen Zustand
-**  Skalierte Strafe, Sweet-Spot-Bonus, Temperatur-Management,
-**  Hardware-Schonung und Sicherheit
-*/
-float PinManager::computeMLReward(int measuredPower, int targetPower, int temp)
-{
-    float reward = 0.0f;
-
-    // 1. "Sweet Spot" (Netz-Null-Punkt)
-    if (measuredPower > 0)
-    {
-        reward -= (measuredPower / 50.0f);  // Bezug: Strafe
-    }
-    else if (measuredPower < 0)
-    {
-        if (measuredPower > -50)
-            reward += 10.0f;  // Bonus wenn nah an der Null
-        else
-            reward += 2.0f;   // Kleiner Bonus
-    }
-
-    // 2. Temperatur-Management (Ziel: 57°C)
-    float tempDiff = abs(temp - 57);
-    if (tempDiff < 2)
-        reward += 5.0f;
-    else
-        reward -= (tempDiff * 0.5f);
-
-    // 3. Hardware-Schonung (Relais-Check)
-    static int lastActionPhases = 0;
-    int currentActionPhases = (int)(targetPower / onePhase);
-    if (currentActionPhases != lastActionPhases)
-        reward -= 5.0f;
-    lastActionPhases = currentActionPhases;
-
-    // 4. Sicherheit (Extremwerte)
-    if (temp > (m_tempMaxAllowed - 2))
-        reward -= 20.0f;
-
-    return reward;
-}
 
 /*
 ****** logStackWarning – check Stack High-Water Mark
@@ -360,7 +332,8 @@ void PinManager::logStackWarning()
 ****** Main UPDATE
 **  Orchestrierung: Input → Guard → Mode → Apply → Write → ML
 */
-void PinManager::update(WEBSOCK_DATA &webSockData, int tempMaxBonusC)
+void PinManager::update(WEBSOCK_DATA &webSockData, int tempMaxBonusC,
+                        float pvRatio, float cloudAvg, float tempOutside)
 {
     unsigned long now = millis();
     LogEntry logEntry{};
@@ -404,6 +377,26 @@ void PinManager::update(WEBSOCK_DATA &webSockData, int tempMaxBonusC)
     logEntry.ts   = curT;
     m_froniusAPI  = webSockData.states.froniusAPI;
 
+#ifdef TINYNN_ENABLE
+    // ── STEP 1a: TinyNN-Prädiktion (Energiebudget) ──
+    //    Inputs normalieren: temp [-1..1], pv_ratio [-1..1], cloud [0..1], out_temp [-1..1]
+    float tempNorm     = 2.0f * ((float)temp - m_tempMin) / (m_tempMaxAllowed - m_tempMin) - 1.0f;
+    tempNorm        = tempNorm < -1.0f ? -1.0f : (tempNorm > 1.0f ? 1.0f : tempNorm);
+    float pvNorm       = 2.0f * pvRatio - 1.0f;  // [0..2] → [-1..1]
+    pvNorm        = pvNorm < -1.0f ? -1.0f : (pvNorm > 1.0f ? 1.0f : pvNorm);
+    float cloudNorm    = cloudAvg;                 // [0..1] schon normalisiert
+    float outNorm      = (tempOutside - 20.0f) / 20.0f; // [0..40] → [-1..1]
+    outNorm       = outNorm < -1.0f ? -1.0f : (outNorm > 1.0f ? 1.0f : outNorm);
+    
+    TinyNNPrediction pred = tinyNN->predict(tempNorm, pvNorm, cloudNorm, outNorm);
+    
+    LOG_INFO(TAG_PID, "TinyNN: preheat=%.2f buffer=%.2f (t=%.1f pv=%.1f cld=%.2f o=%.1f)",
+             pred.preheat_score, pred.buffer_pct,
+             tempNorm, pvNorm, cloudNorm, outNorm);
+
+#endif
+
+
     // ── STEP 2: Guard-Checks (Legionella, Min/Max Temp, Manual) → MODE ──
     ControlMode currentMode;
     bool doML = true;
@@ -439,6 +432,25 @@ void PinManager::update(WEBSOCK_DATA &webSockData, int tempMaxBonusC)
     case MODE_AUTO:
         targetPower = handleModeAuto(logEntry, measuredPower, doML);
         action      = targetPower / onePhase;
+        
+#ifdef TINYNN_ENABLE
+        // ── TinyNN preheat_score → Boost targetPower wenn Budget es erlaubt ──
+        //    preheat > 0.7 + buffer > 0.6 → +20% Power
+        //    preheat > 0.4 + buffer > 0.3 → +10% Power
+        if (doML && targetPower > 0 && pred.preheat_score > 0.7f && pred.buffer_pct > 0.6f)
+        {
+            int boost = targetPower * 20 / 100;
+            targetPower += boost;
+            LOG_INFO(TAG_PID, "TinyNN-BOOST: +20%% (%d→%d W)", targetPower - boost, targetPower);
+        }
+        else if (doML && targetPower > 0 && pred.preheat_score > 0.4f && pred.buffer_pct > 0.3f)
+        {
+            int boost = targetPower * 10 / 100;
+            targetPower += boost;
+            LOG_INFO(TAG_PID, "TinyNN-BOOST: +10%% (%d→%d W)", targetPower - boost, targetPower);
+        }
+        targetPower = clampInt(targetPower, 0, onePhase * 3);
+#endif
         break;
 
     default:
@@ -464,14 +476,29 @@ void PinManager::update(WEBSOCK_DATA &webSockData, int tempMaxBonusC)
     pidLockWrite(webSockData);
     utils_logWrite(webSockData.logBuffer, logEntry);
 
-    // ── STEP 6: ML-Training (nur bei MODE_AUTO) ──
+#ifdef TINYNN_ENABLE
+    // ── STEP 6: TinyNN Regression-Training (nur bei MODE_AUTO) ──
     if (doML)
     {
-        LOG_INFO(TAG_PID, "ML train – Task: %s", pcTaskGetTaskName(NULL));
-        float reward = computeMLReward(measuredPower, targetPower, temp);
-        tinyNN->remember(temp, measuredPower, action, (int)reward);
+        // Targets: Was haette ideal sein sollen?
+        float tgt_preheat = (pvRatio - 0.5f);
+        tgt_preheat = tgt_preheat < 0 ? 0 : (tgt_preheat > 1 ? 1 : tgt_preheat);
+        float tgt_buffer = (float)(temp - m_tempMin) / (m_tempMaxAllowed - m_tempMin);
+        tgt_buffer = tgt_buffer < 0 ? 0 : (tgt_buffer > 1 ? 1 : tgt_buffer);
+
+        TinyNNExperience exp;
+        exp.temp           = tempNorm;
+        exp.pv_ratio       = pvNorm;
+        exp.cloud_avg      = cloudNorm;
+        exp.temp_outside   = outNorm;
+        exp.target_preheat = tgt_preheat;
+        exp.target_buffer  = tgt_buffer;
+
+        tinyNN->remember(exp);
         tinyNN->trainReplay();
     }
+#endif
+
 }
 
 /*

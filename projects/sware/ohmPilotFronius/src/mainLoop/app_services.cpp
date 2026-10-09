@@ -586,8 +586,12 @@ static void refreshEnergyDisplay()
 //   Läuft alle ~6h. Bei API-Ausfall → Bonus=0 (no-op, safe).
 // =============================================================================
 #ifdef WEATHER_API
-static int  s_weatherBonus    = 0;      // °C Bonus (0..WEATHER_PREHEAT_MAX_BONUS)
-static time_t s_weatherValidUntil = 0;
+static int     s_weatherBonus    = 0;      // °C Bonus (0..WEATHER_PREHEAT_MAX_BONUS)
+static time_t  s_weatherValidUntil = 0;
+static float   s_weatherPvRatio      = 1.0f; // heute/morgen [0..2]
+static float   s_weatherCloudAvg     = 0.5f; // Wolkenmittel [0..1]
+static float   s_weatherTempOutside  = 20.0f;// Aussentemp [°C]
+
 static unsigned long s_lastWeatherFetch = 0;
 
 void serviceWeather()
@@ -607,11 +611,14 @@ void serviceWeather()
         return;
     }
 
-    PROGNOSE prog{0, 0, 0, false, 0};
+    PROGNOSE prog{0, 0, 0, false, 0, 0.5f, 20.0f, 1.0f};
     if (wheater_fetch(prog) && prog.valid)
     {
-        s_weatherBonus    = prog.preheatBonus;
-        s_weatherValidUntil = prog.validUntil;
+        s_weatherBonus       = prog.preheatBonus;
+        s_weatherValidUntil   = prog.validUntil;
+        s_weatherPvRatio     = prog.pvRatio;
+        s_weatherCloudAvg    = prog.cloudAverage;
+        s_weatherTempOutside = prog.tempOutside;
         LOG_INFO(TAG_APP_SERVICES,
                  "Wetter: heute=%dWh morgen=%dWh bonus=%d°C (bis %lu)",
                  prog.forecastToday, prog.forecastTomorow,
@@ -637,9 +644,17 @@ static int getWeatherPreheatBonus()
     }
     return s_weatherBonus;
 }
+
+// ── TinyNN Feature-Getter ──
+static float weatherGetPvRatio()       { return s_weatherPvRatio; }
+static float weatherGetCloudAvg()      { return s_weatherCloudAvg; }
+static float weatherGetTempOutside()   { return s_weatherTempOutside; }
 #else // WEATHER_API
 void serviceWeather() { /* no-op */ }
-static int getWeatherPreheatBonus() { return 0; }
+static int getWeatherPreheatBonus()      { return 0; }
+static float weatherGetPvRatio()         { return 1.0f; }  // default
+static float weatherGetCloudAvg()        { return 0.5f; } // default
+static float weatherGetTempOutside()     { return 20.0f; }// default
 #endif
 
 // =============================================================================
@@ -682,8 +697,12 @@ void servicePid()
     // KR-2: pinManager.update accesses both DATA (webSockData) + PIDOUT (pinManager)
     if (appLockData(LOCK_TIMEOUT_DATA_MS) && appLockPidOut(LOCK_TIMEOUT_PIDOUT_MS))
     {
-        // Wetter-Bonus: tempMaxAllowed dynamisch anpassen
-        int bonus = getWeatherPreheatBonus();
+    // Wetter-Bonus + TinyNN-Features
+        int bonus  = getWeatherPreheatBonus();
+        float pvRatio = weatherGetPvRatio();
+        float cloud   = weatherGetCloudAvg();
+        float outTemp = weatherGetTempOutside();
+        
         if (bonus > 0)        
         {
             LOG_INFO(TAG_APP_SERVICES, "Preheat-Bonus: +%d°C (Max=%d→%d°C)",
@@ -691,7 +710,7 @@ void servicePid()
                      (int)g_app.webSockData.setupData.tempMaxAllowedInGrad,
                      (int)g_app.webSockData.setupData.tempMaxAllowedInGrad + bonus);
         }
-        g_app.pinManager.update(g_app.webSockData, bonus);
+        g_app.pinManager.update(g_app.webSockData, bonus, pvRatio, cloud, outTemp);
         appUnlockPidOut();
         appUnlockData();
     }

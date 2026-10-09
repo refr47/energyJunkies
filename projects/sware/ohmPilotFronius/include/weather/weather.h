@@ -26,14 +26,20 @@
  * validUntil    : Unix-Zeitstempel, wann die Daten verfallen.
  * forecastToday : PV-Energie heute   [Wh], adjustiert (Wolken/Risiko)
  * forecastTomorow: PV-Energie morgen [Wh], adjustiert
+ * cloudAverage  : Wolkenmittel 48h [0..1]  → TinyNN-Input
+ * tempOutside   : Aussentemperatur-Mittel [°C] → TinyNN-Input
+ * pvRatio       : heute/morgen [0..2.0] → TinyNN-Input
  */
 typedef struct _PROGNOSE
 {
-    int  preheatBonus;                // °C Bonus (0..WEATHER_PREHEAT_MAX_BONUS)
-    int  forecastToday;               // Wh heute (adjusted)
-    int  forecastTomorow;             // Wh morgen (adjusted)
-    bool valid;                       // true wenn Daten aktuell
-    time_t validUntil;                // Unix-TS wann Daten verfallen
+    int     preheatBonus;             // °C Bonus (0..WEATHER_PREHEAT_MAX_BONUS)
+    int     forecastToday;            // Wh heute (adjusted)
+    int     forecastTomorow;          // Wh morgen (adjusted)
+    bool    valid;                    // true wenn Daten aktuell
+    time_t  validUntil;               // Unix-TS wann Daten verfallen
+    float   cloudAverage;             // Wolkenmittel 48h [0..1]
+    float   tempOutside;              // Aussentemp-Mittel [°C]
+    float   pvRatio;                  // heute / morgen [0..2.0]
 } PROGNOSE;
 
 bool wheater_fetch(PROGNOSE &prognose);
