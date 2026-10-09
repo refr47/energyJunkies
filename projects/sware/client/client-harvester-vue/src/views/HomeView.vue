@@ -52,6 +52,27 @@
       </div>
     </header>
 
+    <!-- Wetter & Uhrzeit für Mobile (in Navbar nur ab md: sichtbar) -->
+    <div class="sm:hidden mb-6 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <div class="text-2xl">
+            <span v-if="liveData.wetter === 'sonnig'">☀️</span>
+            <span v-else-if="liveData.wetter === 'bewölkt'">⛅</span>
+            <span v-else>🌧️</span>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-400 uppercase">Wetter</div>
+            <div class="text-lg font-bold text-slate-800">{{ liveData.temp || '--' }}°C</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs font-bold text-slate-400 uppercase">Aktuell</div>
+          <div class="text-lg font-mono font-bold text-slate-700">{{ currentTime }}</div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="errorList.length > 0" class="lg:hidden flex flex-col gap-2 mb-6">
       <div v-for="err in errorList" :key="err"
         class="bg-rose-500 text-white p-3 rounded-xl text-xs font-bold flex items-center gap-3">
@@ -76,7 +97,7 @@
             </svg>
           </div>
           <p class="text-[10px] font-black text-slate-400 uppercase">PV-Ertrag</p>
-          <p class="text-4xl font-black text-slate-800 tracking-tighter">
+          <p class="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter">
             {{ liveData.solEr }}<small class="text-lg ml-1 opacity-30">W</small>
           </p>
           <div class="mt-2 h-6"></div>
@@ -99,13 +120,13 @@
 
               <div class="mt-6 pt-4 border-t border-slate-200/50 grid grid-cols-2 gap-2">
                 <div>
-                  <p class="text-[12px] font-black text-slate-400 uppercase">Export Gesamt</p>
-                  <p class="text-xs font-bold text-blue-600">{{ liveData.SEI }} <span
+                  <p class="text-[12px] sm:text-xs font-black text-slate-400 uppercase">Export Gesamt</p>
+                  <p class="text-xs sm:text-sm font-bold text-blue-600">{{ liveData.SEI }} <span
                       class="text-[14px] opacity-60">kW</span></p>
                 </div>
                 <div class="border-l border-slate-200/50">
-                  <p class="text-[12px] font-black text-slate-400 uppercase">Import Gesamt</p>
-                  <p class="text-xs font-bold text-rose-600">{{ liveData.SII }} <span
+                  <p class="text-[12px] sm:text-xs font-black text-slate-400 uppercase">Import Gesamt</p>
+                  <p class="text-xs sm:text-sm font-bold text-rose-600">{{ liveData.SII }} <span
                       class="text-[14px] opacity-60">kW</span></p>
                 </div>
               </div>
@@ -119,7 +140,7 @@
             </svg>
           </div>
           <p class="text-[10px] font-black text-slate-400 uppercase">Hauslast</p>
-          <p class="text-4xl font-black text-slate-800 tracking-tighter">
+          <p class="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter">
             {{ liveData.netzBezug }}<small class="text-lg ml-1 opacity-30">W</small>
           </p>
           <div class="mt-2 h-6"></div>
@@ -365,9 +386,10 @@
 
 
 <script setup>
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps(['liveData', 'logs', 'isConnected']);
+// Mobile: Live-Uhrzeitnst currentTime = ref('');let timeTimer = null;nst updateTime = () => {  currentTime.value = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });};onMounted(() => {  updateTime();  timeTimer = setInterval(updateTime, 1000);});
 
 // 1. Definiere die Fehlertexte
 const errorDefinitions = {

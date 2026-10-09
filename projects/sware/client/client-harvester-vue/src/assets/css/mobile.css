@@ -1,0 +1,53 @@
+/* Globale Mobile-Optimierungen */
+
+/* Touch-Targets: Mindestens 44px fürButtons & Links */
+@media (max-width: 640px) {
+  button,
+  a,
+  label,
+  input[type="submit"],
+  input[type="button"],
+  select {
+    min-height: 44px;
+  }
+
+  /* Font-Sizes nie kleiner als 14px auf Mobile */
+  .text-\[8px\],
+  .text-\[9px\],
+  .text-\[10px\],
+  .text-\[11px\] {
+    font-size: 0.75rem !important; /* 12px */
+  }
+
+  /* Tabellen auf Mobile horizontal scrollbar */
+  table {
+    min-width: 0;
+  }
+
+  /* Scrollbar-Behavior flüssiger */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Safe Area für Notch-Geräte */
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Bildschirmlinks mit Touch-Target fix */
+  .nav-btn {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* Responsive Font-Scaling mit clamp für sehr kleine Screens */
+@media (min-width: 320px) and (max-width: 374px) {
+  html {
+    font-size: 13px;
+  }
+}

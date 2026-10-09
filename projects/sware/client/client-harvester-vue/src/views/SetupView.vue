@@ -1,15 +1,15 @@
 <template>
-  <div class="min-h-screen bg-slate-50 p-4 md:p-8">
+  <div class="min-h-screen bg-slate-50 px-4 pt-4 pb-24 md:pb-4 md:px-8">
     <StatusToast :message="statusMsg" :type="statusClass" @close="statusMsg = ''" />
     <div class="max-w-7xl mx-auto">
 
-      <div class="flex justify-between items-end mb-10">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-10">
         <div>
           <h1 class="text-3xl font-black text-slate-800 tracking-tight">System-Stammdaten</h1>
           <p class="text-slate-500 font-medium">Harvester v3.0 Konfigurationspanel</p>
         </div>
         <button @click="pushToESP"
-          class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-2xl shadow-lg shadow-emerald-200 transition-all font-bold flex items-center gap-2">
+          class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl shadow-lg sticky bottom-4 z-30 sm:static shadow-emerald-200 transition-all font-bold flex items-center gap-2">
           <span>💾 Konfiguration speichern</span>
         </button>
       </div>

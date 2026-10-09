@@ -1,6 +1,6 @@
 <template>
   <div>
-  <div class="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+  <div class="min-h-screen bg-slate-100 p-4 flex items-start justify-center pt-16 sm:pt-0 sm:items-center">
     <div class="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 border border-slate-200">
       <div class="text-center mb-8">
         <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tighter">System Login</h1>

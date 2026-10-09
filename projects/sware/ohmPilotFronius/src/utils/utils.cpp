@@ -15,6 +15,9 @@
 
 #include <HTTPClient.h>
 
+#include "app_state.h"
+#include "app_sync.h"
+
 // using namespace std; // im lazy
 #define BUFFER_LEN_FOR_ARG_CHECK 100
 // Automatic port number
@@ -583,6 +586,86 @@ bool isStreamingAllowed(bool& isHeartbeatDue)
 	}
 }
 
+
+// =============================================================================
+// Adaptive Energy-Query-Intervall
+//   Nacht 23h-05h: OFF (Rueckgabe 0)
+//   Tag 05h-23h:   Tagmodus – adaptives Intervall je nach PV-Leistung
+//     PV > 0:      sofort zurueck auf ENERGY_DAY_INTERVAL (40s)
+//     PV = 0:      nach ENERGY_ZERO_READS_THRESHOLD (3) Verdopplung
+//                  bis max ENERGY_NIGHT_INTERVAL (300s)
+// =============================================================================
+static uint32_t s_energyInterval  = ENERGY_DAY_INTERVAL;
+static int      s_energyZeroCount = 0;
+
+uint32_t getAdaptiveEnergyInterval(void)
+{
+	// 1. Zeitfenster-Pruefung
+	struct tm timeinfo;
+	if (!getLocalTime(&timeinfo))
+		return ENERGY_DAY_INTERVAL; // Fallback: normal abfragen
+
+	int hour = timeinfo.tm_hour;
+
+	// Nacht-Sperre: 23h bis 05h -> keine Abfrage
+	if (hour >= ENERGY_NIGHT_OFF_START || hour < ENERGY_NIGHT_OFF_END)
+	{
+		// Intervall zuruecksetzen, damit morgens wieder voll da ist
+		s_energyInterval  = ENERGY_DAY_INTERVAL;
+		s_energyZeroCount = 0;
+		return 0; // OFF
+	}
+
+	// 2. Tagmodus – adaptiv je nach PV-Ertrag
+	bool hasPv = false;
+	if (appLockData(50))
+	{
+		#ifdef FRONIUS_IV
+		hasPv = (g_app.webSockData.fronius_SOLAR_POWERFLOW.p_pv > 0.1);
+		#else
+		// Kein Fronius? -> konservativ: immer Tag-Intervall
+		hasPv = true;
+		#endif
+		appUnlockData();
+	}
+	else
+	{
+		hasPv = true; // Lock fehlgeschlagen -> sicherheitshalber abfragen
+	}
+
+	if (hasPv)
+	{
+		// PV aktiv -> sofort zurueck auf schnelles Intervall
+		if (s_energyZeroCount > 0)
+		{
+			LOG_INFO(TAG_UTILS,
+			         "Adaptive Energy: PV > 0 nach %d Null-Lesungen -> sofort %dms",
+			         s_energyZeroCount, ENERGY_DAY_INTERVAL);
+		}
+		s_energyInterval  = ENERGY_DAY_INTERVAL;
+		s_energyZeroCount = 0;
+	}
+	else
+	{
+		// Keine PV -> Zaehler hoch
+		s_energyZeroCount++;
+		if (s_energyZeroCount >= ENERGY_ZERO_READS_THRESHOLD)
+		{
+			// Intervall verdoppeln, max ENERGY_NIGHT_INTERVAL
+			uint32_t next = s_energyInterval * 2;
+			if (next > ENERGY_NIGHT_INTERVAL) next = ENERGY_NIGHT_INTERVAL;
+			if (s_energyInterval != next)
+			{
+				LOG_INFO(TAG_UTILS,
+				         "Adaptive Energy: PV=0 (%d) -> %dms",
+				         s_energyZeroCount, next);
+				s_energyInterval = next;
+			}
+		}
+	}
+
+	return s_energyInterval;
+}
 #ifdef NOT
 struct ping_pkt
 {

@@ -1,7 +1,7 @@
 <template>
-    <div class="w-full h-[calc(100vh-120px)] px-4 md:px-[50px] py-4 bg-slate-50 flex flex-col">
+    <div class="w-full h-fit min-h-[calc(100vh-120px)] px-2 md:px-[50px] py-4 bg-slate-50 flex flex-col">
 
-        <div class="w-full bg-white p-4 rounded-t-3xl border border-b-0 flex justify-between items-center shadow-sm">
+        <div class="w-full bg-white p-3 md:p-4 rounded-t-3xl border border-b-0 flex flex-col sm:flex-row justify-between items-center gap-2 md:gap-0 shadow-sm">
             <div class="flex items-center gap-4">
                 <h2 class="font-black uppercase italic text-slate-800 text-lg tracking-tighter">System Analysis</h2>
                 <span
@@ -30,10 +30,13 @@
                         </tr>
                     </thead>
 
-                    <tbody class="divide-y divide-slate-100">
-                        <tr v-for="(log, i) in paginatedLogs" :key="i" class="hover:bg-blue-50/50 transition-colors">
 
-                            <td class="p-4 text-left">
+                    <tbody class="divide-y divide-slate-100">
+                        <!-- Desktop-Tabelle -->
+                        <template v-for="(log, i) in paginatedLogs" :key="i">
+                            <!-- Desktop View -->
+                            <tr class="hover:bg-blue-50/50 transition-colors hidden md:table-row">
+                                <td class="p-4 text-left">
                                 <div class="flex flex-col gap-1">
                                     <div class="text-slate-700 font-bold text-sm leading-tight">
                                         {{ formatUnixTime(log.firstSeen) }}
@@ -97,35 +100,83 @@
                                 </div>
                             </td>
 
-                        </tr>
+                            </tr>
+
+                            <!-- Mobile Card-View -->
+                            <tr class="md:hidden table-row">
+                                <td colspan="6" class="p-3 border-b border-slate-100">
+                                    <div class="bg-white rounded-xl border border-slate-100 p-3 shadow-sm">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="text-sm font-bold text-slate-700">
+                                                {{ formatUnixTime(log.firstSeen) }}
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span :class="(log.state & 1) ? 'text-emerald-500' : 'text-slate-300'">● L1</span>
+                                                <span :class="(log.state & 2) ? 'text-emerald-500' : 'text-slate-300'">● L2</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Leistung + PWM + Temp in Grid -->
+                                        <div class="grid grid-cols-3 gap-2 text-center">
+                                            <div>
+                                                <div class="text-[10px] font-bold text-slate-400 uppercase">Leistung</div>
+                                                <div class="text-sm font-bold text-slate-700">{{ log.power }}W</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-[10px] font-bold text-slate-400 uppercase">PWM</div>
+                                                <div class="text-sm font-bold text-blue-600">{{ log.pwm }}%</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-[10px] font-bold text-slate-400 uppercase">Boiler</div>
+                                                <div class="text-sm font-bold text-orange-600">{{ log.temp }}°C</div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Leistungsbalken -->
+                                        <div class="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <div class="bg-emerald-400 h-full rounded-full"
+                                                :style="{ width: Math.min((log.power / 3000) * 100, 100) + '%' }"></div>
+                                        </div>
+
+                                        <!-- Dauer -->
+                                        <div v-if="log.firstSeen !== log.lastSeen" class="mt-2 flex items-center gap-1 justify-center">
+                                            <span class="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded font-black uppercase">
+                                                +{{ getDuration(log.firstSeen, log.lastSeen) }}
+                                            </span>
+                                            <span class="text-[10px] text-slate-400 italic">Dauer</span>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>
 
             <div
-                class="p-3 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest px-6">
-                <div class="flex gap-4">
-                    <span>Speicher: {{ logs.length }} / 1000</span>
+                class="p-3 bg-slate-50 border-t flex flex-wrap justify-between items-center gap-2 text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest px-3 sm:px-6">
+                <div class="flex gap-3 md:gap-4 items-center">
+                    <span class="hidden sm:inline">Speicher: {{ logs.length }} / {{ maxLogs }}</span>
                     <span v-if="logs.length > 0" class="text-blue-500">Live Datenstrom aktiv</span>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="hidden sm:flex items-center gap-2">
                     <div
                         class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]">
                     </div>
                     Monitoring Live
                 </div>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-center">
                     <button @click="prevPage" :disabled="currentPage === 1"
-                        class="px-3 py-1 rounded border bg-white disabled:opacity-30">
+                        class="px-3 sm:px-4 py-2 sm:py-3 rounded border bg-white disabled:opacity-30 text-xs sm:text-[10px] font-bold active:scale-[0.98]">
                         ← Zurück
                     </button>
 
-                    <span class="text-slate-600">
+                    <span class="text-xs sm:text-[10px] font-bold text-slate-600">
                         Seite {{ currentPage }} / {{ totalPages }}
                     </span>
 
                     <button @click="nextPage" :disabled="currentPage === totalPages"
-                        class="px-3 py-1 rounded border bg-white disabled:opacity-30">
+                        class="px-3 sm:px-4 py-2 sm:py-3 rounded border bg-white disabled:opacity-30 text-xs sm:text-[10px] font-bold active:scale-[0.98]">
                         Weiter →
                     </button>
                 </div>

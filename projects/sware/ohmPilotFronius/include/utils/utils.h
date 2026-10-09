@@ -29,6 +29,13 @@ void utils_logWrite(RingBuffer &rb, const LogEntry &e);
 int utils_logRead(RingBuffer &rb, JsonDocument &doc);
 bool utils_shouldLog(bool l1, bool l2, uint8_t pwm, bool legionella, bool minTemp);
 bool isStreamingAllowed(bool &isHeartbeatDue);
+
+/**
+ * Adaptive Energy-Query-Intervall basierend auf Uhrzeit + PV-Leistung.
+ * - Nacht 23h-05h: OFF (Rückgabe 0)
+ * - Tag 05h-23h: 40s (PV > 0) bis 300s (PV = 0 über 3 Abfragen)
+ */
+uint32_t getAdaptiveEnergyInterval(void);
 char *utils_floatToString(float value);
 
 /**

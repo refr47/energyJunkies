@@ -122,14 +122,23 @@ static void taskTemperature(void* pvParameters)
 
 static void taskEnergy(void* pvParameters)
 {
-
     int wdId = watchdogRegister("Energy", TASK_MODBUS_AMISREADER_INTERVAL * 2);
     for (;;)
     {
         watchdogKick(wdId);
         xEventGroupWaitBits(wifi_event_group, WIFI_STA_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
+
+        uint32_t interval = getAdaptiveEnergyInterval();
+        // 0 = Nacht-Sperre (23h-05h) -> alle 60s neu pruefen
+        if (interval == 0)
+        {
+            LOG_DEBUG(TAG_APP_SERVICES, "Adaptive Energy: Nacht-Sperre, keine Abfrage");
+            vTaskDelay(pdMS_TO_TICKS(60000));
+            continue;
+        }
+
         serviceEnergy();
-        vTaskDelay(pdMS_TO_TICKS(TASK_MODBUS_AMISREADER_INTERVAL));
+        vTaskDelay(pdMS_TO_TICKS(interval));
     }
 }
 
