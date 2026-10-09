@@ -5,7 +5,7 @@
 // - getJsonObj() wird aus versch. FreeRTOS Tasksgerufen (taskWeb + WS-Event-Task)
 // - g_app.webSockData wird parallel von taskTemperature, taskEnergy, taskPID beschrieben
 // - jsonMutex schützt JsonDocument + static Buffer-Generierung
-// - appLock() schützt das Lesen aus g_app.webSockData
+// - appLockData() schützt das Lesen aus g_app.webSockData (DATA domain)
 // - jsonResultMutex schützt den Ergebniszeiger nach Serialisierung
 // ============================================================================
 
@@ -15,7 +15,7 @@
 #include "webSockets.h"
 #include "app_sync.h"          // g_jsonMutex / g_jsonResultMutex
 #include "utils.h"
-#include "app_state.h"        // appLock / appUnlock
+#include "app_state.h"        // appLockData / appUnlockData
 #include <ArduinoJson.h>
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ static WEBSOCK_DATA &(*s_webSockData)(void) = nullptr;
 // (zentral erstellt in appSyncInit() → siehe app_sync.h)
 AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
 {
-// (Mutexes werden zentral in appSyncInit() erstellt → kein lokaler Aufruf mehr)
+    // (Mutexes werden zentral in appSyncInit() erstellt → kein lokaler Aufruf mehr)
 
     // Callback-Pointer atomar setzen (nach Mutex-Init)
     s_webSockData = getData;
@@ -93,55 +93,13 @@ AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// getJsonObj() — thread-safely JSON für WebSocket-Answer generieren
-//
-// Design:
-// 1. appLock(): Lese g_app.webSockData konsistent
-// 2. Lokale Kopie aller Daten → appUnlock() (kritisch, um appLock-Block zu
-//     minimieren und kein Deadlock mit utils_logRead portMAX_DELAY)
-// 3. jsonMutex: Serialisiere in static Buffer
-// 4. Return const char* unter Result-Mutex
+// JSON Builder Helpers (isolated per data domain)
 // ──────────────────────────────────────────────────────────────────────────
 
-static const char *getJsonObj()
+static double s_prevValueFromSmartMeter = 0.0;
+
+static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
 {
-    // ── Schritt 1: Daten konsistent aus g_app lesen ──────────────────────
-    WEBSOCK_DATA data; // lokale Kopie auf dem Stack (~500 Byte)
-                       // OK in taskWeb (16KB stack)
-
-    // KR-2: reads from webSockData (DATA domain)
-    if (!appLockData(50))
-    {
-        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to acquire data lock for websock data");
-        return "{}";
-    }
-
-    // Lokale Callback-Variable lesen (nach Init nur ReadOnly)
-    WEBSOCK_DATA &(*localGetData)(void) = s_webSockData;
-    if (localGetData != nullptr)
-    {
-        data = localGetData(); // Value-Kopie unter appLock-Garantie konsistent
-    }
-    appUnlockData();
-    // ── App-Lock freigegeben ────────────────────────────────────────────
-
-    // ── Schritt 2: jsonMutex für Serialisierung ─────────────────────────
-    static char formatBuffer[FORMAT_BUFFER_LEN]  = {0};
-    static char jsonObjBuffer[JSON_OBJECT_BUFFER_LEN] = {0};
-    static double prevValueFromSmartMeter       = 0.0;
-    // JsonDocument wird pro Aufruf frisch allok — kein globaler State!
-    JsonDocument doc;
-
-    if (!xSemaphoreTake(g_jsonMutex, pdMS_TO_TICKS(100)))
-    {
-        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to take JSON mutex");
-        return "{}";
-    }
-
-    // doc ist stack-lokal → kein Race mit anderen Threads
-    JsonObject live = doc.createNestedObject("live");
-
-    // ── Schritt 3: Daten aus lokaler Kopie füllen ───────────────────────
     if (data.states.froniusAPI)
     {
         live[PRODUKTION]         = data.fronius_SOLAR_POWERFLOW.p_pv;
@@ -158,13 +116,13 @@ static const char *getJsonObj()
             live[NETZ_BEZUG]   = data.mbContainer.meterValues.data.acCurrentPower;
             live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
                                   + data.mbContainer.meterValues.data.acCurrentPower;
-            prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
+            s_prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
         }
         else
         {
-            live[NETZ_BEZUG]    = prevValueFromSmartMeter;
+            live[NETZ_BEZUG]    = s_prevValueFromSmartMeter;
             live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
-                                  + prevValueFromSmartMeter;
+                                  + s_prevValueFromSmartMeter;
         }
     }
     else // amis reader
@@ -175,7 +133,12 @@ static const char *getJsonObj()
         live[STROM_EXPORT_INS] = data.amisReader.absolutExportInkWh;
         live[STROM_IMPORT_INS] = data.amisReader.absolutImportInkWh;
     }
+}
 
+static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
+{
+    // Durchschnittstemperatur + Alarm-Formatierung
+    char formatBuffer[FORMAT_BUFFER_LEN] = {0};
     int avgTemp = (data.temperature.sensor1 + data.temperature.sensor2) / 2;
 
     if (data.temperature.alarm)
@@ -187,20 +150,19 @@ static const char *getJsonObj()
         snprintf(formatBuffer, FORMAT_BUFFER_LEN, "%d", avgTemp);
     }
 
-    live[TEMP_PUFFERSPEICHER]    = formatBuffer;
-    live[HEIZPATRONE_L1]        = data.pidContainer.PID_PIN1;
-    live[HEIZPATRONE_L2]        = data.pidContainer.PID_PIN2;
-    live[HEIZPATRONE_L3]        = data.pidContainer.mAnalogOut;
-    live[FORCE_HEIZPATRONE]     = (int)data.setupData.forceHeating;
+    live[TEMP_PUFFERSPEICHER]     = formatBuffer;
+    live[HEIZPATRONE_L1]         = data.pidContainer.PID_PIN1;
+    live[HEIZPATRONE_L2]         = data.pidContainer.PID_PIN2;
+    live[HEIZPATRONE_L3]         = data.pidContainer.mAnalogOut;
+    live[FORCE_HEIZPATRONE]      = (int)data.setupData.forceHeating;
     live[HEIZSTAB_LEISTUNG_PHASE] = floor(data.setupData.heizstab_leistung_in_watt / 3);
-    live[AAKU_AVAILABLE]        = data.setupData.akku;
-    live[AKKU_CAPACITA]         = data.mbContainer.akkuState.data.capacity;
-    live[AKKU_ZUSTAND]          = data.mbContainer.akkuStr.data.stateOfCharge;
-    live[AKKU_ENTLADEN]         = data.mbContainer.akkuStr.data.dischargeRate;
+    live[AAKU_AVAILABLE]         = data.setupData.akku;
+    live[AKKU_CAPACITA]          = data.mbContainer.akkuState.data.capacity;
+    live[AKKU_ZUSTAND]           = data.mbContainer.akkuStr.data.stateOfCharge;
+    live[AKKU_ENTLADEN]          = data.mbContainer.akkuStr.data.dischargeRate;
 
-    // bitMaster nur noch als lokale Variable (keine globale Shared-Resource)
+    // Error-Bitmask
     unsigned int bitMaster = 0;
-
     if (!data.states.flashOK)
         bitMaster |= (1 << STATE_FLASH);
 
@@ -230,19 +192,60 @@ static const char *getJsonObj()
         bitMaster |= (1 << STATE_WATT_BIAS);
 
     live[FEHLER] = bitMaster;
+}
 
-    // ── Schritt 4: Log-Buffer lesen (utils_logRead hat eigenen Mutex) ───
+// =============================================================================
+// getJsonObj() — thread-safe JSON serialisierung für WebSocket-Response
+//
+// Design:
+// 1. appLockData(): Lese g_app.webSockData konsistent
+// 2. Lokale Kopie aller Daten → appUnlockData()
+// 3. jsonMutex: Serialisiere Builder → static Buffer
+// 4. Return const char*
+// =============================================================================
+static const char *getJsonObj()
+{
+    // ── Schritt 1: Daten konsistent aus g_app lesen ──────────────────────
+    WEBSOCK_DATA data;
+
+    if (!appLockData(50))
+    {
+        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to acquire data lock for websock data");
+        return "{}";
+    }
+
+    WEBSOCK_DATA &(*localGetData)(void) = s_webSockData;
+    if (localGetData != nullptr)
+    {
+        data = localGetData();
+    }
+    appUnlockData();
+
+    // ── Schritt 2: jsonMutex für Serialisierung ─────────────────────────
+    static char jsonObjBuffer[JSON_OBJECT_BUFFER_LEN] = {0};
+
+    if (!xSemaphoreTake(g_jsonMutex, pdMS_TO_TICKS(100)))
+    {
+        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to take JSON mutex");
+        return "{}";
+    }
+
+    JsonDocument doc;
+    JsonObject live = doc.createNestedObject("live");
+
+    // ── Schritt 3: Builder ──────────────────────────────────────────────
+    buildLiveEnergyData(live, data);
+    buildLiveDeviceData(live, data);
+
+    // ── Schritt 4: Log-Buffer ───────────────────────────────────────────
     LOG_DEBUG(TAG_WEB_SOCKETS, "Preparing JSON log entries, log buffer active: %d", data.logBuffer.active);
-
     int count = utils_logRead(data.logBuffer, doc);
     LOG_DEBUG(TAG_WEB_SOCKETS, "Creating JSON log entries - count: %d", count);
 
-    // ── Schritt 5: JSON in static Buffer serialisieren ──────────────────
+    // ── Schritt 5: Serialisieren ────────────────────────────────────────
     size_t bytesWritten = serializeJson(doc, jsonObjBuffer);
     jsonObjBuffer[bytesWritten] = '\0';
 
-    // jsonMutex freigegeben NACH Serialisierung — Buffer bleibt gueltig
-    // Solange bis s_jsonResultMutex es schuetzt
     xSemaphoreGive(g_jsonMutex);
 
     LOG_DEBUG(TAG_WEB_SOCKETS, "JSON prepared, %zu bytes", bytesWritten);

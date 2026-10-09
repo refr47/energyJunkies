@@ -30,6 +30,8 @@
 
 #include "froniusSolarAPI.h"
 
+#include "weather.h"
+
 
 #ifdef AMIS_READER_DEV
 #include "amisReader.h"
@@ -381,148 +383,194 @@ static void tryMarkNetworkDown(const char* reason, const char* failMsg)
 }
 
 
-void serviceEnergy()
+// =============================================================================
+// Energy service helpers (static)
+// =============================================================================
+
+namespace
 {
-    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEnergy - ");
-    if (!networkIsAvailable())
+enum EnergySource
+{
+    SRC_NONE,
+    SRC_FRONIUS,
+    SRC_AMIS
+};
+
+// -----------------------------------------------------------------------------
+// checkTempSensorAndReset – Gate: temp sensor OK?
+// -----------------------------------------------------------------------------
+static bool checkTempSensorAndReset()
+{
+    // 1. Read temp sensor status (DATA domain)
+    bool tempOK = true;
+    if (appLockData(LOCK_TIMEOUT_DATA_MS))
     {
-        tryMarkNetworkDown("Energy service skipped because network is unavailable",
-            "Energy service skipped, but could not acquire lock to update network state");
-        return;
+        tempOK = g_app.webSockData.states.tempSensorOK;
+        appUnlockData();
+    }
+    else
+    {
+        handleLockFailure("Could not acquire lock to verify temperature sensor state");
+        return false;
     }
 
-    // -- tempOK check unter Lock --
+    // 2. Reset pinManager if sensor bad (PIDOUT domain)
+    if (!tempOK)
     {
-        bool tempOK = true;
-        // KR-2: states.tempSensorOK is DATA domain
-        if (appLockData(LOCK_TIMEOUT_DATA_MS))
-        {
-            tempOK = g_app.webSockData.states.tempSensorOK;
-            appUnlockData();
-        }
-        else
-        {
-            handleLockFailure("Could not acquire lock to verify temperature sensor state");
-            return;
-        }
-
-        if (!tempOK)
+        if (appLockPidOut(LOCK_TIMEOUT_PIDOUT_MS))
         {
             g_app.pinManager.reset();
-            return;
+            appUnlockPidOut();
         }
+        else
+        {
+            handleLockFailure("Could not acquire lock to reset pinManager");
+        }
+        return false;
     }
 
-    // -- Energie-Quelle unter Lock ermitteln --
-    enum EnergySource { SRC_NONE, SRC_FRONIUS, SRC_AMIS };
-    EnergySource energySource = SRC_NONE;
+    return true;
+}
+
+// -----------------------------------------------------------------------------
+// resolveEnergySource – select fronius vs amis (DATA domain)
+// -----------------------------------------------------------------------------
+static EnergySource resolveEnergySource()
+{
+    EnergySource src = SRC_NONE;
+
+    if (appLockData(LOCK_TIMEOUT_DATA_MS))
     {
-        // KR-2: states fields are DATA domain
-        if (appLockData(LOCK_TIMEOUT_DATA_MS))
-        {
 #ifdef FRONIUS_IV
-            if (g_app.webSockData.states.froniusAPI && g_app.webSockData.states.networkOK)
-                energySource = SRC_FRONIUS;
+        if (g_app.webSockData.states.froniusAPI && g_app.webSockData.states.networkOK)
+            src = SRC_FRONIUS;
 #endif
-
 #ifdef AMIS_READER_DEV
-            if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
-                energySource = SRC_AMIS;
-
+        if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
+            src = SRC_AMIS;
 #endif
-            appUnlockData();
-        }
-        else
-        {
-            handleLockFailure("Could not acquire lock to select energy source");
-        }
+        appUnlockData();
+    }
+    else
+    {
+        handleLockFailure("Could not acquire lock to select energy source");
     }
 
+    return src;
+}
 
-    // -- I/O und Cache-Update je nach Quelle --
-    if (energySource == SRC_FRONIUS)
+// -----------------------------------------------------------------------------
+// cacheFroniusToMB – copy fronius results into MB container (DATA domain)
+// -----------------------------------------------------------------------------
+static void cacheFroniusToMB()
+{
+    if (appLockData(LOCK_TIMEOUT_DATA_MS))
     {
+        g_app.webSockData.mbContainer.akkuStr.data.chargeRate =
+            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_akku;
+        g_app.webSockData.mbContainer.akkuStr.data.dischargeRate =
+            g_app.webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
+        g_app.webSockData.mbContainer.akkuStr.data.maxChargeRate =
+            g_app.webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+        g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower =
+            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_akku +
+            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_pv;
+        g_app.webSockData.mbContainer.meterValues.data.acCurrentPower =
+            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_load;
+        appUnlockData();
+    }
+    else
+    {
+        handleLockFailure("Fronius API succeeded, but could not acquire lock to cache results");
+    }
+}
 
-        if (!solar_get_powerflow(g_app.webSockData))
-        {
-            tryMarkNetworkDown("Fronius API read failed",
-                "Fronius API failed, but could not acquire lock to update state");
-            return;
-        }
+// -----------------------------------------------------------------------------
+// cacheFroniusPidPower – propagate inverter power to PID container (DATA domain)
+// -----------------------------------------------------------------------------
+static void cacheFroniusPidPower()
+{
+    if (appLockData(LOCK_TIMEOUT_DATA_MS))
+    {
+        g_app.webSockData.pidContainer.mCurrentPower =
+            g_app.webSockData.mbContainer.meterValues.data.acCurrentPower;
+        appUnlockData();
+    }
+    else
+    {
+        handleLockFailure("Modbus read succeeded, but could not acquire lock to update PID power");
+    }
+}
 
-        if (appLockData(LOCK_TIMEOUT_DATA_MS))
-        {
-            g_app.webSockData.mbContainer.akkuStr.data.chargeRate = g_app.webSockData.fronius_SOLAR_POWERFLOW.p_akku;
-            g_app.webSockData.mbContainer.akkuStr.data.dischargeRate = g_app.webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
-            g_app.webSockData.mbContainer.akkuStr.data.maxChargeRate = g_app.webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
+// -----------------------------------------------------------------------------
+// fetchFroniusEnergy – Solar powerflow → cache → modbus → influx
+// -----------------------------------------------------------------------------
+static bool fetchFroniusEnergy()
+{
+    if (!solar_get_powerflow(g_app.webSockData))
+    {
+        tryMarkNetworkDown("Fronius API read failed",
+            "Fronius API failed, but could not acquire lock to update state");
+        return false;
+    }
 
-            g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower =
-                g_app.webSockData.fronius_SOLAR_POWERFLOW.p_akku +
-                g_app.webSockData.fronius_SOLAR_POWERFLOW.p_pv;
-            g_app.webSockData.mbContainer.meterValues.data.acCurrentPower =
-                g_app.webSockData.fronius_SOLAR_POWERFLOW.p_load;
-            appUnlockData();
-        }
-        else
-        {
-            handleLockFailure("Fronius API succeeded, but could not acquire lock to cache results");
-        }
+    cacheFroniusToMB();
 
-        if (!mb_readInverter(g_app.webSockData.setupData, g_app.webSockData.mbContainer))
-        {
-            tryMarkNetworkDown("Modbus read failed",
-                "Modbus read failed, but could not acquire lock to update state");
-            return;
-        }
+    if (!mb_readInverter(g_app.webSockData.setupData, g_app.webSockData.mbContainer))
+    {
+        tryMarkNetworkDown("Modbus read failed",
+            "Modbus read failed, but could not acquire lock to update state");
+        return false;
+    }
 
-        if (appLockData(LOCK_TIMEOUT_DATA_MS))
-        {
-            g_app.webSockData.pidContainer.mCurrentPower =
-                g_app.webSockData.mbContainer.meterValues.data.acCurrentPower;
-            appUnlockData();
-        }
-        else
-        {
-            handleLockFailure("Modbus read succeeded, but could not acquire lock to update PID power");
-        }
+    cacheFroniusPidPower();
 
 #ifdef INFLUX
-        influx_write(g_app.webSockData);
+    influx_write(g_app.webSockData);
 #endif
 
-    }
-    else if (energySource == SRC_AMIS)
+    return true;
+}
+
+// -----------------------------------------------------------------------------
+// fetchAmisEnergy – AMIS REST → cache
+// -----------------------------------------------------------------------------
+static bool fetchAmisEnergy()
+{
+    if (!amisReader_readRestTarget(g_app.webSockData))
     {
-
-        if (!amisReader_readRestTarget(g_app.webSockData))
-        {
-            tryMarkNetworkDown("AMIS reader failed",
-                "AMIS reader failed, but could not acquire lock to update state");
-            return;
-        }
-
-        if (appLockData(LOCK_TIMEOUT_DATA_MS))
-        {
-            g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower =
-                g_app.webSockData.amisReader.exportInWatt;
-            g_app.webSockData.mbContainer.inverterSumValues.data.acTotalEnergy = 0.0;
-            g_app.webSockData.mbContainer.inverterSumValues.data.dcCurrentPower = 0.0;
-            g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyExp =
-                g_app.webSockData.amisReader.absolutExportInkWh;
-            g_app.webSockData.mbContainer.meterValues.data.acCurrentPower =
-                g_app.webSockData.amisReader.saldo;
-            appUnlockData();
-        }  
-        else 
-        {
-            handleLockFailure("AMIS reader succeeded, but could not acquire lock to update state");
-        }
+        tryMarkNetworkDown("AMIS reader failed",
+            "AMIS reader failed, but could not acquire lock to update state");
+        return false;
     }
 
-    // -- Display aktualisieren unter Lock --
+    if (appLockData(LOCK_TIMEOUT_DATA_MS))
+    {
+        g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower =
+            g_app.webSockData.amisReader.exportInWatt;
+        g_app.webSockData.mbContainer.inverterSumValues.data.acTotalEnergy = 0.0;
+        g_app.webSockData.mbContainer.inverterSumValues.data.dcCurrentPower = 0.0;
+        g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyExp =
+            g_app.webSockData.amisReader.absolutExportInkWh;
+        g_app.webSockData.mbContainer.meterValues.data.acCurrentPower =
+            g_app.webSockData.amisReader.saldo;
+        appUnlockData();
+    }
+    else
+    {
+        handleLockFailure("AMIS reader succeeded, but could not acquire lock to update state");
+    }
+
+    return true;
+}
+
+// -----------------------------------------------------------------------------
+// refreshEnergyDisplay – TFT refresh (TFT mutex + DATA domain)
+// -----------------------------------------------------------------------------
+static void refreshEnergyDisplay()
+{
     if (xSemaphoreTake(g_tftMutex, pdMS_TO_TICKS(100)) == pdTRUE)
     {
-        // KR-2: webSockData is DATA domain
         if (appLockData(LOCK_TIMEOUT_DATA_MS))
         {
             tft_drawInfo(g_app.webSockData);
@@ -531,6 +579,102 @@ void serviceEnergy()
         xSemaphoreGive(g_tftMutex);
     }
 }
+} // end namespace
+
+// =============================================================================
+// serviceWeather – Wetter-Vorhersage → preheatBonus für PID
+//   Läuft alle ~6h. Bei API-Ausfall → Bonus=0 (no-op, safe).
+// =============================================================================
+#ifdef WEATHER_API
+static int  s_weatherBonus    = 0;      // °C Bonus (0..WEATHER_PREHEAT_MAX_BONUS)
+static time_t s_weatherValidUntil = 0;
+static unsigned long s_lastWeatherFetch = 0;
+
+void serviceWeather()
+{
+    static unsigned long lastCall = 0;
+    unsigned long now = millis();
+
+    if ((now - lastCall) < WEATHER_FETCH_INTERVAL_MS)
+    {
+        return; // noch nicht 6h vergangen
+    }
+    lastCall = now;
+
+    if (!networkIsAvailable())
+    {
+        LOG_DEBUG(TAG_APP_SERVICES, "Wetter abfrage geskipped - Netzwerk nicht erreichbar");
+        return;
+    }
+
+    PROGNOSE prog{0, 0, 0, false, 0};
+    if (wheater_fetch(prog) && prog.valid)
+    {
+        s_weatherBonus    = prog.preheatBonus;
+        s_weatherValidUntil = prog.validUntil;
+        LOG_INFO(TAG_APP_SERVICES,
+                 "Wetter: heute=%dWh morgen=%dWh bonus=%d°C (bis %lu)",
+                 prog.forecastToday, prog.forecastTomorow,
+                 prog.preheatBonus, (unsigned long)prog.validUntil);
+    }
+    else
+    {
+        // API down → Bonus zurücksetzen, PID läuft normal weiter
+        s_weatherBonus = 0;
+        s_weatherValidUntil = 0;
+        LOG_INFO(TAG_APP_SERVICES, "Wetter API nicht erreichbar, Bonus=0");
+    }
+}
+
+static int getWeatherPreheatBonus()
+{
+    // Daten verfallen? → Bonus=0
+    if (s_weatherValidUntil > 0 && (time(nullptr) >= s_weatherValidUntil))
+    {
+        LOG_INFO(TAG_APP_SERVICES, "Wetter-Daten verfallen, Bonus=0");
+        s_weatherBonus = 0;
+        s_weatherValidUntil = 0;
+    }
+    return s_weatherBonus;
+}
+#else // WEATHER_API
+void serviceWeather() { /* no-op */ }
+static int getWeatherPreheatBonus() { return 0; }
+#endif
+
+// =============================================================================
+// serviceEnergy – Orchestrator
+// =============================================================================
+void serviceEnergy()
+{
+    LOG_INFO(TAG_APP_SERVICES, "app_services::serviceEnergy - ");
+
+    if (!networkIsAvailable())
+    {
+        tryMarkNetworkDown(
+            "Energy service skipped because network is unavailable",
+            "Energy service skipped, but could not acquire lock to update network state");
+        return;
+    }
+
+    if (!checkTempSensorAndReset())
+    {
+        return;
+    }
+
+    EnergySource energySource = resolveEnergySource();
+
+    if (energySource == SRC_FRONIUS)
+    {
+        fetchFroniusEnergy();
+    }
+    else if (energySource == SRC_AMIS)
+    {
+        fetchAmisEnergy();
+    }
+
+    refreshEnergyDisplay();
+}
 
 void servicePid()
 {
@@ -538,7 +682,16 @@ void servicePid()
     // KR-2: pinManager.update accesses both DATA (webSockData) + PIDOUT (pinManager)
     if (appLockData(LOCK_TIMEOUT_DATA_MS) && appLockPidOut(LOCK_TIMEOUT_PIDOUT_MS))
     {
-        g_app.pinManager.update(g_app.webSockData);
+        // Wetter-Bonus: tempMaxAllowed dynamisch anpassen
+        int bonus = getWeatherPreheatBonus();
+        if (bonus > 0)        
+        {
+            LOG_INFO(TAG_APP_SERVICES, "Preheat-Bonus: +%d°C (Max=%d→%d°C)",
+                     bonus,
+                     (int)g_app.webSockData.setupData.tempMaxAllowedInGrad,
+                     (int)g_app.webSockData.setupData.tempMaxAllowedInGrad + bonus);
+        }
+        g_app.pinManager.update(g_app.webSockData, bonus);
         appUnlockPidOut();
         appUnlockData();
     }

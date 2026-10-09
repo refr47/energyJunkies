@@ -2,7 +2,10 @@
 #include "app_state.h"
 #include "utils.h"
 #include "ledHandler.h"
-#include "app_sync.h"  // g_appMutex Timeout
+#include "app_sync.h"
+#ifdef WEATHER_API
+#include "weather.h"
+#endif
 
 namespace
 {
@@ -34,7 +37,6 @@ PinManager::~PinManager()
 
 void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 {
-    // Vermeide Speicherleck bei wiederholtem Aufruf:
     if (tinyNN != nullptr)
     {
         LOG_DEBUG(TAG_PID, "PinManager::config - TinyNN wird freigegeben vor Neukonfiguration");
@@ -44,12 +46,12 @@ void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 
     onePhase = data.setupData.heizstab_leistung_in_watt / 3;
 
-    LOG_INFO(TAG_PID, "PinManager::config:: - Heizpatrone Leistung %d Watt,", data.setupData.heizstab_leistung_in_watt);
+    LOG_INFO(TAG_PID, "PinManager::config - Heizpatrone Leistung %d Watt",
+             data.setupData.heizstab_leistung_in_watt);
     pinL1 = l1;
     pinL2 = l2;
     pwmPin = pwm;
     epsilon = data.setupData.epsilonML_PinManager;
-    // memcpy(&data.logBuffer, 0, sizeof(RingBuffer)); // reset log buffer
     pinMode(pinL1, OUTPUT);
     pinMode(pinL2, OUTPUT);
     pinMode(pwmPin, OUTPUT);
@@ -62,84 +64,64 @@ void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 }
 
 /*
+ *************************************************************************
  * ── Thread-safe Lock/Unlock helpers ─────────────────────────────
- * pidLockRead()  : Copy input fields from WEBSOCK_DATA into local m_* members.
- *                  Caller must hold dataMutex + pidOutMutex (KR-2: fine-grained).
- * pidLockWrite() : Write output fields (wattBias, boilerHeating, pidContainer) back.
- *                  Caller must hold dataMutex + pidOutMutex (KR-2: fine-grained).
+ * pidLockRead()  : Copy input fields from WEBSOCK_DATA into local m_*
+ *                  Caller must hold dataMutex + pidOutMutex.
+ * pidLockWrite() : Write output fields (wattBias, boilerHeating, pidContainer)
+ *                  Caller must hold dataMutex + pidOutMutex.
  * utils_logWrite() is deliberately OUTSIDE the lock to prevent
  * an ABBA-deadlock (R01) with its own rb.mutex.
- ************************************************************************/
+ *************************************************************************
+ */
 
 void PinManager::pidLockRead(WEBSOCK_DATA &data)
 {
-    // KR-2: Caller (update/webSockets.cpp) must already hold dataMutex + pidOutMutex.
-    // This function does NOT lock itself to avoid redundant locking + deadlock risk.
-
-    // ── input fields ──
-    // Harmonisierte Werte – egal ob Fronius oder AMIS-Reader
-    m_sensor1               = data.temperature.sensor1;
-    m_sensor2               = data.temperature.sensor2;
-    m_boilerHeating         = data.setupData.forceHeating;
-    m_tempMaxAllowed        = (int)data.setupData.tempMaxAllowedInGrad;
-    m_tempMin               = (int)data.setupData.tempMinInGrad;
-    m_legionellenMaxTemp    = (int)data.setupData.legionellenMaxTemp;
-    m_legionellenDelta      = data.setupData.legionellenDelta;
-    m_akkuPriori            = data.setupData.akkuPriori;
-    m_akkuLadung            = data.mbContainer.akkuStr.data.chargeRate;
-    m_gridPower             = data.mbContainer.inverterSumValues.data.acCurrentPower;
-    m_meterPower            = data.mbContainer.meterValues.data.acCurrentPower;
-    m_wattSetupForTest      = data.setupData.wattSetupForTest;
+    m_sensor1              = data.temperature.sensor1;
+    m_sensor2              = data.temperature.sensor2;
+    m_boilerHeating        = data.setupData.forceHeating;
+    m_tempMaxAllowed       = (int)data.setupData.tempMaxAllowedInGrad;
+    m_tempMin              = (int)data.setupData.tempMinInGrad;
+    m_legionellenMaxTemp   = (int)data.setupData.legionellenMaxTemp;
+    m_legionellenDelta     = data.setupData.legionellenDelta;
+    m_akkuPriori           = data.setupData.akkuPriori;
+    m_akkuLadung           = data.mbContainer.akkuStr.data.chargeRate;
+    m_gridPower            = data.mbContainer.inverterSumValues.data.acCurrentPower;
+    m_meterPower           = data.mbContainer.meterValues.data.acCurrentPower;
+    m_wattSetupForTest     = data.setupData.wattSetupForTest;
 }
 
 void PinManager::pidLockWrite(WEBSOCK_DATA &data)
 {
-    // KR-2: Caller (update/webSockets.cpp) must already hold dataMutex + pidOutMutex.
-    // This function does NOT lock itself to avoid redundant locking + deadlock risk.
-
-    // ── output fields ──
-    data.states.boilerHeating             = m_out_boilerHeating;
-    data.states.wattBiasForTest             = m_out_wattBiasForTest;
-    data.pidContainer.mAnalogOut          = currentPWM;
-    data.pidContainer.PID_PIN1           = digitalRead(pinL1) == HIGH ? 1 : 0;
-    data.pidContainer.PID_PIN2           = digitalRead(pinL2) == HIGH ? 1 : 0;
+    data.states.boilerHeating      = m_out_boilerHeating;
+    data.states.wattBiasForTest    = m_out_wattBiasForTest;
+    data.pidContainer.mAnalogOut   = currentPWM;
+    data.pidContainer.PID_PIN1     = digitalRead(pinL1) == HIGH ? 1 : 0;
+    data.pidContainer.PID_PIN2     = digitalRead(pinL2) == HIGH ? 1 : 0;
 }
 
 /*
-*********** STATE
+****** STATE
 */
 
 int PinManager::tempState(double t)
 {
-    if (t < 45)
-        return 0;
-    if (t < 50)
-        return 1;
-    if (t < 55)
-        return 2;
-    if (t < 60)
-        return 3;
+    if (t < 45) return 0;
+    if (t < 50) return 1;
+    if (t < 55) return 2;
+    if (t < 60) return 3;
     return 4;
 }
 
 int PinManager::pvState(double p)
 {
     p = -p;
-    if (p < 500)
-        return 0;
-    if (p < 1500)
-        return 1;
-    if (p < 3000)
-        return 2;
-    if (p < 5000)
-        return 3;
+    if (p < 500)  return 0;
+    if (p < 1500) return 1;
+    if (p < 3000) return 2;
+    if (p < 5000) return 3;
     return 4;
 }
-
-/*
-RL
-
-*/
 
 /*
 ****** Base Power
@@ -147,20 +129,15 @@ RL
 int PinManager::basePower(int effective)
 {
     int phases = (int)(effective / onePhase);
-    if (phases > 2)
-        phases = 2;
-
-    return phases * onePhase;
+    return phases > 2 ? 2 : phases;
 }
 
 /*
-
-Main UPDATE
-update(double measuredPower, double temp, int hour)
+****** testPins – GPIO pin test sequence
 */
 void PinManager::testPins(int l1, int l2, int pwm)
 {
-    LOG_INFO("GPIO", "testPins, BEGIN");
+    LOG_INFO("GPIO", "testPins BEGIN");
     LOG_INFO("GPIO", "Port l1 ist jetzt HIGH");
     digitalWrite(l1, HIGH);
     vTaskDelay(pdMS_TO_TICKS(4000));
@@ -175,348 +152,326 @@ void PinManager::testPins(int l1, int l2, int pwm)
     analogWrite(pwm, 255);
     vTaskDelay(pdMS_TO_TICKS(4000));
     analogWrite(pwm, 0);
-    LOG_INFO("GPIO", "testPins ExITT");
+    LOG_INFO("GPIO", "testPins EXIT");
 }
 
-inline ControlMode PinManager::preCheck(int temp, unsigned long nowMS)
+/*
+****** preCheck – guard logic: early-out on max/min temp, legionella, manual
+*/
+void PinManager::preCheck(int temp, unsigned long nowMS, ControlMode &mode,
+                          bool &doML)
 {
-    // thread-safe: arbeitet AUF mit lokalen Kopien (aus pidLockRead())
     LOG_DEBUG("PinManager::PID: : %s", pcTaskGetName(NULL));
-    // allowed boiler temp
+
+    // Max-Temp: sofortigen Stop ausloesen
     if (temp >= m_tempMaxAllowed)
     {
-        LOG_DEBUG(TAG_PID, "PID: Max Temperatur <%d> erreicht: <%d>, abschalten", m_tempMaxAllowed, temp);
+        LOG_DEBUG(TAG_PID, "PID: Max Temp <%d> erreicht: <%d>", m_tempMaxAllowed, temp);
         reset();
-        return MODE_OFF;
+        mode   = MODE_OFF;
+        doML   = false;
+        return;
     }
 
-    #ifdef LEGIONELLA
-    // LEGIONELLA
-    if (nowMS - lastLegionella > m_legionellenDelta /*7UL * 24 * 3600 * 1000*/)
+    // Legionella
+    if (nowMS - lastLegionella > m_legionellenDelta)
         legionella = true;
 
     if (legionella)
     {
-        if (temp >= m_legionellenMaxTemp /*LEG_TEMP*/)
+        if (temp >= m_legionellenMaxTemp)
         {
-            legionella = false;
-            lastLegionella = nowMS;
-            char tempBuf[10];  // Platz für "-123.45\0"
-            char tempBuf1[10]; // Platz für "-123.45\0"
-            LOG_DEBUG(TAG_PID, "PID: Legionellen Temperatur <%s> erreicht: <%s>", fToStr(m_legionellenMaxTemp, 5, 1, tempBuf), fToStr(temp, 5, 1, tempBuf1));
-            return MODE_OFF;
+            legionella       = false;
+            lastLegionella   = nowMS;
+            LOG_DEBUG(TAG_PID, "PID: Legionella Temp erreicht, AUS");
+            mode   = MODE_OFF;
+            doML   = false;
+            return;
         }
         else
         {
-
-            LOG_DEBUG(TAG_PID, "PID:HEAT (Legionellen)");
-            return MODE_LEGIONELLA;
+            LOG_DEBUG(TAG_PID, "PID: HEAT (Legionella)");
+            mode   = MODE_LEGIONELLA;
+            doML   = false;
+            return;
         }
     }
-    #endif
+
+    // Min-Temp: Frostschutz
     if (temp < m_tempMin)
     {
-        LOG_DEBUG(TAG_PID, "PID: Min Temperatur <%d> erreicht: <%d>, einschalten", m_tempMin, temp);
+        LOG_DEBUG(TAG_PID, "PID: Min Temp <%d> erreicht: <%d>", m_tempMin, temp);
         powerIndex = 0;
-        return MODE_MIN_TEMP;
+        mode       = MODE_MIN_TEMP;
+        doML       = false;
+        return;
     }
 
+    // Manuelle Steuerung
     if (m_boilerHeating != HEATING_AUTOMATIC)
-    // LEGIONELLetupData.forceHeating != HEATING_AUTOMATIC) // no pid controller, all is forced
     {
-        LOG_DEBUG(TAG_PID, "PID  Manuelle Steuerung - keine Automatik");
+        LOG_DEBUG(TAG_PID, "PID: Manuelle Steuerung");
         powerIndex = 0;
-        return MODE_MANUAL; // nothing must be done due to overruling everything
+        mode       = MODE_MANUAL;
+        doML       = false;
+        return;
     }
 
-    int availableWatt;
-    //  <0:  einspeisen, >0: Bezug
-    // m_meterPower ist harmonisiert (Fronius p_load oder AMIS consumptionInWatt)
-    // Fronius mit Akku-Prioritäten: extra Logik für Ladezustand
-    if (m_froniusAPI)
-    {
-        if (m_akkuLadung < 20.0f)
-        { // <0: laden, >0 entladen
-            if (m_akkuPriori == AKKU_PRIORITY_SUBORDINATED)
-            {
-                availableWatt = (int)(m_akkuLadung + m_gridPower);
-                LOG_DEBUG(TAG_PID, "PID (Fronius) Akku nachrangig, available Watt: %d", availableWatt);
-            }
-            else
-            {
-                availableWatt = (int)m_gridPower;
-                LOG_DEBUG(TAG_PID, "PID (Fronius) Akku vorrangig, available Watt: %d", availableWatt);
-            }
-        }
-        else
-        {
-            availableWatt = (int)m_gridPower;
-            LOG_INFO(TAG_PID, "PID (Fronius) Available Watt: %d", availableWatt);
-        }
-    }
-    else
-    {
-        // Harmonisierter Wert – kommt vom AMIS-Reader (<0: Einspeisung, >0: Bezug)
-        availableWatt = (int)m_meterPower;
-        LOG_INFO(TAG_PID, "PID Harmonisiert (AMIS/Modbus) AvailableWatt: %d", availableWatt);
-    }
-
-    // WATT-Bias for testing - only for testing
-    if (m_wattSetupForTest != 0)
-    {
-        m_out_wattBiasForTest = true;
-        availableWatt = m_wattSetupForTest;
-        LOG_DEBUG(TAG_PID, "PID TEST MODE - AvailableWatt overridden by setup: %d", availableWatt);
-    }
-    else
-    {
-        m_out_wattBiasForTest = false;
-    }
-
-    // NO PV → minimal heating via RL
-    if (powerIndex < HYSTERESIS_WATT)
-    {
-        availablePower.push_back(availableWatt); // availablePower;
-        ++powerIndex;
-        LOG_DEBUG(TAG_PID, "PinManager::preCheck - powerIndex < MAX_LEN_MEASUR: %d, powerIndex: %d", availableWatt, powerIndex);
-    }
-    else
-    {
-        // LOG_INFO("PinManager::preCheck - Means of HYSTERESIS_WATT-2 measures  %f", availableWatt);
-        powerIndex = 0;
-        availablePower.push_back(availableWatt); // availablePower;
-        ++powerIndex;
-    }
-    /* LOG_DEBUG(TAG_PID, "PinManager::preCheck - EXIT: %f, powerIndex: %d", availableWatt, powerIndex); */
-    return MODE_AUTO;
+    // Kein Guard-Zweig getreten → AUTO, ML ok
+    mode = MODE_AUTO;
+    doML = true;
 }
 
-#define ABS(N) ((N < 0) ? (-N) : (N))
+/*
+****** resolveInputTemp – compute fallback-safe average temperature
+*/
+int PinManager::resolveInputTemp() const
+{
+    int temp = (m_sensor1 + m_sensor2) / 2;
+    if (m_sensor1 < 0) temp = m_sensor2;
+    if (m_sensor2 < 0) temp = m_sensor1;
+    return temp;
+}
 
-void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
+/*
+****** handleModeOff – MODE_OFF: reset hardware, clear logEntry
+*/
+void PinManager::handleModeOff(LogEntry &logEntry)
+{
+    reset();
+    logEntry.state = 0;
+    logEntry.power = 0;
+    logEntry.pwm   = 0;
+    LOG_INFO(TAG_PID, "HEAT OFF – alle Aus");
+}
+
+/*
+****** handleForceHeating – MODE_LEGIONELLA + MODE_MIN_TEMP: full power
+*/
+void PinManager::handleForceHeating(LogEntry &logEntry, int &measuredPower)
+{
+    int fullPower = onePhase * 3;
+    measuredPower = fullPower;
+    currentPWM    = 255;
+    logEntry.state = 3;
+    logEntry.power = fullPower;
+    logEntry.pwm   = 255;
+    LOG_INFO(TAG_PID, "HEAT ON (Voll) – Relais + PWM max");
+}
+
+/*
+****** handleModeManual – MODE_MANUAL: override everything
+*/
+void PinManager::handleModeManual()
+{
+    LOG_INFO(TAG_PID, "Manuelle Steuerung");
+    availablePower.clear();
+}
+
+/*
+****** handleModeAuto – MODE_AUTO: compute measured/target power, decide ML
+**  return value = targetPower in Watt
+*/
+int PinManager::handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doML)
+{
+    measuredPower    = getMeanOfAvailAblePower();
+    logEntry.power   = measuredPower;
+    LOG_DEBUG(TAG_PID, "AUTO – gemessen: %d W", measuredPower);
+
+    // keine nutzbare PV-Leistung → Ausschalten
+    if (abs(measuredPower) < EPSILON_TEMP || measuredPower > 0)
+    {
+        LOG_INFO(TAG_PID, "AUTO – kein Überschuss: %d W", measuredPower);
+        doML = false;
+        return 0;
+    }
+
+    // nutzbare PV-Leistung vorhanden
+    int heater             = heaterPower();
+    int effectiveAvailable = (-measuredPower) + heater;
+    LOG_DEBUG(TAG_PID, "AUTO – effektiv: %d W", effectiveAvailable);
+
+    int target = clampInt(effectiveAvailable, 0, onePhase * 3);
+    if (target > effectiveAvailable + 50)
+    {
+        target = effectiveAvailable;
+    }
+
+    doML = true;
+    return target;
+}
+
+/*
+****** computeMLReward – RL-Belohnung für den aktuellen Zustand
+**  Skalierte Strafe, Sweet-Spot-Bonus, Temperatur-Management,
+**  Hardware-Schonung und Sicherheit
+*/
+float PinManager::computeMLReward(int measuredPower, int targetPower, int temp)
+{
+    float reward = 0.0f;
+
+    // 1. "Sweet Spot" (Netz-Null-Punkt)
+    if (measuredPower > 0)
+    {
+        reward -= (measuredPower / 50.0f);  // Bezug: Strafe
+    }
+    else if (measuredPower < 0)
+    {
+        if (measuredPower > -50)
+            reward += 10.0f;  // Bonus wenn nah an der Null
+        else
+            reward += 2.0f;   // Kleiner Bonus
+    }
+
+    // 2. Temperatur-Management (Ziel: 57°C)
+    float tempDiff = abs(temp - 57);
+    if (tempDiff < 2)
+        reward += 5.0f;
+    else
+        reward -= (tempDiff * 0.5f);
+
+    // 3. Hardware-Schonung (Relais-Check)
+    static int lastActionPhases = 0;
+    int currentActionPhases = (int)(targetPower / onePhase);
+    if (currentActionPhases != lastActionPhases)
+        reward -= 5.0f;
+    lastActionPhases = currentActionPhases;
+
+    // 4. Sicherheit (Extremwerte)
+    if (temp > (m_tempMaxAllowed - 2))
+        reward -= 20.0f;
+
+    return reward;
+}
+
+/*
+****** logStackWarning – check Stack High-Water Mark
+*/
+void PinManager::logStackWarning()
+{
+    UBaseType_t stackLeft = uxTaskGetStackHighWaterMark(NULL);
+    if (stackLeft < 200)
+    {
+        LOG_ERROR(TAG_PID, "STACK FAST VOLL! %u Wörter frei", stackLeft);
+    }
+}
+
+/*
+****** Main UPDATE
+**  Orchestrierung: Input → Guard → Mode → Apply → Write → ML
+*/
+void PinManager::update(WEBSOCK_DATA &webSockData, int tempMaxBonusC)
 {
     unsigned long now = millis();
     LogEntry logEntry{};
     time_t curT;
     time(&curT);
 
-    // ── STEP 1: thread-safe read all inputs into local members ──
+    // ── STEP 1: thread-safe read into local members ──
     pidLockRead(webSockData);
+    m_out_boilerHeating = false;
 
-    m_out_boilerHeating = false; // default: heater off
+    // ── Wetter-Bonus: tempMaxAllowed dynamisch anpassen ──
+    //    bonus>0 → boiler heizt bis setupMax + bonus (capped bei MAX_SAFE)
+#ifdef WEATHER_API
+    if (tempMaxBonusC > 0)
+    {
+        int effectiveMax = m_tempMaxAllowed + tempMaxBonusC;
+        if (effectiveMax > WEATHER_PREHEAT_MAX_SAFE)
+            effectiveMax = WEATHER_PREHEAT_MAX_SAFE;
+        LOG_INFO(TAG_PID, "WEATHER: +%d°C → maxTemp %d→%d°C",
+                 tempMaxBonusC, m_tempMaxAllowed, effectiveMax);
+        m_tempMaxAllowed = effectiveMax;
+    }
+#else
+    (void)tempMaxBonusC;
+#endif
 
-    // ── TEMPERATURVALIDIERUNG (thread-safe: local copies) ──
-    int temp = (m_sensor1 + m_sensor2) / 2;
-    if (m_sensor1 < 0) temp = m_sensor2;
-    if (m_sensor2 < 0) temp = m_sensor1;
+    // Temperatur validieren (früh-out bei ungültigen Sensoren)
+    int temp = resolveInputTemp();
     if (temp <= 0)
     {
-        LOG_ERROR(TAG_PID, "Ungültige Temperaturmessung: sensor1: %d, sensor2: %d", m_sensor1, m_sensor2);
+        LOG_ERROR(TAG_PID, "Ungültig: s1=%d s2=%d", m_sensor1, m_sensor2);
+        logEntry.temp = 0;
+        logEntry.ts   = curT;
         reset();
         pidLockWrite(webSockData);
-        utils_logWrite(webSockData.logBuffer, logEntry); // outside appLock → no R01 deadlock
+        utils_logWrite(webSockData.logBuffer, logEntry);
         return;
     }
-    // ── ENDE TEMPERATURVALIDIERUNG ──
 
     logEntry.temp = temp;
-    logEntry.ts = curT;
+    logEntry.ts   = curT;
+    m_froniusAPI  = webSockData.states.froniusAPI;
 
-    m_froniusAPI = webSockData.states.froniusAPI; // Fronius API verfügbar?
-    // ── STEP 2: core logic (thread-safe: only local members) ──
-    ControlMode currentMode = preCheck(temp, now);
-    int measuredPower = 0;
-    int targetPower = 0;
-    int action = 0;
-
+    // ── STEP 2: Guard-Checks (Legionella, Min/Max Temp, Manual) → MODE ──
+    ControlMode currentMode;
     bool doML = true;
-    LOG_INFO(TAG_PID, "PinManager::update() - currentMode: %d, temperature %d, sensor1 %d, sensor2 %d",
-              currentMode, temp, m_sensor1, m_sensor2);
+    preCheck(temp, now, currentMode, doML);
+
+    int measuredPower = 0;
+    int targetPower   = 0;
+    int action        = 0;
+
+    LOG_INFO(TAG_PID, "PID update – Mode: %d, temp: %d, s1: %d, s2: %d",
+             currentMode, temp, m_sensor1, m_sensor2);
 
     switch (currentMode)
     {
     case MODE_OFF:
-        targetPower = 0;
-        measuredPower = 0;
-        logEntry.power = 0;
-        logEntry.pwm = 0;
-        currentPWM = 0;
-
-        logEntry.state = 0;
-        targetPower = 0;
-
+        handleModeOff(logEntry);
         doML = false;
-        reset(); // Interne Zähler zurücksetzen
-        LOG_INFO(TAG_PID, "HEAT OFF (Sicherheit) - Alle Relais aus, PWM 0");
         break;
 
     case MODE_LEGIONELLA:
     case MODE_MIN_TEMP:
-        targetPower = measuredPower = onePhase * 3; // Volle Kraft
-        doML = false;
-        currentPWM = 255;
-
-        logEntry.state = 3; // Spezieller Zustand für Legionella
-        logEntry.power = targetPower;
-        logEntry.pwm = currentPWM;
-
-        LOG_INFO(TAG_PID, "HEAT ON (Sicherheit) - Alle Relais ein, PWM 254");
+        handleForceHeating(logEntry, measuredPower);
+        targetPower = measuredPower;
+        doML   = false;
         break;
 
     case MODE_MANUAL:
-
-        // Hier einfach den aktuellen Ist-Wert lassen oder aus webSockData lesen
-        LOG_INFO(TAG_PID, "Manuelle Steuerung");
-        /*
-        logEntry.state = (digitalRead(pinL1) == HIGH) || (digitalRead(pinL2) == HIGH);
-        logEntry.pwm = (int)currentPWM;
-        logEntry.power = PinManager::preCheck - powerIndex < MAX_LEN_MEASURgetMeanOfAvailAblePower();
-        */
-        doML = false;
-        // fillLogEntry(webSockData, logEntry);
+        handleModeManual();
         targetPower = onePhase * 3;
-        availablePower.clear();
+        doML   = false;
         break;
 
     case MODE_AUTO:
-    {
-        // Nur hier läuft deine RL-Logik!doML = false;
-        doML = true;
-
-        measuredPower = getMeanOfAvailAblePower();
-        LOG_DEBUG(TAG_PID, "RL AUTO - Gemessene Leistung: %d W ", measuredPower);
-        logEntry.power = measuredPower;
-        if (abs(measuredPower) < EPSILON_TEMP || measuredPower > 0)
-        {
-            targetPower = 0; // <--- DAS schaltet aus, wenn kein Strom da ist!
-
-            LOG_INFO(TAG_PID, "PID eXIT true, AvailableWatt: %d < %d (Epsilon)", (int)measuredPower, (int)EPSILON_TEMP);
-            targetPower = 0; // <--- DAS schaltet aus, wenn kein Strom da ist!
-            doML = false;
-        }
-        else
-        {
-
-            // 1. Aktuelle Gesamtsituation erfassen
-            int heater = heaterPower();
-            doML = true;
-            // Was wir theoretisch verbrauchen könnten (Überschuss + aktueller Eigenverbrauch)
-            int effectiveAvailable = (-measuredPower) + heater;
-            LOG_DEBUG(TAG_PID, "RL AUTO - Effektive Leistung: %d W ", effectiveAvailable);
-
-
-            // BOILER: 2 Phasen werden per Relais geschaltet, die dritte Phase per PWM.
-            // Der komplette verfügbare Überschuss wird als Zielleistung genutzt;
-            // die Relais-Hysterese und der PWM-Rest werden in apply() umgesetzt.
-            targetPower = clampInt(effectiveAvailable, 0, onePhase * 3);
-            action = (int)(targetPower / onePhase);
-
-
-            if (targetPower > effectiveAvailable + 50)
-            {
-                targetPower = effectiveAvailable;
-            }
-            /*  LOG_INFO(TAG_PID, "ML Calc: Avail: %dW, Ph: %d, PWM-Base: %dW, Factor: %.2f -> Target: %dW",
-                      effectiveAvailable, fullPhases, remainingForPWM, chosenFactor, targetPower); */
-
-        } // else
-
+        targetPower = handleModeAuto(logEntry, measuredPower, doML);
+        action      = targetPower / onePhase;
         break;
-    } // case
-    } // switch
 
-    LOG_INFO(TAG_PID, "before calling apply, AvailableWatt: %d ", (int)targetPower);
+    default:
+        LOG_ERROR(TAG_PID, "Unerkannter Modus: %d", currentMode);
+        doML = false;
+        break;
+    }
+
+    // ── STEP 3: Hardware-Ansteuerung ──
+    LOG_INFO(TAG_PID, "PID apply – Ziel: %d W", targetPower);
     if (targetPower > 0)
     {
         m_out_boilerHeating = true;
     }
     apply(logEntry, targetPower);
 
-    vTaskDelay(pdMS_TO_TICKS(50)); // "Atempause"
+    vTaskDelay(pdMS_TO_TICKS(50));  // Atempause
 
-    // Prüfe, wie viel Stack noch übrig ist (in Bytes)
-    UBaseType_t stackLeft = uxTaskGetStackHighWaterMark(NULL);
-    // LOG_INFO(TAG_PID, "Freier Stack vor Write: %u, Task: %s", stackLeft * sizeof(StackType_t), pcTaskGetTaskName(NULL));
+    // ── STEP 4: Stack-Check (Diagnose) ──
+    logStackWarning();
 
-    if (stackLeft < 200)
-    { // Willkürliche Grenze
-        LOG_ERROR(TAG_PID, "STACK FAST VOLL! Aufruf wird wahrscheinlich crashen.");
-    };
+    // ── STEP 5: thread-safe write outputs + log outside lock ──
+    pidLockWrite(webSockData);
+    utils_logWrite(webSockData.logBuffer, logEntry);
 
-    // ── STEP 3: thread-safe write outputs, then log outside lock ──
-    pidLockWrite(webSockData);               // writes pidContainer + boilerHeating (caller holds dataMutex + pidOutMutex, KR-2)
-    utils_logWrite(webSockData.logBuffer, logEntry); // outside locks → prevents R01 ABBA deadlock
-
-    /*
-    Skalierte Strafe: Anstatt nur -2 zu geben, wenn Strom bezogen wird, bestrafst du hohen Bezug stärker. Das lehrt den Algorithmus, bei knapper PV-Leistung eher vorsichtig zu sein.
-
-    Sweet Spot Bonus: Der Agent bekommt eine hohe Belohnung, wenn measuredPower nahe bei 0 liegt. Das ist das Ziel: Den Hausanschluss auf 0W zu halten.
-
-    Vermeidung von Extremen: Wenn die Temperatur zu hoch wird, sinkt der Reward, sodass der Agent lernt, die Leistung rechtzeitig zu drosseln, bevor der preCheck (Sicherheit) hart abschaltet.
-    */
-    LOG_DEBUG(TAG_PID, "ENTER ML Task: %s", pcTaskGetTaskName(NULL));
-
-    /*    int ts = tempState(temp);
-       int ps = pvState(measuredPower);
-       int action = chooseAction(ts, ps);
-    */
+    // ── STEP 6: ML-Training (nur bei MODE_AUTO) ──
     if (doML)
     {
-
-        float reward = 0.0; // Nutze float für feinere Abstufung
-
-        // 1. Der "Sweet Spot" (Netz-Null-Punkt)
-        // Wir bestrafen sowohl Einspeisung als auch Bezug,
-        // aber Bezug (Strom kaufen) ist teurer/schlechter.
-        if (measuredPower > 0)
-        {
-            // Netzbezug: Strafe skaliert mit der Leistung
-            reward -= (measuredPower / 50.0);
-        }
-        else if (measuredPower < 0)
-        {
-            // Überschuss vorhanden:
-            // Wenn wir nah an der Null sind (z.B. -10 bis -50W), gibt es einen Bonus.
-            if (measuredPower > -50)
-                reward += 10.0;
-            else
-                reward += 2.0; // Kleiner Bonus für generelle Nutzung von Überschuss
-        }
-
-        // 2. Temperatur-Management
-        // Ziel: 57°C (dein Setpoint im Code)
-        float tempDiff = abs(temp - 57);
-        if (tempDiff < 2)
-        {
-            reward += 5.0; // Voller Bonus bei Zieltemperatur
-        }
-        else
-        {
-            reward -= (tempDiff * 0.5); // Abzug, je weiter wir weg sind
-        }
-
-        // 3. Hardware-Schonung (Relais-Check)
-        // Wenn die Action einen Phasenwechsel erzwingt, geben wir einen kleinen Abzug,
-        // damit das Netz lernt, nur zu schalten, wenn es sich wirklich lohnt.
-        static int lastActionPhases = 0;
-        int currentActionPhases = (int)(targetPower / onePhase);
-        if (currentActionPhases != lastActionPhases)
-        {
-            reward -= 5.0; // "Schaltkosten"
-        }
-        lastActionPhases = currentActionPhases;
-
-        // 4. Sicherheit (Extremwerte)
-        if (temp > (m_tempMaxAllowed - 2))
-        {
-            reward -= 20.0; // Massive Strafe kurz vor Not-Aus
-        }
-
-        // Übergabe an das neuronale Netz
+        LOG_INFO(TAG_PID, "ML train – Task: %s", pcTaskGetTaskName(NULL));
+        float reward = computeMLReward(measuredPower, targetPower, temp);
         tinyNN->remember(temp, measuredPower, action, (int)reward);
         tinyNN->trainReplay();
-        LOG_INFO(TAG_PID, "EXIT ML Task: %s", pcTaskGetTaskName(NULL));
-    } // doML
+    }
 }
 
 /*
@@ -525,11 +480,12 @@ void PinManager::update(WEBSOCK_DATA &webSockData /*, double temp, int hour*/)
 
 void PinManager::apply(LogEntry &logEntry, int targetPower)
 {
-    LOG_INFO(TAG_PID, "PinManager::apply() - ENTER Task %s, available watt: %d", pcTaskGetName(NULL), targetPower);
+    LOG_INFO(TAG_PID, "PinManager::apply: Task %s, Ziel: %d W",
+             pcTaskGetName(NULL), targetPower);
     unsigned long now = millis();
     targetPower = clampInt(targetPower, 0, onePhase * 3);
 
-    // 🔥 HARD STOP
+    // ── HARD STOP ────────────────────────────────────────────────────────
     if (targetPower < 50)
     {
         digitalWrite(pinL1, LOW);
@@ -538,70 +494,69 @@ void PinManager::apply(LogEntry &logEntry, int targetPower)
         currentPWM = 0;
 
         logEntry.state = 0;
-        logEntry.pwm = 0;
+        logEntry.pwm   = 0;
         logEntry.power = 0;
         return;
     }
 
-    // 2 Relaisphasen plus eine PWM-Phase. Relais schalten nur bei voller
-    // Phasenleistung plus Hysterese, damit sie am Schwellwert nicht flattern.
-    const int margin = onePhase / 10;
-    int currentActive = (digitalRead(pinL1) == HIGH ? 1 : 0) + (digitalRead(pinL2) == HIGH ? 1 : 0);
+    // ── Relay-Hysterese (asymmetrisch: Einschalten vs Ausschalten) ───────
+    // marginUp   =  20% der Phasenleistung (Einschalten)
+    // marginDown =  40% der Phasenleistung (Ausschalten → Schutz)
+    const int marginUp   = onePhase / 5;   // z.B. 300W bei 1500W/Phase
+    const int marginDown = onePhase / 2;   // z.B. 600W bei 1500W/Phase
+
+    int currentActive = (digitalRead(pinL1) == HIGH ? 1 : 0)
+                      + (digitalRead(pinL2) == HIGH ? 1 : 0);
     int desiredPhases = currentActive;
 
-    if (desiredPhases < 1 && targetPower >= (onePhase + margin))
-    {
+    // Einschalten → konservativ (erfordert headroom)
+    if (desiredPhases < 1 && targetPower >= (onePhase + marginUp))
         desiredPhases = 1;
-    }
-    else if (desiredPhases >= 1 && targetPower <= (onePhase - margin))
-    {
-        desiredPhases = 0;
-    }
-
-    if (desiredPhases < 2 && targetPower >= ((2 * onePhase) + margin))
-    {
+    else if (desiredPhases < 2 && targetPower >= ((2 * onePhase) + marginUp))
         desiredPhases = 2;
-    }
-    else if (desiredPhases >= 2 && targetPower <= ((2 * onePhase) - margin))
-    {
+
+    // Ausschalten → größerer Hysteresedeadband
+    else if (desiredPhases >= 1 && targetPower <= (onePhase - marginDown))
+        desiredPhases = 0;
+    else if (desiredPhases >= 2 && targetPower <= ((2 * onePhase) - marginDown))
         desiredPhases = 1;
-    }
 
-    LOG_INFO(TAG_PID, "apply (1) - targetPower: %d, desiredPhases: %d, currentActive: %d", targetPower, desiredPhases, currentActive);
+    LOG_INFO(TAG_PID, "apply – Ziel: %d W, desired: %d, current: %d",
+             targetPower, desiredPhases, currentActive);
 
-    // 3. Relais schalten (mit Zeitverzögerung MIN_SWITCH gegen Verschleiß)
+    // ── Relais schalten (Cooldown-Schutz) ────────────────────────────────
     if (desiredPhases != currentActive && (now - lastSwitch > MIN_SWITCH))
     {
-        /*  LOG_INFO(TAG_PID, "apply (1) write to port- targetPower: %d, desiredPhases: %d, currentActive: %d", targetPower, desiredPhases, currentActive); */
         digitalWrite(pinL1, desiredPhases >= 1 ? HIGH : LOW);
         digitalWrite(pinL2, desiredPhases >= 2 ? HIGH : LOW);
-        lastSwitch = now;
+        lastSwitch    = now;
         currentActive = desiredPhases;
     }
 
+    // ── PWM feinteilen (Soft-Clamp: max 10 Steps/Cycle) ──────────────────
     int powerFromRelays = currentActive * onePhase;
-    int powerForPWM = clampInt(targetPower - powerFromRelays, 0, onePhase);
+    int powerForPWM     = clampInt(targetPower - powerFromRelays, 0, onePhase);
+    int desiredPWM      = wattToPwm(powerForPWM, onePhase);
 
-    currentPWM = wattToPwm(powerForPWM, onePhase);
+    // Soft-Clamp: PWM gleitet statt springt
+    int pwmDelta = desiredPWM - currentPWM;
+    int maxStep  = 10; // max PWM-Änderung pro Zyklus (~2s)
+    int step     = abs(pwmDelta) > maxStep ? (pwmDelta > 0 ? maxStep : -maxStep) : pwmDelta;
+
+    currentPWM = clampInt(currentPWM + step, 0, OUTPUT_MAX);
     analogWrite(pwmPin, currentPWM);
 
-    // Logging
-    logEntry.pwm = currentPWM;
-    logEntry.power = powerFromRelays + powerForPWM;
+    // ── Logging ──────────────────────────────────────────────────────────
+    logEntry.pwm   = currentPWM;
+    logEntry.power = powerFromRelays + wattToPwm(currentPWM, onePhase);
     int state = 0;
-    if (digitalRead(pinL1) == HIGH)
-        state |= 1; // Setzt Bit 0
-    if (digitalRead(pinL2) == HIGH)
-        state |= 2; // Setzt Bit 1
+    if (digitalRead(pinL1) == HIGH) state |= 1;
+    if (digitalRead(pinL2) == HIGH) state |= 2;
     logEntry.state = state;
 
-    LOG_INFO(TAG_PID, "Relais 1→ %d, Relais 2→ %d, pwm→ %d, pwmWatt→ %d", currentActive >= 1, currentActive >= 2, currentPWM, powerForPWM);
-    LOG_INFO(TAG_PID, "Status Bitmaske: %d (L1: %d, L2: %d)",
-             state, (state & 1), (state >> 1 & 1));
-
-
-
-    LOG_INFO(TAG_PID, "PinManager::apply() - EXIT Task %s", pcTaskGetName(NULL));
+    LOG_INFO(TAG_PID, "R1: %d, R2: %d, PWM: %d, W: %d, state: %d",
+             currentActive >= 1, currentActive >= 2, currentPWM,
+             powerForPWM, state);
 }
 
 /*
@@ -611,10 +566,8 @@ int PinManager::heaterPower()
 {
     int p = 0;
 
-    if (digitalRead(pinL1))
-        p += onePhase;
-    if (digitalRead(pinL2))
-        p += onePhase;
+    if (digitalRead(pinL1)) p += onePhase;
+    if (digitalRead(pinL2)) p += onePhase;
 
     p += (int)(((long)currentPWM * onePhase) / OUTPUT_MAX);
 
@@ -630,11 +583,8 @@ void PinManager::reset()
 }
 int PinManager::getStateOfDigPin(short pin)
 {
-    if (pin == 0)
-        return (digitalRead(pinL1) ? 1 : 0);
-    if (pin == 1)
-        return (digitalRead(pinL2) ? 1 : 0);
-
+    if (pin == 0) return digitalRead(pinL1) ? 1 : 0;
+    if (pin == 1) return digitalRead(pinL2) ? 1 : 0;
     return -1;
 }
 
@@ -650,43 +600,27 @@ void PinManager::allOn()
     analogWrite(pwmPin, (int)OUTPUT_MAX);
 
     currentPhases = 2;
-    currentPWM = OUTPUT_MAX;
+    currentPWM    = OUTPUT_MAX;
 }
 inline int PinManager::getMeanOfAvailAblePower()
 {
-    // 1. Fensterverwaltung: Ältesten Wert entfernen, wenn Puffer voll
-    // LOG_DEBUG(TAG_PID, "getMeanOfAvailAblePower - ENTER: %d", (int)availablePower.size());
-
+    // Truncate buffer to prevent unbounded growth
     if (availablePower.size() > HYSTERESIS_WATT)
     {
         availablePower.erase(availablePower.begin());
     }
 
     size_t n = availablePower.size();
+    if (n == 0) return 0;
 
-    // 2. Fallback: Zu wenig Daten für Ausreißer-Bereinigung
-    if (n < 3)
-    {
-        if (n == 0)
-            return 0.0;
-        int sum = 0;
-        for (int v : availablePower)
-            sum += v;
-        // LOG_DEBUG(TAG_PID, "SuM %d values", (int) sum, n);
-        return sum / n;
-    }
+    // Median-of-centre – no heap, no full-sort
+    // Trim 1 lowest + 1 highest, then average the rest
+    std::nth_element(availablePower.begin(), availablePower.begin() + 1, availablePower.end());     // 1st trim
+    std::nth_element(availablePower.begin() + 1, availablePower.end() - 1, availablePower.end()); // 2nd trim
 
-    // 3. Kopie erstellen und sortieren (wir wollen das Originalfenster nicht zerstören)
-    std::vector<int> sortedValues = availablePower;
-    std::sort(sortedValues.begin(), sortedValues.end());
-
-    // 4. Trimmed Mean: Ersten und letzten Wert ignorieren
     double sum = 0;
     for (size_t i = 1; i < n - 1; i++)
-    {
-        sum += sortedValues[i];
-    }
-    // LOG_DEBUG(TAG_PID, "SuM 2  %d values", (int)sum, n);
-    //  Division durch (n - 2), da wir zwei Werte entfernt haben
-    return sum / (n - 2);
+        sum += availablePower[i];
+
+    return (int)(sum / (n - 2));
 }

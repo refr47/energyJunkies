@@ -24,7 +24,7 @@ class PinManager
 {
 public:
     void config(WEBSOCK_DATA &data, int l1, int l2, int pwm);
-    void update(WEBSOCK_DATA &webSockData);
+    void update(WEBSOCK_DATA &webSockData, int tempMaxBonusC = 0);
     ~PinManager();
     // helper
     void allOn();
@@ -104,14 +104,23 @@ private:
     std::vector<int> availablePower;
     int powerIndex;
 
-    int heaterPower();
-    int basePower(int effectivePower);
-    ControlMode preCheck(int temp, unsigned long nowMS);
-    int getMeanOfAvailAblePower();
+    int  heaterPower();
+    int  basePower(int effectivePower);
+    void preCheck(int temp, unsigned long nowMS, ControlMode &mode, bool &doML);
+    int  getMeanOfAvailAblePower();
 
     // Hilfs-Methoden für thread-safe lock/Unlock
-    void pidLockRead(WEBSOCK_DATA& webSockData);  // Werte aus g_app lesen
-    void pidLockWrite(WEBSOCK_DATA& webSockData); // Werte in g_app zurückschreiben
+    void pidLockRead(WEBSOCK_DATA& webSockData);
+    void pidLockWrite(WEBSOCK_DATA& webSockData);
+
+    // ── update() helpers ──
+    int   resolveInputTemp() const;
+    void  handleModeOff(LogEntry &logEntry);
+    void  handleForceHeating(LogEntry &logEntry, int &measuredPower);
+    void  handleModeManual();
+    int   handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doML);
+    float computeMLReward(int measuredPower, int targetPower, int temp);
+    void  logStackWarning();
 
 };
  
