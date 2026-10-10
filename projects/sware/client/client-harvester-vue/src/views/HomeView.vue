@@ -82,95 +82,22 @@
 
     <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
 
+      <!-- Live Energie-Bilanz (conditional nach dataSource) -->
       <div
         class="md:col-span-12 lg:col-span-8 bg-white rounded-[2.5rem] p-8 border border-white shadow-xl shadow-slate-200/60">
-        <div class="flex justify-between items-center mb-8">
-          <span
-            class="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-full md:text-left">Live
-            Energie-Bilanz</span>
-        </div>
-        <div class="text-center">
-          <div class="text-emerald-500 mb-2">
-            <svg class="w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707m12.728 12.728L5.657 5.657" />
-            </svg>
-          </div>
-          <p class="text-[10px] font-black text-slate-400 uppercase">PV-Ertrag</p>
-          <p class="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter">
-            {{ liveData.solEr }}<small class="text-lg ml-1 opacity-30">W</small>
-          </p>
-          <div class="mt-2 h-6"></div>
+        <div class="flex justify-between items-center mb-6">
+          <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Energie-Bilanz</span>
+          <DataSourceBadge :source="dataSource" />
         </div>
 
-        <div
-          class="bg-slate-50 rounded-3xl p-6 border border-slate-100 text-center shadow-inner relative overflow-hidden">
-          <div class="text-[9px] font-black text-slate-400 uppercase mb-2">Netz-Saldo</div>
-          <div class="text-3xl font-black transition-colors duration-500"
-            :class="liveData.netzBezug <= 0 ? 'text-blue-600' : 'text-rose-600'">
-            {{ Math.abs(liveData.ev) }}<small class="text-sm ml-1 uppercase">W</small>
-          </div>
-          <p class="text-[9px] font-bold mt-1 uppercase opacity-50">{{ liveData.netzBezug <= 0 ? 'Einspeisung'
-            : 'Netzbezug' }}</p>
-
-              <div class="mt-4 flex justify-center gap-1.5">
-                <span v-for="i in 3" :key="i" class="w-2 h-2 rounded-full"
-                  :class="[liveData.netzBezug <= 0 ? 'bg-blue-400 animate-bounce' : 'bg-rose-400', i == 2 ? 'animation-delay-100' : i == 3 ? 'animation-delay-200' : '']"></span>
-              </div>
-
-              <div class="mt-6 pt-4 border-t border-slate-200/50 grid grid-cols-2 gap-2">
-                <div>
-                  <p class="text-[12px] sm:text-xs font-black text-slate-400 uppercase">Export Gesamt</p>
-                  <p class="text-xs sm:text-sm font-bold text-blue-600">{{ liveData.SEI }} <span
-                      class="text-[14px] opacity-60">kW</span></p>
-                </div>
-                <div class="border-l border-slate-200/50">
-                  <p class="text-[12px] sm:text-xs font-black text-slate-400 uppercase">Import Gesamt</p>
-                  <p class="text-xs sm:text-sm font-bold text-rose-600">{{ liveData.SII }} <span
-                      class="text-[14px] opacity-60">kW</span></p>
-                </div>
-              </div>
-        </div>
-
-        <div class="text-center">
-          <div class="text-slate-400 mb-2">
-            <svg class="w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-          </div>
-          <p class="text-[10px] font-black text-slate-400 uppercase">Hauslast</p>
-          <p class="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter">
-            {{ liveData.netzBezug }}<small class="text-lg ml-1 opacity-30">W</small>
-          </p>
-          <div class="mt-2 h-6"></div>
-        </div>
+        <EnergyBalanceFronius v-if="isRichSource" :liveData="liveData" />
+        <EnergyBalanceAmis    v-else-if="isAmis" :liveData="liveData" />
+        <EnergyBalanceFallback v-else />
       </div>
 
-      <div v-if="hasBattery"
-        class="md:col-span-12 lg:col-span-4 bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-transparent"></div>
-        <div class="relative z-10 flex flex-col h-full justify-between">
-          <div class="flex justify-between items-center mb-8">
-            <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Battery Stack</span>
-            <span class="text-xs font-bold text-slate-400">{{ liveData.aakPower }} W</span>
-          </div>
-          <div class="mb-8">
-            <div class="text-6xl font-black tracking-tighter">{{ liveData.aakStat }}<span
-                class="text-2xl text-emerald-500">%</span></div>
-          </div>
-          <div class="space-y-3">
-            <div class="h-4 bg-white/5 rounded-full p-1 border border-white/10">
-              <div :style="{ width: liveData.aakStat + '%' }"
-                class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all duration-1000">
-              </div>
-            </div>
-            <div class="flex justify-between text-[9px] font-black uppercase text-slate-500 tracking-widest">
-              <span>Kapazität</span>
-              <span class="text-emerald-400">{{ (liveData.aakEntladen > 0) ? 'Charging' : 'Idle' }}</span>
-            </div>
-          </div>
-        </div>
+      <div v-if="isRichSource"
+        class="md:col-span-12 lg:col-span-4">
+        <EnergyBalanceBattery :liveData="liveData" />
       </div>
 
       <div class="md:col-span-12 bg-white rounded-[2.5rem] shadow-xl p-8 border border-white">
@@ -387,6 +314,11 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import DataSourceBadge from '../components/DataSourceBadge.vue';
+import EnergyBalanceFronius from '../components/EnergyBalanceFronius.vue';
+import EnergyBalanceAmis from '../components/EnergyBalanceAmis.vue';
+import EnergyBalanceFallback from '../components/EnergyBalanceFallback.vue';
+import EnergyBalanceBattery from '../components/EnergyBalanceBattery.vue';
 
 const props = defineProps(['liveData', 'logs', 'isConnected']);
 // Mobile: Live-Uhrzeitnst currentTime = ref('');let timeTimer = null;nst updateTime = () => {  currentTime.value = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });};onMounted(() => {  updateTime();  timeTimer = setInterval(updateTime, 1000);});
@@ -409,7 +341,13 @@ const errorDefinitions = {
 
 // 2. Computed Properties mit "Optional Chaining" (?.) absichern
 const isExporting = computed(() => (props.liveData?.netzBezug || 0) <= 0);
-const hasBattery = computed(() => !!props.liveData?.aakHasBattery); // !! erzwingt Boolean
+// --- Datenquelle aus WebSocket ---
+const dataSource   = computed(() => props.liveData?.dataSource ?? null);
+const isRichSource = computed(() => ['fronius', 'modbus'].includes(dataSource.value));
+const isAmis       = computed(() => dataSource.value === 'amis');
+
+// --- Battery (nur bei fronius/modbus relevant) ---
+const hasBattery   = computed(() => !!props.liveData?.aakHasBattery); // !! erzwingt Boolean
 
 // 3. Fehlerliste berechnen
 const errorList = computed(() => {

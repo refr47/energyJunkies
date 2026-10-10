@@ -105,6 +105,7 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
         live[PRODUKTION]         = data.fronius_SOLAR_POWERFLOW.p_pv;
         live[NETZ_BEZUG]         = data.fronius_SOLAR_POWERFLOW.p_grid;
         live[EIGENVERBRAUCH]     = data.fronius_SOLAR_POWERFLOW.p_load;
+        live["dataSource"]       = "fronius";
     }
     else if (data.states.modbusOK)
     {
@@ -124,6 +125,7 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
             live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
                                   + s_prevValueFromSmartMeter;
         }
+        live["dataSource"]       = "modbus";
     }
     else // amis reader
     {
@@ -132,6 +134,7 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
         live[PRODUKTION]       = data.amisReader.exportInWatt;
         live[STROM_EXPORT_INS] = data.amisReader.absolutExportInkWh;
         live[STROM_IMPORT_INS] = data.amisReader.absolutImportInkWh;
+        live["dataSource"]     = "amis";
     }
 }
 
