@@ -1,3 +1,5 @@
+
+
 #ifdef AMIS_READER_DEV
 
 #include <ArduinoJson.h>
@@ -152,4 +154,14 @@ bool amisReader_readRestTarget(WEBSOCK_DATA &webSockData)
     /* return utils_sock_readRestTarget(webSockData, AMIS_READER_INDEX, mapJsonValues); */
 }
 
+#else
+// only for compiling/linking with fronius solar API, if AMIS_READER_DEV is not defined
+#include "defines.h"
+
+KEY_VALUE_MAP_t amisKeyValueMap[AMIS_VALUE_COUNT] = {
+    {"1.8.0", 0},
+    {"2.8.0", 1},
+    {"saldo", 2}
+
+};
 #endif

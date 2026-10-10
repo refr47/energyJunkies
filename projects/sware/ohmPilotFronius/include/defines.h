@@ -121,7 +121,7 @@ typedef struct
     char inverter[INET_ADDRSTRLEN + 1];
     char currentIP[INET_ADDRSTRLEN + 1];
 
-    short akku;
+    bool akku;
     short akkuPriori; // 1 oder 2, je nachdem, ob Akku vorrangig behandelt werden soll oder nicht
     // unsigned int pid_min_time_without_contoller_inMS;
     unsigned int legionellenDelta;

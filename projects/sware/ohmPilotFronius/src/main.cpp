@@ -195,12 +195,12 @@ void setup()
 
 #ifdef FRONIUS_IV
         bool akkuAvailable = false;
-        g_app.webSockData.setupData.externerSpeicher = false;
+        g_app.webSockData.setupData.akku = false;
         g_app.webSockData.states.froniusAPI = false;
 
         if (soloar_init(g_app.webSockData, &akkuAvailable))
         {
-            g_app.webSockData.setupData.externerSpeicher = akkuAvailable;
+            g_app.webSockData.setupData.akku = akkuAvailable;
             if (solar_get_powerflow(g_app.webSockData))
             {
                 g_app.webSockData.states.froniusAPI = true;

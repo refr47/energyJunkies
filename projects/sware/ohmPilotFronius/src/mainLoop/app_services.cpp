@@ -533,6 +533,8 @@ static bool fetchFroniusEnergy()
 // -----------------------------------------------------------------------------
 static bool fetchAmisEnergy()
 {
+    #ifdef AMIS_READER_DEV
+
     if (!amisReader_readRestTarget(g_app.webSockData))
     {
         tryMarkNetworkDown("AMIS reader failed",
@@ -556,7 +558,7 @@ static bool fetchAmisEnergy()
     {
         handleLockFailure("AMIS reader succeeded, but could not acquire lock to update state");
     }
-
+#endif
     return true;
 }
 

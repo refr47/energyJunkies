@@ -37,12 +37,12 @@ static const size_t MAX_RESPONSE_LENGTH = 1024;
 
 
 /* socket variables , defined in amisReader and froniusSolarAPI*/
-extern KEY_VALUE_MAP_t amisKeyValueMap;
-extern KEY_VALUE_MAP_t froniusKeyValueMap;
+extern KEY_VALUE_MAP_t amisKeyValueMap[AMIS_VALUE_COUNT];
+extern KEY_VALUE_MAP_t froniusKeyValueMap[FRONIUS_VALUE_COUNT];
 
 static HTTP_REST_TARGET_t restTarget[REST_TARGET_COUNT] = {
-	{ "Amis reader", "amisreader",{ 0 }, 80, "/rest", "GET /rest HTTP/1.0\r\n\r\n", -1, AMIS_VALUE_COUNT, &amisKeyValueMap },
-	{ "Fronius Solar API", "fronius rest",{ 0 }, 80, "/status/powerflow", "GET /status/powerflow HTTP/1.0\r\n\r\n", -1, FRONIUS_VALUE_COUNT, &froniusKeyValueMap } };
+	{ "Amis reader", "amisreader",{ 0 }, 80, "/rest", "GET /rest HTTP/1.0\r\n\r\n", -1, AMIS_VALUE_COUNT, amisKeyValueMap },
+	{ "Fronius Solar API", "fronius rest",{ 0 }, 80, "/status/powerflow", "GET /status/powerflow HTTP/1.0\r\n\r\n", -1, FRONIUS_VALUE_COUNT, froniusKeyValueMap } };
 
 static bool readJsonResponse(HTTP_REST_TARGET_t* target, WEBSOCK_DATA& webSockData, GET_JSON_DATA getJson);
 int pingloop = 1;

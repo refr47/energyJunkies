@@ -16,7 +16,7 @@ namespace Fields
     static const NumericField<unsigned int, Setup> legDelta(LEGIONELLEN_DELTA_TIME, &Setup::legionellenDelta);
     static const NumericField<unsigned int, Setup> legMax(LEGIONELLEN_TEMP, &Setup::legionellenMaxTemp);
 
-    static const NumericField<short, Setup> akku(AKKU, &Setup::akku);
+    static const NumericField<bool, Setup> akku(AKKU, &Setup::akku);
     static const NumericField<short, Setup> akkuPrio(AKKU_PRIORI, &Setup::akkuPriori);
     static const StringField<Setup, MQTT_HOST_LEN + 1> mHost(WWW_MQTT_HOST, &Setup::mqttHost);
     static const StringField<Setup, MQTT_USER_LEN + 1> mUser(WWW_MQTT_USER, &Setup::mqttUser);

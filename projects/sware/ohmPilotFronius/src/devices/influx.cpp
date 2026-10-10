@@ -77,7 +77,7 @@ bool influx_write(WEBSOCK_DATA &webSockData)
 #ifdef FRONIUS_IV
     if (webSockData.states.froniusAPI)
     {
-        if (webSockData.setupData.externerSpeicher)
+        if (webSockData.setupData.akku)
         {
             energy.addField("akku", webSockData.fronius_SOLAR_POWERFLOW.p_akku);
         }

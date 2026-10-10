@@ -264,7 +264,7 @@ static const char *getJsonObj()
 
     xSemaphoreGive(g_jsonMutex);
 
-    LOG_DEBUG(TAG_WEB_SOCKETS, "JSON prepared, %zu bytes", bytesWritten);
+   // LOG_DEBUG(TAG_WEB_SOCKETS, "JSON prepared, %zu bytes", bytesWritten);
     return jsonObjBuffer;
 }
 
