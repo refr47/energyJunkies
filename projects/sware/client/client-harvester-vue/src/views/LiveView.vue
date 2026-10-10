@@ -26,7 +26,7 @@
       </div>
     </div>
 
-    <table class="stripe" class="w-full">
+    <table class="stripe w-full">
       <thead>
         <tr>
           <th>Titel</th>
@@ -45,7 +45,7 @@
           <td>{{ item.unit }}</td>
         </tr>
       </tbody>
-    </table></div>
+    </table>
 
     <table id="logTable">
       <thead>
@@ -66,9 +66,9 @@
           <td>{{ entry.temp.toFixed(1) }}</td>
         </tr>
       </tbody>
-    </table></div>
+    </table>
 
-    <table v-if="tinyNNItems.length" class="stripe" class="w-full mt-4">
+    <table v-if="tinyNNItems.length" class="stripe w-full mt-4">
       <caption class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">🧠 TinyNN-Prädiktion</caption>
       <thead>
         <tr>
@@ -84,9 +84,7 @@
           <td>{{ item.unit }}</td>
         </tr>
       </tbody>
-    </table></div>
-
-    <!-- Stacked-Bar: Heizer-Leistung-Zusammensetzung -->
+    </table>
     <div class="w-full max-w-4xl mx-auto mt-6 p-4 border border-slate-200 rounded-lg bg-slate-50">
       <div class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">⚡ Energie-Zusammensetzung</div>
 
