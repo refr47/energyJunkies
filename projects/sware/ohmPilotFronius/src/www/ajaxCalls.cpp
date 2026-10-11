@@ -12,12 +12,7 @@
 #include "templ.h"
 #include "ajaxConst.h"
 #include "setupFields.h"
-#include "loxone.h"
 #include "ajaxCalls.h"
-/*
-extern const FieldBase<Setup>* setupFields[];
-extern const size_t setupFieldsCount;*/
-
 #ifndef SHELLY_SCAN_MAX_DEVICES
 #define SHELLY_SCAN_MAX_DEVICES 254
 #endif
@@ -29,24 +24,6 @@ extern const size_t setupFieldsCount;*/
 #ifndef AJAX_MUTEX_TIMEOUT_MS
 #define AJAX_MUTEX_TIMEOUT_MS 2000
 #endif
-
-enum FieldType
-{
-    TYPE_STRING,
-    TYPE_UINT,
-    TYPE_INT,
-    TYPE_SHORT,
-    TYPE_BOOL,
-    TYPE_DOUBLE
-};
-struct FieldDescriptor
-{
-    const char *key;
-    FieldType type;
-    size_t offset;
-    size_t maxLen;
-    bool required;
-};
 
 CALLBACK_GET_DATA g_getDataCallback = nullptr;
 static CALLBACK_SET_SETUP_CHANGED g_setSetupChangedCallback = nullptr;
@@ -70,16 +47,10 @@ static void ajaxCalls_unlock(SemaphoreHandle_t mutex);
 static void returnFromStoreSetup(bool inputCorrect,
                                  JsonDocument &result,
                                  AsyncWebServerRequest *request,
-                                 char *caller);
+                                 const char *caller);
 
 void delayedRestartTask(void *param);
-bool parseStruct(JsonObject obj,
-                 void *structPtr,
-                 const FieldDescriptor *fields,
-                 size_t fieldCount,
-                 JsonDocument &response);
 
-static const char *safeJsonString(const JsonObject &obj, const char *key);
 static void safeCopy(char *dest, size_t destSize, const char *src);
 
 static void shellyScanTask(void *parameter);
@@ -121,32 +92,7 @@ static void ajaxCalls_unlock(SemaphoreHandle_t mutex)
         xSemaphoreGive(mutex);
     }
 }
-
-static bool updateIntFromStore(JsonDocument &doc, const char *key, int &targetValue)
-{
-    if (!doc.containsKey(key))
-        return true; // Optional: ignorieren wenn Feld fehlt
-
-    JsonVariant v = doc[key];
-
-    // Versuch die Zahl zu extrahieren (egal ob "123" oder 123)
-    if (v.is<int>() || v.is<float>())
-    {
-        targetValue = v.as<int>();
-        return true;
-    }
-
-    return false;
-}
-
-/* ---------- helpers ---------- */
-
-static const char *safeJsonString(const JsonObject &obj, const char *key)
-{
-    return obj[key] | "";
-}
-
-static void safeCopy(char *dest, size_t destSize, const char *src)
+/* ---------- helpers ---------- */static void safeCopy(char *dest, size_t destSize, const char *src)
 {
     if (dest == nullptr || destSize == 0)
     {
@@ -161,6 +107,14 @@ static void safeCopy(char *dest, size_t destSize, const char *src)
 
     strncpy(dest, src, destSize - 1);
     dest[destSize - 1] = '\0';
+}
+
+static void shellyScanFinish(const String &json)
+{
+    safeCopy(g_shellyJsonCache, sizeof(g_shellyJsonCache), json.c_str());
+    g_shellyScanRunning = false;
+    g_shellyScanDone = true;
+    g_shellyTaskHandle = nullptr;
 }
 
 static void fillShellyJsonObj(const ALL_SHELLY_DEVICES &result, JsonArray &array)
@@ -255,10 +209,7 @@ static void shellyScanTask(void *parameter)
 
         if (ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
         {
-            safeCopy(g_shellyJsonCache, sizeof(g_shellyJsonCache), response.c_str());
-            g_shellyScanRunning = false;
-            g_shellyScanDone = true;
-            g_shellyTaskHandle = nullptr;
+            shellyScanFinish(response);
             ajaxCalls_unlock(g_shellyMutex);
         }
 
@@ -283,10 +234,7 @@ static void shellyScanTask(void *parameter)
 
         if (ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
         {
-            safeCopy(g_shellyJsonCache, sizeof(g_shellyJsonCache), response.c_str());
-            g_shellyScanRunning = false;
-            g_shellyScanDone = true;
-            g_shellyTaskHandle = nullptr;
+            shellyScanFinish(response);
             ajaxCalls_unlock(g_shellyMutex);
         }
 
@@ -336,10 +284,7 @@ static void shellyScanTask(void *parameter)
 
     if (ajaxCalls_lock(g_shellyMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
     {
-        safeCopy(g_shellyJsonCache, sizeof(g_shellyJsonCache), response.c_str());
-        g_shellyScanRunning = false;
-        g_shellyScanDone = true;
-        g_shellyTaskHandle = nullptr;
+        shellyScanFinish(response);
         ajaxCalls_unlock(g_shellyMutex);
     }
 
@@ -448,164 +393,9 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     request->send(httpCode, "application/json", response);
 }
 
-/* ---------- overview ---------- */
-
-void ajaxCalls_handleLoxone(AsyncWebServerRequest *request)
-{
-    if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
-    {
-       request->send(200, "application/json", "{\"error\":500,\"watt\":0,\"temp\":0}");
-        return;
-    }
-
-    CALLBACK_GET_DATA localGetData = g_getDataCallback;
-    ajaxCalls_unlock(g_ajaxMutex);
-
-    if (localGetData == nullptr)
-    {
-        request->send(200, "application/json", "{\"error\":501,\"watt\":0,\"temp\":0}");
-        return;
-    }
-
-    WEBSOCK_DATA webSockD = localGetData();
-    LOXONE_INFO loxone;
-
-    loxone_prepare(webSockD, loxone);
-    // 1. Puffer-Größe für das JSON festlegen (Groß genug für die Zahlen)
-    char json_buf[64]; 
-    
-    // 2. Variablen dynamisch in das JSON-Format einfügen
-    // %.1f rundet die Temperatur automatisch auf eine Nachkommastelle
-    snprintf(json_buf, sizeof(json_buf), 
-             "{\"error\":%d,\"watt\":%d,\"temp\":%d}", 
-             loxone.error, loxone.usedWatt, loxone.boilerTemp);
-    request->send(200, "application/json", json_buf);
-   
-  
-}
-
-void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
-{
-    if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
-    {
-        request->send(500, "application/json", "{\"done\":0,\"error\":\"mutex lock failed\"}");
-        return;
-    }
-
-    CALLBACK_GET_DATA localGetData = g_getDataCallback;
-    ajaxCalls_unlock(g_ajaxMutex);
-
-    if (localGetData == nullptr)
-    {
-        request->send(500, "application/json", "{\"done\":0,\"error\":\"callback not initialized\"}");
-        return;
-    }
-
-    WEBSOCK_DATA webSockD = localGetData();
-
-    DynamicJsonDocument result(JSON_OBJECT_SETUP_LEN);
-    char formatBuffer[100] = {0};
-
-    result[WWW_FRONIUS] = webSockD.states.froniusAPI;
-    result[WWW_FRONIUS_IP] = webSockD.states.froniusAPI ? webSockD.setupData.inverter : "";
-
-    result[WWW_AMIS] = webSockD.states.amisReader;
-    result[WWW_AMIS_IP] = webSockD.states.amisReader ? webSockD.setupData.amisReaderHost : "";
-
-    result[WWW_CARDREADER] = webSockD.states.cardWriterOK;
-    result[WWW_AKKU] = webSockD.setupData.akku;
-    result[WWW_AKKU_KAPA] = webSockD.setupData.akku ? webSockD.fronius_SOLAR_POWERFLOW.p_akku : 0.0;
-
-    result[WWW_FLASH] = webSockD.states.flashOK;
-    result[WWW_INFLUX] = webSockD.states.influx;
-    result[WWW_INFLUX_IP] = webSockD.states.influx ? webSockD.setupData.influxHost : "";
-
-    // result[WWW_MODBUS] = webSockD.states.modbusOK;
-    // result[WWW_MODBUS_IP] = webSockD.states.modbusOK ? webSockD.setupData.inverter : "";
-
-    result[WWW_MQTT] = webSockD.states.mqtt;
-    result[WWW_MQTT_IP] = webSockD.states.mqtt ? webSockD.setupData.mqttHost : "";
-
-    result[WWW_TEMP_SENSOR] = webSockD.states.tempSensorOK;
-    result[WWW_EPSILON] = webSockD.setupData.epsilonML_PinManager;
-    result[WWW_WATT_BIAS] = webSockD.setupData.wattSetupForTest;
-    if (webSockD.temperature.alarm)
-    {
-        if (webSockD.temperature.sensor1 > 0 && webSockD.temperature.sensor2 > 0)
-        {
-            snprintf(formatBuffer,
-                     sizeof(formatBuffer),
-                     "!!%.2f!!",
-                     (webSockD.temperature.sensor1 + webSockD.temperature.sensor2) / 2.0);
-        }
-        else
-        {
-            snprintf(formatBuffer,
-                     sizeof(formatBuffer),
-                     "!!%.2f %.2f!!",
-                     webSockD.temperature.sensor1,
-                     webSockD.temperature.sensor2);
-        }
-    }
-    else
-    {
-        snprintf(formatBuffer,
-                 sizeof(formatBuffer),
-                 "%.2f",
-                 (webSockD.temperature.sensor1 + webSockD.temperature.sensor2) / 2.0);
-    }
-
-    result[WWW_TEMP_SENSOR_VAL] = formatBuffer;
-    result["done"] = 1;
-    result["error"] = "";
-
-    String response;
-    serializeJson(result, response);
-    request->send(200, "application/json", response);
-}
-
 /* ---------- store setup -----
  *********************************************************************
  */
-
-/* const FieldDescriptor setupFields[] =
-    {
-        {"ssid", TYPE_STRING, OFFSET(Setup, ssid), LEN_WLAN + 1, true},
-        {"passwd", TYPE_STRING, OFFSET(Setup, passwd), LEN_WLAN + 1, true},
-
-        {"heizstab_leistung_in_watt", TYPE_UINT, OFFSET(Setup, heizstab_leistung_in_watt), 0, true},
-        {"phasen_leistung_in_watt", TYPE_UINT, OFFSET(Setup, phasen_leistung_in_watt), 0, true},
-        {"tempMaxAllowedInGrad", TYPE_UINT, OFFSET(Setup, tempMaxAllowedInGrad), 0, true},
-        {"tempMinInGrad", TYPE_UINT, OFFSET(Setup, tempMinInGrad), 0, true},
-
-        {"inverter", TYPE_STRING, OFFSET(Setup, inverter), INET_ADDRSTRLEN + 1, false},
-        {"currentIP", TYPE_STRING, OFFSET(Setup, currentIP), INET_ADDRSTRLEN + 1, false},
-
-        {"externerSpeicher", TYPE_BOOL, OFFSET(Setup, externerSpeicher), 0, false},
-        {"externerSpeicherPriori", TYPE_SHORT, OFFSET(Setup, externerSpeicherPriori), 0, false},
-
-        {"legionellenDelta", TYPE_UINT, OFFSET(Setup, legionellenDelta), 0, false},
-        {"legionellenMaxTemp", TYPE_UINT, OFFSET(Setup, legionellenMaxTemp), 0, false},
-
-        {"amisKey", TYPE_STRING, OFFSET(Setup, amisKey), AMIS_KEY_LEN + 1, false},
-        {"amisReaderHost", TYPE_STRING, OFFSET(Setup, amisReaderHost), INET_ADDRSTRLEN + 1, false},
-
-        {"mqttHost", TYPE_STRING, OFFSET(Setup, mqttHost), MQTT_HOST_LEN + 1, false},
-        {"mqttUser", TYPE_STRING, OFFSET(Setup, mqttUser), MQTT_USER_LEN + 1, false},
-        {"mqttPass", TYPE_STRING, OFFSET(Setup, mqttPass), MQTT_PASS_LEN + 1, false},
-
-        {"influxHost", TYPE_STRING, OFFSET(Setup, influxHost), INFLUX_HOST_LEN + 1, false},
-        {"influxToken", TYPE_STRING, OFFSET(Setup, influxToken), INFLUX_TOKEN_LEN + 1, false},
-        {"influxOrg", TYPE_STRING, OFFSET(Setup, influxOrg), INFLUX_ORG_LEN + 1, false},
-        {"influxBucket", TYPE_STRING, OFFSET(Setup, influxBucket), INFLUX_BUCKET_LEN + 1, false},
-
-        {"epsilonML_PinManager", TYPE_DOUBLE, OFFSET(Setup, epsilonML_PinManager), 0, false},
-
-        {"forceHeating", TYPE_INT, OFFSET(Setup, forceHeating), 0, false},
-        {"wattSetupForTest", TYPE_INT, OFFSET(Setup, wattSetupForTest), 0, false},
-
-        {"setupChanged", TYPE_BOOL, OFFSET(Setup, setupChanged), 0, false}}
-; */
 
 template <typename Struct>
 bool parseStruct(JsonObject obj,
@@ -650,7 +440,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     if (cb)
         cb(false); // for hotupdate, mal alles deaktivieren
 
-    auto setup = my_make_unique<Setup>();
+    Setup setup;
     bool allSuccessful = true;
 
     LOG_DEBUG(TAG_AJAX, "===========> before parseStruct");
@@ -668,8 +458,8 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         {
             if (!json[key].isNull())
             {
-                // WICHTIG: *mySetup dereferenziert den Pointer zu einer Referenz
-                if (!setupFields[i]->update(*setup, json[key]))
+                // WICHTIG: setup ist jetzt auf dem Stack
+                if (!setupFields[i]->update(setup, json[key]))
                 {
                     allSuccessful = false;
                     /*char buf[50];
@@ -687,7 +477,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     */
 
     LOG_DEBUG(TAG_AJAX, "===========> after parseStruct");
-    setup->phasen_leistung_in_watt = setup->heizstab_leistung_in_watt / 3;
+    setup.phasen_leistung_in_watt = setup.heizstab_leistung_in_watt / 3;
 
     LOG_DEBUG(TAG_AJAX, "after parseStruct, ok: ");
     if (!allSuccessful)
@@ -698,7 +488,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
 
     LOG_DEBUG(TAG_AJAX, "Try to write Eprom in calling task.");
 
-    eprom_storeSetup(*setup);
+    eprom_storeSetup(setup);
 
     /*  if (!appTask_epromWriter(std::move(setup)))
      {
@@ -748,7 +538,7 @@ void delayedRestartTask(void *param)
 static void returnFromStoreSetup(bool inputCorrect,
                                  JsonDocument &result,
                                  AsyncWebServerRequest *request,
-                                 char *caller)
+                                 const char *caller)
 {
     String response;
     unsigned httpCode = 200;

@@ -30,7 +30,7 @@ static float wattPerPhase()
     static float cache = -1;
     if (cache < 0 && g_getDataCallback)
     {
-        WEBSOCK_DATA d = g_getDataCallback();
+        WEBSOCK_DATA &d = g_getDataCallback();
         cache = d.setupData.heizstab_leistung_in_watt / 3.0f;
     }
     return cache;
@@ -53,7 +53,7 @@ static int calcWatt(WEBSOCK_DATA &d)
 int loxoneProvider_getWatt()
 {
     if (!g_getDataCallback) return 0;
-    WEBSOCK_DATA d = g_getDataCallback();
+    WEBSOCK_DATA &d = g_getDataCallback();
     return calcWatt(d);
 }
 
