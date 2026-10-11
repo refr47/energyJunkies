@@ -1,22 +1,22 @@
 #pragma once
 
-
-
 #include "defines.h"
 
-/*
-gen24 symo registers
+/**
+ * @brief  Initialisiert die Modbus/TCP-Verbindung zum Fronius-Inverter.
+ *         Liest die Inverter-IP aus &lt;Setup&gt; und verbindet.
+ * @param  setup  Setup-Struktur mit Inverter-IP-Adresse
+ * @return true bei erfolgreicher Verbindung
+ */
+bool mb_init(Setup &setup);
 
-40184 40185	40186
-
-*/
-
-bool mb_init(Setup &);
-bool mb_readInverterStatic();
-bool mb_readAll(Setup &setup, MB_CONTAINER &);
-bool mb_readInverterDynamic(Setup &setup, MB_CONTAINER &);
-bool mb_readSmartMeter(Setup &setUpData, MB_CONTAINER &);
-bool mb_readInverter(Setup &setUpData, MB_CONTAINER &);
-bool mb_readSmartMeterAndInverterOnly(Setup &setUpData, MB_CONTAINER &);
-bool mb_readAkkuOnly(Setup &setUpData, MB_CONTAINER &);
-
+/**
+ * @brief  Liest die Inverter-Summary-Werte per Modbus/TCP:
+ *          - AC current power (kW)
+ *          - AC total energy
+ *          - DC current power
+ * @param  setup      Setup-Struktur mit Inverter-IP
+ * @param  container  MB_CONTAINER, in den die Resultate geschrieben werden
+ * @return true bei erfolgreichem Read + Scale
+ */
+bool mb_readInverter(Setup &setup, MB_CONTAINER &container);

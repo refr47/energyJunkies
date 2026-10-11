@@ -15,6 +15,9 @@
 extern SemaphoreHandle_t g_ajaxMutex;
 extern SemaphoreHandle_t g_shellyMutex;
 
+/* Callback zum Lesen der aktuellen Live-Daten */
+extern CALLBACK_GET_DATA g_getDataCallback;
+
 void ajaxCalls_init(CALLBACK_GET_DATA getData, CALLBACK_SET_SETUP_CHANGED setupCh);
 
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request);

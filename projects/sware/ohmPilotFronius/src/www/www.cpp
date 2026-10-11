@@ -15,6 +15,7 @@
 #include "www.h"
 #include "webSockets.h"
 #include "logReader.h"
+#include "loxoneProvider.h"
 
 /* You only need to format SPIFFS the first time you run a
    test or else use the SPIFFS plugin to create a partition
@@ -264,6 +265,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     // Initialisierung abschließen
     ajaxCalls_init(webSockData, setupChanged);
     server.addHandler(webSockets_init(webSockData));
+    loxoneProvider_register(server);
     server.begin();
 
     LOG_INFO(TAG_WEB, "WebServer started. Free Heap: %u", ESP.getFreeHeap());

@@ -48,7 +48,7 @@ struct FieldDescriptor
     bool required;
 };
 
-static CALLBACK_GET_DATA g_getDataCallback = nullptr;
+CALLBACK_GET_DATA g_getDataCallback = nullptr;
 static CALLBACK_SET_SETUP_CHANGED g_setSetupChangedCallback = nullptr;
 
 // Mutexes werden zentral durch appSyncInit() erstellt → extern über ajaxCalls.h
