@@ -211,42 +211,33 @@ void serviceNetworkSupervisor()
     //     during these calls — it blocks ALL telemetry consumers for seconds.
     //     Strategy: copy data under lock, do heavy init lock-free, write result under lock.
 #ifdef FRONIUS_IV
-    {
-        bool modbusOK = false;
-        // Read current state (fast, under lock)
-        if (appLockData(LOCK_TIMEOUT_DATA_MS))
-        {
-            modbusOK = g_app.webSockData.states.modbusOK;
-            appUnlockData();
-        }
-        if (!modbusOK)
-        {
-            LOG_ERROR(TAG_APP_SERVICES, "Modbus connection to Fronius failed, try reconnecting");
-            // FIX: read setupData under lock, then call mb_init() lock-free
-            Setup localModbusSetup;
-            if (appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
-            {
-                localModbusSetup = g_app.webSockData.setupData;
-                appUnlockConfig();
-            }
-            else
-            {
-                LOG_DEBUG(TAG_APP_SERVICES, "Modbus down, could not read setup for reconnect");
-            }
-            // Heavy I/O — NO locks held!
-            bool result = mb_init(localModbusSetup);
-            // Write result under lock
-            if (appLockData(LOCK_TIMEOUT_DATA_MS))
-            {
-                g_app.webSockData.states.modbusOK = result;
-                appUnlockData();
-            }
-            else
-            {
-                LOG_DEBUG(TAG_APP_SERVICES, "Modbus re-init finished but could not write state");
-            }
-        }
-    }
+    // { modbusOK = false;
+    //     if (appLockData(LOCK_TIMEOUT_DATA_MS))
+    //     {
+    //         modbusOK = g_app.webSockData.states.modbusOK;
+    //         appUnlockData();
+    //     }
+    //     if (!modbusOK)
+    //     {
+    //         LOG_ERROR(TAG_APP_SERVICES, "Modbus connection to Fronius failed, try reconnecting");
+    //         Setup localModbusSetup;
+    //         if (appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
+    //         {
+    //             localModbusSetup = g_app.webSockData.setupData;
+    //             appUnlockConfig();
+    //         }
+    //         else
+    //         {
+    //             LOG_DEBUG(TAG_APP_SERVICES, "Modbus down, could not read setup for reconnect");
+    //         }
+    //         bool result = mb_init(localModbusSetup);
+    //         if (appLockData(LOCK_TIMEOUT_DATA_MS))
+    //         {
+    //             g_app.webSockData.states.modbusOK = result;
+    //             appUnlockData();
+    //         }
+    //     }
+    // }
 #endif
 #ifdef AMIS_READER_DEV
     {
@@ -456,30 +447,41 @@ static EnergySource resolveEnergySource()
 }
 
 // -----------------------------------------------------------------------------
-// cacheFroniusToMB – copy fronius results into MB container (DATA domain)
+// cacheFroniusToMB – copy fronius Solar API results into MB container (DATA domain)
+//
+// Der Modbus-Read ist für den Fronius-Pfad nicht nötig:
+//   P_Akku , P_Grid, P_Load, P_PV          ← Solar API (Site)
+//   SOC   , P (Batterie Ladeleistung)      ← Solar API (Inverters[1])
+// Modbus liefert redundante Werte, die per Solar API präziser sind.
 // -----------------------------------------------------------------------------
 static void cacheFroniusToMB()
 {
+    auto &solar = g_app.webSockData.fronius_SOLAR_POWERFLOW;
+
     if (appLockData(LOCK_TIMEOUT_DATA_MS))
     {
-        g_app.webSockData.mbContainer.akkuStr.data.chargeRate =
-            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_akku;
-        g_app.webSockData.mbContainer.akkuStr.data.dischargeRate =
-            g_app.webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy;
-        g_app.webSockData.mbContainer.akkuStr.data.maxChargeRate =
-            g_app.webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption;
-        g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower =
-            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_akku +
-            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_pv;
-        g_app.webSockData.mbContainer.meterValues.data.acCurrentPower =
-            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_load;
+        // ── Energiefluss ──────────────────────────────
+        g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower = solar.p_pv;
+        g_app.webSockData.mbContainer.inverterSumValues.data.acTotalEnergy  = solar.e_day;
+        g_app.webSockData.mbContainer.inverterSumValues.data.dcCurrentPower = solar.p_pv;
+        g_app.webSockData.mbContainer.meterValues.data.acCurrentPower       = solar.p_grid;
+        g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyExp     = solar.e_total;
+        g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyImp     = 0.0;
+
+        // ── Batterie (Solar API, nicht Modbus) ────────
+        g_app.webSockData.mbContainer.akkuState.data.capacity       = 0.0;    // nicht im JSON → 0
+        g_app.webSockData.mbContainer.akkuStr.data.stateOfCharge    = solar.soc;
+        g_app.webSockData.mbContainer.akkuStr.data.chargeRate       = solar.p_batt;   // W (neg = laden)
+        g_app.webSockData.mbContainer.akkuStr.data.dischargeRate    = -solar.p_batt;  // positiver Wert = Entladung
+        g_app.webSockData.mbContainer.akkuStr.data.maxChargePower   = fabs(solar.p_batt);
+        g_app.webSockData.mbContainer.akkuStr.data.maxChargeRate    = solar.soc;
+        g_app.webSockData.mbContainer.akkuStr.data.maxDischargeRate = solar.soc;
+        g_app.webSockData.mbContainer.akkuStr.data.minReservePct    = 0.0;
+
         appUnlockData();
 
-        LOG_INFO(TAG_APP_SERVICES, "Fronius energy cached: p_akku=%.2f, p_grid=%.2f, p_load=%.2f, p_pv=%.2f",
-            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_akku,
-            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_grid,
-            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_load,
-            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_pv);
+        LOG_INFO(TAG_APP_SERVICES, "Cached: pv=%.0fW grid=%.0fW load=%.0fW batt=%.0fW soc=%.1f%%",
+                 solar.p_pv, solar.p_grid, solar.p_load, solar.p_batt, solar.soc);
     }
     else
     {
@@ -500,12 +502,15 @@ static void cacheFroniusPidPower()
     }
     else
     {
-        handleLockFailure("Modbus read succeeded, but could not acquire lock to update PID power");
+        handleLockFailure("SOLAR API succeeded, but could not acquire lock to update PID power");
     }
 }
 
 // -----------------------------------------------------------------------------
-// fetchFroniusEnergy – Solar powerflow → cache → modbus → influx
+// fetchFroniusEnergy – Solar API → cache → PID → influx
+//   Kein Modbus nötig – alle Werte kommen direkt aus der Solar API:
+//     p_pv, p_grid, p_load, p_akku, rel_Autonomy, rel_SelfConsumption (Site)
+//     p_batt, soc, e_day, e_total  (Inverter[1])
 // -----------------------------------------------------------------------------
 static bool fetchFroniusEnergy()
 {
@@ -516,17 +521,10 @@ static bool fetchFroniusEnergy()
             "Fronius API failed, but could not acquire lock to update state");
         return false;
     }
-    
+
     cacheFroniusToMB();
 
-    /* if (!mb_readInverter(g_app.webSockData.setupData, g_app.webSockData.mbContainer))
-    {
-        tryMarkNetworkDown("Modbus read failed",
-            "Modbus read failed, but could not acquire lock to update state");
-        return false;
-    }
-
-    cacheFroniusPidPower(); */
+    cacheFroniusPidPower();
 
 #ifdef INFLUX
     influx_write(g_app.webSockData);

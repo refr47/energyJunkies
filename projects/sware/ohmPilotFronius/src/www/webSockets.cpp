@@ -39,6 +39,7 @@
 #define AKKU_CAPACITA "aakPower"
 #define AKKU_ZUSTAND "aakStat"
 #define AKKU_ENTLADEN "aakEntladen"
+#define BATTERY_CAPACITY_KW 14.0 // fixe Batteriekapazitaet
 
 #define NETZ_EXPORT_INS "NEI"
 #define NETZ_IMPORT_INS "NII"
@@ -105,28 +106,33 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
         live[PRODUKTION]         = data.fronius_SOLAR_POWERFLOW.p_pv;
         live[NETZ_BEZUG]         = data.fronius_SOLAR_POWERFLOW.p_grid;
         live[EIGENVERBRAUCH]     = data.fronius_SOLAR_POWERFLOW.p_load;
+        // Batteriewerte (Solar API)
+        live[AKKU_CAPACITA]      = BATTERY_CAPACITY_KW;
+        live[AKKU_ZUSTAND]       = data.fronius_SOLAR_POWERFLOW.soc;
+        live[AKKU_ENTLADEN]      = -data.fronius_SOLAR_POWERFLOW.p_batt;
+
         live["dataSource"]       = "fronius";
     }
-    else if (data.states.modbusOK)
-    {
-        live[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
-
-        if (data.mbContainer.inverterSumValues.data.acCurrentPower
-            + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
-        {
-            live[NETZ_BEZUG]   = data.mbContainer.meterValues.data.acCurrentPower;
-            live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
-                                  + data.mbContainer.meterValues.data.acCurrentPower;
-            s_prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
-        }
-        else
-        {
-            live[NETZ_BEZUG]    = s_prevValueFromSmartMeter;
-            live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
-                                  + s_prevValueFromSmartMeter;
-        }
-        live["dataSource"]       = "modbus";
-    }
+    // else if (data.states.modbusOK)
+    // {
+    //     live[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
+    //
+    //     if (data.mbContainer.inverterSumValues.data.acCurrentPower
+    //         + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
+    //     {
+    //         live[NETZ_BEZUG]   = data.mbContainer.meterValues.data.acCurrentPower;
+    //         live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
+    //                               + data.mbContainer.meterValues.data.acCurrentPower;
+    //         s_prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
+    //     }
+    //     else
+    //     {
+    //         live[NETZ_BEZUG]    = s_prevValueFromSmartMeter;
+    //         live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
+    //                               + s_prevValueFromSmartMeter;
+    //     }
+    //     live["dataSource"]       = "modbus";
+    // }
     else // amis reader
     {
         live[NETZ_BEZUG]       = data.amisReader.consumptionInWatt;
@@ -134,6 +140,8 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
         live[PRODUKTION]       = data.amisReader.exportInWatt;
         live[STROM_EXPORT_INS] = data.amisReader.absolutExportInkWh;
         live[STROM_IMPORT_INS] = data.amisReader.absolutImportInkWh;
+        
+       
         live["dataSource"]     = "amis";
     }
 }
@@ -173,9 +181,8 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
 #endif
 
     live[AAKU_AVAILABLE]         = data.setupData.akku;
-    live[AKKU_CAPACITA]          = data.mbContainer.akkuState.data.capacity;
-    live[AKKU_ZUSTAND]           = data.mbContainer.akkuStr.data.stateOfCharge;
-    live[AKKU_ENTLADEN]          = data.mbContainer.akkuStr.data.dischargeRate;
+
+    // ── Akkudaten kommen aus buildLiveEnergyData() (data-source-aware) ──
 
     // Error-Bitmask
     unsigned int bitMaster = 0;
@@ -183,8 +190,8 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
         bitMaster |= (1 << STATE_FLASH);
 
 #ifdef FRONIUS_IV
-    if (!data.states.modbusOK)
-        bitMaster |= (1 << STATE_MODBUS);
+    // if (!data.states.modbusOK)
+    //     bitMaster |= (1 << STATE_MODBUS);
 #endif
 
     if (!data.states.tempSensorOK)
@@ -263,8 +270,7 @@ static const char *getJsonObj()
     jsonObjBuffer[bytesWritten] = '\0';
 
     xSemaphoreGive(g_jsonMutex);
-
-   // LOG_DEBUG(TAG_WEB_SOCKETS, "JSON prepared, %zu bytes", bytesWritten);
+    LOG_DEBUG(TAG_WEB_SOCKETS, "JSON prepared, %zu bytes", bytesWritten);
     return jsonObjBuffer;
 }
 

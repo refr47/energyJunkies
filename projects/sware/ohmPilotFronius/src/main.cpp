@@ -175,9 +175,9 @@ void setup()
         {
             g_app.secondsCounter = time_getOffset();
         }
-        g_app.webSockData.states.modbusOK = false;
+        // g_app.webSockData.states.modbusOK = false;
 #ifdef FRONIUS_IV
-        g_app.webSockData.states.modbusOK = mb_init(g_app.webSockData.setupData);
+        // g_app.webSockData.states.modbusOK = mb_init(g_app.webSockData.setupData);
 #endif
 #ifdef MQTT
         g_app.webSockData.states.mqtt = mqtt_init();
@@ -254,7 +254,7 @@ void setup()
         LOG_INFO(TAG_MAIN, "CardWrite: %c", g_app.webSockData.states.cardWriterOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "FlashFS: %c", g_app.webSockData.states.flashOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "Influx: %c", g_app.webSockData.states.influx == true ? 'y' : 'n');
-        LOG_INFO(TAG_MAIN, "Modbus: %c", g_app.webSockData.states.modbusOK == true ? 'y' : 'n');
+        // LOG_INFO(TAG_MAIN, "Modbus: %c", g_app.webSockData.states.modbusOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "MqTT: %c", g_app.webSockData.states.mqtt == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "TempSensor: %c", g_app.webSockData.states.tempSensorOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "TimeServer(NTP): %c", g_app.webSockData.states.timeServer == true ? 'y' : 'n');

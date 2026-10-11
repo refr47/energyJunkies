@@ -59,7 +59,7 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
         return false;
     }
     webSockData.states.froniusAPI = true;
-    if (JSON.typeof(my_obj["site"]["P_Akku"]) == "undefined")
+    if (JSON.typeof(my_obj["Body"]["Data"]["Site"]["P_Akku"]) == "undefined")
     {
         LOG_DEBUG(TAG_SOLAR,"solar_init Akku is not available!!");
     }
@@ -109,12 +109,33 @@ bool solar_get_powerflow(WEBSOCK_DATA &webSockData)
         return false;
     }
 
-    webSockData.fronius_SOLAR_POWERFLOW.p_akku = my_obj["site"]["P_Akku"];
-    webSockData.fronius_SOLAR_POWERFLOW.p_grid = my_obj["site"]["P_Grid"];
-    webSockData.fronius_SOLAR_POWERFLOW.p_load = my_obj["site"]["P_Load"];
-    webSockData.fronius_SOLAR_POWERFLOW.p_pv = my_obj["site"]["P_PV"];
-    webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy = my_obj["site"]["rel_Autonomy"];
-    webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption = my_obj["site"]["rel_SelfConsumption"];
+    JSONVar siteObj = my_obj["Body"]["Data"]["Site"];
+    webSockData.fronius_SOLAR_POWERFLOW.p_akku = siteObj["P_Akku"];
+    webSockData.fronius_SOLAR_POWERFLOW.p_grid = siteObj["P_Grid"];
+    webSockData.fronius_SOLAR_POWERFLOW.p_load = siteObj["P_Load"];
+    webSockData.fronius_SOLAR_POWERFLOW.p_pv   = siteObj["P_PV"];
+    webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy         = siteObj["rel_Autonomy"];
+    webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption  = siteObj["rel_SelfConsumption"];
+
+    // ── Inverter-Daten (Batterie Ladezustand + Ladeleistung) ──
+    JSONVar invObj = my_obj["Body"]["Data"]["Inverters"]["1"];
+    if (JSON.typeof(invObj) == "object") {
+        JSONVar invP      = invObj["P"];       // Ladeleistung Batterie (W)
+        JSONVar invSOC    = invObj["SOC"];     // Ladezustand Batterie (%)
+        JSONVar invEDay   = invObj["E_Day"];   // Tagesertrag (Wh) – kann null sein
+        JSONVar invETotal = invObj["E_Total"]; // Gesamtertrag (Wh)
+
+        webSockData.fronius_SOLAR_POWERFLOW.p_batt  = invP;
+        webSockData.fronius_SOLAR_POWERFLOW.soc     = invSOC;
+
+        // E_Day kann null sein (nachts / kein PV-Betrieb)
+        if (JSON.typeof(invEDay) != "null" && JSON.typeof(invEDay) != "undefined")
+            webSockData.fronius_SOLAR_POWERFLOW.e_day   = invEDay;
+        else
+            webSockData.fronius_SOLAR_POWERFLOW.e_day   = 0.0;
+
+        webSockData.fronius_SOLAR_POWERFLOW.e_total = invETotal;
+    }
 
     /* #ifdef MODBUS_VERBOSE
         DBGf("Fronius API: ");
@@ -150,22 +171,22 @@ static void mapJsonValuesFronius(HTTP_REST_TARGET_t *target, char *jsonStart, WE
         switch (i)
         {
         case 0:
-            webSockData.fronius_SOLAR_POWERFLOW.p_akku = jsonBuffer[target->mapping[i].key];
+            webSockData.fronius_SOLAR_POWERFLOW.p_akku = jsonBuffer["Body"]["Data"]["Site"]["P_Akku"];
             break;
         case 1:
-            webSockData.fronius_SOLAR_POWERFLOW.p_grid = jsonBuffer[target->mapping[i].key];
+            webSockData.fronius_SOLAR_POWERFLOW.p_grid = jsonBuffer["Body"]["Data"]["Site"]["P_Grid"];
             break;
         case 2:
-            webSockData.fronius_SOLAR_POWERFLOW.p_load = jsonBuffer[target->mapping[i].key];
+            webSockData.fronius_SOLAR_POWERFLOW.p_load = jsonBuffer["Body"]["Data"]["Site"]["P_Load"];
             break;
         case 3:
-            webSockData.fronius_SOLAR_POWERFLOW.p_pv = jsonBuffer[target->mapping[i].key];
+            webSockData.fronius_SOLAR_POWERFLOW.p_pv = jsonBuffer["Body"]["Data"]["Site"]["P_PV"];
             break;
         case 4:
-            webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy = jsonBuffer[target->mapping[i].key];
+            webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy = jsonBuffer["Body"]["Data"]["Site"]["rel_Autonomy"];
             break;
         case 5:
-            webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption = jsonBuffer[target->mapping[i].key];
+            webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption = jsonBuffer["Body"]["Data"]["Site"]["rel_SelfConsumption"];
             break;
         default:
             LOG_ERROR(TAG_SOLAR,"solar_get_powerflow::mapJsonValues() no mapping found for index: %d", i);

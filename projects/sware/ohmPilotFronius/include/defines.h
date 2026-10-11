@@ -216,10 +216,14 @@ typedef struct _STATES
 
 typedef struct _FRONIUS_SOLAR_POWERFLOW
 {
-    double p_akku;
-    double p_grid;
-    double p_load;
-    double p_pv;
+    double p_akku;            // Site: Lade/Entladeleistung Akku (W), - = laden, + = entladen
+    double p_grid;            // Site: Netzleistung (W)
+    double p_load;            // Site: Hauslast (W)
+    double p_pv;              // Site: PV-Leistung (W)
+    double p_batt;            // Inverter[1].P: Ladeleistung Batterie (W)
+    double soc;               // Inverter[1].SOC: Ladezustand Batterie (%)   
+    double e_day;             // Inverter[1].E_Day: Tagesertrag (Wh)
+    double e_total;           // Inverter[1].E_Total: Gesamtertrag (Wh)
     unsigned int rel_Autonomy;
     unsigned int rel_SelfConsumption;
 } FRONIUS_SOLAR_POWERFLOW;

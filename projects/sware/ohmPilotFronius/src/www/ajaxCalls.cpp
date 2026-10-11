@@ -520,8 +520,8 @@ void ajaxCalls_handleGetOverview(AsyncWebServerRequest *request)
     result[WWW_INFLUX] = webSockD.states.influx;
     result[WWW_INFLUX_IP] = webSockD.states.influx ? webSockD.setupData.influxHost : "";
 
-    result[WWW_MODBUS] = webSockD.states.modbusOK;
-    result[WWW_MODBUS_IP] = webSockD.states.modbusOK ? webSockD.setupData.inverter : "";
+    // result[WWW_MODBUS] = webSockD.states.modbusOK;
+    // result[WWW_MODBUS_IP] = webSockD.states.modbusOK ? webSockD.setupData.inverter : "";
 
     result[WWW_MQTT] = webSockD.states.mqtt;
     result[WWW_MQTT_IP] = webSockD.states.mqtt ? webSockD.setupData.mqttHost : "";
