@@ -474,6 +474,12 @@ static void cacheFroniusToMB()
         g_app.webSockData.mbContainer.meterValues.data.acCurrentPower =
             g_app.webSockData.fronius_SOLAR_POWERFLOW.p_load;
         appUnlockData();
+
+        LOG_INFO(TAG_APP_SERVICES, "Fronius energy cached: p_akku=%.2f, p_grid=%.2f, p_load=%.2f, p_pv=%.2f",
+            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_akku,
+            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_grid,
+            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_load,
+            g_app.webSockData.fronius_SOLAR_POWERFLOW.p_pv);
     }
     else
     {
@@ -503,23 +509,24 @@ static void cacheFroniusPidPower()
 // -----------------------------------------------------------------------------
 static bool fetchFroniusEnergy()
 {
+    LOG_DEBUG(TAG_APP_SERVICES, "Fetching Fronius energy data...");
     if (!solar_get_powerflow(g_app.webSockData))
     {
         tryMarkNetworkDown("Fronius API read failed",
             "Fronius API failed, but could not acquire lock to update state");
         return false;
     }
-
+    
     cacheFroniusToMB();
 
-    if (!mb_readInverter(g_app.webSockData.setupData, g_app.webSockData.mbContainer))
+    /* if (!mb_readInverter(g_app.webSockData.setupData, g_app.webSockData.mbContainer))
     {
         tryMarkNetworkDown("Modbus read failed",
             "Modbus read failed, but could not acquire lock to update state");
         return false;
     }
 
-    cacheFroniusPidPower();
+    cacheFroniusPidPower(); */
 
 #ifdef INFLUX
     influx_write(g_app.webSockData);
