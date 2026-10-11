@@ -5,7 +5,7 @@
 #include "defines.h"
 #include "debugConsole.h"
 
-#define PATH_NAME_FORECAST "/status/powerflow"
+#define PATH_NAME_FORECAST "/solar_api/v1/GetPowerFlowRealtimeData.fcgi"
 
 static String uRL = "";
 
