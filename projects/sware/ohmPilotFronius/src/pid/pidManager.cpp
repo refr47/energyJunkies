@@ -103,6 +103,10 @@ void PinManager::pidLockRead(WEBSOCK_DATA &data)
     m_gridPower            = data.mbContainer.inverterSumValues.data.acCurrentPower;
     m_meterPower           = data.mbContainer.meterValues.data.acCurrentPower;
     m_wattSetupForTest     = data.setupData.wattSetupForTest;
+
+    // ── availablePower-Puffer mit aktuellem Netzueberschuss Fueullen ──
+    // Grid-Power von Solar API: negativ = Export/Überschuss, positiv = Bezug
+    availablePower.push_back((int)m_meterPower); // z.B. -800W = 800W nutzbar
 }
 
 void PinManager::pidLockWrite(WEBSOCK_DATA &data)
