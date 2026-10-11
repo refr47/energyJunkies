@@ -271,38 +271,34 @@
               </p>
             </div>
 
-            <div
-              class="bg-blue-600 text-white rounded-3xl p-5 shadow-xl shadow-blue-200 ring-8 ring-blue-600/5 relative overflow-hidden group">
-              <div class="absolute inset-0 opacity-10 group-hover:opacity-20 transition-opacity">
-                <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                  <path d="M0 50 Q 25 40 50 50 T 100 50 V 100 H 0 Z" fill="white">
-                    <animate attributeName="d" dur="3s" repeatCount="indefinite"
-                      values="M0 50 Q 25 40 50 50 T 100 50 V 100 H 0 Z; M0 50 Q 25 60 50 50 T 100 50 V 100 H 0 Z; M0 50 Q 25 40 50 50 T 100 50 V 100 H 0 Z" />
-                  </path>
-                </svg>
-              </div>
-
-              <div class="relative z-10">
-                <div class="flex justify-between items-start mb-4">
-                  <span class="text-[10px] font-black uppercase tracking-widest opacity-70">Regelung L3</span>
-                  <svg class="w-4 h-4 text-blue-200 animate-spin-slow" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" />
-                  </svg>
-                </div>
-
-                <div class="flex items-baseline gap-1">
-                  <span class="text-3xl font-black">{{ liveData.L3 }}</span>
-                  <span class="text-xs font-bold opacity-70">%</span>
-                </div>
-
-                <div class="mt-4 h-2 bg-blue-800/30 rounded-full overflow-hidden p-0.5">
-                  <div class="h-full bg-white rounded-full transition-all duration-500 shadow-[0_0_10px_white]"
-                    :style="{ width: liveData.L3 + '%' }"></div>
-                </div>
-              </div>
+            <!-- L3: PWM-Regelung (flach, clean) -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col items-center justify-center">
+              <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">PWM L3</span>
+              <svg width="52" height="48" viewBox="0 0 52 48" class="mb-1">
+                <rect x="1" y="1" width="50" height="46" rx="5" ry="5" fill="none" stroke="#cbd5e1" stroke-width="2"/>
+                <rect x="50" y="17" width="3" height="14" rx="1.5" fill="#cbd5e1"/>
+                <rect x="3"
+                  :y="3 + (40 * (1 - (liveData.L3 || 0) / 100))"
+                  width="46"
+                  :height="40 * ((liveData.L3 || 0) / 100)"
+                  :fill="liveData.L3 > 0 ? '#3b82f6' : '#e2e8f0'"
+                  rx="2" ry="2"
+                  class="transition-all duration-500"/>
+              </svg>
+              <span class="text-2xl font-black text-slate-800">{{ Math.round(liveData.L3 || 0) }}</span>
+              <span class="text-[9px] font-bold text-slate-400">0 – 255</span>
             </div>
+          </div>
+
+          <div class="flex gap-3 mt-6">
+            <button
+              @click="toggleForce()"
+              :class="forceHeizung
+                ? 'bg-rose-500 hover:bg-rose-600 text-white ring-4 ring-rose-200'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-500 ring-2 ring-slate-200'"
+              class="w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all duration-300 cursor-pointer">
+              {{ forceHeizung ? '⚡ FORCE AN' : '○ FORCE AUS' }}
+            </button>
           </div>
         </div>
       </div>
@@ -313,7 +309,7 @@
 
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import DataSourceBadge from '../components/DataSourceBadge.vue';
 import EnergyBalanceFronius from '../components/EnergyBalanceFronius.vue';
 import EnergyBalanceAmis from '../components/EnergyBalanceAmis.vue';
@@ -321,6 +317,26 @@ import EnergyBalanceFallback from '../components/EnergyBalanceFallback.vue';
 import EnergyBalanceBattery from '../components/EnergyBalanceBattery.vue';
 
 const props = defineProps(['liveData', 'logs', 'isConnected']);
+
+// Force-Heizung: lokaler Ref, sync mit liveData vom Server
+const forceHeizung = ref(false);
+watch(() => props.liveData?.forceHeizung, (val) => {
+  forceHeizung.value = !!val;
+}, { immediate: true });
+
+const toggleForce = async () => {
+  forceHeizung.value = !forceHeizung.value;
+  try {
+    await fetch('/storeSetup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ heizstab_force: forceHeizung.value ? 1 : 0 })
+    });
+  } catch (e) {
+    console.error('Force-Toggle fehlgeschlagen:', e);
+    forceHeizung.value = !forceHeizung.value; // revert
+  }
+};
 // Mobile: Live-Uhrzeitnst currentTime = ref('');let timeTimer = null;nst updateTime = () => {  currentTime.value = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });};onMounted(() => {  updateTime();  timeTimer = setInterval(updateTime, 1000);});
 
 // 1. Definiere die Fehlertexte
