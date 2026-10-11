@@ -41,10 +41,9 @@
 
 #define JSON_OBJECT_SETUP_LEN 1024 /// www.cpp,
 
-// #define INVERTER_DATA g_app.webSockData.mbContainer.inverterSumValues.data
-// #define METER_DATA g_app.webSockData.mbContainer.meterValues.data
-// #define AKKU_STATE g_app.webSockData.mbContainer.akkuState.data
-// #define AKKU_STRG g_app.webSockData.mbContainer.akkuStr.data
+/* ── Legacy-Defines (MB_CONTAINER entfaellt, EnergyState direkt) ──
+   INVERTER_DATA, METER_DATA, AKKU_STATE, AKKU_STRG sind entfaellt.
+   Direkt: g_app.webSockData.energyState.p_grid, .p_pv, .soc, .p_batt  ── */
 // #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
 
 /* ****************** SOCKETS *****************/
@@ -157,14 +156,26 @@ typedef struct
     int sensor2;
 } TEMPERATURE;
 
+typedef struct energyState
+{
+    double p_grid;       // Netz (W), neg = Einspeisung, pos = Bezug
+    double p_load;       // Hauslast (W), neg = Verbrauch
+    double p_pv;         // PV-Ertrag (W)
+    double soc;          // Batterie SoC (%)
+    double p_batt;       // Batterieleistung (W), neg = laden
+} ENERGY_STATE;
+
+// ── MB_CONTAINER: nur fuer Modbus-Infrastruktur (mb_readInverter)
+//     Der aktive Pfad (PID/WebSocket/Influx/TFT) nutzt ENERGY_STATE.
+//     MB_CONTAINER bleibt als Modbus-Interface, wird aber nicht mehr
+//     in WEBSOCK_DATA eingebettet.
+// ────────────────────────────────────────────────────────────────────
 typedef struct mbContainer
 {
-
     INVERTER_SUM_VALUE_t inverterSumValues;
     METER_VALUE_t meterValues;
     AKKU_STATE_VALUE_t akkuState;
     AKKU_STRG_VALUE_t akkuStr;
-
 } MB_CONTAINER;
 
 typedef struct pidContaienr
@@ -317,7 +328,7 @@ struct RingBuffer
 
 typedef struct _WEBSOCK
 {
-    MB_CONTAINER mbContainer;
+    ENERGY_STATE energyState;
     // Setup setup;
     TEMPERATURE temperature;
     PID_CONTAINER pidContainer;

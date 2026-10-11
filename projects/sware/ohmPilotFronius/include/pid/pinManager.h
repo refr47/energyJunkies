@@ -94,9 +94,11 @@ private:
     int   m_legionellenMaxTemp;
     unsigned long m_legionellenDelta;
     int   m_akkuPriori;
-    float m_akkuLadung;
-    float m_gridPower;       // Fronius / Modbus Inverter-Wert
-    float m_meterPower;      // harmonisiert: Fronius p_load oder AMIS consumptionInWatt
+    float m_gridPower;       // PV-Ertrag (W)
+    float m_meterPower;      // Netz (W), neg = Einspeisung
+    float m_pV;              // PV-Ertrag (W)
+    float m_soc;             // Batterie SoC (%)
+    float m_battPower;       // Batterieleistung (W), neg = laden
     int   m_wattSetupForTest;
 
     // ── lokale Ausgabedaten (unter appLock() zurückgeschrieben) ──

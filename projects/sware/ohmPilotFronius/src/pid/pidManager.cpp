@@ -99,14 +99,18 @@ void PinManager::pidLockRead(WEBSOCK_DATA &data)
     m_legionellenMaxTemp   = (int)data.setupData.legionellenMaxTemp;
     m_legionellenDelta     = data.setupData.legionellenDelta;
     m_akkuPriori           = data.setupData.akkuPriori;
-    m_akkuLadung           = data.mbContainer.akkuStr.data.chargeRate;
-    m_gridPower            = data.mbContainer.inverterSumValues.data.acCurrentPower;
-    m_meterPower           = data.mbContainer.meterValues.data.acCurrentPower;
+
+    // ── Direkt aus ENERGY_STATE (keine MB-Container-Indirektion mehr) ──
+    m_meterPower           = (float)data.energyState.p_grid;     // Netz (neg=Einspeis)
+    m_gridPower            = (float)data.energyState.p_pv;      // PV-Ertrag
+    m_soc                  = (float)data.energyState.soc;       // Batterie %
+    m_battPower            = (float)data.energyState.p_batt;    // neg=Laden
     m_wattSetupForTest     = data.setupData.wattSetupForTest;
 
-    // ── availablePower-Puffer mit aktuellem Netzueberschuss Fueullen ──
-    // Grid-Power von Solar API: negativ = Export/Überschuss, positiv = Bezug
-    availablePower.push_back((int)m_meterPower); // z.B. -800W = 800W nutzbar
+    // ── availablePower-Puffer mit Netzwert fueullen ──
+    // Fronius: P_Grid < 0 = Einspeisung/Überschuss, > 0 = Bezug
+    // handleModeAuto: measuredPower < 0 heizt, > 0 bleibt AUS
+    availablePower.push_back((int)m_meterPower);
 }
 
 void PinManager::pidLockWrite(WEBSOCK_DATA &data)
@@ -298,13 +302,15 @@ void PinManager::handleModeManual()
 
 /*
 ****** handleModeAuto – MODE_AUTO: compute measured/target power, decide ML
+**  BATTERY-AWARE: bei niedrigem SoC wird eine höhere Schwelle erforderlich
 **  return value = targetPower in Watt
 */
 int PinManager::handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doML)
 {
     measuredPower    = getMeanOfAvailAblePower();
     logEntry.power   = measuredPower;
-    LOG_DEBUG(TAG_PID, "AUTO – gemessen: %d W", measuredPower);
+    LOG_DEBUG(TAG_PID, "AUTO – gemessen: %d W, SoC: %.0f%%, Batt: %.0f W",
+              measuredPower, m_soc, m_battPower);
 
     // keine nutzbare PV-Leistung → Ausschalten
     if (abs(measuredPower) < EPSILON_TEMP || measuredPower > 0)
@@ -314,10 +320,18 @@ int PinManager::handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doM
         return 0;
     }
 
+    // ── Akku-Prio: bei niedrigem SoC höhere Mindestschrwell ──────────────
+    int override = 0;
+    if (m_soc < m_akkuPriori)
+    {
+        override = 500; // +500W müssen vorhanden sein, bevor geheizt wird
+        LOG_DEBUG(TAG_PID, "LOW SoC (%.0f%%): Akku-Prio, +500W Schwell", m_soc);
+    }
+
     // nutzbare PV-Leistung vorhanden
     int heater             = heaterPower();
-    int effectiveAvailable = (-measuredPower) + heater;
-    LOG_DEBUG(TAG_PID, "AUTO – effektiv: %d W", effectiveAvailable);
+    int effectiveAvailable = (-measuredPower) + heater - override;
+    LOG_DEBUG(TAG_PID, "AUTO – effektiv: %d W (override=%d)", effectiveAvailable, override);
 
     int target = clampInt(effectiveAvailable, 0, onePhase * 3);
     if (target > effectiveAvailable + 50)
@@ -674,10 +688,17 @@ inline int PinManager::getMeanOfAvailAblePower()
     size_t n = availablePower.size();
     if (n == 0) return 0;
 
+    // Min 3 entries needed for median-of-centre (trim 1 lo + 1 hi).
+    // With fewer entries return the last value directly.
+    if (n < 3)
+    {
+        return availablePower.back();
+    }
+
     // Median-of-centre – no heap, no full-sort
     // Trim 1 lowest + 1 highest, then average the rest
-    std::nth_element(availablePower.begin(), availablePower.begin() + 1, availablePower.end());     // 1st trim
-    std::nth_element(availablePower.begin() + 1, availablePower.end() - 1, availablePower.end()); // 2nd trim
+    std::nth_element(availablePower.begin(), availablePower.begin() + 1, availablePower.end());
+    std::nth_element(availablePower.begin() + 1, availablePower.end() - 1, availablePower.end());
 
     double sum = 0;
     for (size_t i = 1; i < n - 1; i++)

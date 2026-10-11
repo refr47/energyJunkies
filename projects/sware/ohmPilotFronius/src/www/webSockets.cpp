@@ -115,20 +115,20 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
     }
     // else if (data.states.modbusOK)
     // {
-    //     live[PRODUKTION] = data.mbContainer.inverterSumValues.data.acCurrentPower;
+    //     live[PRODUKTION] = data.energyState.p_pv;
     //
-    //     if (data.mbContainer.inverterSumValues.data.acCurrentPower
-    //         + data.mbContainer.meterValues.data.acCurrentPower >= 0.0)
+    //     if (data.energyState.p_pv
+    //         + data.energyState.p_grid >= 0.0)
     //     {
-    //         live[NETZ_BEZUG]   = data.mbContainer.meterValues.data.acCurrentPower;
-    //         live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
-    //                               + data.mbContainer.meterValues.data.acCurrentPower;
-    //         s_prevValueFromSmartMeter = data.mbContainer.meterValues.data.acCurrentPower;
+    //         live[NETZ_BEZUG]   = data.energyState.p_grid;
+    //         live[EIGENVERBRAUCH] = data.energyState.p_pv
+    //                               + data.energyState.p_grid;
+    //         s_prevValueFromSmartMeter = data.energyState.p_grid;
     //     }
     //     else
     //     {
     //         live[NETZ_BEZUG]    = s_prevValueFromSmartMeter;
-    //         live[EIGENVERBRAUCH] = data.mbContainer.inverterSumValues.data.acCurrentPower
+    //         live[EIGENVERBRAUCH] = data.energyState.p_pv
     //                               + s_prevValueFromSmartMeter;
     //     }
     //     live["dataSource"]       = "modbus";

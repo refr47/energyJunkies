@@ -1,51 +1,55 @@
 <template>
-  <div v-if="hasBattery" class="mt-6 bg-slate-900 rounded-2xl p-5 text-white shadow-2xl relative overflow-hidden">
-    <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-transparent"></div>
+  <div v-if="hasBattery" class="mt-5 bg-white rounded-xl border border-slate-200 overflow-hidden">
+    
+    <!-- Kopfzeile -->
+    <div class="px-5 pt-4 pb-3 flex items-center justify-between">
+      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Batterie-Status</span>
+      <span class="text-[10px] text-slate-300 font-medium">{{ aakPower }} kW Kapazität</span>
+    </div>
 
-    <div class="relative z-10">
-      <div class="flex justify-between items-center mb-4">
-        <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">🔋 Battery Stack</span>
-        <span class="text-xs font-bold text-slate-400">{{ aakPower }} W</span>
-      </div>
+    <!-- Akkusymbol -->
+    <div class="flex items-center justify-center gap-6 py-5">
 
-      <div class="mb-4">
-        <span class="text-5xl font-black tracking-tighter text-emerald-400">
-          {{ aakStat }}<small class="text-xl text-emerald-500">%</small>
-        </span>
-      </div>
-
-      <div class="h-3 bg-white/5 rounded-full p-0.5 border border-white/10 mb-3">
-        <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all duration-1000"
-          :style="{ width: aakStat + '%' }">
+      <!-- SVG Batterie -->
+      <div class="relative">
+        <svg width="120" height="36" viewBox="0 0 120 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Batterie-Plus-Kappe -->
+          <rect x="107" y="13" width="6" height="10" rx="1" fill="#94a3b8"/>
+          <!-- Batterie-Aussen-Frame -->
+          <rect x="1" y="1" width="104" height="34" rx="5" stroke="#cbd5e1" stroke-width="2" fill="none"/>
+          <!-- Fill-Zellen (4 Segmente) -->
+          <rect x="5" y="5" :width="cellWidth" height="26" rx="3" :fill="fillColor"/>
+          <!-- Trennstriche -->
+          <line x1="36" y1="5" x2="36" y2="31" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+          <line x1="72" y1="5" x2="72" y2="31" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+        </svg>
+        <!-- SOC ueber Batterie -->
+        <div class="text-center mt-2">
+          <span class="text-2xl font-black" :class="socColor">{{ aakStat }}%</span>
         </div>
       </div>
 
-      <!-- Batterieleistung mit Richtungsanzeige -->
-      <div class="flex items-center justify-between mb-3">
-        <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Batterieleistung</span>
+      <!-- Leistungsinfo -->
+      <div class="space-y-3">
+        <!-- Ladestatus -->
         <div class="flex items-center gap-2">
-          <span v-if="isCharging" class="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-            ⚡<span>→</span><span>laden</span>
-          </span>
-          <span v-else-if="isDischarging" class="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-            <span>←</span><span>→ Entladen</span>
-          </span>
-          <span v-else class="text-[10px] font-bold text-slate-500">Idle</span>
+          <span class="w-2 h-2 rounded-full" :class="statusDot"></span>
+          <span class="text-xs font-bold text-slate-500">{{ statusText }}</span>
+        </div>
+        <!-- Leistung -->
+        <div>
+          <p class="text-[9px] font-bold text-slate-400 uppercase">Leistung</p>
+          <p class="text-2xl font-black" :class="pwrColor">
+            {{ battPowerDisplay }}<span class="text-xs text-slate-300 font-bold ml-0.5">W</span>
+          </p>
+        </div>
+        <!-- Verfuegbar -->
+        <div class="pt-2 border-t border-slate-100">
+          <p class="text-[9px] font-bold text-slate-400 uppercase">Verfuegbar</p>
+          <p class="text-sm font-bold text-slate-600">{{ remainingKwh }} <span class="text-xs text-slate-400">kWh</span></p>
         </div>
       </div>
 
-      <!-- Leistungswert groß -->
-      <div class="text-center py-3">
-        <span class="text-3xl font-black" :class="powerColor">
-          {{ battPowerDisplay }}<small class="text-sm text-slate-400 ml-1">W</small>
-        </span>
-      </div>
-
-      <!-- Kapazitätsanzeige -->
-      <div class="flex justify-between text-[9px] font-black uppercase text-slate-500 tracking-widest pt-2 border-t border-white/5">
-        <span>Kapazität: {{ aakPower }} kW</span>
-        <span class="text-emerald-400">Verfügbar: {{ remainingKwh }} kWh</span>
-      </div>
     </div>
   </div>
 </template>
@@ -62,20 +66,51 @@ const aakStat       = computed(() => Math.round(props.liveData?.aakStat ?? 0));
 const aakPower      = computed(() => Math.round(props.liveData?.aakPower ?? 0));
 const aakEntladen   = computed(() => Math.round(props.liveData?.aakEntladen ?? 0));
 
-const isCharging    = computed(() => aakEntladen.value < 0);
-const isDischarging = computed(() => aakEntladen.value > 0);
+// ├── p_batt: negative = laden → aakEntladen = -p_batt > 0 bei Laden
+const isCharging    = computed(() => aakEntladen.value > 0);
+const isDischarging = computed(() => aakEntladen.value < 0);
 
-const battPowerDisplay = computed(() => {
-  return aakEntladen.value; // positiv = entladen, negativ = laden
+// ── Akkufuellstand: Breite + Farbe ──
+const cellWidth = computed(() => {
+  // 96 von 104 Pixel total, proportional zum SOC
+  return (aakStat.value / 100) * 96;
 });
 
-const powerColor = computed(() => {
-  if (isCharging.value) return 'text-amber-400';     // laden = gelb
-  if (isDischarging.value) return 'text-emerald-400'; // entladen = gruen
+const fillColor = computed(() => {
+  if (aakStat.value >= 70) return '#10b981';     // emerald-500
+  if (aakStat.value >= 35) return '#f59e0b';     // amber-500
+  return '#ef4444';                              // red-500
+});
+
+const socColor = computed(() => {
+  if (aakStat.value >= 70) return 'text-emerald-500';
+  if (aakStat.value >= 35) return 'text-amber-500';
+  return 'text-red-500';
+});
+
+// ── Leistungsanzeige ──
+const battPowerDisplay = computed(() => aakEntladen.value);
+
+const pwrColor = computed(() => {
+  if (isCharging.value) return 'text-blue-600';       // laden = pos = BLAU
+  if (isDischarging.value) return 'text-red-600';     // entladen = neg = ROT
   return 'text-slate-400';
 });
 
-const remainingKwh = computed(() => {
-  return ((aakStat.value / 100) * aakPower.value).toFixed(1);
+// ── Status-Label ──
+const statusText = computed(() => {
+  if (isCharging.value) return 'Laden';
+  if (isDischarging.value) return 'Entladen';
+  return 'Idle';
 });
+
+const statusDot = computed(() => {
+  if (isCharging.value) return 'bg-red-400';
+  if (isDischarging.value) return 'bg-blue-400';
+  return 'bg-slate-300';
+});
+
+const remainingKwh = computed(() =>
+  ((aakStat.value / 100) * aakPower.value).toFixed(1)
+);
 </script>

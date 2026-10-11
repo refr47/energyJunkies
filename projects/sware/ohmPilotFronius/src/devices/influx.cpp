@@ -89,10 +89,10 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     }
 
 #else
-    energy.addField("grid", webSockData.mbContainer.meterValues.data.acCurrentPower);
-    energy.addField("load", (webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower));
-    energy.addField("pv", webSockData.mbContainer.inverterSumValues.data.acCurrentPower);
-    energy.addField("availableWatt", webSockData.mbContainer.inverterSumValues.data.acCurrentPower + webSockData.mbContainer.meterValues.data.acCurrentPower);
+    energy.addField("grid", webSockData.energyState.p_grid);
+    energy.addField("load", (webSockData.energyState.p_pv + webSockData.energyState.p_grid));
+    energy.addField("pv", webSockData.energyState.p_pv);
+    energy.addField("availableWatt", webSockData.energyState.p_pv + webSockData.energyState.p_grid);
 #endif
     energy.addField("pwm", webSockData.pidContainer.mAnalogOut);
     energy.addField("relay1", webSockData.pidContainer.PID_PIN1);

@@ -70,22 +70,7 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
         LOG_DEBUG(TAG_SOLAR,"solar_init - akku  vorhanden!");
     }
     return true;
-#ifdef CCC
-    DBGf("froniusSolarAPI::soloar_init - fronius HOST: %s", webSockData.setupData.inverter);
 
-    if (utils_sock_initRestTargets(webSockData.setupData.inverter, FRONIUS_SOLAR_API_INDEX))
-    {
-        DBGf("solar_init() - init REST API success");
-        webSockData.setupData.externerSpeicher = true;
-        DBGf("solar_init() EXIT with akku: %d and retVal: TRUE", webSockData.setupData.externerSpeicher);
-        *akku = true;
-        return true;
-    }
-    webSockData.setupData.externerSpeicher = false;
-    *akku = false;
-    DBGf("solar_init() EXIT with akku: %d and retVal: FALSE", webSockData.setupData.externerSpeicher);
-    return false;
-#endif
 }
 
 bool solar_get_powerflow(WEBSOCK_DATA &webSockData)

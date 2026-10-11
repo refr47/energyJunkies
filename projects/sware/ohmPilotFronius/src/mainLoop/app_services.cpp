@@ -433,7 +433,7 @@ static EnergySource resolveEnergySource()
             src = SRC_FRONIUS;
 #endif
 #ifdef AMIS_READER_DEV
-        if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
+        else if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
             src = SRC_AMIS;
 #endif
         appUnlockData();
@@ -447,70 +447,37 @@ static EnergySource resolveEnergySource()
 }
 
 // -----------------------------------------------------------------------------
-// cacheFroniusToMB – copy fronius Solar API results into MB container (DATA domain)
-//
-// Der Modbus-Read ist für den Fronius-Pfad nicht nötig:
-//   P_Akku , P_Grid, P_Load, P_PV          ← Solar API (Site)
-//   SOC   , P (Batterie Ladeleistung)      ← Solar API (Inverters[1])
-// Modbus liefert redundante Werte, die per Solar API präziser sind.
+// fillEnergyState – write Solar API results into direct energy state (DATA domain)
+//   Einfach: keine MB-Container-Union, keine doppelte Indirektion.
+//   Alle Werte kommen direkt aus der Fronius Solar API:
+//     p_pv, p_grid, p_load, rel_Autonomy, rel_SelfConsumption (Site)
+//     p_batt, soc, e_day, e_total  (Inverter[1])
 // -----------------------------------------------------------------------------
-static void cacheFroniusToMB()
+static void fillEnergyState()
 {
     auto &solar = g_app.webSockData.fronius_SOLAR_POWERFLOW;
 
     if (appLockData(LOCK_TIMEOUT_DATA_MS))
     {
-        // ── Energiefluss ──────────────────────────────
-        g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower = solar.p_pv;
-        g_app.webSockData.mbContainer.inverterSumValues.data.acTotalEnergy  = solar.e_day;
-        g_app.webSockData.mbContainer.inverterSumValues.data.dcCurrentPower = solar.p_pv;
-        g_app.webSockData.mbContainer.meterValues.data.acCurrentPower       = solar.p_grid;
-        g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyExp     = solar.e_total;
-        g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyImp     = 0.0;
-
-        // ── Batterie (Solar API, nicht Modbus) ────────
-        g_app.webSockData.mbContainer.akkuState.data.capacity       = 0.0;    // nicht im JSON → 0
-        g_app.webSockData.mbContainer.akkuStr.data.stateOfCharge    = solar.soc;
-        g_app.webSockData.mbContainer.akkuStr.data.chargeRate       = solar.p_batt;   // W (neg = laden)
-        g_app.webSockData.mbContainer.akkuStr.data.dischargeRate    = -solar.p_batt;  // positiver Wert = Entladung
-        g_app.webSockData.mbContainer.akkuStr.data.maxChargePower   = fabs(solar.p_batt);
-        g_app.webSockData.mbContainer.akkuStr.data.maxChargeRate    = solar.soc;
-        g_app.webSockData.mbContainer.akkuStr.data.maxDischargeRate = solar.soc;
-        g_app.webSockData.mbContainer.akkuStr.data.minReservePct    = 0.0;
+        g_app.webSockData.energyState.p_grid   = solar.p_grid;
+        g_app.webSockData.energyState.p_load   = solar.p_load;
+        g_app.webSockData.energyState.p_pv     = solar.p_pv;
+        g_app.webSockData.energyState.soc      = solar.soc;
+        g_app.webSockData.energyState.p_batt   = solar.p_batt;
 
         appUnlockData();
 
-        LOG_INFO(TAG_APP_SERVICES, "Cached: pv=%.0fW grid=%.0fW load=%.0fW batt=%.0fW soc=%.1f%%",
+        LOG_INFO(TAG_APP_SERVICES, "EnergyState: pv=%.0fW grid=%.0fW load=%.0fW batt=%.0fW soc=%.1f%%",
                  solar.p_pv, solar.p_grid, solar.p_load, solar.p_batt, solar.soc);
     }
     else
     {
-        handleLockFailure("Fronius API succeeded, but could not acquire lock to cache results");
+        handleLockFailure("Fronius API succeeded, but could not acquire lock to fill energy state");
     }
 }
 
 // -----------------------------------------------------------------------------
-// cacheFroniusPidPower – propagate inverter power to PID container (DATA domain)
-// -----------------------------------------------------------------------------
-static void cacheFroniusPidPower()
-{
-    if (appLockData(LOCK_TIMEOUT_DATA_MS))
-    {
-        g_app.webSockData.pidContainer.mCurrentPower =
-            g_app.webSockData.mbContainer.meterValues.data.acCurrentPower;
-        appUnlockData();
-    }
-    else
-    {
-        handleLockFailure("SOLAR API succeeded, but could not acquire lock to update PID power");
-    }
-}
-
-// -----------------------------------------------------------------------------
-// fetchFroniusEnergy – Solar API → cache → PID → influx
-//   Kein Modbus nötig – alle Werte kommen direkt aus der Solar API:
-//     p_pv, p_grid, p_load, p_akku, rel_Autonomy, rel_SelfConsumption (Site)
-//     p_batt, soc, e_day, e_total  (Inverter[1])
+// fetchFroniusEnergy – Solar API → energyState → influx
 // -----------------------------------------------------------------------------
 static bool fetchFroniusEnergy()
 {
@@ -522,9 +489,7 @@ static bool fetchFroniusEnergy()
         return false;
     }
 
-    cacheFroniusToMB();
-
-    cacheFroniusPidPower();
+    fillEnergyState();
 
 #ifdef INFLUX
     influx_write(g_app.webSockData);
@@ -534,7 +499,7 @@ static bool fetchFroniusEnergy()
 }
 
 // -----------------------------------------------------------------------------
-// fetchAmisEnergy – AMIS REST → cache
+// fetchAmisEnergy – AMIS REST → energyState
 // -----------------------------------------------------------------------------
 static bool fetchAmisEnergy()
 {
@@ -549,14 +514,11 @@ static bool fetchAmisEnergy()
 
     if (appLockData(LOCK_TIMEOUT_DATA_MS))
     {
-        g_app.webSockData.mbContainer.inverterSumValues.data.acCurrentPower =
-            g_app.webSockData.amisReader.exportInWatt;
-        g_app.webSockData.mbContainer.inverterSumValues.data.acTotalEnergy = 0.0;
-        g_app.webSockData.mbContainer.inverterSumValues.data.dcCurrentPower = 0.0;
-        g_app.webSockData.mbContainer.meterValues.data.acTotalEnergyExp =
-            g_app.webSockData.amisReader.absolutExportInkWh;
-        g_app.webSockData.mbContainer.meterValues.data.acCurrentPower =
-            g_app.webSockData.amisReader.saldo;
+        g_app.webSockData.energyState.p_grid   = g_app.webSockData.amisReader.saldo;
+        g_app.webSockData.energyState.p_load   = g_app.webSockData.amisReader.consumptionInWatt;
+        g_app.webSockData.energyState.p_pv     = g_app.webSockData.amisReader.exportInWatt;
+        g_app.webSockData.energyState.soc      = 0.0;       // AMIS: kein Batterie
+        g_app.webSockData.energyState.p_batt   = 0.0;
         appUnlockData();
     }
     else
