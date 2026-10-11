@@ -104,8 +104,8 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
     if (data.states.froniusAPI)
     {
         live[PRODUKTION]         = data.fronius_SOLAR_POWERFLOW.p_pv;
-        live[NETZ_BEZUG]         = data.fronius_SOLAR_POWERFLOW.p_grid;
-        live[EIGENVERBRAUCH]     = data.fronius_SOLAR_POWERFLOW.p_load;
+        live[NETZ_BEZUG]         = data.fronius_SOLAR_POWERFLOW.p_load;
+        live[EIGENVERBRAUCH]     = data.fronius_SOLAR_POWERFLOW.p_grid;
         // Batteriewerte (Solar API)
         live[AKKU_CAPACITA]      = BATTERY_CAPACITY_KW;
         live[AKKU_ZUSTAND]       = data.fronius_SOLAR_POWERFLOW.soc;
