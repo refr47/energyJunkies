@@ -202,7 +202,7 @@ bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
     setup.heizstab_leistung_in_watt = 4500;
     setup.tempMaxAllowedInGrad = 80;
     setup.tempMinInGrad = 5;
-    strcpy(setup.inverter, "10.0.0.22");
+    strcpy(setup.inverter, "10.0.0.2");
 
     setup.akku = 0;
     setup.akkuPriori = 0;
@@ -223,7 +223,7 @@ bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strcpy(setup.influxOrg, "d727c1fb692f26f9");
     strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q==");
     //strcpy(setup.influxToken, "---");
-    strcpy(setup.amisReaderHost, "192.168.178.45");
+    strcpy(setup.amisReaderHost, "10.0.0.2");
     setup.epsilonML_PinManager=0.05;
 
     strncpy(setup.amisKey, "9865888B5CC739E9F575053E7868BC34", AMIS_KEY_LEN - 1);
@@ -236,7 +236,7 @@ bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
     // eprom_storeSetup() nimmt intern den Mutex – kein doppeltes lock_guard hier
     eprom_storeSetup(setup);
     return true;
-}
+} 
 
 void printEprom(Setup &setup)
 {
