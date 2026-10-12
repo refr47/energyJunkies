@@ -22,7 +22,7 @@ namespace Fields
     static const StringField<Setup, MQTT_USER_LEN + 1> mUser(WWW_MQTT_USER, &Setup::mqttUser);
     static const StringField<Setup, MQTT_PASS_LEN + 1> mPass(WWW_MQTT_PASWWD, &Setup::mqttPass);
 
-    static const StringField<Setup, INFLUX_HOST_LEN + 1> influxHost(WWW_INFLUX_HOST, &Setup::mqttHost);
+    static const StringField<Setup, INFLUX_HOST_LEN + 1> influxHost(WWW_INFLUX_HOST, &Setup::influxHost);
     static const StringField<Setup, INFLUX_TOKEN_LEN + 1> influxToken(WWW_INFLUX_TOKEN, &Setup::influxToken);
     static const StringField<Setup, INFLUX_ORG_LEN + 1> influxOrg(WWW_INFLUX_ORG, &Setup::influxOrg);
     static const StringField<Setup, INFLUX_BUCKET_LEN + 1> influxBucket(WWW_INFLUX_BUCKET, &Setup::influxBucket);

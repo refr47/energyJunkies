@@ -17,7 +17,7 @@
 
 #define WWW_INFLUX_HOST "influx_server_ip"
 #define WWW_INFLUX_TOKEN "influx_token"
-#define WWW_INFLUX_ORG "influg_org"
+#define WWW_INFLUX_ORG "influx_org"
 #define WWW_INFLUX_BUCKET "influx_bucket"
 
 #define AMIS_READER_HOST "amisreader_ip"
