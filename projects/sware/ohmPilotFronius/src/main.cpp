@@ -69,7 +69,7 @@ void logging_init()
 
     /*  esp_log_level_set(TAG_WLAN, ESP_LOG_DEBUG);
      esp_log_level_set(TAG_TEMP, ESP_LOG_DEBUG) */
-    esp_log_level_set(TAG_PID, ESP_LOG_INFO);
+    esp_log_level_set(TAG_PID, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_MQTT, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_APP_SERVICES, ESP_LOG_DEBUG);
     esp_log_level_set(TAG_WEB_SOCKETS, ESP_LOG_DEBUG);

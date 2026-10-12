@@ -315,7 +315,7 @@ int PinManager::handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doM
     // keine nutzbare PV-Leistung → Ausschalten
     if (abs(measuredPower) < EPSILON_TEMP || measuredPower > 0)
     {
-        LOG_INFO(TAG_PID, "AUTO – kein Überschuss: %d W", measuredPower);
+        LOG_INFO(TAG_PID, "AUTO – kein Überschuss: %d Watt", measuredPower);
         doML = false;
         return 0;
     }
@@ -367,7 +367,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData, int tempMaxBonusC,
     LogEntry logEntry{};
     time_t curT;
     time(&curT);
-
+ 
     // ── STEP 1: thread-safe read into local members ──
     pidLockRead(webSockData);
     m_out_boilerHeating = false;
