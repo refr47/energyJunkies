@@ -25,6 +25,7 @@ enum ControlMode
 class PinManager
 {
 public:
+    PinManager();
     void config(WEBSOCK_DATA &data, int l1, int l2, int pwm);
     void update(WEBSOCK_DATA &webSockData, int tempMaxBonusC,
                 float pvRatio, float cloudAvg, float tempOutside);
@@ -114,7 +115,7 @@ private:
     float m_tinyNN_preheat;
     float m_tinyNN_buffer;
 #endif
-
+ 
     // Internal 
     int tempState(double t);
     int pvState(double p);
