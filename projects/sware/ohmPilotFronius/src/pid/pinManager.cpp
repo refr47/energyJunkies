@@ -57,6 +57,7 @@ PinManager::PinManager()
     m_soc = 0;
     m_battPower = 0;
     m_wattSetupForTest = 0;
+    m_forceHeating = 0;
 
     m_out_boilerHeating = false;
     m_out_wattBiasForTest = false;
@@ -350,6 +351,7 @@ void PinManager::pidLockRead(WEBSOCK_DATA &webSockData)
     m_legionellenMaxTemp = webSockData.setupData.legionellenMaxTemp;
     m_legionellenDelta = webSockData.setupData.legionellenDelta;
     m_akkuPriori = (webSockData.setupData.akkuPriori != 0);
+    m_forceHeating = webSockData.setupData.forceHeating;
 
     // Energy state
     if (m_froniusAPI)
@@ -839,8 +841,31 @@ void PinManager::update(WEBSOCK_DATA &webSockData,
     m_weatherCloudAvg = cloudAvg;
     m_weatherOutTemp = tempOutside;
 
+    unsigned long now = millis();
+
     // ── Step 1: Copy shared data into local members ──
     pidLockRead(webSockData);
+
+    // ── FORCE HEATING: Override alles wenn forceHeating > 0 ──
+    // forceHeating values:
+    //   1 = HEATING_ON_PHASE_1
+    //   2 = HEATING_ON_PHASE_1_2
+    //   3 = HEATING_ON_PHASE_1_2_3 (ALLE PHASEN)
+    //   0 = HEATING_AUTOMATIC (Auto-Modus)
+    if (m_forceHeating > 0) {
+        allOn();  // Alle Phase on, unabhängig von PV-Status
+
+        LogEntry logEntry;
+        logEntry.ts = now;
+        logEntry.state = (uint8_t)MODE_MANUAL;
+        logEntry.power = onePhase * 3;
+        logEntry.pwm = (uint8_t)OUTPUT_MAX;
+        logEntry.temp = resolveInputTemp();
+
+        utils_logWrite(webSockData.logBuffer, logEntry);
+        pidLockWrite(webSockData);
+        return;  // Skip auto-control, force ist aktiv
+    }
 
     // ── Step 2: Resolve effective temperature ──
     int temp = resolveInputTemp();
@@ -848,7 +873,6 @@ void PinManager::update(WEBSOCK_DATA &webSockData,
     // ── Step 3: Determine control mode ──
     ControlMode mode;
     bool doML;
-    unsigned long now = millis();
     preCheck(temp, now, mode, doML);
 
     // ── Step 4: Handle forced heating from setup ──
