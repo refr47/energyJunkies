@@ -68,14 +68,14 @@
 
               <div
                 class="flex items-center space-x-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 mt-1 mb-3">
-                <input id="akku-checkbox" type="checkbox" v-model="setup.akku_vorhanden" :true-value="1"
-                  :false-value="0" class="w-5 h-5 accent-emerald-600 cursor-pointer" />
+                <input id="akku-checkbox" type="checkbox" v-model="setup.akku_vorhanden" :true-value="true"
+                  :false-value="false" class="w-5 h-5 accent-emerald-600 cursor-pointer" />
                 <label for="akku-checkbox" class="text-sm font-medium text-slate-700 cursor-pointer">
                   Akku vorhanden
                 </label>
               </div>
 
-              <ConfigInput v-if="setup.akku_vorhanden == 1" label="Priorität (0 = Niedrig, 1 = Hoch)"
+              <ConfigInput v-if="setup.akku_vorhanden" label="Priorität (0 = Niedrig, 1 = Hoch)"
                 v-model="setup.akku_priori" type="number" min="0" max="1" />
             </div>
           </div>
@@ -142,7 +142,7 @@ const setup = ref({
   legionellen_differenz: 5,
 
   // Energiemanagement
-  akku_vorhanden: 0,
+  akku_vorhanden: false,
   akku_priori: 0,
 
   // Daten-Schnittstellen (MQTT / Influx)
