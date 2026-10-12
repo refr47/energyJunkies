@@ -168,23 +168,27 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               },
               NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
               {
-                // 1. Alle Chunks sammeln (_tempObject = gesammelter Body-Puffer)
+                // 1. Alle Chunks sammeln (_tempObject = Body-Puffer)
                 if (index == 0) {
                     request->_tempObject = nullptr;
                 }
-                char **bodyPtr = (char **)request->_tempObject;
-                if (!*bodyPtr) {
-                    *bodyPtr = new char[8192];
-                    if (!*bodyPtr) { request->_tempObject = nullptr; }
+                char *buf = (char *)request->_tempObject;
+                if (!buf) {
+                    buf = new (std::nothrow) char[total + 1];
+                    if (!buf) {
+                        request->send(500, "application/json", "{\"done\":false, \"msg\":\"ENOMEM\"}");
+                        request->_tempObject = nullptr;
+                        return;
+                    }
+                    request->_tempObject = buf;
                 }
-                if (*bodyPtr) {
-                    memcpy(*bodyPtr + index, data, len);
-                    (*bodyPtr)[index + len] = '\0';
+                if (buf && index + len <= (size_t)total) {
+                    memcpy(buf + index, data, len);
+                    buf[index + len] = '\0';
                 }
                 if (index + len == total) {
                     // BUGFIX: JSON aus GESAMTLICHEN Body, nicht aus letztem Chunk
                     JsonDocument doc;
-                    char *buf = *bodyPtr;
                     DeserializationError error = (buf) ? deserializeJson(doc, buf) : deserializeJson(doc, data, len);
                     LOG_INFO(TAG_WEB, "/storeSetup: len: %u , index: %u, total: %u", len, index, total);
                     if (!error)
@@ -197,8 +201,8 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
                         LOG_INFO(TAG_WEB, "/storeSetup: JSON Error");
                         request->send(400, "application/json", "{\"done\":false, \"msg\":\"JSON Error\"}");
                     }
-                    if (buf) delete[] buf;
                     request->_tempObject = nullptr;
+                    if (buf) delete[] buf;
                 } });
 
     server.serveStatic("/assets/", LittleFS, "/assets/")
