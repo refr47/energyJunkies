@@ -11,8 +11,9 @@
 // Architecture:
 // 1. Forced modes (OFF, L1, L1+L2, L1+L2+PWM, Legionella) — direct pin control
 // 2. Auto mode — PID-like controller using PV surplus data
-// 3. PV surplus compensation → avoids self-reinforcing heater feedback loop
-// 4. Ramp limiter → smooth power transitions, no relay chatter
+// 3. NO compensation: smart meter reads include heater → no feedback loop
+// 4. Battery priority: charger first, boiler only on excess
+// 5. Phase-safe: relays only ON when full phase-power available
 // =============================================================================
  
 #include "utils.h"
@@ -250,6 +251,15 @@ void PinManager::apply(LogEntry &logEntry, int power)
     lastTargetPower = clampedPower;
 
     // ── Phase assignment logic ──
+    // CRITICAL: Only turn relays ON when there's enough surplus power
+    // to feed the full phase. Otherwise use PWM on phase 3.
+    //
+    // One phase = onePhase watts (~576W).
+    // If availablePower < onePhase → PWM proportional, relays OFF
+    // If availablePower >= onePhase → Relay 1 ON
+    // If availablePower >= 2*onePhase → Relay 2 ON
+    // PWM always handles the remainder proportionally
+
     if (clampedPower <= 0)
     {
         // OFF
@@ -262,46 +272,65 @@ void PinManager::apply(LogEntry &logEntry, int power)
         return;
     }
 
-    // Phase 1: ON (power > 0)
-    if (pinL1 > 0 && now - lastSwitch >= MIN_SWITCH)
+    // ── Phase 1 (Relay 1): Only ON if enough power for full phase ──
+    if (clampedPower >= onePhase)
     {
-        digitalWrite(pinL1, HIGH);
-        lastSwitch = now;
+        if (pinL1 > 0 && now - lastSwitch >= MIN_SWITCH)
+        {
+            digitalWrite(pinL1, HIGH);
+            lastSwitch = now;
+        }
+    }
+    else if (pinL1 > 0)
+    {
+        digitalWrite(pinL1, LOW);  // Not enough power → relay off
     }
 
-    if (clampedPower <= onePhase)
+    // ── Insufficient power for full phase → PWM only ──
+    if (clampedPower < onePhase)
     {
-        currentPhases = 1;
-        currentPWM = 0;
+        currentPhases = 0;
+        currentPWM = (int)((clampedPower * OUTPUT_MAX) / onePhase);
+        if (pwmPin > 0)
+            analogWrite(pwmPin, (uint8_t)currentPWM);
         if (pinL2 > 0)  digitalWrite(pinL2, LOW);
-        if (pwmPin > 0) analogWrite(pwmPin, 0);
         return;
     }
 
-    // Phase 2: ON (power > onePhase)
-    if (pinL2 > 0 && now - lastSwitch >= MIN_SWITCH)
+    // ── Phase 2 (Relay 2): Only ON if enough power for 2nd phase ──
+    if (clampedPower >= onePhase * 2)
     {
-        digitalWrite(pinL2, HIGH);
-        lastSwitch = now;
+        if (pinL2 > 0 && now - lastSwitch >= MIN_SWITCH)
+        {
+            digitalWrite(pinL2, HIGH);
+            lastSwitch = now;
+        }
     }
-    currentPhases = 2;
-
-    if (clampedPower <= onePhase * 2)
+    else if (pinL2 > 0)
     {
-        // Proportional control on PWM if over single phase
-        int remainder = clampedPower - onePhase;
+        digitalWrite(pinL2, LOW);  // Not enough power for 2nd phase → off
+    }
+
+    // ── PWM (Phase 3): Proportional remainder ──
+    int remainder = clampedPower - (currentPhases * onePhase);
+    if (remainder > 0)
+    {
         currentPWM = (int)((remainder * OUTPUT_MAX) / onePhase);
         if (pwmPin > 0)
             analogWrite(pwmPin, (uint8_t)currentPWM);
-        return;
+    }
+    else
+    {
+        currentPWM = 0;
+        if (pwmPin > 0)
+            analogWrite(pwmPin, 0);
     }
 
-    // Phase 3: PWM proportional (power > 2x onePhase)
-    currentPhases = 3;
-    int remainder2 = clampedPower - onePhase * 2;
-    currentPWM = (int)((remainder2 * OUTPUT_MAX) / onePhase);
-    if (pwmPin > 0)
-        analogWrite(pwmPin, (uint8_t)currentPWM);
+    // Update currentPhases count
+    if (clampedPower >= onePhase * 2)
+        currentPhases = 2;
+    else
+        currentPhases = 1;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -400,45 +429,51 @@ int PinManager::resolveInputTemp() const
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// getMeanOfAvailAblePower — PV surplus for control (with heater compensation)
+// getMeanOfAvailAblePower — PV surplus for control
 //
-// KEY FIX: compensate for heater draw so the controller sees the TRUE
-// available surplus, not the already-reduced grid number.
+// getMeanOfAvailAblePower — PV surplus for ONE phase
 //
-// meterPower comes from the smart meter (Fronius/AMIS):
-//   < 0  → feeding grid (surplus)
-//   > 0  → drawing from grid (deficit)
+// Smart meter measures grid power at the connection point:
+//   p_grid < 0 → Einspeisung (Überschuss)
+//   p_grid > 0 → Bezug (Defizit)
 //
-// Since the heater itself draws current, every watt we turn ON reduces
-// the measured surplus by that same watt.  Without compensation, the
-// controller artificially throttles itself.
+// NO heater compensation: The smart meter already includes heater draw.
+// If meter shows -200W, then 200W of surplus IS available.
+// As the heater turns on, this value naturally drops → next cycle
+// will see less surplus → controller adjusts automatically.
 //
-// compensatedSurplus = measuredSurplus + currentHeaterDraw
-// → gives the "surplus as if heater were off"
+// Battery priority:
+//   - SOC < threshold → heater OFF (charge battery first)
+//   - SOC >= threshold → heater allowed
 // ──────────────────────────────────────────────────────────────────────────
 int PinManager::getMeanOfAvailAblePower()
 {
-    // Current heater draw in watts
-    int curHeaterDraw = heaterPower();
-
-    // Measured surplus (negative grid = surplus)
+    // Measured surplus (negative grid = surplus feeding into grid)
+    // p_grid < 0 = Einspeisung (Überschuss), p_grid > 0 = Bezug (Defizit)
     float measuredSurplus = -m_meterPower;
 
-    // Compensated surplus: undo the effect of our own heater draw
-    float compensatedSurplus = measuredSurplus + curHeaterDraw;
+    // Only proceed if there's actual PV surplus
+    if (measuredSurplus <= 0)
+    {
+        return 0;  // Kein Überschuss → Boiler aus
+    }
 
-    // Battery priority: reduce target if SOC too low
+    // Battery priority logic:
+    // - Akku laden (p_batt < 0) + SOC < threshold → Boiler AUS, nur Akku laden
+    // - Akku voll (> threshold) → Boiler darf vollen Überschuss nutzen
+    // - Kein Überschuss → Boiler aus
+    float availableSurplus = measuredSurplus;
     if (m_akkuPriori)
     {
         int battThreshold = PUFFER_AKKU_PRIORI;
-        if (m_soc < battThreshold)
+        if ((int)m_soc < battThreshold)
         {
-            compensatedSurplus = compensatedSurplus * (-m_soc / 100.0f);
+            return 0;  // SOC zu niedrig → Boiler aus, Akku zuerst laden
         }
     }
 
-    // Scale: available power for ONE phase
-    int availablePower = (int)(compensatedSurplus / 3.0f);
+    // Scale: available power for ONE phase (3-phase system)
+    int availablePower = (int)(availableSurplus / 3.0f);
 
     // Watt bias for testing (if wattSetupForTest is set, use fixed value)
     if (m_wattSetupForTest > 0)
@@ -624,11 +659,14 @@ void PinManager::handleModeManual()
 // handleModeAuto — PID-like controller for automatic mode
 //
 // Control Loop:
-//   1. Read PV surplus (with heater-draw compensation)
+//   1. Read actual PV surplus from smart meter (NO compensation)
 //   2. Compute target power (with deadband)
 //   3. Smooth downward transitions (rate-limiter / cloud-cover handling)
 //   4. Apply hardware outputs via apply()
 //   5. Populate LogEntry
+//
+// Battery priority: Boiler only heats if SOC >= threshold
+// Phase safety: Relays only ON for full phase-power, PWM for partial
 //
 // Returns: 0 on success
 // ──────────────────────────────────────────────────────────────────────────
