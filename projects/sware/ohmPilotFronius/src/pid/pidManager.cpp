@@ -313,20 +313,23 @@ int PinManager::handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doM
     measuredPower = getMeanOfAvailAblePower();
     logEntry.power = measuredPower;
 
-    // ── Heater-Korrektur (nur Early-Exit Guard!) ────────────────────────
-    //    p_grid + heater → "was wäre p_grid ohne Heizung?" → frühzeitiges
-    //    Abschalten verhindern, wenn die Heizung gerade selbst den Überschuss
-    //    aufbraucht und p_grid kurz positiv wird.
-    int heater           = heaterPower();
-    int correctedPower   = measuredPower + heater;
+    // ── Heater-Leistung (aktualle GPIO-Reads, kein Cache) ──────────────
+    int heater = heaterPower();
 
-    LOG_DEBUG(TAG_PID, "AUTO – P_grid: %d, heater: %d, korrigiert: %d, SoC: %.0f, Batt: %.0f",
+    // ── Early-Exit Guard: "Was wäre P_Grid ohne Heizung?" ──────────────
+    //    Wenn die Heizung läuft, "verschwindet" ihre Leistung in P_Grid.
+    //    correctedPower zeigt den WAHREN PV-Überschuss.
+    int correctedPower = measuredPower + heater;
+
+    LOG_DEBUG(TAG_PID, "AUTO - P_grid: %d, heater: %d, korrigiert: %d, SoC: %.0f, Batt: %.0f",
               measuredPower, heater, correctedPower, m_soc, m_battPower);
 
-    // ── Early-Exit auf KORRIGIERTEN Wert (nicht auf rohem p_grid!) ───────
-    if (abs(correctedPower) < EPSILON_TEMP || correctedPower > 0)
+    // ── Early-Exit: nur wenn korrekt kein Überschuss vorhanden ──────────
+    //    Nur correctedPower > EPSILON (=deutlich positiv = Bezug) → Exit.
+    //    Kleines Rauschen bei 0 tolerieren (±EPSILON_TEMP).
+    if (correctedPower > EPSILON_TEMP)
     {
-        LOG_INFO(TAG_PID, "AUTO – kein wahrer Überschuss (korrigiert: %d W)", correctedPower);
+        LOG_INFO(TAG_PID, "AUTO - kein U'berschuss (korrigiert: %d W)", correctedPower);
         doML = false;
         return 0;
     }
@@ -340,44 +343,35 @@ int PinManager::handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doM
     }
 
     // ── roher PV-Überschuss (was fließt wirklich ins Netz) ───────────────
-    //    correctedPower darf hier NICHT verwendet werden – das würde die
-    //    eigene Heizleistung von der Einspeisung abziehen → zu wenig Target.
+    //    correctedPower NICHT verwenden → würde eigene Heizleistung wegziehen.
     int pvSurplus          = -measuredPower;                       // >0 = Einspeisung
     int effectiveAvailable = pvSurplus - override;
-    LOG_DEBUG(TAG_PID, "AUTO – roher Überschuss: %d, effektiv: %d (override=%d)",
+    LOG_DEBUG(TAG_PID, "AUTO - roher U'berschuss: %d, effektiv: %d (override=%d)",
               pvSurplus, effectiveAvailable, override);
 
-    // ── Target mit Hysteres-Deadband (asymmetrisch) ──────────────────────
-    //    marginUp:   20% für schnelles Hochregeln (Einschalten)
-    //    marginDown: 40% für langsames Herunterregeln (Oszillation-Schutz)
-    int marginUp   = onePhase / 5;   // z.B. 300W @ 1500W/Phase
-    int marginDown = onePhase / 2;   // z.B. 750W @ 1500W/Phase
+    // ── Target: Dynamisch an Überschuss anpassen ────────────────────────
+    //    KEINE Deadband-Falle beim Hochregeln! Nur Down-Hysteresis.
+    int marginDown = onePhase / 4;  // 375W @ 1500W/Phase
 
-    int target = effectiveAvailable;
+    int target = clampInt(effectiveAvailable, 0, onePhase * 3);
 
-    // Hochregeln → aggressiv (sofort bei mehr Überschuss)
-    if (target > heater + marginUp)
+    // ── Down-Hysteresis (nur beim Herunterschalten) ─────────────────────
+    //    Wenn Überschuss deutlich unter aktueller Heizleistung → Schritt down.
+    //    Sonst: target = effectiveAvailable (passt sich sofort an!)
+    if (heater > 0 && target < (heater - marginDown))
     {
-        target = effectiveAvailable;  // voll durchsetzen
+        target = heater - marginDown;
+        LOG_DEBUG(TAG_PID, "HYSTERESIS down - von %d auf %d (U'berschuss=%d)",
+                  heater, target, effectiveAvailable);
     }
-    // Herunterregeln → nur wenn Überschuss deutlich kleiner
-    else if (heater > 0 && target < (heater - marginDown))
-    {
-        target = heater - marginDown;  // Step-Down, nicht sofort 0
-        LOG_DEBUG(TAG_PID, "HYSTERESIS herab – von %d auf %d", heater, target);
-    }
-    // Im Deadband → Status quo beibehalten
-    else
-    {
-        target = heater;  // keine Änderung
-    }
+    // else: target bleibt bei effectiveAvailable → folgt der Überschusskurve
 
-    // ── Hard Clamps ─────────────────────────────────────────────────────
+    // ── Hard Clamp ─────────────────────────────────────────────────────
     target = clampInt(target, 0, onePhase * 3);
 
     doML = true;
-    LOG_INFO(TAG_PID, "AUTO → target: %d W (heater=%d, marginDown=%d)",
-             target, heater, marginDown);
+    LOG_INFO(TAG_PID, "AUTO → target: %d W (heater=%d, U'berschuss=%d)",
+             target, heater, effectiveAvailable);
     return target;
 }
 
