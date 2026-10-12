@@ -166,7 +166,13 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
     live[HEIZPATRONE_L2]         = data.pidContainer.PID_PIN2;
     live[HEIZPATRONE_L3]         = data.pidContainer.mAnalogOut;
     live[FORCE_HEIZPATRONE]      = (int)data.setupData.forceHeating;
-    live[HEIZSTAB_LEISTUNG_PHASE] = floor(data.setupData.heizstab_leistung_in_watt / 3);
+    // ── Aktuelles Phasen-Performance: uses pidContainer.mCurrentPower (actual) 
+    //     divided by active phase count → per-phase power in W sent to frontend ──
+    int activePhases = (data.pidContainer.PID_PIN1 ? 1 : 0) + (data.pidContainer.PID_PIN2 ? 1 : 0);
+    int perPhaseWatt = (activePhases > 0) && data.pidContainer.mCurrentPower > 0
+                        ? data.pidContainer.mCurrentPower / activePhases
+                        : (int)(data.setupData.heizstab_leistung_in_watt / 3);
+    live[HEIZSTAB_LEISTUNG_PHASE] = perPhaseWatt;
 
     // ── Wetter-Forecast ── (immer vorhanden, Dummy-Werte wenn WEATHER_API aus)
     live["weatherBonus"]       = data.pidContainer.weatherBonus;
