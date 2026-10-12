@@ -303,43 +303,80 @@ void PinManager::handleModeManual()
 /*
 ****** handleModeAuto – MODE_AUTO: compute measured/target power, decide ML
 **  BATTERY-AWARE: bei niedrigem SoC wird eine höhere Schwelle erforderlich
+**  HEATER-CORRECTION: p_grid + heaterPower → reiner PV-Überschuss ohne Heizung
+**  HYSTERESIS: asymmetrisches Hoch-/Runterregeln
 **  return value = targetPower in Watt
 */
 int PinManager::handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doML)
 {
-    measuredPower    = getMeanOfAvailAblePower();
-    logEntry.power   = measuredPower;
-    LOG_DEBUG(TAG_PID, "AUTO – gemessen: %d W, SoC: %.0f%%, Batt: %.0f W",
-              measuredPower, m_soc, m_battPower);
+    measuredPower = getMeanOfAvailAblePower();
+    logEntry.power = measuredPower;
 
-    // keine nutzbare PV-Leistung → Ausschalten
-    if (abs(measuredPower) < EPSILON_TEMP || measuredPower > 0)
+    // ── Heater-Korrektur (MUST before Early-Exit!) ──────────────────────
+    //    p_grid misst: (PV) – (Hausverbrauch + Heizung)
+    //    Wenn die Heizung bereits läuft, "verschwindet" ihre Leistung in p_grid.
+    //    Korrektur: p_grid_ohne_Heizung = p_grid + heaterPower()
+    //    → zeigt den WAHREN PV-Überschuss, als wäre die Heizung erst mal aus.
+    int heater           = heaterPower();
+    int correctedPower   = measuredPower + heater;
+
+    LOG_DEBUG(TAG_PID, "AUTO – P_grid: %d, heater: %d, korrigiert: %d, SoC: %.0f, Batt: %.0f",
+              measuredPower, heater, correctedPower, m_soc, m_battPower);
+
+    // ── Early-Exit auf KORRIGIERTEN Wert (nicht auf rohem p_grid!) ───────
+    if (abs(correctedPower) < EPSILON_TEMP || correctedPower > 0)
     {
-        LOG_INFO(TAG_PID, "AUTO – kein Überschuss: %d Watt", measuredPower);
+        LOG_INFO(TAG_PID, "AUTO – kein wahrer Überschuss (korrigiert: %d W)", correctedPower);
         doML = false;
         return 0;
     }
 
-    // ── Akku-Prio: bei niedrigem SoC höhere Mindestschrwell ──────────────
+    // ── Akku-Prio: bei niedrigem SoC höhere Mindestschwelle ─────────────
     int override = 0;
     if (m_soc < m_akkuPriori)
     {
-        override = 500; // +500W müssen vorhanden sein, bevor geheizt wird
+        override = 500;
         LOG_DEBUG(TAG_PID, "LOW SoC (%.0f%%): Akku-Prio, +500W Schwell", m_soc);
     }
 
-    // nutzbare PV-Leistung vorhanden
-    int heater             = heaterPower();
-    int effectiveAvailable = (-measuredPower) + heater - override;
-    LOG_DEBUG(TAG_PID, "AUTO – effektiv: %d W (override=%d)", effectiveAvailable, override);
+    // ── Effektive Leistung: was bleibt nach Akku-Prio übrig? ─────────────
+    int pvSurplus          = -correctedPower;                       // positiver Wert = Einspeisung
+    int effectiveAvailable = pvSurplus - override;
+    LOG_DEBUG(TAG_PID, "AUTO – PV-Überschuss: %d, effektiv: %d (override=%d)",
+              pvSurplus, effectiveAvailable, override);
 
-    int target = clampInt(effectiveAvailable, 0, onePhase * 3);
-    if (target > effectiveAvailable + 50)
+    // ── Target mit Hysteres-Deadband (asymmetrisch) ──────────────────────
+    //    marginUp:   +20% für schnelles Hochregeln (Einschalten)
+    //    marginDown: +40% für langsames Herunterregeln (Schutz vor Oszillation)
+    int marginUp   = onePhase / 5;   // z.B. 300W @ 1500W/Phase
+    int marginDown = onePhase / 2;   // z.B. 750W @ 1500W/Phase
+
+    int target = effectiveAvailable;
+
+    // Hochregeln → aggressiv (sofort bei Überschuss)
+    if (target > heater + marginUp)
     {
-        target = effectiveAvailable;
+        target = effectiveAvailable;  // voll durchsetzen
+    }
+    // Herunterregeln → nur wenn Überschuss deutlich kleiner als aktuelle Leistung
+    else if (heater > 0 && target < (heater - marginDown))
+    {
+        // Schrittweises Runterfahren (nicht sofort 0)
+        target = heater - marginDown;
+        LOG_DEBUG(TAG_PID, "HYSTERESIS herab – von %d auf %d", heater, target);
+    }
+    // Im Deadband → Status quo beibehalten
+    else
+    {
+        target = heater;  // keine Änderung
     }
 
+    // ── Hard Clamps ─────────────────────────────────────────────────────
+    target = clampInt(target, 0, onePhase * 3);
+
     doML = true;
+    LOG_INFO(TAG_PID, "AUTO → target: %d W (heater=%d, marginDown=%d)",
+             target, heater, marginDown);
     return target;
 }
 

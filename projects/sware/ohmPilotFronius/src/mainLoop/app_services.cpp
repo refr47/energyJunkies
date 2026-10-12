@@ -459,7 +459,7 @@ static void fillEnergyState()
 
     if (appLockData(LOCK_TIMEOUT_DATA_MS))
     {
-        g_app.webSockData.energyState.p_grid   = solar.p_grid;
+        g_app.webSockData.energyState.p_grid   = solar.p_grid;  // < 0 = Einspeisung, > 0 = Bezug
         g_app.webSockData.energyState.p_load   = solar.p_load;
         g_app.webSockData.energyState.p_pv     = solar.p_pv;
         g_app.webSockData.energyState.soc      = solar.soc;
@@ -518,7 +518,7 @@ static bool fetchAmisEnergy()
         g_app.webSockData.energyState.p_load   = g_app.webSockData.amisReader.consumptionInWatt;
         g_app.webSockData.energyState.p_pv     = g_app.webSockData.amisReader.exportInWatt;
         g_app.webSockData.energyState.soc      = 0.0;       // AMIS: kein Batterie
-        g_app.webSockData.energyState.p_batt   = 0.0;
+g_app.webSockData.energyState.p_batt   = 0.0;
         appUnlockData();
     }
     else
