@@ -129,25 +129,25 @@ bool amisReader_readRestTarget(WEBSOCK_DATA &webSockData)
         LOG_ERROR(TAG_AMIS, "Parsing input failed!");
         return false;
     }
-
+ 
     webSockData.amisReader.saldo = my_obj["saldo"];
     webSockData.amisReader.absolutExportInkWh = my_obj["2.8.0"]; // bissherige einspeisung insge
     webSockData.amisReader.absolutImportInkWh = my_obj["1.8.0"]; // gesamter Strombezug
     webSockData.amisReader.exportInWatt = my_obj["2.7.0"];       // wirkleistug P-, aktueller export
     webSockData.amisReader.consumptionInWatt = my_obj["1.7.0"];  // aktueller bezug
 
-    uint16_t saldoWatt;
+   /*  uint16_t saldoWatt;
     uint32_t einspeisung, bezug;
 
     mb.readHreg(remote, 40097, &saldoWatt, 1, nullptr, 1);
     mb.task();
     vTaskDelay(pdMS_TO_TICKS(100));
-    LOG_INFO(TAG_AMIS, "SaldoWatt: %d", saldoWatt);
+    LOG_INFO(TAG_AMIS, "SaldoWatt: %d", saldoWatt); 
 
     einspeisung = read32BitRegister(40130);
     bezug = read32BitRegister(40138);
-
-    LOG_INFO(TAG_AMIS, "Einspeisung: %d, Bezug: %d", einspeisung, bezug);
+*/
+    LOG_INFO(TAG_AMIS, "AMIDS_REader - saldo: %d,  webSockData.amisReader.saldo");
 
     return true;
 
