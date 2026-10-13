@@ -394,7 +394,7 @@ void PinManager::pidLockRead(WEBSOCK_DATA &webSockData)
     }
 #endif
 
-    m_wattSetupForTest = webSockData.setupData.wattSetupForTest * -1;
+    m_wattSetupForTest = webSockData.setupData.wattSetupForTest ;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -517,7 +517,7 @@ int PinManager::getMeanOfAvailAblePower()
     // Watt bias for testing (if wattSetupForTest is set, use fixed value)
     if (m_wattSetupForTest > 0)
     {
-        availablePower = m_wattSetupForTest;
+        availablePower = m_wattSetupForTest*-1;  // Use negative to simulate deficit for testing
         m_out_wattBiasForTest = true;
     }
 
