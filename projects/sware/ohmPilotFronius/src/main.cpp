@@ -114,7 +114,7 @@ void setup()
 
     //eprom_isInit();
     //eprom_test_write_Eprom("FRITZ!Box 7530 YK", "reitinger");
-    eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    //eprom_test_write_Eprom("Milchbehaelter", "47754775");
     if (!eprom_getSetup(g_app.webSockData.setupData)) {
         eprom_test_write_Eprom("Milchbehaelter", "47754775");
     }

@@ -21,7 +21,48 @@ struct FieldBase
     virtual ~FieldBase() {}
 };
 
-// Für alle numerischen Typen (int, unsigned int, short, double, bool)
+// Booleans: akzeptiert JSON true/false (bool) UND JSON 0/1 (int)
+// ArduinoJson is<bool>() ist inkonsistent → wir prüfen beides.
+template <typename Struct>
+struct BooleanField : FieldBase<Struct>
+{
+    const char *key;
+    bool Struct::*target;
+
+    BooleanField(const char *k, bool Struct::*t) : key(k), target(t) {}
+
+    const char *getKey() const override { return key; }
+    bool update(Struct &obj, JsonVariant value) const override
+    {
+        if (value.isNull())
+        {
+            return false;
+        }
+
+        bool b = false;
+        if (value.is<bool>())
+        {
+            b = value.as<bool>();
+        }
+        else if (value.is<int>())
+        {
+            b = (value.as<int>() != 0);
+        }
+        else
+        {
+            return false;
+        }
+
+        obj.*target = b;
+        return true;
+    }
+    void serialize(const Struct &obj, JsonObject &json) const override
+    {
+        json[key] = obj.*target;
+    }
+};
+
+// Für alle numerischen Typen (int, unsigned int, short, double)
 template <typename T, typename Struct>
 struct NumericField : FieldBase<Struct>
 {
