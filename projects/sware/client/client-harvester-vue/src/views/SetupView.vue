@@ -120,7 +120,6 @@ const notify = (msg, type = 'success', timeout = 4000) => {
   }
 };
 
-
 const statusMsg = ref('');
 const statusClass = ref('');
 const setup = ref({
@@ -135,7 +134,7 @@ const setup = ref({
   heizstab_leistung: 0,
   heizstab_temp_min: 0,
   heizstab_temp_max: 0,
-  heizstab_force: 0, // 'j' oder 'n'
+  heizstab_force: 0,
 
   // Hygiene & Legionellen
   legionellen_temp: 65,
@@ -158,23 +157,27 @@ const setup = ref({
   pid_epsilon: 0.1,
   watt_bias: 0
 });
+
 const load = async () => {
   try {
     const res = await fetch('/getSetup');
     const data = await res.json();
-    if (data.error.code == 0) {
-      console.log("Error in fetching data (setup): " + data.error.msg)
-      return
+    if (data.error.code !== 1) {
+      notify("Fehler beim Laden: " + (data.error.msg || "Unbekannt"), "error");
+      return;
     }
     let result = data.result;
+    // ESP32 sendet akku_vorhanden als Zahl (0/1) oder bool → auf true/false normalisieren
+    if (typeof result.akku_vorhanden === 'number') {
+      result.akku_vorhanden = result.akku_vorhanden !== 0;
+    }
     setup.value = { ...setup.value, ...result };
-    statusMsg.value = "Erfolgreich geladen.";
     console.log("Setup Daten geladen:", result);
 
     notify("Konfiguration erfolgreich geladen!", "success");
   } catch (e) {
-    statusMsg.value = "Konnte Daten vom ESP32 nicht laden.";
-    notify("Fehler beim Laden der Konfiguration!", "error");
+    notify("Keine Verbindung zum ESP32.", "error");
+    console.error("Fetch-Error:", e);
   }
 };
 
