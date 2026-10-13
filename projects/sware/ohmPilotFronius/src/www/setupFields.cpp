@@ -27,7 +27,7 @@ namespace Fields
     static const StringField<Setup, INFLUX_ORG_LEN + 1> influxOrg(WWW_INFLUX_ORG, &Setup::influxOrg);
     static const StringField<Setup, INFLUX_BUCKET_LEN + 1> influxBucket(WWW_INFLUX_BUCKET, &Setup::influxBucket);
     static const NumericField<double, Setup> epsilon(PID_EPSILON, &Setup::epsilonML_PinManager);
-    static const NumericField<int, Setup> biasWatt(WWW_WATT_BIAS, &Setup::wattSetupForTest);
+    static const NumericField<unsigned int, Setup> biasWatt(WWW_WATT_BIAS, &Setup::wattSetupForTest);
 }
 
 

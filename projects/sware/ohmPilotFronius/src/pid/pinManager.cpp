@@ -22,8 +22,9 @@
 // ── Constants (legacy, used by original code) ──
 #define FASE_EINS_POWER 576     // W per phase (standard 3-phase heater)
 #define PUFFER_AKKU_PRIORI 50   // Battery SoC threshold for priority
-#define RAMP_DOWN_STEP 100      // Max W decrease per ramp interval
-#define RAMP_DOWN_INTERVAL 1000 // ms between ramp steps
+#define RAMP_DOWN_STEP 100      // Max W decrease per ramp interval (per phase, legacy)
+#define RAMP_DOWN_STEP_TOTAL 300 // Max W decrease TOTAL (3 phases × 100)
+#define EMA_ALPHA 0.2           // EMA smoothing factor (α=0.2 → effektives Fenster ≈ 5 Werte)
 
 // ──────────────────────────────────────────────────────────────────────────
 // Constructor
@@ -41,6 +42,11 @@ PinManager::PinManager()
     availablePower.clear();
     powerIndex = 0;
     rest = 0;
+    lastSwitchL1 = 0;
+    lastSwitchL2 = 0;
+    lastSwitchPwm = 0;
+    emaSurplus = 0;
+    emaInitialized = false;
 
     m_sensor1 = 0;
     m_sensor2 = 0;
@@ -163,11 +169,15 @@ void PinManager::reset()
 
     currentPhases = 0;
     currentPWM = 0;
-    rest = 0;
+    lastLegionella = 0;
+    legionella = false;
+    lastSwitchL1 = 0;
+    lastSwitchL2 = 0;
+    lastSwitchPwm = 0;
+    emaSurplus = 0;
+    emaInitialized = false;
     lastTargetPower = 0;
     lastSmoothedPower = 0;
-    lastSwitch = 0;
-    legionella = false;
     m_froniusAPI = false;
     m_boilerHeating = false;
     m_out_boilerHeating = false;
@@ -184,22 +194,16 @@ void PinManager::reset()
 void PinManager::allOn()
 {
     unsigned long now = millis();
-    if (now - lastSwitch < MIN_SWITCH)
-    {
-        unsigned long wait = MIN_SWITCH - (now - lastSwitch);
-        if (wait > 0)
-        {
-            vTaskDelay(pdMS_TO_TICKS(wait));
-        }
-    }
 
     if (pinL1 > 0)  digitalWrite(pinL1, HIGH);
     if (pinL2 > 0)  digitalWrite(pinL2, HIGH);
     if (pwmPin > 0) analogWrite(pwmPin, (uint8_t)OUTPUT_MAX);
 
-    currentPhases = 3;
+    currentPhases = 2;
     currentPWM = (int)OUTPUT_MAX;
-    lastSwitch = millis();
+    lastSwitchL1 = now;
+    lastSwitchL2 = now;
+    lastSwitchPwm = now;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -221,13 +225,18 @@ int PinManager::getStateOfAnaPin()
 // apply — translate power output into relay/PWM pin assignments + logging
 //
 // Step-up logic (3 phases):
-//   Phase 1 (relay1)  if power > 0
-//   Phase 1+2 (relay2) if power > onePhase
-//   Phase 3 (PWM)     proportional for any remainder above 2x onePhase
+//   Phase 1 (relay1)  if power >= onePhase
+//   Phase 1+2 (relay2) if power >= 2*onePhase
+//   Phase 3 (PWM)     proportional for any remainder above active relays
 //
-// DEAD BAND:
+// HYSITERESIS:
+//   - ON at ≥ threshold, OFF at ≤ (threshold - HYSTERESIS_WATT)
+//   - MIN_SWITCH_L1/L2: 10s min dwell before relay toggle (on & off)
+//   - MIN_SWITCH_PWM: 2s for PWM updates
 //   - Small fluctuations within DEAD_BAND are ignored
-//     (prevents micro-hunting at the step boundaries)
+//
+// FIX #1: currentPhases derived from ACTUAL relay state (read-back),
+//         computed BEFORE PWM remainder calc — no stale-state bug.
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::apply(LogEntry &logEntry, int power)
 {
@@ -238,11 +247,10 @@ void PinManager::apply(LogEntry &logEntry, int power)
     if (clampedPower < 0)               clampedPower = 0;
     if (clampedPower > onePhase * 3)    clampedPower = onePhase * 3;
 
-    // Deadband: only change hardware if difference exceeds threshold
+    // Deadband: only evaluate hardware changes if difference exceeds threshold
     int diff = abs(clampedPower - lastTargetPower);
     if (diff < DEAD_BAND)
     {
-        // Still update the log entry with target power, but don't change pins
         lastTargetPower = clampedPower;
         logEntry.power = clampedPower;
         logEntry.state = (uint8_t)MODE_AUTO;
@@ -251,87 +259,98 @@ void PinManager::apply(LogEntry &logEntry, int power)
 
     lastTargetPower = clampedPower;
 
-    // ── Phase assignment logic ──
-    // CRITICAL: Only turn relays ON when there's enough surplus power
-    // to feed the full phase. Otherwise use PWM on phase 3.
-    //
-    // One phase = onePhase watts (~576W).
-    // If availablePower < onePhase → PWM proportional, relays OFF
-    // If availablePower >= onePhase → Relay 1 ON
-    // If availablePower >= 2*onePhase → Relay 2 ON
-    // PWM always handles the remainder proportionally
+    // ── Hysteresis thresholds ──
+    // Relay ON at higher threshold, OFF at lower → prevents toggle hunt
+    const int hyst1On  = onePhase;
+    const int hyst1Off = onePhase - HYSTERESIS_WATT;
+    const int hyst2On  = onePhase * 2;
+    const int hyst2Off = onePhase * 2 - HYSTERESIS_WATT;
 
-    if (clampedPower <= 0)
-    {
-        // OFF
-        currentPhases = 0;
-        currentPWM = 0;
-        if (pinL1 > 0)  digitalWrite(pinL1, LOW);
-        if (pinL2 > 0)  digitalWrite(pinL2, LOW);
-        if (pwmPin > 0) analogWrite(pwmPin, 0);
-        lastSwitch = now;
-        return;
-    }
+    // ── Relay 1 (Phase 1) ──
+    bool wantL1 = (clampedPower >= hyst1On);
+    bool keepL1 = (clampedPower > hyst1Off && clampedPower < hyst1On); // hysteresis band
+    bool l1Active = false;
 
-    // ── Phase 1 (Relay 1): Only ON if enough power for full phase ──
-    if (clampedPower >= onePhase)
+    if (pinL1 > 0) { l1Active = (getStateOfDigPin(pinL1) == HIGH); }
+
+    if (wantL1 && !l1Active)
     {
-        if (pinL1 > 0 && now - lastSwitch >= MIN_SWITCH)
+        if (now - lastSwitchL1 >= MIN_SWITCH_L1)
         {
             digitalWrite(pinL1, HIGH);
-            lastSwitch = now;
+            lastSwitchL1 = now;
+            l1Active = true;
         }
     }
-    else if (pinL1 > 0)
+    else if (!wantL1 && !keepL1 && l1Active)
     {
-        digitalWrite(pinL1, LOW);  // Not enough power → relay off
+        if (now - lastSwitchL1 >= MIN_SWITCH_L1)
+        {
+            digitalWrite(pinL1, LOW);
+            lastSwitchL1 = now;
+            l1Active = false;
+        }
     }
 
-    // ── Insufficient power for full phase → PWM only ──
-    if (clampedPower < onePhase)
-    {
-        currentPhases = 0;
-        currentPWM = (int)((clampedPower * OUTPUT_MAX) / onePhase);
-        if (pwmPin > 0)
-            analogWrite(pwmPin, (uint8_t)currentPWM);
-        if (pinL2 > 0)  digitalWrite(pinL2, LOW);
-        return;
-    }
+    // ── Relay 2 (Phase 2) ──
+    bool wantL2 = (clampedPower >= hyst2On);
+    bool keepL2 = (clampedPower > hyst2Off && clampedPower < hyst2On); // hysteresis band
+    bool l2Active = false;
 
-    // ── Phase 2 (Relay 2): Only ON if enough power for 2nd phase ──
-    if (clampedPower >= onePhase * 2)
+    if (pinL2 > 0) { l2Active = (getStateOfDigPin(pinL2) == HIGH); }
+
+    if (wantL2 && !l2Active)
     {
-        if (pinL2 > 0 && now - lastSwitch >= MIN_SWITCH)
+        if (now - lastSwitchL2 >= MIN_SWITCH_L2)
         {
             digitalWrite(pinL2, HIGH);
-            lastSwitch = now;
+            lastSwitchL2 = now;
+            l2Active = true;
         }
     }
-    else if (pinL2 > 0)
+    else if (!wantL2 && !keepL2 && l2Active)
     {
-        digitalWrite(pinL2, LOW);  // Not enough power for 2nd phase → off
+        if (now - lastSwitchL2 >= MIN_SWITCH_L2)
+        {
+            digitalWrite(pinL2, LOW);
+            lastSwitchL2 = now;
+            l2Active = false;
+        }
     }
 
-    // ── PWM (Phase 3): Proportional remainder ──
-    int remainder = clampedPower - (currentPhases * onePhase);
-    if (remainder > 0)
+    // ── FIX #1: Compute currentPhases from ACTUAL relay state ──
+    currentPhases = (l1Active ? 1 : 0) + (l2Active ? 1 : 0);
+
+    // ── PWM (Phase 3): Proportional remainder based on active relay power ──
+    int relayPower = currentPhases * onePhase;
+    int remainder = clampedPower - relayPower;
+
+    if (remainder <= 0)
     {
-        currentPWM = (int)((remainder * OUTPUT_MAX) / onePhase);
-        if (pwmPin > 0)
-            analogWrite(pwmPin, (uint8_t)currentPWM);
-    }
-    else
-    {
+        // Active relays already cover the target → PWM off
         currentPWM = 0;
         if (pwmPin > 0)
+        {
             analogWrite(pwmPin, 0);
+            lastSwitchPwm = now;
+        }
+    }
+    else
+    {
+        // Cap remainder at onePhase (PWM handles max 1 phase)
+        if (remainder > onePhase) remainder = onePhase;
+        currentPWM = (int)((remainder * OUTPUT_MAX) / (float)onePhase);
+        if (pwmPin > 0)
+        {
+            analogWrite(pwmPin, (uint8_t)currentPWM);
+            lastSwitchPwm = now;
+        }
     }
 
-    // Update currentPhases count
-    if (clampedPower >= onePhase * 2)
-        currentPhases = 2;
-    else
-        currentPhases = 1;
+    // ── Log ──
+    logEntry.power = clampedPower;
+    logEntry.pwm = (uint8_t)currentPWM;
+    logEntry.state = (uint8_t)MODE_AUTO;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -431,9 +450,7 @@ int PinManager::resolveInputTemp() const
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// getMeanOfAvailAblePower — PV surplus for control
-//
-// getMeanOfAvailAblePower — PV surplus for ONE phase
+// getMeanOfAvailAblePower — GESAMTER PV-Überschuss (nicht pro Phase)
 //
 // Smart meter measures grid power at the connection point:
 //   p_grid < 0 → Einspeisung (Überschuss)
@@ -447,7 +464,9 @@ int PinManager::resolveInputTemp() const
 // Battery priority:
 //   - SOC < threshold → heater OFF (charge battery first)
 //   - SOC >= threshold → heater allowed
-// ──────────────────────────────────────────────────────────────────────────
+//
+// FIX: Return FULL surplus (not divided by 3). apply() handles phase logic
+//      based on full surplus vs. total heater capacity.
 int PinManager::getMeanOfAvailAblePower()
 {
     // Measured surplus (negative grid = surplus feeding into grid)
@@ -474,8 +493,24 @@ int PinManager::getMeanOfAvailAblePower()
         }
     }
 
-    // Scale: available power for ONE phase (3-phase system)
-    int availablePower = (int)(availableSurplus / 3.0f);
+    // FIX: Use FULL surplus, not divided by 3.
+    // apply() compares against onePhase (per-phase power) to decide
+    // how many relays to engage. Dividing by 3 meant:
+    //   1728W surplus → 576W to apply() → only PWM (below 2×onePhase)
+    // Now:
+    //   1728W surplus → 1728W to apply() → Relay 1+2 + PWM remainder
+
+    // ── EMA smoothing (Exponential Moving Average) ──
+    // α=0.2 → effektives Fenster ≈ 5 Werte. Glättet Messrauschen
+    // bei ~1Hz-Abtastung ≈ ±20-50W, ohne Verzögerung > 5s.
+    int availablePower;
+    if (!emaInitialized) {
+        emaSurplus = availableSurplus;
+        emaInitialized = true;
+    } else {
+        emaSurplus = EMA_ALPHA * availableSurplus + (1.0 - EMA_ALPHA) * emaSurplus;
+    }
+    availablePower = (int)emaSurplus;
 
     // Watt bias for testing (if wattSetupForTest is set, use fixed value)
     if (m_wattSetupForTest > 0)
@@ -689,8 +724,8 @@ int PinManager::handleModeAuto(LogEntry &logEntry,
 
     if (diff < 0)
     {
-        // Downward: limit rate to RAMP_DOWN_STEP
-        int maxDrop = DEAD_BAND + HYSTERESIS_WATT; // smooth step
+        // Downward: limit rate to RAMP_DOWN_STEP_TOTAL (3× per-phase step)
+        int maxDrop = RAMP_DOWN_STEP_TOTAL + HYSTERESIS_WATT;
         if (abs(diff) > maxDrop)
         {
             targetPower = (int)(lastSmoothedPower - maxDrop);

@@ -51,13 +51,21 @@ private:
     int currentPWM = 0;
 
     // Relay protection
-    unsigned long lastSwitch = 0;
-    const unsigned long MIN_SWITCH = 5000;
+    unsigned long lastSwitchL1 = 0;
+    unsigned long lastSwitchL2 = 0;
+    unsigned long lastSwitchPwm = 0;
+    const unsigned long MIN_SWITCH_L1 = 10000; // 10s Hysterese Relay 1
+    const unsigned long MIN_SWITCH_L2 = 10000; // 10s Hysterese Relay 2
+    const unsigned long MIN_SWITCH_PWM = 2000; // 2s PWM
     //const unsigned int MAX_LEN_MEASURE = 12; // hysterese, glättung
     double lastSmoothedPower = 0;
     const int DEAD_BAND = DEAD_BAND_WATT; // Änderungen unter 50W werden ignoriert
     int lastTargetPower = 0;    // Speicher für den letzten Sollwert
     int rest = 0;
+
+    // EMA smoothing for PV surplus (α=0.2 → effektives Fenster ≈ 5 Werte)
+    double emaSurplus = 0;
+    bool   emaInitialized = false;
 
 #ifdef TINYNN_ENABLE
     TinyNN *tinyNN;
