@@ -433,7 +433,7 @@ static EnergySource resolveEnergySource()
             src = SRC_FRONIUS;
 #endif
 #ifdef AMIS_READER_DEV
-        else if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
+       if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
             src = SRC_AMIS;
 #endif
         appUnlockData();
