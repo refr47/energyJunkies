@@ -375,11 +375,13 @@ void PinManager::pidLockRead(WEBSOCK_DATA &webSockData)
     // Energy state
     if (m_froniusAPI)
     {
+        #ifdef FRONIUS_IV
         m_gridPower = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
         m_pV = webSockData.fronius_SOLAR_POWERFLOW.p_pv;
         m_soc = webSockData.fronius_SOLAR_POWERFLOW.soc;
         m_battPower = webSockData.fronius_SOLAR_POWERFLOW.p_batt;
         m_meterPower = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
+        #endif
     }
 #ifdef AMIS_READER_DEV
     else
@@ -392,7 +394,7 @@ void PinManager::pidLockRead(WEBSOCK_DATA &webSockData)
     }
 #endif
 
-    m_wattSetupForTest = webSockData.setupData.wattSetupForTest;
+    m_wattSetupForTest = webSockData.setupData.wattSetupForTest * -1;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -519,7 +521,7 @@ int PinManager::getMeanOfAvailAblePower()
         m_out_wattBiasForTest = true;
     }
 
-    return availablePower;
+    return availablePower; 
 }
 
 // ──────────────────────────────────────────────────────────────────────────
