@@ -497,7 +497,9 @@ int PinManager::getMeanOfAvailAblePower()
     }
 
     // ── Schritt 3: Battery priority (nur bei Fronius relevant) ──
-    if (m_akkuPriori)
+    // m_soc > 0 Guard: AmisReader hat keine Batterie (soc=0) →
+    //                  akkuPriori wäre sonst stillschweigend ein Heater-Stop.
+    if (m_akkuPriori && m_soc > 0)
     {
         int battThreshold = PUFFER_AKKU_PRIORI;
         if ((int)m_soc < battThreshold)
