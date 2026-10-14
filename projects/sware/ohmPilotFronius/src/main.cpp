@@ -112,11 +112,13 @@ void setup()
     tft_init();
     tft_printSetup();
 
-    //eprom_isInit();
-    //eprom_test_write_Eprom("FRITZ!Box 7530 YK", "reitinger");
-    //eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    if (!eprom_getSetup(g_app.webSockData.setupData)) {
-        eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    // FIX A: NVS nur lesen — nicht bei jedem Boot überschreiben!
+    if (!eprom_getSetup(g_app.webSockData.setupData))
+    {
+        // NVS leer oder korrupt → Defaults + Magic-Flag anlegen
+        LOG_WARNING(TAG_MAIN, "main: NVS setup block missing/corrupt — loading defaults");
+        eprom_initDefaults();
+        eprom_getSetup(g_app.webSockData.setupData);
     }
 
     if (strcmp(g_app.webSockData.setupData.ssid, EMPTY_VALUE_IN_SETUP) == 0)

@@ -386,9 +386,11 @@ void PinManager::pidLockRead(WEBSOCK_DATA &webSockData)
 #ifdef AMIS_READER_DEV
     else
     {
-        m_gridPower = (float)webSockData.amisReader.exportInWatt;
-        m_pV = (float)webSockData.amisReader.saldo;
-        m_meterPower = (float)webSockData.amisReader.saldo;
+        // AmisReader Smart-Meter am Netzgrenzpunkt:
+        //   saldo  = 1.7.0 - 2.7.0  ≡  p_grid  (+Bezug, −Einspeisung)
+        m_gridPower  = (float)webSockData.amisReader.saldo;   // ≡ p_grid
+        m_meterPower = (float)webSockData.amisReader.saldo;   // ≡ p_grid
+        m_pV         = (float)webSockData.amisReader.exportInWatt; // Einspeisung
         m_soc = 0;
         m_battPower = 0;
     }
@@ -471,21 +473,30 @@ int PinManager::resolveInputTemp() const
 //      based on full surplus vs. total heater capacity.
 int PinManager::getMeanOfAvailAblePower()
 {
-    // Measured surplus (negative grid = surplus feeding into grid)
-    // p_grid < 0 = Einspeisung (Überschuss), p_grid > 0 = Bezug (Defizit)
+    // ── Schritt 1: EMA-Glättung VOR dem <=0-Check ──
+    // Damit wird Rauschen ±20-50W sofort geglättet.
+    // Ohne Glättung: saldo springt zwischen +10 und -15 W → PinManager
+    //                erkennt mal Überschuss, mal Defizit → Relay-Flap.
+    // Mit EMA-first: Saldo wird erst geglättet, dann entschieden.
     float measuredSurplus = -m_meterPower;
 
-    // Only proceed if there's actual PV surplus
-    if (measuredSurplus <= 0)
+    // EMA smoothing (Exponential Moving Average)
+    // α=0.2 → effektives Fenster ≈ 5 Werte. Glättet Messrauschen
+    // bei ~1Hz-Abtastung ≈ ±20-50W, ohne Verzögerung > 5s.
+    if (!emaInitialized) {
+        emaSurplus = measuredSurplus;
+        emaInitialized = true;
+    } else {
+        emaSurplus = EMA_ALPHA * measuredSurplus + (1.0 - EMA_ALPHA) * emaSurplus;
+    }
+
+    // ── Schritt 2: Nach EMA prüfen, ob echter Überschuss vorliegt ──
+    if (emaSurplus <= 0)
     {
         return 0;  // Kein Überschuss → Boiler aus
     }
 
-    // Battery priority logic:
-    // - Akku laden (p_batt < 0) + SOC < threshold → Boiler AUS, nur Akku laden
-    // - Akku voll (> threshold) → Boiler darf vollen Überschuss nutzen
-    // - Kein Überschuss → Boiler aus
-    float availableSurplus = measuredSurplus;
+    // ── Schritt 3: Battery priority (nur bei Fronius relevant) ──
     if (m_akkuPriori)
     {
         int battThreshold = PUFFER_AKKU_PRIORI;
@@ -495,29 +506,11 @@ int PinManager::getMeanOfAvailAblePower()
         }
     }
 
-    // FIX: Use FULL surplus, not divided by 3.
-    // apply() compares against onePhase (per-phase power) to decide
-    // how many relays to engage. Dividing by 3 meant:
-    //   1728W surplus → 576W to apply() → only PWM (below 2×onePhase)
-    // Now:
-    //   1728W surplus → 1728W to apply() → Relay 1+2 + PWM remainder
-
-    // ── EMA smoothing (Exponential Moving Average) ──
-    // α=0.2 → effektives Fenster ≈ 5 Werte. Glättet Messrauschen
-    // bei ~1Hz-Abtastung ≈ ±20-50W, ohne Verzögerung > 5s.
-    int availablePower;
-    if (!emaInitialized) {
-        emaSurplus = availableSurplus;
-        emaInitialized = true;
-    } else {
-        emaSurplus = EMA_ALPHA * availableSurplus + (1.0 - EMA_ALPHA) * emaSurplus;
-    }
-    availablePower = (int)emaSurplus;
-
-    // Watt bias for testing (if wattSetupForTest is set, use fixed value)
+    // ── Schritt 4: Test-Bias (geht vor EMA-Ergebnis) ──
+    int availablePower = (int)emaSurplus;
     if (m_wattSetupForTest > 0)
     {
-        availablePower = m_wattSetupForTest;  // Use negative to simulate deficit for testing
+        availablePower = m_wattSetupForTest;
         m_out_wattBiasForTest = true;
     }
 

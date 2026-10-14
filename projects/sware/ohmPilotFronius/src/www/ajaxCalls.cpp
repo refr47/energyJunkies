@@ -441,7 +441,16 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     if (cb)
         cb(false); // for hotupdate, mal alles deaktivieren
 
+    // FIX B: Bestehende NVS-Daten als Basis laden → Felder ohne JSON-Schlüssel
+    // behalten ihre gespeicherten Werte (keine Stack-Müll-Korruption!)
     Setup setup;
+    bool nvsOk = eprom_getSetup(setup);
+    if (!nvsOk)
+    {
+        LOG_WARNING(TAG_AJAX, "handleStoreSetup: NVS read failed — using zeroed struct");
+        memset(&setup, 0, sizeof(Setup));
+    }
+
     bool allSuccessful = true;
 
     LOG_DEBUG(TAG_AJAX, "===========> before parseStruct");

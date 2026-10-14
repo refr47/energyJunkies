@@ -135,13 +135,14 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
     // }
     else // amis reader
     {
-        live[NETZ_BEZUG]       = data.amisReader.consumptionInWatt;
-        live[EIGENVERBRAUCH]   = data.amisReader.saldo;
-        live[PRODUKTION]       = data.amisReader.exportInWatt;
+        // AmisReader = Smart-Meter an der Netzgrenze.
+        // saldo = 1.7.0 - 2.7.0  ≡  p_grid  (+Bezug, −Einspeisung)
+        live[NETZ_BEZUG]       = data.amisReader.saldo;         // ≡ p_grid
+        live[EIGENVERBRAUCH]   = data.amisReader.consumptionInWatt; // 1.7.0
+        live[PRODUKTION]       = data.amisReader.exportInWatt;       // 2.7.0
         live[STROM_EXPORT_INS] = data.amisReader.absolutExportInkWh;
         live[STROM_IMPORT_INS] = data.amisReader.absolutImportInkWh;
-        
-       
+
         live["dataSource"]     = "amis";
     }
 }

@@ -8,6 +8,8 @@
 #include "eprom.h"
 
 #define SETUP_CREDENTIALS "setup"
+#define NVS_BLOCK_MAGIC_KEY "blk_magic"
+#define NVS_BLOCK_MAGIC_VAL 0xDEADBEEF
 #define SHELLY_EPROM "shelly"
 #define SHELLY_DEVICE_NAME "sdn"
 #define SHELLY_MAC "smac"
@@ -39,46 +41,26 @@ void eprom_stammDataUpdateReset()
 void eprom_storeSetup(Setup &setup)
 {
     LOG_DEBUG("EEPROM","Store begin");
-    // preferences.clear();
-    // bool result = true;
     s_stammDataUpdateWatch.store(true);
-    // uint32_t ipAsInt;
 
     std::lock_guard<std::mutex> lock(s_epromMutex);
 
     preferences.begin(SETUP_CREDENTIALS, false);
     preferences.putBytes("setup_block", &setup, sizeof(Setup));
+    // FIX C: Magic-Flag für Integritäts-Check beim nächsten Boot
+    preferences.putUInt(NVS_BLOCK_MAGIC_KEY, NVS_BLOCK_MAGIC_VAL);
 
-    /*
-        preferences.clear();
-         preferences.putString(_SSID, setup.ssid);
-        preferences.putString(_PASSWORD, setup.passwd);
-        preferences.putUInt(_HEIZSTAB_LEISTUNG_IN_WATT, setup.heizstab_leistung_in_watt);
-        preferences.putUInt(_TEMP_MAX_IN_GRAD, setup.tempMaxAllowedInGrad);
-        preferences.putUInt(_TEMP_MIN_IN_GRAD, setup.tempMinInGrad);
-
-        preferences.putString(_INVERTER_IP, setup.inverter);
-        preferences.putChar(_AKKU, setup.akku);
-        preferences.putChar(_AKKU_PRIORI, setup.akkuPriori);
-        preferences.putUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TIME, setup.legionellenDelta);
-        preferences.putUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TEMP, setup.legionellenMaxTemp);
-
-
-         preferences.putUInt(_AMIS_READER_HOST, ipAsInt);
-    preferences.putString(_AMIS_READER_HOST, setup.amisReaderHost);
-    preferences.putString(_AMIS_READER_KEY, setup.amisKey);
-
-    preferences.putString(_MQTT_HOST, setup.mqttHost);
-    preferences.putString(_MQTT_PASSWD, setup.mqttPass);
-    preferences.putString(_MQTT_USER, setup.mqttUser);
-
-    preferences.putString(_INFLUX_HOST, setup.influxHost);
-    preferences.putString(_INFLUX_BUCKET, setup.influxBucket);
-    preferences.putString(_INFLUX_ORG, setup.influxOrg);
-    preferences.putString(_INFLUX_TOKEN, setup.influxToken);
-
-    preferences.putDouble(_EPSILON_PIN_MANAGER, setup.epsilonML_PinManager);
-    preferences.putInt(_EN_FORCE_HEATING, setup.forceHeating); */
+    // FIX D: Write-Verify — sofort zurückschauen
+    {
+        Setup verifyBuf;
+        uint32_t verifyMagic;
+        size_t vLen = preferences.getBytes("setup_block", &verifyBuf, sizeof(Setup));
+        bool vMagic = preferences.getUInt(NVS_BLOCK_MAGIC_KEY, 0) == NVS_BLOCK_MAGIC_VAL;
+        if (vLen != sizeof(Setup) || !vMagic)
+        {
+            LOG_ERROR(TAG_EPPROM, "eprom_storeSetup: NVS write-verify FAILED! len=%u magic=%d", (unsigned)vLen, vMagic);
+        }
+    }
 
     preferences.end();
     LOG_DEBUG("EEPROM", "Store end");
@@ -110,6 +92,14 @@ bool eprom_getSetup(Setup &setup)
     std::lock_guard<std::mutex> lock(s_epromMutex);
 
     preferences.begin(SETUP_CREDENTIALS, true); // READ-ONLY
+    // FIX C: Magic-Flag prüfen — NVS-Korruption erkennen
+    uint32_t magic = preferences.getUInt(NVS_BLOCK_MAGIC_KEY, 0);
+    if (magic != NVS_BLOCK_MAGIC_VAL)
+    {
+        LOG_ERROR(TAG_EPPROM, "eprom_getSetup: NVS block magic mismatch (%08X != %08X) — data corrupted", magic, NVS_BLOCK_MAGIC_VAL);
+        preferences.end();
+        return false;  // Signal an Aufrufer: NVS kaputt → Defaults laden
+    }
     size_t len = preferences.getBytes("setup_block", &setup, sizeof(Setup));
     preferences.end();
     return (len == sizeof(Setup));
@@ -192,9 +182,6 @@ bool eprom_getSetup(Setup &setup)
 bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
 {
     Setup setup;
-    /* char bu[100];
-    memset(bu, 0, 100);
- */
     strncpy(setup.ssid, wlanE, LEN_WLAN - 1);
     strncpy(setup.passwd, passW, LEN_WLAN - 1);
     LOG_DEBUG(TAG_EPPROM,"eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
@@ -261,6 +248,13 @@ void eprom_show(Setup &setup)
 {
     printEprom(setup);
 }
+void eprom_initDefaults()
+{
+    LOG_ERROR(TAG_EPPROM,"eprom_initDefaults: NVS corrupt or empty — writing defaults");
+    // test_write_Eprom setzt ssid + passwd + alle Default-Werte und speichert mit Magic-Flag
+    eprom_test_write_Eprom("Milchbehaelter", "47754775");
+}
+
 /* *************************** SHELLY */
 
 void eprom_store_shelly(ALL_SHELLY_DEVICES *allDevices, unsigned upperLimit)
