@@ -32,3 +32,5 @@ void ajaxCalls_handleGetFullSetup(AsyncWebServerRequest *request);
  */
 bool ajaxCalls_triggerShellyScan(void);
 void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request);
+
+void ajaxCalls_handleClearLogs(AsyncWebServerRequest *request);

@@ -237,9 +237,9 @@ const getLevelClass = (lvl) => {
 };
 
 const clearLogs = () => {
-    if (confirm("Alle Logs im Browser löschen?")) {
-        emit('clear');
-    }
+    // confirm() in App.vue — hier nur Event weiterleiten & Seite zurücksetzen
+    currentPage.value = 1;
+    emit('clear');
 };
 
 const formatUnixTime = (unixSeconds) => {

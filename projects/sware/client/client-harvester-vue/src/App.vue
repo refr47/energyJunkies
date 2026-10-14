@@ -364,20 +364,37 @@ const clearLogs = async () => {
   isClearing.value = true; // Blockiert eingehende WebSocket-Daten
 
   try {
-    // 1. In der Datenbank löschen
+    // 1. ESP32 RingBuffer leeren (AJAX)
+    let esp32Ok = true;
+    try {
+      const res = await fetch('/clearLogs', { method: 'POST' });
+      const body = await res.json();
+      esp32Ok = !!body.done;
+    } catch (ajaxErr) {
+      // ESP32 nicht erreichbar (Dev-Modus o. Ä.) — nicht kritisch
+      console.warn("ESP32-RingBuffer-Clear fehlgeschlagen:", ajaxErr);
+      esp32Ok = false;
+    }
+
+    // 2. In der Datenbank löschen
     await db.logs.clear();
 
-    // 2. Im Vue-State löschen (Anzeige leeren)
+    // 3. Im Vue-State löschen (Anzeige leeren)
     logEntries.value = [];
-    showToast("Datenbank erfolgreich geleert");
-    console.log("Datenbank erfolgreich geleert.");
+
+    // 4. Gebündeltes Feedback
+    if (esp32Ok) {
+      showToast("Alle Logs erfolgreich gelöscht");
+    } else {
+      showToast("Browser-Logs gelöscht — ESP32-Buffer konnte nicht geleert werden", "error");
+    }
+    console.log("Logs geleert, ESP32-Status:", esp32Ok ? "OK" : "FEHLER");
   } catch (err) {
     console.error("Fehler beim Löschen der Logs:", err);
     showToast("Fehler beim Löschen der Logs");
-  }
-  finally {
-    // 3. Kurz warten, um sicherzustellen, dass keine neuen Daten reinkommen, während wir löschen
-    isClearing.value = false; // Gibt die Verarbeitung wieder frei
+  } finally {
+    // 5. Kurz warten, um sicherzustellen, dass keine neuen Daten reinkommen
+    setTimeout(() => { isClearing.value = false; }, 1500);
   }
 
 };

@@ -162,6 +162,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
               { request->send(200); });
     server.on("/login", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, handleLogin);
     server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
+    server.on("/clearLogs", HTTP_POST, ajaxCalls_handleClearLogs);
     server.on("/storeSetup", HTTP_POST, [](AsyncWebServerRequest *request)
               {
                   // Dieser Teil bleibt leer, da wir den Body-Handler nutzen

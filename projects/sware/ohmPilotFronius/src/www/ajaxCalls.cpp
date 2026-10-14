@@ -5,6 +5,7 @@
 #include <freertos/semphr.h>
 #include <atomic>
 #include "app_tasks.h"
+#include "app_state.h"
 
 #include "eprom.h"
 #include "utils.h"
@@ -562,4 +563,36 @@ static void returnFromStoreSetup(bool inputCorrect,
 
     serializeJson(result, response);
     request->send(httpCode, "application/json", response);
+}
+
+/* ---------- clear logs ----------
+ *
+ * Resetzt den ESP32-LogRingBuffer thread-sicher.
+ * Client ruft POST /clearLogs auf und erwartet {"done":1}.
+ */
+
+void ajaxCalls_handleClearLogs(AsyncWebServerRequest *request)
+{
+    RingBuffer &rb = g_app.webSockData.logBuffer;
+
+    // RingBuffer hat eigenen Mutex → davon locken, nicht g_appMutex
+    if (!ajaxCalls_lock(rb.mutex, pdMS_TO_TICKS(500)))
+    {
+        request->send(500, "application/json",
+                      "{\"done\":0, \"error\":\"mutex lock failed\"}");
+        return;
+    }
+
+    // Buffer leeren: Read = Write = 0, Flags zurücksetzen
+    rb.readIndex = 0;
+    rb.writeIndex = 0;
+    rb.firstEntryMade = false;
+    rb.lastAddedTime = 0;
+    memset(&rb.lastAddedEntry, 0, sizeof(LogEntry));
+    rb.active = true; // Buffer bleibt aktiv — neue Entries ok
+
+    ajaxCalls_unlock(rb.mutex);
+
+    LOG_INFO(TAG_AJAX, "ajaxCalls_handleClearLogs — ring buffer cleared");
+    request->send(200, "application/json", "{\"done\":1}");
 }
