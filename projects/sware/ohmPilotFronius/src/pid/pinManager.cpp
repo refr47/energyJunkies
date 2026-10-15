@@ -15,7 +15,7 @@
 // 4. Battery priority: charger first, boiler only on excess
 // 5. Phase-safe: relays only ON when full phase-power available
 // =============================================================================
- 
+
 #include "utils.h"
 #include "pinManager.h"
 
@@ -101,7 +101,7 @@ PinManager::~PinManager()
 // Called at startup from main.cpp with pin numbers + WEBSOCK_DATA.
 // Reads power/setup from data, configures pin directions.
 // ──────────────────────────────────────────────────────────────────────────
-void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
+void PinManager::config(WEBSOCK_DATA& data, int l1, int l2, int pwm)
 {
     pinL1 = l1;
     pinL2 = l2;
@@ -128,17 +128,17 @@ void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
     if (tinyNN == nullptr)
     {
         tinyNN = new TinyNN((float)onePhase * 3.0f,
-                            (float)data.setupData.tempMinInGrad,
-                            (float)data.setupData.tempMaxAllowedInGrad);
+            (float)data.setupData.tempMinInGrad,
+            (float)data.setupData.tempMaxAllowedInGrad);
         tinyNN->load();
     }
 #endif
 
     LOG_INFO(TAG_PID,
-             "PinManager configured: relay1=%d relay2=%d pwm=%d onePhase=%dW maxTemp=%d minTemp=%d",
-             l1, l2, pwm, onePhase,
-             data.setupData.tempMaxAllowedInGrad,
-             data.setupData.tempMinInGrad);
+        "PinManager configured: relay1=%d relay2=%d pwm=%d onePhase=%dW maxTemp=%d minTemp=%d",
+        l1, l2, pwm, onePhase,
+        data.setupData.tempMaxAllowedInGrad,
+        data.setupData.tempMinInGrad);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ void PinManager::config(WEBSOCK_DATA &data, int l1, int l2, int pwm)
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::testPins(int l1, int l2, int pwm)
 {
-    int pins[] = {l1, l2, pwm};
+    int pins[] = { l1, l2, pwm };
     for (int i = 0; i < 3; i++)
     {
         if (pins[i] > 0)
@@ -207,6 +207,29 @@ void PinManager::allOn()
     lastSwitchPwm = now;
 }
 
+
+void PinManager::allOff()
+{
+
+
+    if (currentPhases > 0 || currentPWM > 0)
+    {
+        LOG_INFO(TAG_PID, "PinManager::allOff() called. Heater off.");
+        unsigned long now = millis();
+        if (pinL1 > 0)  digitalWrite(pinL1, LOW);
+        if (pinL2 > 0)  digitalWrite(pinL2, LOW);
+        if (pwmPin > 0) analogWrite(pwmPin, (uint8_t)0);
+        lastSwitchL1 = now;
+        lastSwitchL2 = now;
+        lastSwitchPwm = now;
+    }
+
+
+    currentPhases = 0;
+    currentPWM = (int)0;
+
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // getStateOfDigPin / getStateOfAnaPin — read-back hardware state
 // ──────────────────────────────────────────────────────────────────────────
@@ -239,7 +262,7 @@ int PinManager::getStateOfAnaPin()
 // FIX #1: currentPhases derived from ACTUAL relay state (read-back),
 //         computed BEFORE PWM remainder calc — no stale-state bug.
 // ──────────────────────────────────────────────────────────────────────────
-void PinManager::apply(LogEntry &logEntry, int power)
+void PinManager::apply(LogEntry& logEntry, int power)
 {
     unsigned long now = millis();
 
@@ -262,9 +285,9 @@ void PinManager::apply(LogEntry &logEntry, int power)
 
     // ── Hysteresis thresholds ──
     // Relay ON at higher threshold, OFF at lower → prevents toggle hunt
-    const int hyst1On  = onePhase;
+    const int hyst1On = onePhase;
     const int hyst1Off = onePhase - HYSTERESIS_WATT;
-    const int hyst2On  = onePhase * 2;
+    const int hyst2On = onePhase * 2;
     const int hyst2Off = onePhase * 2 - HYSTERESIS_WATT;
 
     // ── Relay 1 (Phase 1) ──
@@ -360,7 +383,7 @@ void PinManager::apply(LogEntry &logEntry, int power)
 // Called from update() while BOTH data + pidOut locks are held.
 // Copies PV/grid/temperature data from WEBSOCK_DATA → private members.
 // ──────────────────────────────────────────────────────────────────────────
-void PinManager::pidLockRead(WEBSOCK_DATA &webSockData)
+void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
 {
     m_sensor1 = webSockData.temperature.sensor1;
     m_sensor2 = webSockData.temperature.sensor2;
@@ -371,34 +394,34 @@ void PinManager::pidLockRead(WEBSOCK_DATA &webSockData)
     m_legionellenMaxTemp = webSockData.setupData.legionellenMaxTemp;
     m_legionellenDelta = webSockData.setupData.legionellenDelta;
     m_akkuPriori = (webSockData.setupData.akkuPriori != 0);
-    m_forceHeating   = webSockData.setupData.forceHeating;
+    m_forceHeating = webSockData.setupData.forceHeating;
     m_forceHeatingStop = (int)webSockData.setupData.forceHeatingStop;
 
     // Energy state
     if (m_froniusAPI)
     {
-        #ifdef FRONIUS_IV
+#ifdef FRONIUS_IV
         m_gridPower = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
         m_pV = webSockData.fronius_SOLAR_POWERFLOW.p_pv;
         m_soc = webSockData.fronius_SOLAR_POWERFLOW.soc;
         m_battPower = webSockData.fronius_SOLAR_POWERFLOW.p_batt;
         m_meterPower = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
-        #endif
+#endif
     }
 #ifdef AMIS_READER_DEV
     else
     {
         // AmisReader Smart-Meter am Netzgrenzpunkt:
         //   saldo  = 1.7.0 - 2.7.0  ≡  p_grid  (+Bezug, −Einspeisung)
-        m_gridPower  = (float)webSockData.amisReader.saldo;   // ≡ p_grid
+        m_gridPower = (float)webSockData.amisReader.saldo;   // ≡ p_grid
         m_meterPower = (float)webSockData.amisReader.saldo;   // ≡ p_grid
-        m_pV         = (float)webSockData.amisReader.exportInWatt; // Einspeisung
+        m_pV = (float)webSockData.amisReader.exportInWatt; // Einspeisung
         m_soc = 0;
         m_battPower = 0;
     }
 #endif
 
-    m_wattSetupForTest = webSockData.setupData.wattSetupForTest ;
+    m_wattSetupForTest = webSockData.setupData.wattSetupForTest;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -407,7 +430,7 @@ void PinManager::pidLockRead(WEBSOCK_DATA &webSockData)
 // Called from update() while BOTH data + pidOut locks are held.
 // Updates pidContainer (read by webSocket JSON builder) and states.
 // ──────────────────────────────────────────────────────────────────────────
-void PinManager::pidLockWrite(WEBSOCK_DATA &webSockData)
+void PinManager::pidLockWrite(WEBSOCK_DATA& webSockData)
 {
     webSockData.pidContainer.mCurrentPower = (currentPhases * onePhase);
     if (currentPWM > 0)
@@ -494,7 +517,8 @@ int PinManager::getMeanOfAvailAblePower()
     if (!emaInitialized) {
         emaSurplus = measuredSurplus;
         emaInitialized = true;
-    } else {
+    }
+    else {
         emaSurplus = EMA_ALPHA * measuredSurplus + (1.0 - EMA_ALPHA) * emaSurplus;
     }
 
@@ -524,7 +548,7 @@ int PinManager::getMeanOfAvailAblePower()
         m_out_wattBiasForTest = true;
     }
 
-    return availablePower; 
+    return availablePower;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -535,7 +559,7 @@ int PinManager::heaterPower()
     int power = 0;
 
     // Relays: each contributes onePhase watts
-    power += (currentPhases) * onePhase;
+    power += (currentPhases)*onePhase;
 
     // PWM: fractional contribution
     if (currentPWM > 0)
@@ -600,7 +624,7 @@ int PinManager::pvState(double p)
 //   MODE_AUTO — normal PID control
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::preCheck(int temp, unsigned long nowMS,
-                          ControlMode &mode, bool &doML)
+    ControlMode& mode, bool& doML)
 {
     doML = false;
     mode = MODE_AUTO;
@@ -660,7 +684,7 @@ void PinManager::preCheck(int temp, unsigned long nowMS,
 // ──────────────────────────────────────────────────────────────────────────
 // handleModeOff — max-temp reached; heater off, log state
 // ──────────────────────────────────────────────────────────────────────────
-void PinManager::handleModeOff(LogEntry &logEntry)
+void PinManager::handleModeOff(LogEntry& logEntry)
 {
     apply(logEntry, 0);
 
@@ -680,7 +704,7 @@ void PinManager::handleModeOff(LogEntry &logEntry)
 // ──────────────────────────────────────────────────────────────────────────
 // handleForceHeating — forced mode handling (from setupData.forceHeating)
 // ──────────────────────────────────────────────────────────────────────────
-void PinManager::handleForceHeating(LogEntry &logEntry, int &measuredPower)
+void PinManager::handleForceHeating(LogEntry& logEntry, int& measuredPower)
 {
     // This method handles the forced heating modes
     // measuredPower is passed by reference for logging
@@ -712,8 +736,8 @@ void PinManager::handleModeManual()
 //
 // Returns: 0 on success
 // ──────────────────────────────────────────────────────────────────────────
-int PinManager::handleModeAuto(LogEntry &logEntry,
-                                int &measuredPower, bool &doML)
+int PinManager::handleModeAuto(LogEntry& logEntry,
+    int& measuredPower, bool& doML)
 {
     // ── Compute available PV surplus ──
     measuredPower = getMeanOfAvailAblePower();
@@ -748,7 +772,7 @@ int PinManager::handleModeAuto(LogEntry &logEntry,
     {
         // Normalize inputs for neural net
         float normTemp = ((float)m_sensor1 - m_tempMin)
-                         / ((float)(m_tempMaxAllowed - m_tempMin));
+            / ((float)(m_tempMaxAllowed - m_tempMin));
         normTemp = fmaxf(0.0f, fminf(1.0f, normTemp));
 
         // Query TinyNN for preheat recommendation
@@ -766,14 +790,14 @@ int PinManager::handleModeAuto(LogEntry &logEntry,
         {
             // Aggressive preheat: boost target proportionally
             int boost = (int)(onePhase * pred.preheat_score
-                              * pred.buffer_pct);
+                * pred.buffer_pct);
             targetPower += boost;
             targetPower = basePower(targetPower);
         }
 
         // Remember experience for training
         float reward = computeMLReward(measuredPower, targetPower,
-                                       resolveInputTemp());
+            resolveInputTemp());
 
         TinyNNExperience exp;
         exp.temp = normTemp * 2.0f - 1.0f;       // [-1, 1]
@@ -869,11 +893,11 @@ void PinManager::logStackWarning()
 //   4. pidLockWrite() — write outputs back to shared state
 //   5. Log state change if hardware changed (thread-safe, own mutex)
 // ──────────────────────────────────────────────────────────────────────────
-void PinManager::update(WEBSOCK_DATA &webSockData,
-                        int tempMaxBonusC,
-                        float pvRatio,
-                        float cloudAvg,
-                        float tempOutside)
+void PinManager::update(WEBSOCK_DATA& webSockData,
+    int tempMaxBonusC,
+    float pvRatio,
+    float cloudAvg,
+    float tempOutside)
 {
     // ── Copy weather/prediction inputs ──
     m_weatherBonus = tempMaxBonusC;
@@ -895,11 +919,7 @@ void PinManager::update(WEBSOCK_DATA &webSockData,
     // ── FORCE OFF: Alles Ausschalten wenn forceHeatingStop == 1 ──
     if (m_forceHeatingStop > 0) {
         // HEATER KILL: Alles sofort ausschalten, unabhängig von PV-Status
-        m_currentPhases = 0;
-        m_currentPWM = 0;
-        digitalWrite(g_pin1, LOW);
-        digitalWrite(g_pin2, LOW);
-        analogWrite(g_pin3, 0);
+        allOff();  // Alle Phase off, unabhängig von PV-Status
 
         LogEntry logEntry;
         logEntry.ts = now;
@@ -940,86 +960,86 @@ void PinManager::update(WEBSOCK_DATA &webSockData,
 
     switch (mode)
     {
-        case MODE_OFF:
+    case MODE_OFF:
+    {
+        LogEntry logEntry;
+        logEntry.ts = now;
+        handleModeOff(logEntry);
+
+        utils_logWrite(webSockData.logBuffer, logEntry);
+        pidLockWrite(webSockData);
+        break;
+    }
+
+    case MODE_LEGIONELLA:
+    {
+        legionella = true;
+        allOn();
+
+        LogEntry logEntry;
+        logEntry.ts = now;
+        logEntry.state = (uint8_t)MODE_LEGIONELLA;
+        logEntry.power = onePhase * 3;
+        logEntry.pwm = (uint8_t)OUTPUT_MAX;
+        logEntry.temp = temp;
+        utils_logWrite(webSockData.logBuffer, logEntry);
+
+        pidLockWrite(webSockData);
+        break;
+    }
+
+    case MODE_MIN_TEMP:
+    {
+        allOn();
+
+        LogEntry logEntry;
+        logEntry.ts = now;
+        logEntry.state = (uint8_t)MODE_MIN_TEMP;
+        logEntry.power = onePhase * 3;
+        logEntry.pwm = (uint8_t)OUTPUT_MAX;
+        logEntry.temp = temp;
+        utils_logWrite(webSockData.logBuffer, logEntry);
+
+        pidLockWrite(webSockData);
+        break;
+    }
+
+    case MODE_AUTO:
+    {
+        LogEntry logEntry;
+        logEntry.ts = now;
+        logEntry.state = (uint8_t)MODE_AUTO;
+        logEntry.power = 0;
+        logEntry.pwm = 0;
+        logEntry.temp = temp;
+
+        measuredPower = getMeanOfAvailAblePower();
+
+        if (measuredPower > 0 || doML)
         {
-            LogEntry logEntry;
-            logEntry.ts = now;
+            handleModeAuto(logEntry,
+                measuredPower, doML);
+        }
+        else
+        {
+            // No surplus → heater off
             handleModeOff(logEntry);
-
-            utils_logWrite(webSockData.logBuffer, logEntry);
-            pidLockWrite(webSockData);
-            break;
         }
 
-        case MODE_LEGIONELLA:
-        {
-            legionella = true;
-            allOn();
+        utils_logWrite(webSockData.logBuffer, logEntry);
+        pidLockWrite(webSockData);
+        break;
+    }
 
-            LogEntry logEntry;
-            logEntry.ts = now;
-            logEntry.state = (uint8_t)MODE_LEGIONELLA;
-            logEntry.power = onePhase * 3;
-            logEntry.pwm = (uint8_t)OUTPUT_MAX;
-            logEntry.temp = temp;
-            utils_logWrite(webSockData.logBuffer, logEntry);
-
-            pidLockWrite(webSockData);
-            break;
-        }
-
-        case MODE_MIN_TEMP:
-        {
-            allOn();
-
-            LogEntry logEntry;
-            logEntry.ts = now;
-            logEntry.state = (uint8_t)MODE_MIN_TEMP;
-            logEntry.power = onePhase * 3;
-            logEntry.pwm = (uint8_t)OUTPUT_MAX;
-            logEntry.temp = temp;
-            utils_logWrite(webSockData.logBuffer, logEntry);
-
-            pidLockWrite(webSockData);
-            break;
-        }
-
-        case MODE_AUTO:
-        {
-            LogEntry logEntry;
-            logEntry.ts = now;
-            logEntry.state = (uint8_t)MODE_AUTO;
-            logEntry.power = 0;
-            logEntry.pwm = 0;
-            logEntry.temp = temp;
-
-            measuredPower = getMeanOfAvailAblePower();
-
-            if (measuredPower > 0 || doML)
-            {
-                handleModeAuto(logEntry,
-                               measuredPower, doML);
-            }
-            else
-            {
-                // No surplus → heater off
-                handleModeOff(logEntry);
-            }
-
-            utils_logWrite(webSockData.logBuffer, logEntry);
-            pidLockWrite(webSockData);
-            break;
-        }
-
-        default:
-        {
-            // Fallback: off
-            LogEntry logEntry;
-            logEntry.ts = now;
-            handleModeOff(logEntry);
-            utils_logWrite(webSockData.logBuffer, logEntry);
-            pidLockWrite(webSockData);
-            break;
-        }
+    default:
+    {
+        // Fallback: off
+        LogEntry logEntry;
+        logEntry.ts = now;
+        handleModeOff(logEntry);
+        utils_logWrite(webSockData.logBuffer, logEntry);
+        pidLockWrite(webSockData);
+        break;
+    }
     }
 }

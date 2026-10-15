@@ -32,6 +32,7 @@ public:
     ~PinManager();
     // helper
     void allOn();
+    void allOff();
     int getStateOfDigPin(short pin);
     int getStateOfAnaPin();
     void apply(LogEntry &logEntry, int power);
