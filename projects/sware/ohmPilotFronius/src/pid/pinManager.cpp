@@ -24,7 +24,7 @@
 #define PUFFER_AKKU_PRIORI 50   // Battery SoC threshold for priority
 #define RAMP_DOWN_STEP 100      // Max W decrease per ramp interval (per phase, legacy)
 #define RAMP_DOWN_STEP_TOTAL 300 // Max W decrease TOTAL (3 phases × 100)
-#define EMA_ALPHA 0.2           // EMA smoothing factor (α=0.2 → effektives Fenster ≈ 5 Werte)
+#define EMA_ALPHA 0.15          // Glättungsfaktor (0.15 → 160s Halbwertszeit bei 40s Fetch)
 
 // ──────────────────────────────────────────────────────────────────────────
 // Constructor
@@ -473,16 +473,22 @@ int PinManager::resolveInputTemp() const
 //      based on full surplus vs. total heater capacity.
 int PinManager::getMeanOfAvailAblePower()
 {
-    // ── Schritt 1: EMA-Glättung VOR dem <=0-Check ──
-    // Damit wird Rauschen ±20-50W sofort geglättet.
-    // Ohne Glättung: saldo springt zwischen +10 und -15 W → PinManager
-    //                erkennt mal Überschuss, mal Defizit → Relay-Flap.
-    // Mit EMA-first: Saldo wird erst geglättet, dann entschieden.
+    // ── Schritt 1: Selbst-Kompensation VOR der EMA ──
+    // Das Smart-Meter misst an der Netzgrenze. Der eigene
+    // Heater-Bezug sitzt IM Saldo → wird als "weniger PV" gesehen.
+    // Ohne Kompensation: Regler schaltet an → saldo fällt auf ~+576
+    //   → Regler schaltet wieder ab → saldo steigt wieder → Schwingung!
+    // Lösung: Heater-Verbrauch herausaddieren.
     float measuredSurplus = -m_meterPower;
+    measuredSurplus += heaterPower();
+
+    // ── Schritt 2: EMA-Glättung auf den kompensierten Wert ──
 
     // EMA smoothing (Exponential Moving Average)
-    // α=0.2 → effektives Fenster ≈ 5 Werte. Glättet Messrauschen
-    // bei ~1Hz-Abtastung ≈ ±20-50W, ohne Verzögerung > 5s.
+    // α=0.15 → Halbwertszeit ≈ 4.7 Fetch-Cycles (=188s bei 40s Intervall)
+    // Konstant: ±20-50W bei 1Hz Abtastung; bei 40s Interval
+    // gleicht die EMA nur über ~2-3 Samples, nicht über 5.
+    // Das verhindert "Jitter" bei 40s-Steuern.
     if (!emaInitialized) {
         emaSurplus = measuredSurplus;
         emaInitialized = true;
@@ -490,13 +496,13 @@ int PinManager::getMeanOfAvailAblePower()
         emaSurplus = EMA_ALPHA * measuredSurplus + (1.0 - EMA_ALPHA) * emaSurplus;
     }
 
-    // ── Schritt 2: Nach EMA prüfen, ob echter Überschuss vorliegt ──
+    // ── Schritt 3: Nach EMA prüfen, ob echter Überschuss vorliegt ──
     if (emaSurplus <= 0)
     {
         return 0;  // Kein Überschuss → Boiler aus
     }
 
-    // ── Schritt 3: Battery priority (nur bei Fronius relevant) ──
+    // ── Schritt 4: Battery priority (nur bei Fronius relevant) ──
     // m_soc > 0 Guard: AmisReader hat keine Batterie (soc=0) →
     //                  akkuPriori wäre sonst stillschweigend ein Heater-Stop.
     if (m_akkuPriori && m_soc > 0)
@@ -508,7 +514,7 @@ int PinManager::getMeanOfAvailAblePower()
         }
     }
 
-    // ── Schritt 4: Test-Bias (geht vor EMA-Ergebnis) ──
+    // ── Schritt 5: Test-Bias (geht vor EMA-Ergebnis) ──
     int availablePower = (int)emaSurplus;
     if (m_wattSetupForTest > 0)
     {

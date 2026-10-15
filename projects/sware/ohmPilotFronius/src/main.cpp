@@ -112,7 +112,7 @@ void setup()
     tft_init();
     tft_printSetup();
 
-      eprom_test_write_Eprom("FRITZ!Box 7530 YK", "reitinger");
+      //eprom_test_write_Eprom("FRITZ!Box 7530 YK", "reitinger");
     //eprom_test_write_Eprom("Milchbehaelter", "47754775");
     // FIX A: NVS nur lesen — nicht bei jedem Boot überschreiben!
     if (!eprom_getSetup(g_app.webSockData.setupData))

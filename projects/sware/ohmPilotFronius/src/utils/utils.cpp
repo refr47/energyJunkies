@@ -345,8 +345,13 @@ void utils_logWrite(RingBuffer& rb, const LogEntry& e)
 	uint32_t now = millis();
 	const uint32_t heartbeatInterval = LOG_DELTA_FORCE_WRITE;
 
+	// Hysteresegrenze für logging (vermeidet Log-Stau bei 0-3 W Abweichungen)
+#ifndef LOG_POWER_HYSTERESIS
+	#define LOG_POWER_HYSTERESIS 20  // Nur loggen wenn Leistung um >= 20W weicht
+#endif
+
 	bool hasChanged = (e.state != rb.lastAddedEntry.state ||
-		e.power != rb.lastAddedEntry.power ||
+		abs(e.power - rb.lastAddedEntry.power) >= LOG_POWER_HYSTERESIS ||
 		e.pwm != rb.lastAddedEntry.pwm ||
 		e.temp != rb.lastAddedEntry.temp);
 
