@@ -443,12 +443,12 @@ const weatherCloudPct = computed(() => props.liveData?.weatherCloudAvg ? Math.ro
 const weatherOutTemp = computed(() => props.liveData?.weatherOutTemp ?? 20.0);
 
 // ── Heizstab-Logik ──
-const relayWatt = computed(() => (liveData?.hsPhase || 0));
-const relayActive = (i) => !!liveData?.['L' + i];
+const relayWatt = computed(() => (props.liveData?.hsPhase || 0));
+const relayActive = (i) => !!props.liveData?.['L' + i];
 const relayFill = (i) => relayActive(i) ? 140 : 12; // aktiv ~140px, inaktiv ~12px
 
 // ── PWM-Batterie ──
-const pwmPct = computed(() => liveData?.L3 != null ? Math.round(liveData.L3 / 255 * 100) : 0);
+const pwmPct = computed(() => props.liveData?.L3 != null ? Math.round(props.liveData.L3 / 255 * 100) : 0);
 const batFillPx = computed(() => 152 * (pwmPct.value / 100));
 const batColor = computed(() => {
   if (pwmPct.value <= 20) return '#ef4444';   // rot
@@ -463,8 +463,8 @@ const tinyNNPreheatPct = computed(() => hasTinyNN.value ? Math.round(props.liveD
 const tinyNNBufferPct = computed(() => hasTinyNN.value ? Math.round(props.liveData.tinyNN_buffer * 100) : 0);
 
 // ── Stacked-Bar: Heizer-Leistung-Zusammensetzung (aus PWM-Ausgang abgeleitet) ──
-const maxHeaterWatt = computed(() => Math.round((liveData?.hsPhase || 0) * 3)); // 3 Phasen × 576W
-const totalPwmVal = computed(() => liveData?.L3 != null ? Math.round(liveData.L3 / 255 * maxHeaterWatt.value) : 0);
+const maxHeaterWatt = computed(() => Math.round((props.liveData?.hsPhase || 0) * 3)); // 3 Phasen × 576W
+const totalPwmVal = computed(() => props.liveData?.L3 != null ? Math.round(props.liveData.L3 / 255 * maxHeaterWatt.value) : 0);
 const basePowerVal = computed(() => Math.max(0, totalPwmVal.value - weatherPowerBonus.value - nnPowerAdjust.value));
 const weatherPowerBonus = computed(() => Math.max(0, Math.round(weatherBonus.value * 8))); // °C → ~W-Äquivalent
 const nnPowerAdjust = computed(() => hasTinyNN.value ? Math.round((props.liveData.tinyNN_preheat - 0.5) * 80) : 0);
