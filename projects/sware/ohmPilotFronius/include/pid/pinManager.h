@@ -127,6 +127,11 @@ private:
     float m_tinyNN_buffer;
 #endif
  
+    // Internal helpers für Log- & State-Commit
+    static void fillEntry(LogEntry &le, unsigned long now,
+                         uint8_t state, int power, uint8_t pwm, int temp);
+    void  commit(LogEntry &le, WEBSOCK_DATA &webSockData);
+
     // Internal 
     int tempState(double t);
     int pvState(double p);
@@ -145,8 +150,6 @@ private:
     // ── update() helpers ──
     int   resolveInputTemp() const;
     void  handleModeOff(LogEntry &logEntry);
-    void  handleForceHeating(LogEntry &logEntry, int &measuredPower);
-    void  handleModeManual();
     int   handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doML);
     float computeMLReward(int measuredPower, int targetPower, int temp);
     void  logStackWarning();

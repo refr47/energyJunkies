@@ -192,6 +192,7 @@ bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
     strcpy(setup.inverter, "10.0.0.2");
 
     setup.akku = 0;
+    
     setup.akkuPriori = 0;
     /*  setup.pid_p = 1.0;
      setup.pid_i = 0.5;

@@ -29,6 +29,24 @@
 // ──────────────────────────────────────────────────────────────────────────
 // Constructor
 // ──────────────────────────────────────────────────────────────────────────
+
+// ── Inline Helpers: LogEntry-Füllung & Log/State-Commit ──
+void PinManager::fillEntry(LogEntry &le, unsigned long now,
+                          uint8_t state, int power, uint8_t pwm, int temp)
+{
+    le.ts = now;
+    le.state = state;
+    le.power = power;
+    le.pwm = pwm;
+    le.temp = temp;
+}
+
+void PinManager::commit(LogEntry &le, WEBSOCK_DATA &webSockData)
+{
+    utils_logWrite(webSockData.logBuffer, le);
+    pidLockWrite(webSockData);
+}
+
 PinManager::PinManager()
 {
     pinL1 = 0;
@@ -210,24 +228,21 @@ void PinManager::allOn()
 
 void PinManager::allOff()
 {
-
-
     if (currentPhases > 0 || currentPWM > 0)
     {
         LOG_INFO(TAG_PID, "PinManager::allOff() called. Heater off.");
-        unsigned long now = millis();
         if (pinL1 > 0)  digitalWrite(pinL1, LOW);
         if (pinL2 > 0)  digitalWrite(pinL2, LOW);
         if (pwmPin > 0) analogWrite(pwmPin, (uint8_t)0);
-        lastSwitchL1 = now;
-        lastSwitchL2 = now;
-        lastSwitchPwm = now;
+
+        lastSwitchL1 = millis();
+        lastSwitchL2 = millis();
+        lastSwitchPwm = millis();
     }
 
-
     currentPhases = 0;
-    currentPWM = (int)0;
-
+    currentPWM = 0;
+    m_out_boilerHeating = false;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -686,39 +701,11 @@ void PinManager::preCheck(int temp, unsigned long nowMS,
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::handleModeOff(LogEntry& logEntry)
 {
-    apply(logEntry, 0);
-
-    currentPhases = 0;
-    currentPWM = 0;
-    m_out_boilerHeating = false;
-
-    if (pinL1 > 0)  digitalWrite(pinL1, LOW);
-    if (pinL2 > 0)  digitalWrite(pinL2, LOW);
-    if (pwmPin > 0) analogWrite(pwmPin, 0);
+    allOff();
 
     logEntry.state = (uint8_t)MODE_OFF;
     logEntry.power = 0;
     logEntry.pwm = 0;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// handleForceHeating — forced mode handling (from setupData.forceHeating)
-// ──────────────────────────────────────────────────────────────────────────
-void PinManager::handleForceHeating(LogEntry& logEntry, int& measuredPower)
-{
-    // This method handles the forced heating modes
-    // measuredPower is passed by reference for logging
-    measuredPower = getMeanOfAvailAblePower();
-    logEntry.power = measuredPower;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// handleModeManual — manual/forced mode (not RL-controlled)
-// ──────────────────────────────────────────────────────────────────────────
-void PinManager::handleModeManual()
-{
-    // Manual mode: maintain current settings, no control update
-    // Override handled in update() via forceHeating setup
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -910,45 +897,44 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
     // ── Step 1: Copy shared data into local members ──
     pidLockRead(webSockData);
 
-    // ── FORCE HEATING: Override alles wenn forceHeating > 0 ──
-    // forceHeating values:
-    //   1 = HEATING_ON_PHASE_1
-    //   2 = HEATING_ON_PHASE_1_2
-    //   3 = HEATING_ON_PHASE_1_2_3 (ALLE PHASEN)
-    //   0 = HEATING_AUTOMATIC (Auto-Modus)
-    // ── FORCE OFF: Alles Ausschalten wenn forceHeatingStop == 1 ──
-    if (m_forceHeatingStop > 0) {
-        // HEATER KILL: Alles sofort ausschalten, unabhängig von PV-Status
-        allOff();  // Alle Phase off, unabhängig von PV-Status
-
-        LogEntry logEntry;
-        logEntry.ts = now;
-        logEntry.state = (uint8_t)MODE_OFF;
-        logEntry.power = 0;
-        logEntry.pwm = 0;
-        logEntry.temp = resolveInputTemp();
-
-        utils_logWrite(webSockData.logBuffer, logEntry);
-        pidLockWrite(webSockData);
-        return;  // Skip all control, STOP ist aktiv
-    }
-    if (m_forceHeating > 0) {
-        allOn();  // Alle Phase on, unabhängig von PV-Status
-
-        LogEntry logEntry;
-        logEntry.ts = now;
-        logEntry.state = (uint8_t)MODE_MANUAL;
-        logEntry.power = onePhase * 3;
-        logEntry.pwm = (uint8_t)OUTPUT_MAX;
-        logEntry.temp = resolveInputTemp();
-
-        utils_logWrite(webSockData.logBuffer, logEntry);
-        pidLockWrite(webSockData);
-        return;  // Skip auto-control, force ist aktiv
-    }
-
-    // ── Step 2: Resolve effective temperature ──
+    // ── Step 2: Resolve effective temperature (VOR Force-Checks!) ──
     int temp = resolveInputTemp();
+    int effectiveMax = m_tempMaxAllowed + m_weatherBonus;
+
+    // ── FORCE-OFF: Heater Kill (aber Frostschutz gewinnt!) ──
+    if (m_forceHeatingStop > 0) {
+        // Frostschutz: unter min-Temp NICHT abschalten
+        if (temp < m_tempMin) {
+            LOG_INFO(TAG_PID, "Force-Stop aufgehoben: Frostschutz (temp=%d < min=%d)", temp, m_tempMin);
+            // Fallt auf normale Steuerung durch
+        } else {
+            LogEntry logEntry;
+            logEntry.ts = now;
+            logEntry.temp = temp;
+            handleModeOff(logEntry);
+            commit(logEntry, webSockData);
+            return;
+        }
+    }
+
+    // ── FORCE-HEAT: Vollgas aber mit Temperaturschutz ──
+    if (m_forceHeating > 0) {
+        // Temperaturschutz: über max-Temp sofort ab
+        if (temp >= effectiveMax) {
+            LOG_INFO(TAG_PID, "Force-Heat unterbrochen: Max-Temp erreicht (temp=%d >= max=%d)", temp, effectiveMax);
+            LogEntry logEntry;
+            logEntry.ts = now;
+            logEntry.temp = temp;
+            handleModeOff(logEntry);
+            commit(logEntry, webSockData);
+            return;
+        }
+        allOn();
+        LogEntry logEntry;
+        fillEntry(logEntry, now, temp, (uint8_t)MODE_MANUAL, onePhase * 3, (uint8_t)OUTPUT_MAX);
+        commit(logEntry, webSockData);
+        return;
+    }
 
     // ── Step 3: Determine control mode ──
     ControlMode mode;
@@ -964,10 +950,9 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
     {
         LogEntry logEntry;
         logEntry.ts = now;
+        logEntry.temp = temp;
         handleModeOff(logEntry);
-
-        utils_logWrite(webSockData.logBuffer, logEntry);
-        pidLockWrite(webSockData);
+        commit(logEntry, webSockData);
         break;
     }
 
@@ -977,14 +962,9 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
         allOn();
 
         LogEntry logEntry;
-        logEntry.ts = now;
-        logEntry.state = (uint8_t)MODE_LEGIONELLA;
-        logEntry.power = onePhase * 3;
-        logEntry.pwm = (uint8_t)OUTPUT_MAX;
-        logEntry.temp = temp;
-        utils_logWrite(webSockData.logBuffer, logEntry);
-
-        pidLockWrite(webSockData);
+        fillEntry(logEntry, now, temp,
+                  (uint8_t)MODE_LEGIONELLA, onePhase * 3, (uint8_t)OUTPUT_MAX);
+        commit(logEntry, webSockData);
         break;
     }
 
@@ -993,52 +973,40 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
         allOn();
 
         LogEntry logEntry;
-        logEntry.ts = now;
-        logEntry.state = (uint8_t)MODE_MIN_TEMP;
-        logEntry.power = onePhase * 3;
-        logEntry.pwm = (uint8_t)OUTPUT_MAX;
-        logEntry.temp = temp;
-        utils_logWrite(webSockData.logBuffer, logEntry);
-
-        pidLockWrite(webSockData);
+        fillEntry(logEntry, now, temp,
+                  (uint8_t)MODE_MIN_TEMP, onePhase * 3, (uint8_t)OUTPUT_MAX);
+        commit(logEntry, webSockData);
         break;
     }
 
     case MODE_AUTO:
     {
         LogEntry logEntry;
-        logEntry.ts = now;
-        logEntry.state = (uint8_t)MODE_AUTO;
-        logEntry.power = 0;
-        logEntry.pwm = 0;
-        logEntry.temp = temp;
+        fillEntry(logEntry, now, temp,
+                  (uint8_t)MODE_AUTO, 0, 0);
 
         measuredPower = getMeanOfAvailAblePower();
 
         if (measuredPower > 0 || doML)
         {
-            handleModeAuto(logEntry,
-                measuredPower, doML);
+            handleModeAuto(logEntry, measuredPower, doML);
         }
         else
         {
-            // No surplus → heater off
             handleModeOff(logEntry);
         }
 
-        utils_logWrite(webSockData.logBuffer, logEntry);
-        pidLockWrite(webSockData);
+        commit(logEntry, webSockData);
         break;
     }
 
     default:
     {
-        // Fallback: off
         LogEntry logEntry;
         logEntry.ts = now;
+        logEntry.temp = temp;
         handleModeOff(logEntry);
-        utils_logWrite(webSockData.logBuffer, logEntry);
-        pidLockWrite(webSockData);
+        commit(logEntry, webSockData);
         break;
     }
     }

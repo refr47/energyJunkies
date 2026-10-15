@@ -51,6 +51,7 @@ const FieldBase<Setup> *setupFields[] = {
     &Fields::mPass,
     &Fields::epsilon,
     &Fields::force,
+    &Fields::forceStop,
     &Fields::influxHost,
     &Fields::influxToken,
     &Fields::influxOrg,

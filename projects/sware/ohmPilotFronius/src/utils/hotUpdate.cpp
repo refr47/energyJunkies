@@ -111,6 +111,13 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
                     */
         webSockData.setupData.forceHeating = d.forceHeating;
     }
+    // heizstab_force_off (Heater Kill)
+    if (d.forceHeatingStop != webSockData.setupData.forceHeatingStop)
+    {
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate::forceHeatingStop changed !! - no reboot :: eprom: %d, web: %d", d.forceHeatingStop, webSockData.setupData.forceHeatingStop);
+        webSockData.setupData.forceHeatingStop = d.forceHeatingStop;
+        updated = true;
+    }
     // akku
     if (d.akkuPriori != webSockData.setupData.akkuPriori)
     {
