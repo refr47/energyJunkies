@@ -110,6 +110,7 @@ private:
     float m_battPower;       // Batterieleistung (W), neg = laden
     int   m_wattSetupForTest;
     int   m_forceHeating;   // 0=auto, 1=L1, 2=L1+L2, 3=ALLE
+    int   m_forceHeatingStop; // 0=normal, 1=HEATER KILL (alles OFF)
 
     // ── lokale Ausgabedaten (unter appLock() zurückgeschrieben) ──
     bool  m_out_boilerHeating;

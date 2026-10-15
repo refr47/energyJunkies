@@ -25,6 +25,7 @@
 #define PID_EPSILON "pid_epsilon"
 
 #define FORCE_HEIZPATRONE "heizstab_force"
+#define FORCE_HEIZPATRONE_STOP "heizstab_force_off"
 
 /* getOverview */
 #define WWW_FRONIUS "FR"

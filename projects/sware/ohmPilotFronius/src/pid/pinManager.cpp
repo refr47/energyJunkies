@@ -64,6 +64,7 @@ PinManager::PinManager()
     m_battPower = 0;
     m_wattSetupForTest = 0;
     m_forceHeating = 0;
+    m_forceHeatingStop = 0;
 
     m_out_boilerHeating = false;
     m_out_wattBiasForTest = false;
@@ -370,7 +371,8 @@ void PinManager::pidLockRead(WEBSOCK_DATA &webSockData)
     m_legionellenMaxTemp = webSockData.setupData.legionellenMaxTemp;
     m_legionellenDelta = webSockData.setupData.legionellenDelta;
     m_akkuPriori = (webSockData.setupData.akkuPriori != 0);
-    m_forceHeating = webSockData.setupData.forceHeating;
+    m_forceHeating   = webSockData.setupData.forceHeating;
+    m_forceHeatingStop = (int)webSockData.setupData.forceHeatingStop;
 
     // Energy state
     if (m_froniusAPI)
@@ -890,6 +892,26 @@ void PinManager::update(WEBSOCK_DATA &webSockData,
     //   2 = HEATING_ON_PHASE_1_2
     //   3 = HEATING_ON_PHASE_1_2_3 (ALLE PHASEN)
     //   0 = HEATING_AUTOMATIC (Auto-Modus)
+    // ── FORCE OFF: Alles Ausschalten wenn forceHeatingStop == 1 ──
+    if (m_forceHeatingStop > 0) {
+        // HEATER KILL: Alles sofort ausschalten, unabhängig von PV-Status
+        m_currentPhases = 0;
+        m_currentPWM = 0;
+        digitalWrite(g_pin1, LOW);
+        digitalWrite(g_pin2, LOW);
+        analogWrite(g_pin3, 0);
+
+        LogEntry logEntry;
+        logEntry.ts = now;
+        logEntry.state = (uint8_t)MODE_OFF;
+        logEntry.power = 0;
+        logEntry.pwm = 0;
+        logEntry.temp = resolveInputTemp();
+
+        utils_logWrite(webSockData.logBuffer, logEntry);
+        pidLockWrite(webSockData);
+        return;  // Skip all control, STOP ist aktiv
+    }
     if (m_forceHeating > 0) {
         allOn();  // Alle Phase on, unabhängig von PV-Status
 

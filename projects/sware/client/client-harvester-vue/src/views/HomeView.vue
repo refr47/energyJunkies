@@ -243,50 +243,64 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div v-for="i in [1, 2]" :key="i"
-              class="relative overflow-hidden rounded-3xl p-5 border transition-all duration-500" :class="liveData['L' + i]
-                ? 'bg-amber-500 shadow-xl shadow-amber-300/50 border-amber-400 translate-y-[-4px] ring-8 ring-amber-500/10'
-                : 'bg-slate-50 text-slate-900 border-slate-100 opacity-60 grayscale-[0.5]'">
-
-              <div class="flex justify-between items-start mb-4">
-                <span class="text-[10px] font-black uppercase tracking-widest"
-                  :class="liveData['L' + i] ? 'opacity-100' : 'opacity-40'">
-                  Heizstab L{{ i }}
-                </span>
-                <div :class="liveData['L' + i] ? 'bg-white shadow-[0_0_8px_white]' : 'bg-slate-300'"
-                  class="w-2.5 h-2.5 rounded-full transition-all duration-300"></div>
-              </div>
-
-              <div class="flex items-baseline gap-1">
-                <span class="text-2xl font-black">
-                  {{ liveData['L' + i] ? (liveData.hsPhase / 1000).toFixed(2) : '0.00' }}
-                </span>
-                <span class="text-xs font-bold" :class="liveData['L' + i] ? 'opacity-100' : 'opacity-40'">kW</span>
-              </div>
-
-              <p class="text-[9px] font-black mt-2 uppercase tracking-tighter"
-                :class="liveData['L' + i] ? 'text-amber-100' : 'text-slate-400'">
-                {{ liveData['L' + i] ? 'Ist-Leistung aktiv' : 'Standby' }}
-              </p>
+          <!-- Heizstab-Phasen + PWM als 3er-Grid -->
+          <div class="grid grid-cols-3 gap-4 items-end">
+            <!-- ── Heizstab L1 & L2 (SVG Röhren) ── -->
+            <div v-for="i in [1, 2]" :key="'relay-'+i" class="flex flex-col items-center">
+              <svg :id="'stab'+i" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 180" class="w-[52px] h-40 drop-shadow-sm">
+                <!-- Röhre Außen -->
+                <rect x="10" y="10" width="40" height="160" rx="20" ry="20" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2.5"/>
+                <!-- Füll-Wasser -->
+                <clipPath :id="'clip'+i">
+                  <rect x="12" y="12" width="36" height="156" rx="18" ry="18"/>
+                </clipPath>
+                <g :clip-path="'url(#clip'+i+')'">
+                  <rect :key="i+'fill'" x="12" y="12"
+                    :height="relayFill(i)"
+                    :y="168 - relayFill(i)"
+                    fill="#fbbf24"
+                    class="transition-all duration-700"/>
+                </g>
+                <!-- Glühstab (Mitten-Heizelement) -->
+                <rect x="24" :y="60"
+                  :height="relayActive(i) ? 90 : 0"
+                  rx="4" :fill="relayActive(i) ? '#ef4444' : '#e2e8f0'"
+                  class="transition-all duration-700"/>
+                <!-- Aktiv-Punkt -->
+                <circle cx="30" cy="6">
+                  <animate attributeName="opacity" :values="relayActive(i) ? '1;0.5;1' : '0.2'" :dur="relayActive(i) ? '1.5s' : '0s'" repeatCount="indefinite"/>
+                </circle>
+              </svg>
+              <span class="text-[9px] font-black uppercase tracking-widest mt-2 text-slate-400">L{{ i }}</span>
+              <span class="text-xs font-black text-slate-700">{{ relayActive(i) ? relayWatt : 0 }}W</span>
             </div>
 
-            <!-- L3: PWM-Regelung (flach, clean) -->
-            <div class="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col items-center justify-center">
-              <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">PWM L3</span>
-              <svg width="52" height="48" viewBox="0 0 52 48" class="mb-1">
-                <rect x="1" y="1" width="50" height="46" rx="5" ry="5" fill="none" stroke="#cbd5e1" stroke-width="2"/>
-                <rect x="50" y="17" width="3" height="14" rx="1.5" fill="#cbd5e1"/>
-                <rect x="3"
-                  :y="3 + (40 * (1 - (liveData.L3 || 0) / 100))"
-                  width="46"
-                  :height="40 * ((liveData.L3 || 0) / 100)"
-                  :fill="liveData.L3 > 0 ? '#3b82f6' : '#e2e8f0'"
-                  rx="2" ry="2"
-                  class="transition-all duration-500"/>
+            <!-- ── PWM L3 als Batterie ── -->
+            <div class="flex flex-col items-center">
+              <svg id="pwmBat" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 180" class="w-[52px] h-40 drop-shadow-sm">
+                <!-- Pluspol -->
+                <rect x="22" y="2" width="16" height="10" rx="3" fill="#94a3b8"/>
+                <!-- Batterie Rahmen -->
+                <rect x="6" y="14" width="48" height="156" rx="10" ry="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2.5"/>
+                <!-- Füll-Ebene -->
+                <clipPath id="batClip">
+                  <rect x="8" y="16" width="44" height="152" rx="8" ry="8"/>
+                </clipPath>
+                <g clip-path="url(#batClip)">
+                  <rect id="batFill" x="8" :y="168 - batFillPx" width="44" :height="batFillPx"
+                    :fill="batColor"
+                    class="transition-all duration-700"/>
+                </g>
+                <!-- Segmente (Striche) -->
+                <line x1="8" y1="36" x2="52" y2="36" stroke="#e2e8f0" stroke-width="1"/>
+                <line x1="8" y1="58" x2="52" y2="58" stroke="#e2e8f0" stroke-width="1"/>
+                <line x1="8" y1="80" x2="52" y2="80" stroke="#e2e8f0" stroke-width="1"/>
+                <line x1="8" y1="102" x2="52" y2="102" stroke="#e2e8f0" stroke-width="1"/>
+                <line x1="8" y1="124" x2="52" y2="124" stroke="#e2e8f0" stroke-width="1"/>
+                <line x1="8" y1="146" x2="52" y2="146" stroke="#e2e8f0" stroke-width="1"/>
               </svg>
-              <span class="text-2xl font-black text-slate-800">{{ Math.round(liveData.L3 || 0) }}</span>
-              <span class="text-[9px] font-bold text-slate-400">0 – 255</span>
+              <span class="text-[9px] font-black uppercase tracking-widest mt-2 text-slate-400">L3</span>
+              <span class="text-xs font-black text-slate-700">{{ pwmPct }}%</span>
             </div>
           </div>
 
@@ -298,6 +312,14 @@
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-500 ring-2 ring-slate-200'"
               class="w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all duration-300 cursor-pointer">
               {{ forceHeizung ? '⚡ FORCE AN' : '○ FORCE AUS' }}
+            </button>
+            <button
+              @click="toggleStop()"
+              :class="forceHeizungOff
+                ? 'bg-amber-600 hover:bg-amber-700 text-white ring-4 ring-amber-200'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-500 ring-2 ring-slate-200'"
+              class="w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all duration-300 cursor-pointer">
+              {{ forceHeizungOff ? '🛑 STOP AN' : '○ STOP AUS' }}
             </button>
           </div>
         </div>
@@ -335,6 +357,26 @@ const toggleForce = async () => {
   } catch (e) {
     console.error('Force-Toggle fehlgeschlagen:', e);
     forceHeizung.value = !forceHeizung.value; // revert
+  }
+};
+
+// Force-Stop (Heater Kill): lokaler Ref, sync mit liveData vom Server
+const forceHeizungOff = ref(false);
+watch(() => props.liveData?.forceHeizungOff, (val) => {
+  forceHeizungOff.value = !!val;
+}, { immediate: true });
+
+const toggleStop = async () => {
+  forceHeizungOff.value = !forceHeizungOff.value;
+  try {
+    await fetch('/storeSetup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ heizstab_force_off: forceHeizungOff.value ? 1 : 0 })
+    });
+  } catch (e) {
+    console.error('Stop-Toggle fehlgeschlagen:', e);
+    forceHeizungOff.value = !forceHeizungOff.value; // revert
   }
 };
 // Mobile: Live-Uhrzeitnst currentTime = ref('');let timeTimer = null;nst updateTime = () => {  currentTime.value = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });};onMounted(() => {  updateTime();  timeTimer = setInterval(updateTime, 1000);});
@@ -386,6 +428,8 @@ const hasErrors = computed(() => errorList.value.length > 0);
 
 // Lademodus Logik
 const chargeMode = computed(() => {
+  // STOP hat höchste Priorität, überschreibt alles
+  if (props.liveData?.forceHeizungOff) return { label: 'STOP KILL', class: 'bg-amber-600 text-white animate-pulse' };
   const mode = props.liveData?.forceHeizung || 0;
   if (mode === 2) return { label: 'FORCE LOAD', class: 'bg-rose-500 text-white animate-pulse' };
   if (mode === 1) return { label: 'SOLAR ONLY', class: 'bg-emerald-500 text-white' };
@@ -398,25 +442,39 @@ const weatherPvRatio = computed(() => props.liveData?.weatherPvRatio ?? 1.0);
 const weatherCloudPct = computed(() => props.liveData?.weatherCloudAvg ? Math.round(props.liveData.weatherCloudAvg * 100) : 50);
 const weatherOutTemp = computed(() => props.liveData?.weatherOutTemp ?? 20.0);
 
+// ── Heizstab-Logik ──
+const relayWatt = computed(() => (liveData?.hsPhase || 0));
+const relayActive = (i) => !!liveData?.['L' + i];
+const relayFill = (i) => relayActive(i) ? 140 : 12; // aktiv ~140px, inaktiv ~12px
+
+// ── PWM-Batterie ──
+const pwmPct = computed(() => liveData?.L3 != null ? Math.round(liveData.L3 / 255 * 100) : 0);
+const batFillPx = computed(() => 152 * (pwmPct.value / 100));
+const batColor = computed(() => {
+  if (pwmPct.value <= 20) return '#ef4444';   // rot
+  if (pwmPct.value <= 50) return '#f97316';   // orange
+  if (pwmPct.value <= 80) return '#eab308';   // gelb
+  return '#22c55e';                           // grün
+});
+
 // ── TinyNN (optional – nur wenn Server-TinyNN aktiv) ──
 const hasTinyNN = computed(() => 'tinyNN_preheat' in (props.liveData || {}));
 const tinyNNPreheatPct = computed(() => hasTinyNN.value ? Math.round(props.liveData.tinyNN_preheat * 100) : 0);
 const tinyNNBufferPct = computed(() => hasTinyNN.value ? Math.round(props.liveData.tinyNN_buffer * 100) : 0);
 
-// ── Stacked-Bar: Heizer-Leistung-Zusammensetzung ──
-const basePowerVal = computed(() => {
-  // Basis-Leistung ≈ 25% (Regelung ohne Bonus)
-  return Math.max(0, Math.round(props.liveData?.ev || 0));
-});
-const weatherPowerBonus = computed(() => Math.round(weatherBonus.value * 5)); // grobe Konvertierung °C → W
-const nnPowerAdjust = computed(() => hasTinyNN.value ? Math.round((props.liveData.tinyNN_preheat - 0.5) * 200) : 0);
+// ── Stacked-Bar: Heizer-Leistung-Zusammensetzung (aus PWM-Ausgang abgeleitet) ──
+const maxHeaterWatt = computed(() => Math.round((liveData?.hsPhase || 0) * 3)); // 3 Phasen × 576W
+const totalPwmVal = computed(() => liveData?.L3 != null ? Math.round(liveData.L3 / 255 * maxHeaterWatt.value) : 0);
+const basePowerVal = computed(() => Math.max(0, totalPwmVal.value - weatherPowerBonus.value - nnPowerAdjust.value));
+const weatherPowerBonus = computed(() => Math.max(0, Math.round(weatherBonus.value * 8))); // °C → ~W-Äquivalent
+const nnPowerAdjust = computed(() => hasTinyNN.value ? Math.round((props.liveData.tinyNN_preheat - 0.5) * 80) : 0);
 const totalPowerVal = computed(() => basePowerVal.value + weatherPowerBonus.value + nnPowerAdjust.value);
 
-// Stacked-Bar segment-Prozente
-const totalPowerPct = computed(() => 100);
-const basePowerPct = computed(() => Math.max(10, 100 - Math.round(weatherPowerBonus.value / (totalPowerVal.value || 1) * 100) - (hasTinyNN.value ? Math.round(nnPowerAdjust.value / (totalPowerVal.value || 1) * 100) : 0)));
-const weatherBonusPct = computed(() => Math.round(weatherPowerBonus.value / (totalPowerVal.value || 1) * 100) || 0);
-const nnAdjustPct = computed(() => hasTinyNN.value ? Math.max(0, Math.round(nnPowerAdjust.value / (totalPowerVal.value || 1) * 100)) : 0);
+// Segment-Prozente der Stacked-Bar
+const totalPowerPct = computed(() => totalPowerVal.value > 0 ? 100 : 0);
+const basePowerPct = computed(() => totalPowerVal.value > 0 ? Math.max(5, (basePowerVal.value / totalPowerVal.value * 100)) : 0);
+const weatherBonusPct = computed(() => totalPowerVal.value > 0 ? Math.max(0, (weatherPowerBonus.value / totalPowerVal.value * 100)) : 0);
+const nnAdjustPct = computed(() => totalPowerVal.value > 0 ? Math.max(0, (nnPowerAdjust.value / totalPowerVal.value * 100)) : 0);
 
 onMounted(() => {
   console.log("Props Check:");

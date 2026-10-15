@@ -144,6 +144,7 @@ typedef struct
 
     double epsilonML_PinManager;
     int forceHeating;
+    short forceHeatingStop;
     unsigned int wattSetupForTest;
     bool setupChanged; 
 

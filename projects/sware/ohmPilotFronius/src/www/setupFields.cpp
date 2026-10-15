@@ -10,6 +10,7 @@ namespace Fields
     static const StringField<Setup, AMIS_KEY_LEN + 1> aKey(AMIS_READER_KEY, &Setup::amisKey);
     static const StringField<Setup, INET_ADDRSTRLEN + 1> aHost(AMIS_READER_HOST, &Setup::amisReaderHost);
     static const NumericField<int, Setup> force(FORCE_HEIZPATRONE, &Setup::forceHeating);
+    static const NumericField<short, Setup> forceStop(FORCE_HEIZPATRONE_STOP, &Setup::forceHeatingStop);
     static const NumericField<unsigned int, Setup> leistung(HEIZSTABLEISTUNG, &Setup::heizstab_leistung_in_watt);
     static const NumericField<unsigned int, Setup> tMax(TEMP_AUSSCHALTEN, &Setup::tempMaxAllowedInGrad);
     static const NumericField<unsigned int, Setup> tMin(TEMP_EINSCHALT, &Setup::tempMinInGrad);

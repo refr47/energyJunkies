@@ -44,6 +44,7 @@
 #define NETZ_EXPORT_INS "NEI"
 #define NETZ_IMPORT_INS "NII"
 #define FORCE_HEIZPATRONE "forceHeizung"
+#define FORCE_HEIZPATRONE_STOP "forceHeizungOff"
 #define EPSILON_PIN_MANAGER "EpsilonPin"
 
 #define STATE_CARDWRITE 0      // 1 << 0 = 1
@@ -167,6 +168,7 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
     live[HEIZPATRONE_L2]         = data.pidContainer.PID_PIN2;
     live[HEIZPATRONE_L3]         = data.pidContainer.mAnalogOut;
     live[FORCE_HEIZPATRONE]      = (int)data.setupData.forceHeating;
+    live[FORCE_HEIZPATRONE_STOP] = (int)data.setupData.forceHeatingStop;
     // ── Aktuelles Phasen-Performance: uses pidContainer.mCurrentPower (actual) 
     //     divided by active phase count → per-phase power in W sent to frontend ──
     int activePhases = (data.pidContainer.PID_PIN1 ? 1 : 0) + (data.pidContainer.PID_PIN2 ? 1 : 0);
