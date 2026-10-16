@@ -33,7 +33,7 @@ public:
     // helper
     void allOn();
     void allOff();
-    int getStateOfDigPin(short pin);
+    static int getStateOfDigPin(short pin);
     int getStateOfAnaPin();
     void apply(LogEntry &logEntry, int power);
     void reset();
@@ -152,6 +152,7 @@ private:
     void  handleModeOff(LogEntry &logEntry);
     int   handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doML);
     float computeMLReward(int measuredPower, int targetPower, int temp);
+    int   adjustTargetWithML(int targetPower, int measuredPower, bool doML);
     void  logStackWarning();
 
 };

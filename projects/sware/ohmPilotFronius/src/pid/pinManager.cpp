@@ -260,6 +260,30 @@ int PinManager::getStateOfAnaPin()
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// toggleRelay — helper: toggle one relay with hysteresis + min-dwell
+//
+// Returns: true if relay is now HIGH, false if LOW/unchanged
+// ──────────────────────────────────────────────────────────────────────────
+static bool toggleRelay(int pin, bool wantOn, bool keepOn,
+                       unsigned long &lastSwitch, unsigned long minSwitch,
+                       unsigned long now)
+{
+    bool active = (pin > 0) && (getStateOfDigPin(pin) == HIGH);
+
+    if (wantOn && !active)
+    {
+        if (now - lastSwitch >= minSwitch)
+        { digitalWrite(pin, HIGH); lastSwitch = now; return true; }
+    }
+    else if (!wantOn && !keepOn && active)
+    {
+        if (now - lastSwitch >= minSwitch)
+        { digitalWrite(pin, LOW);  lastSwitch = now; return false; }
+    }
+    return active;   // unchanged
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // apply — translate power output into relay/PWM pin assignments + logging
 //
 // Step-up logic (3 phases):
@@ -298,63 +322,21 @@ void PinManager::apply(LogEntry& logEntry, int power)
     lastTargetPower = clampedPower;
 
     // ── Hysteresis thresholds ──
-    // Relay ON at higher threshold, OFF at lower → prevents toggle hunt
     const int hyst1On = onePhase;
     const int hyst1Off = onePhase - HYSTERESIS_WATT;
     const int hyst2On = onePhase * 2;
     const int hyst2Off = onePhase * 2 - HYSTERESIS_WATT;
 
-    // ── Relay 1 (Phase 1) ──
-    bool wantL1 = (clampedPower >= hyst1On);
-    bool keepL1 = (clampedPower > hyst1Off && clampedPower < hyst1On); // hysteresis band
-    bool l1Active = false;
+    // ── Toggle relays (deduplicated via helper) ──
+    bool l1Active = toggleRelay(pinL1,
+        clampedPower >= hyst1On,
+        clampedPower > hyst1Off && clampedPower < hyst1On,
+        lastSwitchL1, MIN_SWITCH_L1, now);
 
-    if (pinL1 > 0) { l1Active = (getStateOfDigPin(pinL1) == HIGH); }
-
-    if (wantL1 && !l1Active)
-    {
-        if (now - lastSwitchL1 >= MIN_SWITCH_L1)
-        {
-            digitalWrite(pinL1, HIGH);
-            lastSwitchL1 = now;
-            l1Active = true;
-        }
-    }
-    else if (!wantL1 && !keepL1 && l1Active)
-    {
-        if (now - lastSwitchL1 >= MIN_SWITCH_L1)
-        {
-            digitalWrite(pinL1, LOW);
-            lastSwitchL1 = now;
-            l1Active = false;
-        }
-    }
-
-    // ── Relay 2 (Phase 2) ──
-    bool wantL2 = (clampedPower >= hyst2On);
-    bool keepL2 = (clampedPower > hyst2Off && clampedPower < hyst2On); // hysteresis band
-    bool l2Active = false;
-
-    if (pinL2 > 0) { l2Active = (getStateOfDigPin(pinL2) == HIGH); }
-
-    if (wantL2 && !l2Active)
-    {
-        if (now - lastSwitchL2 >= MIN_SWITCH_L2)
-        {
-            digitalWrite(pinL2, HIGH);
-            lastSwitchL2 = now;
-            l2Active = true;
-        }
-    }
-    else if (!wantL2 && !keepL2 && l2Active)
-    {
-        if (now - lastSwitchL2 >= MIN_SWITCH_L2)
-        {
-            digitalWrite(pinL2, LOW);
-            lastSwitchL2 = now;
-            l2Active = false;
-        }
-    }
+    bool l2Active = toggleRelay(pinL2,
+        clampedPower >= hyst2On,
+        clampedPower > hyst2Off && clampedPower < hyst2On,
+        lastSwitchL2, MIN_SWITCH_L2, now);
 
     // ── FIX #1: Compute currentPhases from ACTUAL relay state ──
     currentPhases = (l1Active ? 1 : 0) + (l2Active ? 1 : 0);
@@ -731,73 +713,14 @@ int PinManager::handleModeAuto(LogEntry& logEntry,
     // ── Compute target power ──
     int targetPower = basePower(measuredPower);
 
-    // ── Cloud-cover down-ramp protection ──
-    // If PV surplus dropped sharply (clouds passing), smooth the reduction
-    // instead of cutting power all at once
-    int diff = targetPower - lastSmoothedPower;
+    // ── Clamp down-ramp for cloud-cover protection ──
+    targetPower = clampRampDown(targetPower, lastSmoothedPower);
 
-    if (diff < 0)
-    {
-        // Downward: limit rate to RAMP_DOWN_STEP_TOTAL (3× per-phase step)
-        int maxDrop = RAMP_DOWN_STEP_TOTAL + HYSTERESIS_WATT;
-        if (abs(diff) > maxDrop)
-        {
-            targetPower = (int)(lastSmoothedPower - maxDrop);
-            if (targetPower < 0)
-                targetPower = 0;
-        }
-    }
+    // ── TinyNN ML adjustment (returns adjusted target) ──
+    targetPower = adjustTargetWithML(targetPower, measuredPower, doML);
 
-    // Smooth the target for logging
+    // ── Smoothed logging state ──
     lastSmoothedPower = targetPower;
-
-    // ── TinyNN prediction integration ──
-#ifdef TINYNN_ENABLE
-    if (tinyNN != nullptr && doML)
-    {
-        // Normalize inputs for neural net
-        float normTemp = ((float)m_sensor1 - m_tempMin)
-            / ((float)(m_tempMaxAllowed - m_tempMin));
-        normTemp = fmaxf(0.0f, fminf(1.0f, normTemp));
-
-        // Query TinyNN for preheat recommendation
-        TinyNNPrediction pred = tinyNN->predict(
-            normTemp,
-            m_weatherPvRatio,
-            m_weatherCloudAvg,
-            m_weatherOutTemp);
-
-        m_tinyNN_preheat = pred.preheat_score;
-        m_tinyNN_buffer = pred.buffer_pct;
-
-        // Adjust target if preheat recommended
-        if (pred.preheat_score > 0.5f && m_weatherBonus > 0)
-        {
-            // Aggressive preheat: boost target proportionally
-            int boost = (int)(onePhase * pred.preheat_score
-                * pred.buffer_pct);
-            targetPower += boost;
-            targetPower = basePower(targetPower);
-        }
-
-        // Remember experience for training
-        float reward = computeMLReward(measuredPower, targetPower,
-            resolveInputTemp());
-
-        TinyNNExperience exp;
-        exp.temp = normTemp * 2.0f - 1.0f;       // [-1, 1]
-        exp.pv_ratio = m_weatherPvRatio * 2.0f - 1.0f; // [-1, 1]
-        exp.cloud_avg = m_weatherCloudAvg;        // [0, 1]
-        exp.temp_outside = m_weatherOutTemp;      // raw °C
-
-        // Target: scale preheat score to [0, 1]
-        exp.target_preheat = pred.preheat_score;
-        exp.target_buffer = pred.buffer_pct;
-
-        tinyNN->remember(exp);
-        tinyNN->trainReplay();
-    }
-#endif
 
     // ── Apply target power to hardware ──
     apply(logEntry, targetPower);
@@ -818,6 +741,76 @@ int PinManager::handleModeAuto(LogEntry& logEntry,
 #endif
 
     return 0;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// clampRampDown — limit downward step for cloud-cover smoothing
+//
+// When PV surplus drops sharply (clouds passing), limit the rate of reduction
+// so relays don't toggle instantly.
+// Pure helper → static.
+// ──────────────────────────────────────────────────────────────────────────
+static int clampRampDown(int targetPower, int lastSmoothedPower)
+{
+    int diff = targetPower - lastSmoothedPower;
+    if (diff < 0)
+    {
+        int maxDrop = RAMP_DOWN_STEP_TOTAL + HYSTERESIS_WATT;
+        if (abs(diff) > maxDrop)
+            targetPower = lastSmoothedPower - maxDrop;
+    }
+    return max(0, targetPower);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// adjustTargetWithML — TinyNN preheat/boost (no-op when TinyNN disabled)
+//
+// Returns: adjusted targetPower (may add preheat boost).
+// Trains network with experience replay. Updates m_tinyNN_* state.
+// ──────────────────────────────────────────────────────────────────────────
+int PinManager::adjustTargetWithML(int targetPower, int measuredPower, bool doML)
+{
+#ifndef TINYNN_ENABLE
+    return targetPower;
+#endif
+
+    if (tinyNN == nullptr || !doML)
+        return targetPower;
+
+    // ── Normalize + predict ──
+    float normTemp = ((float)m_sensor1 - m_tempMin)
+        / ((float)(m_tempMaxAllowed - m_tempMin));
+    normTemp = fmaxf(0.0f, fminf(1.0f, normTemp));
+
+    TinyNNPrediction pred = tinyNN->predict(
+        normTemp, m_weatherPvRatio, m_weatherCloudAvg, m_weatherOutTemp);
+
+    m_tinyNN_preheat = pred.preheat_score;
+    m_tinyNN_buffer = pred.buffer_pct;
+
+    // ── Preheat boost ──
+    if (pred.preheat_score > 0.5f && m_weatherBonus > 0)
+    {
+        int boost = (int)(onePhase * pred.preheat_score * pred.buffer_pct);
+        targetPower += boost;
+        targetPower = basePower(targetPower);
+    }
+
+    // ── Remember experience ──
+    computeMLReward(measuredPower, targetPower, resolveInputTemp()); // reward signal
+
+    TinyNNExperience exp;
+    exp.temp           = normTemp * 2.0f - 1.0f;
+    exp.pv_ratio       = m_weatherPvRatio * 2.0f - 1.0f;
+    exp.cloud_avg      = m_weatherCloudAvg;
+    exp.temp_outside   = m_weatherOutTemp;
+    exp.target_preheat = pred.preheat_score;
+    exp.target_buffer  = pred.buffer_pct;
+
+    tinyNN->remember(exp);
+    tinyNN->trainReplay();
+
+    return targetPower;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
