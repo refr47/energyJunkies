@@ -490,11 +490,24 @@ int PinManager::resolveInputTemp() const
 //
 // FIX: Return FULL surplus (not divided by 3). apply() handles phase logic
 //      based on full surplus vs. total heater capacity.
+//
+// Battery protection (universal – works with + without Fronius):
+//   m_battPower != 0 (Fronius) → accounted in surplus calc
+//   m_battPower == 0  (AmisReader) → neutral, identical to old logic
+//   m_battPower < 0  ( Akku entlädt) → Heater OFF
 int PinManager::getMeanOfAvailAblePower()
 {
-    // ── Schritt 1: Rauer Grid-Saldo ──
+    // ── Schritt 0: Akku-Entlade-Guard (nur Fronius, Amis=0 → immer false) ──
+    // m_battPower < 0 = Akku gibt Energie ab → nicht für Boiler verwenden
+    if (m_battPower < 0)
+    {
+        return 0;  // Akku entlädt → Boiler aus
+    }
+
+    // ── Schritt 1: Rauer PV-Überschuss (akkubewusst) ──
     // p_grid < 0 → Einspeisung (Überschuss), p_grid > 0 → Bezug
-    float measuredSurplus = -m_gridPower;
+    // -m_battPower: bei Laden (>0) reduziert, bei neutral (0) ändert nichts
+    float measuredSurplus = -m_gridPower - m_battPower;
 
     // Selbst-Kompensation: Nur wenn wir wirklich aus dem Netz ziehen.
     // Sonst addieren wir den Vorher-Zyklus-Zustand auf einen
