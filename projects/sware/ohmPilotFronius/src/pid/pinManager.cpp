@@ -408,7 +408,7 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
     m_tempMin = webSockData.setupData.tempMinInGrad;
     m_legionellenMaxTemp = webSockData.setupData.legionellenMaxTemp;
     m_legionellenDelta = webSockData.setupData.legionellenDelta;
-    m_akkuPriori = (webSockData.setupData.akkuPriori != 0);
+    m_akkuPriori =webSockData.setupData.akkuPriori;
     m_forceHeating = webSockData.setupData.forceHeating;
     m_forceHeatingStop = (int)webSockData.setupData.forceHeatingStop;
 
@@ -419,7 +419,7 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
         m_gridPower = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
         m_pV = webSockData.fronius_SOLAR_POWERFLOW.p_pv;
         m_soc = webSockData.fronius_SOLAR_POWERFLOW.soc;
-        m_battPower = webSockData.fronius_SOLAR_POWERFLOW.p_batt;
+        m_battPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
         m_meterPower = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
 #endif
     }

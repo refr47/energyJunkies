@@ -43,7 +43,7 @@
 
 /* ── Legacy-Defines (MB_CONTAINER entfaellt, EnergyState direkt) ──
    INVERTER_DATA, METER_DATA, AKKU_STATE, AKKU_STRG sind entfaellt.
-   Direkt: g_app.webSockData.energyState.p_grid, .p_pv, .soc, .p_batt  ── */
+   Direkt: g_app.webSockData.energyState.p_grid, .p_pv, .soc, .p_akku  ── */
 // #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
 
 /* ****************** SOCKETS *****************/
@@ -163,7 +163,7 @@ typedef struct energyState
     double p_load;       // Hauslast (W), neg = Verbrauch
     double p_pv;         // PV-Ertrag (W)
     double soc;          // Batterie SoC (%)
-    double p_batt;       // Batterieleistung (W), neg = laden
+    double p_akku;       // Batterieleistung (W), neg = laden
 } ENERGY_STATE;
 
 // ── MB_CONTAINER: nur fuer Modbus-Infrastruktur (mb_readInverter)
@@ -232,7 +232,6 @@ typedef struct _FRONIUS_SOLAR_POWERFLOW
     double p_grid;            // Site: Netzleistung (W)
     double p_load;            // Site: Hauslast (W)
     double p_pv;              // Site: PV-Leistung (W)
-    double p_batt;            // Inverter[1].P: Ladeleistung Batterie (W)
     double soc;               // Inverter[1].SOC: Ladezustand Batterie (%)   
     double e_day;             // Inverter[1].E_Day: Tagesertrag (Wh)
     double e_total;           // Inverter[1].E_Total: Gesamtertrag (Wh)

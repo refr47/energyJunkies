@@ -5,7 +5,7 @@
 
 #include "defines.h"
 
-#ifdef ESP_LILY_GO_
+#ifdef ESP_LILY_GO
 
 #include "tft.h"
 #include "img/wlanPic24.h"
@@ -46,7 +46,7 @@ static SemaphoreHandle_t tftMutex = xSemaphoreCreateMutex();
 
 void tft_init()
 {
-    LOG_DEBUG("tft_init");
+    LOG_DEBUG(TAG_TFT,"tft_init");
     tft.begin();
     tft.setRotation(1);
     tft.setSwapBytes(true);
@@ -62,7 +62,7 @@ void tft_init()
     tft.setSwapBytes(true);
     width = tft.width();
     height = tft.height();
-    LOG_DEBUG("TFT Width %d,Height: %d", width, height);
+    LOG_DEBUG(TAG_TFT,"TFT Width %d,Height: %d", width, height);
 
     tft.setRotation(1);
     tft.setTextColor(TFT_RED);
@@ -129,24 +129,24 @@ void tft_printSetup()
 #if defined(ESP32) || defined(ARDUINO_ARCH_ESP8266)
     if (user.esp < 0x32F000 || user.esp > 0x32FFFF)
     {
-        LOG_INFO("Frequency    =  %d MHz", ESP.getCpuFreqMHz());
+        LOG_INFO(TAG_TFT,"Frequency    =  %d MHz", ESP.getCpuFreqMHz());
     }
 #endif
 
-    LOG_DEBUG("Check tft SPI");
+    LOG_DEBUG(TAG_TFT,"Check tft SPI");
     if (user.pin_tft_mosi != -1)
     {
-        LOG_DEBUG("MOSI    =  %d", getPinName(user.pin_tft_mosi, user));
+        LOG_DEBUG(TAG_TFT,"MOSI    =  %d", getPinName(user.pin_tft_mosi, user));
     }
     if (user.pin_tft_miso != -1)
     {
 
-        LOG_DEBUG("MISO    =  %d", getPinName(user.pin_tft_miso, user));
+        LOG_DEBUG(TAG_TFT,"MISO    =  %d", getPinName(user.pin_tft_miso, user));
     }
     if (user.pin_tft_clk != -1)
     {
 
-        LOG_DEBUG("SCK    =  %d", getPinName(user.pin_tft_clk, user));
+        LOG_DEBUG(TAG_TFT,"SCK    =  %d", getPinName(user.pin_tft_clk, user));
     }
 
     String pinNameRef = "GPIO ";
@@ -315,7 +315,7 @@ static void tft_clearScreenFrom(int yFrom)
 
     tft.fillRect(0, yFrom, width, height, TFT_BLACK); // Bild ausschalten
     currentLine = yFrom % FONTSIZE_2;
-    LOG_DEBUG("tft-clearScreen with currentLine: %d", currentLine);
+    LOG_DEBUG(TAG_TFT,"tft-clearScreen with currentLine: %d", currentLine);
 }
 
 static inline void tft_printTextToPos(int x, int y, int fontsize, const char *txt, u_int16_t colourText)
@@ -464,14 +464,14 @@ void tft_drawInfo(WEBSOCK_DATA &webSockData)
         tft_printTextToPos(134, FONTSIZE_2_ONE_LINE * currentLine++, FONTSIZE_2, "Pufferspeicher", TFT_SKYBLUE);
         txtColor = TFT_WHITE;
 
-        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(fabs(webSockData.energyState.p_batt), formatBuffer));
+        sprintf(displayBuffer, "%s", util_format_Watt_kWatt(fabs(webSockData.energyState.p_akku), formatBuffer));
         tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Kapazität", displayBuffer);
         sprintf(displayBuffer, "%s", webSockData.pidContainer.PID_PIN1 == 1 ? "ein" : "aus");
         tft_prinBlock(DRAW_INFO_COL2, DRAW_INFO_COL2_2, txtColor, "Phase 1", displayBuffer);
         ++currentLine;
 
-        sprintf(displayBuffer, "%.0f W", webSockData.energyState.p_batt);
-        if (webSockData.energyState.p_batt < 0.0)
+        sprintf(displayBuffer, "%.0f W", webSockData.energyState.p_akku);
+        if (webSockData.energyState.p_akku < 0.0)
         {
             txtColor = TFT_GREEN;
             tft_prinBlock(DRAW_INFO_COL1, DRAW_INFO_COL1_2, txtColor, "Laden", displayBuffer);

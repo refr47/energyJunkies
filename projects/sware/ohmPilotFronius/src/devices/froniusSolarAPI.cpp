@@ -95,10 +95,10 @@ bool solar_get_powerflow(WEBSOCK_DATA &webSockData)
     }
 
     JSONVar siteObj = my_obj["Body"]["Data"]["Site"];
-    webSockData.fronius_SOLAR_POWERFLOW.p_akku = siteObj["P_Akku"];
-    webSockData.fronius_SOLAR_POWERFLOW.p_grid = siteObj["P_Grid"];
-    webSockData.fronius_SOLAR_POWERFLOW.p_load = siteObj["P_Load"];
-    webSockData.fronius_SOLAR_POWERFLOW.p_pv   = siteObj["P_PV"];
+    webSockData.fronius_SOLAR_POWERFLOW.p_akku = siteObj["P_Akku"]; // > 0: Bezug vom akku,  <0: akku laden
+    webSockData.fronius_SOLAR_POWERFLOW.p_grid = siteObj["P_Grid"]; // öffentliches netz: <0 = einspeisung, >0 bezug
+    webSockData.fronius_SOLAR_POWERFLOW.p_load = siteObj["P_Load"];  // haus verbrauch < 0: verbrauch > 0 einspeisung
+    webSockData.fronius_SOLAR_POWERFLOW.p_pv   = siteObj["P_PV"]; // PV-Leistung (W)
     webSockData.fronius_SOLAR_POWERFLOW.rel_Autonomy         = siteObj["rel_Autonomy"];
     webSockData.fronius_SOLAR_POWERFLOW.rel_SelfConsumption  = siteObj["rel_SelfConsumption"];
 
@@ -110,8 +110,8 @@ bool solar_get_powerflow(WEBSOCK_DATA &webSockData)
         JSONVar invEDay   = invObj["E_Day"];   // Tagesertrag (Wh) – kann null sein
         JSONVar invETotal = invObj["E_Total"]; // Gesamtertrag (Wh)
 
-        webSockData.fronius_SOLAR_POWERFLOW.p_batt  = invP;
-        webSockData.fronius_SOLAR_POWERFLOW.soc     = invSOC;
+      
+        webSockData.fronius_SOLAR_POWERFLOW.soc     = invSOC;  // ladezustand batterie in % (0-100)
 
         // E_Day kann null sein (nachts / kein PV-Betrieb)
         if (JSON.typeof(invEDay) != "null" && JSON.typeof(invEDay) != "undefined")
