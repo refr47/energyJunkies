@@ -33,7 +33,7 @@ public:
     // helper
     void allOn();
     void allOff();
-    static int getStateOfDigPin(short pin);
+     int getStateOfDigPin(short pin);
     int getStateOfAnaPin();
     void apply(LogEntry &logEntry, int power);
     void reset();
@@ -41,6 +41,11 @@ public:
 
 private:
 
+    bool toggleRelay(int pin, bool wantOn, bool keepOn,
+                       unsigned long &lastSwitch, unsigned long minSwitch,
+                       unsigned long now);
+
+    int clampRampDown(int targetPower, int lastSmoothedPower);
     // Hardware
     int pinL1, pinL2, pwmPin;
 

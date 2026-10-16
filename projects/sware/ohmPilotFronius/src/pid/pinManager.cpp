@@ -258,13 +258,13 @@ int PinManager::getStateOfAnaPin()
         return analogRead(pwmPin);
     return 0;
 }
-
+ 
 // ──────────────────────────────────────────────────────────────────────────
 // toggleRelay — helper: toggle one relay with hysteresis + min-dwell
 //
 // Returns: true if relay is now HIGH, false if LOW/unchanged
 // ──────────────────────────────────────────────────────────────────────────
-static bool toggleRelay(int pin, bool wantOn, bool keepOn,
+bool PinManager::toggleRelay(int pin, bool wantOn, bool keepOn,
                        unsigned long &lastSwitch, unsigned long minSwitch,
                        unsigned long now)
 {
@@ -750,7 +750,7 @@ int PinManager::handleModeAuto(LogEntry& logEntry,
 // so relays don't toggle instantly.
 // Pure helper → static.
 // ──────────────────────────────────────────────────────────────────────────
-static int clampRampDown(int targetPower, int lastSmoothedPower)
+int PinManager::clampRampDown(int targetPower, int lastSmoothedPower)
 {
     int diff = targetPower - lastSmoothedPower;
     if (diff < 0)
