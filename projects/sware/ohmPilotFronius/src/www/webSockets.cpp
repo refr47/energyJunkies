@@ -110,7 +110,7 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
         // Batteriewerte (Solar API)
         live[AKKU_CAPACITA]      = BATTERY_CAPACITY_KW;
         live[AKKU_ZUSTAND]       = data.fronius_SOLAR_POWERFLOW.soc;
-        live[AKKU_ENTLADEN]      = -data.fronius_SOLAR_POWERFLOW.p_akku;
+        live[AKKU_ENTLADEN]      = data.fronius_SOLAR_POWERFLOW.p_akku; // <0 laden, > 0 laden
 
         live["dataSource"]       = "fronius";
     }

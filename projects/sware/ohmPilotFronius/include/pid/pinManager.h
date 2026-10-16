@@ -104,8 +104,8 @@ private:
     int   m_legionellenMaxTemp;
     unsigned long m_legionellenDelta;
     int   m_akkuPriori;
-    float m_gridPower;       // PV-Ertrag (W)
-    float m_meterPower;      // Netz (W), neg = Einspeisung
+    float m_gridPower;       // Grid-Saldo (W), neg = Einspeisung
+
     float m_pV;              // PV-Ertrag (W)
     float m_soc;             // Batterie SoC (%)
     float m_battPower;       // Batterieleistung (W), neg = laden

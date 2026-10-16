@@ -76,7 +76,6 @@ PinManager::PinManager()
     m_legionellenDelta = 0;
     m_akkuPriori = 0;
     m_gridPower = 0;
-    m_meterPower = 0;
     m_pV = 0;
     m_soc = 0;
     m_battPower = 0;
@@ -420,7 +419,6 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
         m_pV = webSockData.fronius_SOLAR_POWERFLOW.p_pv;
         m_soc = webSockData.fronius_SOLAR_POWERFLOW.soc;
         m_battPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
-        m_meterPower = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
 #endif
     }
 #ifdef AMIS_READER_DEV
@@ -429,7 +427,6 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
         // AmisReader Smart-Meter am Netzgrenzpunkt:
         //   saldo  = 1.7.0 - 2.7.0  ≡  p_grid  (+Bezug, −Einspeisung)
         m_gridPower = (float)webSockData.amisReader.saldo;   // ≡ p_grid
-        m_meterPower = (float)webSockData.amisReader.saldo;   // ≡ p_grid
         m_pV = (float)webSockData.amisReader.exportInWatt; // Einspeisung
         m_soc = 0;
         m_battPower = 0;
@@ -513,14 +510,15 @@ int PinManager::resolveInputTemp() const
 //      based on full surplus vs. total heater capacity.
 int PinManager::getMeanOfAvailAblePower()
 {
-    // ── Schritt 1: Selbst-Kompensation VOR der EMA ──
-    // Das Smart-Meter misst an der Netzgrenze. Der eigene
-    // Heater-Bezug sitzt IM Saldo → wird als "weniger PV" gesehen.
-    // Ohne Kompensation: Regler schaltet an → saldo fällt auf ~+576
-    //   → Regler schaltet wieder ab → saldo steigt wieder → Schwingung!
-    // Lösung: Heater-Verbrauch herausaddieren.
-    float measuredSurplus = -m_meterPower;
-    measuredSurplus += heaterPower();
+    // ── Schritt 1: Rauer Grid-Saldo ──
+    // p_grid < 0 → Einspeisung (Überschuss), p_grid > 0 → Bezug
+    float measuredSurplus = -m_gridPower;
+
+    // Selbst-Kompensation: Nur wenn wir wirklich aus dem Netz ziehen.
+    // Sonst addieren wir den Vorher-Zyklus-Zustand auf einen
+    // ohnehin schon negativen Saldo → falsche EMA-Einschätzung.
+    if (m_gridPower > 0)
+        measuredSurplus += heaterPower();
 
     // ── Schritt 2: EMA-Glättung auf den kompensierten Wert ──
 
@@ -987,7 +985,7 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
 
         measuredPower = getMeanOfAvailAblePower();
 
-        if (measuredPower > 0 || doML)
+        if (measuredPower > 0)
         {
             handleModeAuto(logEntry, measuredPower, doML);
         }
