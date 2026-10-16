@@ -21,7 +21,7 @@
 
 // ── Constants (legacy, used by original code) ──
 #define FASE_EINS_POWER 576     // W per phase (standard 3-phase heater)
-#define PUFFER_AKKU_PRIORI 50   // Battery SoC threshold for priority
+#define PUFFER_AKKU_PRIORI 99   // Battery SoC threshold for priority
 #define RAMP_DOWN_STEP 100      // Max W decrease per ramp interval (per phase, legacy)
 #define RAMP_DOWN_STEP_TOTAL 300 // Max W decrease TOTAL (3 phases × 100)
 #define EMA_ALPHA 0.15          // Glättungsfaktor (0.15 → 160s Halbwertszeit bei 40s Fetch)

@@ -39,7 +39,7 @@
 #define AKKU_CAPACITA "aakPower"
 #define AKKU_ZUSTAND "aakStat"
 #define AKKU_ENTLADEN "aakEntladen"
-#define BATTERY_CAPACITY_KW 14.0 // fixe Batteriekapazitaet
+#define BATTERY_CAPACITY_KW 14000 // fixe Batteriekapazitaet
 
 #define NETZ_EXPORT_INS "NEI"
 #define NETZ_IMPORT_INS "NII"

@@ -67,8 +67,8 @@ const aakPower      = computed(() => Math.round(props.liveData?.aakPower ?? 0));
 const aakEntladen   = computed(() => Math.round(props.liveData?.aakEntladen ?? 0));
 
 // ├── p_batt: negative = laden → aakEntladen = -p_batt > 0 bei Laden
-const isCharging    = computed(() => aakEntladen.value > 0);
-const isDischarging = computed(() => aakEntladen.value < 0);
+const isCharging    = computed(() => aakEntladen.value < 0);
+const isDischarging = computed(() => aakEntladen.value > 0);
 
 // ── Akkufuellstand: Breite + Farbe ──
 const cellWidth = computed(() => {
