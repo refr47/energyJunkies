@@ -334,6 +334,9 @@ bool util_SendLoxone(char* url, char* loxone_user, char* loxone_pwd)
 void utils_logInit(RingBuffer& rb)
 {
 	LOG_DEBUG(TAG_UTILS, "utils_logInit");
+	// lastAddedEntry zero-init (verhindert Zufallswerte im 1. Dedup-Check)
+	memset(&rb.lastAddedEntry, 0, sizeof(LogEntry));
+
 	rb.mutex = xSemaphoreCreateMutex();  // ← Correct type
     if (rb.mutex == NULL) {
         LOG_ERROR(TAG_UTILS, "Failed to create mutex for log buffer");

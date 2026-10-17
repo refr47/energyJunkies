@@ -218,7 +218,7 @@ void setup()
             RELAY_L2,
             PWM_FOR_PID);
 
-        g_app.pinManager.testPins(RELAY_L1, RELAY_L2, PWM_FOR_PID);
+        //g_app.pinManager.testPins(RELAY_L1, RELAY_L2, PWM_FOR_PID);
 
 #ifdef INFLUX
         g_app.webSockData.states.influx = influx_init(getDataForWebSocket);

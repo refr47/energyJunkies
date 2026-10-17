@@ -15,57 +15,23 @@
 // 4. Battery priority: charger first, boiler only on excess
 // 5. Phase-safe: relays only ON when full phase-power available
 // =============================================================================
-
 #include "utils.h"
 #include "pinManager.h"
-
+#include "batteryMonitor.h"
+#include "logCommitter.h"
 // ── Constants (legacy, used by original code) ──
 #define FASE_EINS_POWER 576     // W per phase (standard 3-phase heater)
 #define PUFFER_AKKU_PRIORI 99   // Battery SoC threshold for priority
 #define RAMP_DOWN_STEP 100      // Max W decrease per ramp interval (per phase, legacy)
 #define RAMP_DOWN_STEP_TOTAL 300 // Max W decrease TOTAL (3 phases × 100)
 #define EMA_ALPHA 0.15          // Glättungsfaktor (0.15 → 160s Halbwertszeit bei 40s Fetch)
-
 // ──────────────────────────────────────────────────────────────────────────
 // Constructor
 // ──────────────────────────────────────────────────────────────────────────
-
-// ── Inline Helpers: LogEntry-Füllung & Log/State-Commit ──
-void PinManager::fillEntry(LogEntry &le, unsigned long now,
-                          uint8_t state, int power, uint8_t pwm, int temp)
-{
-    le.ts = now;
-    le.state = state;
-    le.power = power;
-    le.pwm = pwm;
-    le.temp = temp;
-}
-
-void PinManager::commit(LogEntry &le, WEBSOCK_DATA &webSockData)
-{
-    utils_logWrite(webSockData.logBuffer, le);
-    pidLockWrite(webSockData);
-}
-
 PinManager::PinManager()
 {
-    pinL1 = 0;
-    pinL2 = 0;
-    pwmPin = 0;
-    onePhase = 0;
-    currentPhases = 0;
-    currentPWM = 0;
     lastLegionella = 0;
     legionella = false;
-    availablePower.clear();
-    powerIndex = 0;
-    rest = 0;
-    lastSwitchL1 = 0;
-    lastSwitchL2 = 0;
-    lastSwitchPwm = 0;
-    emaSurplus = 0;
-    emaInitialized = false;
-
     m_sensor1 = 0;
     m_sensor2 = 0;
     m_froniusAPI = false;
@@ -74,30 +40,19 @@ PinManager::PinManager()
     m_tempMin = 45;
     m_legionellenMaxTemp = 0;
     m_legionellenDelta = 0;
-    m_akkuPriori = 0;
-    m_gridPower = 0;
-    m_pV = 0;
-    m_soc = 0;
-    m_battPower = 0;
-    m_wattSetupForTest = 0;
     m_forceHeating = 0;
     m_forceHeatingStop = 0;
-
     m_out_boilerHeating = false;
-    m_out_wattBiasForTest = false;
-
     m_weatherBonus = 0;
     m_weatherPvRatio = 1.0f;
     m_weatherCloudAvg = 0.5f;
     m_weatherOutTemp = 20.0f;
-
 #ifdef TINYNN_ENABLE
     tinyNN = nullptr;
     m_tinyNN_preheat = 0;
     m_tinyNN_buffer = 0;
 #endif
 }
-
 // ──────────────────────────────────────────────────────────────────────────
 // Destructor
 // ──────────────────────────────────────────────────────────────────────────
@@ -111,7 +66,6 @@ PinManager::~PinManager()
     }
 #endif
 }
-
 // ──────────────────────────────────────────────────────────────────────────
 // CONFIG — initialize pin assignments and hardware parameters
 //
@@ -120,130 +74,57 @@ PinManager::~PinManager()
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::config(WEBSOCK_DATA& data, int l1, int l2, int pwm)
 {
-    pinL1 = l1;
-    pinL2 = l2;
-    pwmPin = pwm;
-
-    // Total heater power from setup (3-phase), onePhase = per-phase share
+    // Initialize PhaseController with pin numbers
+    phaseCtrl.initPins(l1, l2, pwm);
+    // TinyNN needs onePhase for target bounds
     float totalPower = (float)data.setupData.heizstab_leistung_in_watt;
-    onePhase = (totalPower > 0.0f) ? (int)(totalPower / 3.0f) : FASE_EINS_POWER;
-
-    // Pin directions
-    pinMode(pinL1, OUTPUT);
-    pinMode(pinL2, OUTPUT);
-    pinMode(pwmPin, OUTPUT);
-
-    // Enable PWM on phase 3 pin
-    analogWrite(pwmPin, 0);
-
-    // Default: relays LOW = OFF (SSRs)
-    digitalWrite(pinL1, LOW);
-    digitalWrite(pinL2, LOW);
-
+    int onePhase = (totalPower > 0.0f) ? (int)(totalPower / 3.0f) : FASE_EINS_POWER;
+    phaseCtrl.setOnePhase(onePhase);
+    // Initialize MLPredictor with temp bounds and max power
+    int maxPower = onePhase * 3;
+    mlPredictor.init(
+        (float)data.setupData.tempMinInGrad,
+        (float)data.setupData.tempMaxAllowedInGrad,
+        maxPower);
 #ifdef TINYNN_ENABLE
     // Initialize TinyNN if enabled
     if (tinyNN == nullptr)
     {
-        tinyNN = new TinyNN((float)onePhase * 3.0f,
+        tinyNN = new TinyNN((float)maxPower,
             (float)data.setupData.tempMinInGrad,
             (float)data.setupData.tempMaxAllowedInGrad);
         tinyNN->load();
     }
+    // Pass TinyNN pointer to MlPredictor
+    mlPredictor.setTinyNN(tinyNN);
 #endif
-
     LOG_INFO(TAG_PID,
         "PinManager configured: relay1=%d relay2=%d pwm=%d onePhase=%dW maxTemp=%d minTemp=%d",
         l1, l2, pwm, onePhase,
         data.setupData.tempMaxAllowedInGrad,
         data.setupData.tempMinInGrad);
 }
-
 // ──────────────────────────────────────────────────────────────────────────
-// testPins — hardware verification blip (350ms HIGH, then LOW)
+// testPins — hardware verification blip
 // ──────────────────────────────────────────────────────────────────────────
-void PinManager::testPins(int l1, int l2, int pwm)
+void PinManager::testPins(int, int, int)
 {
-    int pins[] = { l1, l2, pwm };
-    for (int i = 0; i < 3; i++)
-    {
-        if (pins[i] > 0)
-        {
-            pinMode(pins[i], OUTPUT);
-            digitalWrite(pins[i], HIGH);
-            delay(350);
-            digitalWrite(pins[i], LOW);
-        }
-    }
-    if (pwm > 0)
-        analogWrite(pwm, 0);
+    phaseCtrl.testPins();
 }
-
 // ──────────────────────────────────────────────────────────────────────────
 // reset — clear all state, turn off pins, clear targets
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::reset()
 {
     LOG_INFO(TAG_PID, "PinManager reset() called. Heater off.");
-
-    currentPhases = 0;
-    currentPWM = 0;
+    phaseCtrl.allOff();
     lastLegionella = 0;
     legionella = false;
-    lastSwitchL1 = 0;
-    lastSwitchL2 = 0;
-    lastSwitchPwm = 0;
-    emaSurplus = 0;
-    emaInitialized = false;
-    lastTargetPower = 0;
     lastSmoothedPower = 0;
     m_froniusAPI = false;
     m_boilerHeating = false;
     m_out_boilerHeating = false;
-    m_out_wattBiasForTest = false;
-
-    if (pinL1 > 0)  digitalWrite(pinL1, LOW);
-    if (pinL2 > 0)  digitalWrite(pinL2, LOW);
-    if (pwmPin > 0) analogWrite(pwmPin, 0);
 }
-
-// ──────────────────────────────────────────────────────────────────────────
-// allOn — emergency max-power (used by legio / min-temp / test)
-// ──────────────────────────────────────────────────────────────────────────
-void PinManager::allOn()
-{
-    unsigned long now = millis();
-
-    if (pinL1 > 0)  digitalWrite(pinL1, HIGH);
-    if (pinL2 > 0)  digitalWrite(pinL2, HIGH);
-    if (pwmPin > 0) analogWrite(pwmPin, (uint8_t)OUTPUT_MAX);
-
-    currentPhases = 2;
-    currentPWM = (int)OUTPUT_MAX;
-    lastSwitchL1 = now;
-    lastSwitchL2 = now;
-    lastSwitchPwm = now;
-}
-
-
-void PinManager::allOff()
-{
-    if (currentPhases > 0 || currentPWM > 0)
-    {
-        LOG_INFO(TAG_PID, "PinManager::allOff() called. Heater off.");
-        if (pinL1 > 0)  digitalWrite(pinL1, LOW);
-        if (pinL2 > 0)  digitalWrite(pinL2, LOW);
-        if (pwmPin > 0) analogWrite(pwmPin, (uint8_t)0);
-
-        lastSwitchL1 = millis();
-        lastSwitchL2 = millis();
-        lastSwitchPwm = millis();
-    }
-
-    currentPhases = 0;
-    currentPWM = 0;
-    m_out_boilerHeating = false;
-}
-
 // ──────────────────────────────────────────────────────────────────────────
 // getStateOfDigPin / getStateOfAnaPin — read-back hardware state
 // ──────────────────────────────────────────────────────────────────────────
@@ -251,128 +132,13 @@ int PinManager::getStateOfDigPin(short pin)
 {
     return digitalRead(pin);
 }
-
 int PinManager::getStateOfAnaPin()
 {
-    if (pwmPin > 0)
-        return analogRead(pwmPin);
+    // pwmPin is private in PhaseController, accessed via friend
+    if (phaseCtrl.pwmPin > 0)
+        return analogRead(phaseCtrl.pwmPin);
     return 0;
 }
- 
-// ──────────────────────────────────────────────────────────────────────────
-// toggleRelay — helper: toggle one relay with hysteresis + min-dwell
-//
-// Returns: true if relay is now HIGH, false if LOW/unchanged
-// ──────────────────────────────────────────────────────────────────────────
-bool PinManager::toggleRelay(int pin, bool wantOn, bool keepOn,
-                       unsigned long &lastSwitch, unsigned long minSwitch,
-                       unsigned long now)
-{
-    bool active = (pin > 0) && (getStateOfDigPin(pin) == HIGH);
-
-    if (wantOn && !active)
-    {
-        if (now - lastSwitch >= minSwitch)
-        { digitalWrite(pin, HIGH); lastSwitch = now; return true; }
-    }
-    else if (!wantOn && !keepOn && active)
-    {
-        if (now - lastSwitch >= minSwitch)
-        { digitalWrite(pin, LOW);  lastSwitch = now; return false; }
-    }
-    return active;   // unchanged
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// apply — translate power output into relay/PWM pin assignments + logging
-//
-// Step-up logic (3 phases):
-//   Phase 1 (relay1)  if power >= onePhase
-//   Phase 1+2 (relay2) if power >= 2*onePhase
-//   Phase 3 (PWM)     proportional for any remainder above active relays
-//
-// HYSITERESIS:
-//   - ON at ≥ threshold, OFF at ≤ (threshold - HYSTERESIS_WATT)
-//   - MIN_SWITCH_L1/L2: 10s min dwell before relay toggle (on & off)
-//   - MIN_SWITCH_PWM: 2s for PWM updates
-//   - Small fluctuations within DEAD_BAND are ignored
-//
-// FIX #1: currentPhases derived from ACTUAL relay state (read-back),
-//         computed BEFORE PWM remainder calc — no stale-state bug.
-// ──────────────────────────────────────────────────────────────────────────
-void PinManager::apply(LogEntry& logEntry, int power)
-{
-    unsigned long now = millis();
-
-    // Clamp power to valid range
-    int clampedPower = power;
-    if (clampedPower < 0)               clampedPower = 0;
-    if (clampedPower > onePhase * 3)    clampedPower = onePhase * 3;
-
-    // Deadband: only evaluate hardware changes if difference exceeds threshold
-    int diff = abs(clampedPower - lastTargetPower);
-    if (diff < DEAD_BAND)
-    {
-        lastTargetPower = clampedPower;
-        logEntry.power = clampedPower;
-        logEntry.state = (uint8_t)MODE_AUTO;
-        return;
-    }
-
-    lastTargetPower = clampedPower;
-
-    // ── Hysteresis thresholds ──
-    const int hyst1On = onePhase;
-    const int hyst1Off = onePhase - HYSTERESIS_WATT;
-    const int hyst2On = onePhase * 2;
-    const int hyst2Off = onePhase * 2 - HYSTERESIS_WATT;
-
-    // ── Toggle relays (deduplicated via helper) ──
-    bool l1Active = toggleRelay(pinL1,
-        clampedPower >= hyst1On,
-        clampedPower > hyst1Off && clampedPower < hyst1On,
-        lastSwitchL1, MIN_SWITCH_L1, now);
-
-    bool l2Active = toggleRelay(pinL2,
-        clampedPower >= hyst2On,
-        clampedPower > hyst2Off && clampedPower < hyst2On,
-        lastSwitchL2, MIN_SWITCH_L2, now);
-
-    // ── FIX #1: Compute currentPhases from ACTUAL relay state ──
-    currentPhases = (l1Active ? 1 : 0) + (l2Active ? 1 : 0);
-
-    // ── PWM (Phase 3): Proportional remainder based on active relay power ──
-    int relayPower = currentPhases * onePhase;
-    int remainder = clampedPower - relayPower;
-
-    if (remainder <= 0)
-    {
-        // Active relays already cover the target → PWM off
-        currentPWM = 0;
-        if (pwmPin > 0)
-        {
-            analogWrite(pwmPin, 0);
-            lastSwitchPwm = now;
-        }
-    }
-    else
-    {
-        // Cap remainder at onePhase (PWM handles max 1 phase)
-        if (remainder > onePhase) remainder = onePhase;
-        currentPWM = (int)((remainder * OUTPUT_MAX) / (float)onePhase);
-        if (pwmPin > 0)
-        {
-            analogWrite(pwmPin, (uint8_t)currentPWM);
-            lastSwitchPwm = now;
-        }
-    }
-
-    // ── Log ──
-    logEntry.power = clampedPower;
-    logEntry.pwm = (uint8_t)currentPWM;
-    logEntry.state = (uint8_t)MODE_AUTO;
-}
-
 // ──────────────────────────────────────────────────────────────────────────
 // pidLockRead — copy shared data into local members (thread-safe under lock)
 //
@@ -389,18 +155,18 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
     m_tempMin = webSockData.setupData.tempMinInGrad;
     m_legionellenMaxTemp = webSockData.setupData.legionellenMaxTemp;
     m_legionellenDelta = webSockData.setupData.legionellenDelta;
-    m_akkuPriori =webSockData.setupData.akkuPriori;
     m_forceHeating = webSockData.setupData.forceHeating;
     m_forceHeatingStop = (int)webSockData.setupData.forceHeatingStop;
-
-    // Energy state
+    // ── Energy state → BatteryMonitor ──
     if (m_froniusAPI)
     {
 #ifdef FRONIUS_IV
-        m_gridPower = webSockData.fronius_SOLAR_POWERFLOW.p_grid;
-        m_pV = webSockData.fronius_SOLAR_POWERFLOW.p_pv;
-        m_soc = webSockData.fronius_SOLAR_POWERFLOW.soc;
-        m_battPower = webSockData.fronius_SOLAR_POWERFLOW.p_akku;
+        batteryMon.update(
+            webSockData.fronius_SOLAR_POWERFLOW.p_grid,
+            webSockData.fronius_SOLAR_POWERFLOW.p_akku,
+            webSockData.fronius_SOLAR_POWERFLOW.soc,
+            webSockData.setupData.akkuPriori,
+            webSockData.setupData.wattSetupForTest);
 #endif
     }
 #ifdef AMIS_READER_DEV
@@ -408,16 +174,15 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
     {
         // AmisReader Smart-Meter am Netzgrenzpunkt:
         //   saldo  = 1.7.0 - 2.7.0  ≡  p_grid  (+Bezug, −Einspeisung)
-        m_gridPower = (float)webSockData.amisReader.saldo;   // ≡ p_grid
-        m_pV = (float)webSockData.amisReader.exportInWatt; // Einspeisung
-        m_soc = 0;
-        m_battPower = 0;
+        batteryMon.update(
+            (float)webSockData.amisReader.saldo,
+            0,  // No battery power data
+            0,  // No SOC data
+            webSockData.setupData.akkuPriori,
+            webSockData.setupData.wattSetupForTest);
     }
 #endif
-
-    m_wattSetupForTest = webSockData.setupData.wattSetupForTest;
 }
-
 // ──────────────────────────────────────────────────────────────────────────
 // pidLockWrite — write local output back to shared pidContainer
 //
@@ -426,281 +191,58 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::pidLockWrite(WEBSOCK_DATA& webSockData)
 {
-    webSockData.pidContainer.mCurrentPower = (currentPhases * onePhase);
-    if (currentPWM > 0)
-    {
-        webSockData.pidContainer.mCurrentPower +=
-            (int)((currentPWM / OUTPUT_MAX) * onePhase);
-    }
-
-    webSockData.pidContainer.PID_PIN1 = (currentPhases >= 1);
-    webSockData.pidContainer.PID_PIN2 = (currentPhases >= 2);
-    webSockData.pidContainer.mAnalogOut = currentPWM;
-
+    // PhaseController provides current phase/PWM state
+    int cp = phaseCtrl.getActivePhases();
+    int cw = phaseCtrl.getPwm();
+    webSockData.pidContainer.mCurrentPower = phaseCtrl.getHeaterPower();
+    webSockData.pidContainer.PID_PIN1 = (cp >= 1);
+    webSockData.pidContainer.PID_PIN2 = (cp >= 2);
+    webSockData.pidContainer.mAnalogOut = cw;
     // Weather + TinyNN prediction fields
     webSockData.pidContainer.weatherBonus = m_weatherBonus;
     webSockData.pidContainer.weatherPvRatio = m_weatherPvRatio;
     webSockData.pidContainer.weatherCloudAvg = m_weatherCloudAvg;
     webSockData.pidContainer.weatherOutTemp = m_weatherOutTemp;
-
     // Boiler heating status
-    m_out_boilerHeating = (currentPhases > 0 || currentPWM > 0);
+    m_out_boilerHeating = (cp > 0 || cw > 0);
     webSockData.states.boilerHeating = m_out_boilerHeating;
-
 #ifdef TINYNN_ENABLE
     webSockData.pidContainer.tinyNN_preheat_score = m_tinyNN_preheat;
     webSockData.pidContainer.tinyNN_buffer_pct = m_tinyNN_buffer;
 #endif
 }
-
 // ──────────────────────────────────────────────────────────────────────────
-// resolveInputTemp — compute average temperature from local copies
+// resolveInputTemp — delegated to ThermalController
 // ──────────────────────────────────────────────────────────────────────────
 int PinManager::resolveInputTemp() const
 {
-    int s1 = m_sensor1;
-    int s2 = m_sensor2;
-
-    // Handle sensor fail (negative = bad reading)
-    if (s1 < 0 && s2 < 0)
-        return m_tempMaxAllowed; // safe: above max → heater off
-    if (s1 < 0)
-        return s2;
-    if (s2 < 0)
-        return s1;
-
-    return (s1 + s2) / 2;
+    return ThermalController::resolveInputTemp(
+        m_sensor1, m_sensor2, m_tempMaxAllowed, m_tempMin);
 }
-
 // ──────────────────────────────────────────────────────────────────────────
-// getMeanOfAvailAblePower — GESAMTER PV-Überschuss (nicht pro Phase)
-//
-// Smart meter measures grid power at the connection point:
-//   p_grid < 0 → Einspeisung (Überschuss)
-//   p_grid > 0 → Bezug (Defizit)
-//
-// NO heater compensation: The smart meter already includes heater draw.
-// If meter shows -200W, then 200W of surplus IS available.
-// As the heater turns on, this value naturally drops → next cycle
-// will see less surplus → controller adjusts automatically.
-//
-// Battery priority:
-//   - SOC < threshold → heater OFF (charge battery first)
-//   - SOC >= threshold → heater allowed
-//
-// FIX: Return FULL surplus (not divided by 3). apply() handles phase logic
-//      based on full surplus vs. total heater capacity.
-//
-// Battery protection (universal – works with + without Fronius):
-//   m_battPower != 0 (Fronius) → accounted in surplus calc
-//   m_battPower == 0  (AmisReader) → neutral, identical to old logic
-//   m_battPower < 0  ( Akku entlädt) → Heater OFF
-int PinManager::getMeanOfAvailAblePower()
-{
-    // ── Schritt 0: Akku-Entlade-Guard (nur Fronius, Amis=0 → immer false) ──
-    // m_battPower < 0 = Akku gibt Energie ab → nicht für Boiler verwenden
-    if (m_battPower < 0)
-    {
-        return 0;  // Akku entlädt → Boiler aus
-    }
-
-    // ── Schritt 1: Rauer PV-Überschuss (akkubewusst) ──
-    // p_grid < 0 → Einspeisung (Überschuss), p_grid > 0 → Bezug
-    // -m_battPower: bei Laden (>0) reduziert, bei neutral (0) ändert nichts
-    float measuredSurplus = -m_gridPower - m_battPower;
-
-    // Selbst-Kompensation: Nur wenn wir wirklich aus dem Netz ziehen.
-    // Sonst addieren wir den Vorher-Zyklus-Zustand auf einen
-    // ohnehin schon negativen Saldo → falsche EMA-Einschätzung.
-    if (m_gridPower > 0)
-        measuredSurplus += heaterPower();
-
-    // ── Schritt 2: EMA-Glättung auf den kompensierten Wert ──
-
-    // EMA smoothing (Exponential Moving Average)
-    // α=0.15 → Halbwertszeit ≈ 4.7 Fetch-Cycles (=188s bei 40s Intervall)
-    // Konstant: ±20-50W bei 1Hz Abtastung; bei 40s Interval
-    // gleicht die EMA nur über ~2-3 Samples, nicht über 5.
-    // Das verhindert "Jitter" bei 40s-Steuern.
-    if (!emaInitialized) {
-        emaSurplus = measuredSurplus;
-        emaInitialized = true;
-    }
-    else {
-        emaSurplus = EMA_ALPHA * measuredSurplus + (1.0 - EMA_ALPHA) * emaSurplus;
-    }
-
-    // ── Schritt 3: Nach EMA prüfen, ob echter Überschuss vorliegt ──
-    if (emaSurplus <= 0)
-    {
-        return 0;  // Kein Überschuss → Boiler aus
-    }
-
-    // ── Schritt 4: Battery priority (nur bei Fronius relevant) ──
-    // m_soc > 0 Guard: AmisReader hat keine Batterie (soc=0) →
-    //                  akkuPriori wäre sonst stillschweigend ein Heater-Stop.
-    if (m_akkuPriori && m_soc > 0)
-    {
-        int battThreshold = PUFFER_AKKU_PRIORI;
-        if ((int)m_soc < battThreshold)
-        {
-            return 0;  // SOC zu niedrig → Boiler aus, Akku zuerst laden
-        }
-    }
-
-    // ── Schritt 5: Test-Bias (geht vor EMA-Ergebnis) ──
-    int availablePower = (int)emaSurplus;
-    if (m_wattSetupForTest > 0)
-    {
-        availablePower = m_wattSetupForTest;
-        m_out_wattBiasForTest = true;
-    }
-
-    return availablePower;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// heaterPower — current heater draw in watts
-// ──────────────────────────────────────────────────────────────────────────
-int PinManager::heaterPower()
-{
-    int power = 0;
-
-    // Relays: each contributes onePhase watts
-    power += (currentPhases)*onePhase;
-
-    // PWM: fractional contribution
-    if (currentPWM > 0)
-    {
-        power += (int)((currentPWM * onePhase) / OUTPUT_MAX);
-    }
-
-    return power;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// basePower — compute base target power from PV surplus
-// ──────────────────────────────────────────────────────────────────────────
-int PinManager::basePower(int effectivePower)
-{
-    // Clamp to valid range
-    int maxPower = onePhase * 3;
-    if (effectivePower < 0)   return 0;
-    if (effectivePower > maxPower) return maxPower;
-
-    return effectivePower;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// tempState / pvState — discretized state indices (for original RL design)
-// ──────────────────────────────────────────────────────────────────────────
-int PinManager::tempState(double t)
-{
-    int temp = (int)t;
-    if (temp < m_tempMin)
-        return 0;
-    if (temp > m_tempMaxAllowed)
-        return 1;
-    // Map [tempMin, tempMax] → [0, 1]
-    double range = (double)(m_tempMaxAllowed - m_tempMin);
-    if (range <= 0)
-        range = 1.0;
-    return (int)((temp - m_tempMin) / range);
-}
-
-int PinManager::pvState(double p)
-{
-    int power = (int)p;
-    int maxPower = onePhase * 3;
-    if (power <= 0)
-        return 0;
-    if (power >= maxPower)
-        return 1;
-    // Map [0, maxPower] → [0, 1]
-    if (maxPower <= 0)
-        maxPower = 1;
-    return (int)(power / (double)maxPower);
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// preCheck — determine control mode before main loop
-//
-// Sets mode based on temperature + legionella state:
-//   MODE_LEGIONELLA — if legio cycle is active and temp reached
-//   MODE_OFF — if temp at or above max (including weather bonus)
-//   MODE_MIN_TEMP — if temp below min (frost protection)
-//   MODE_AUTO — normal PID control
+// preCheck — delegated to ThermalController
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::preCheck(int temp, unsigned long nowMS,
     ControlMode& mode, bool& doML)
 {
-    doML = false;
-    mode = MODE_AUTO;
-
-    // Effective max temp includes weather bonus
     int effectiveMax = (int)(m_tempMaxAllowed + m_weatherBonus);
-
-    // ── Legionella cycle handling ──
-    if ((m_legionellenMaxTemp > 0) && (m_legionellenDelta > 0))
-    {
-        // Check if legio cycle should start
-        if (legionella)
-        {
-            // Already in legio mode — check if temp reached
-            if (temp >= m_legionellenMaxTemp)
-            {
-                mode = MODE_LEGIONELLA;
-                doML = false; // No ML during legio
-                return;
-            }
-        }
-        else
-        {
-            // Check if enough time passed for next legio cycle
-            unsigned long legioDeltaMs = m_legionellenDelta * 3600000UL; // hours→ms
-            if (nowMS - lastLegionella >= legioDeltaMs)
-            {
-                // Time for legio cycle
-                mode = MODE_LEGIONELLA;
-                lastLegionella = nowMS;
-                doML = false;
-                return;
-            }
-        }
-    }
-
-    // ── Max temp: heater off ──
-    if (temp >= effectiveMax)
-    {
-        mode = MODE_OFF;
-        legionella = false; // cancel legio if max temp hit
-        return;
-    }
-
-    // ── Min temp: full power (frost protection) ──
-    if (temp < m_tempMin)
-    {
-        mode = MODE_MIN_TEMP;
-        return;
-    }
-
-    // ── Normal auto mode ──
-    mode = MODE_AUTO;
-    doML = true;
+    ThermalController::evaluateMode(
+        temp, effectiveMax, m_tempMin,
+        m_legionellenMaxTemp, m_legionellenDelta,
+        nowMS,
+        legionella, lastLegionella,
+        mode, doML);
 }
-
 // ──────────────────────────────────────────────────────────────────────────
 // handleModeOff — max-temp reached; heater off, log state
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::handleModeOff(LogEntry& logEntry)
 {
     allOff();
-
     logEntry.state = (uint8_t)MODE_OFF;
     logEntry.power = 0;
     logEntry.pwm = 0;
 }
-
 // ──────────────────────────────────────────────────────────────────────────
 // handleModeAuto — PID-like controller for automatic mode
 //
@@ -720,170 +262,38 @@ int PinManager::handleModeAuto(LogEntry& logEntry,
     int& measuredPower, bool& doML)
 {
     // ── Compute available PV surplus ──
-    measuredPower = getMeanOfAvailAblePower();
+    measuredPower = batteryMon.getAvailablePower(phaseCtrl.getHeaterPower(), m_out_wattBiasForTest);
     logEntry.power = measuredPower;
-
     // ── Compute target power ──
-    int targetPower = basePower(measuredPower);
-
+    int maxPower = phaseCtrl.getOnePhase() * 3;
+    int targetPower = std::max(0, std::min(measuredPower, maxPower));
     // ── Clamp down-ramp for cloud-cover protection ──
-    targetPower = clampRampDown(targetPower, lastSmoothedPower);
-
+    targetPower = mlPredictor.clampRampDown(targetPower, lastSmoothedPower);
     // ── TinyNN ML adjustment (returns adjusted target) ──
-    targetPower = adjustTargetWithML(targetPower, measuredPower, doML);
-
+    int tinyNN_preheat = 0, tinyNN_buffer = 0;
+    targetPower = mlPredictor.adjustTarget(
+        targetPower, measuredPower, doML,
+        m_sensor1,
+        m_weatherPvRatio, m_weatherCloudAvg, m_weatherOutTemp,
+        m_weatherBonus, phaseCtrl.getOnePhase(),
+        tinyNN_preheat, tinyNN_buffer);
+    m_tinyNN_preheat = tinyNN_preheat;
+    m_tinyNN_buffer = tinyNN_buffer;
     // ── Smoothed logging state ──
     lastSmoothedPower = targetPower;
-
     // ── Apply target power to hardware ──
-    apply(logEntry, targetPower);
-
+    phaseCtrl.apply(targetPower, logEntry);
     // ── Boiler heating state ──
-    m_out_boilerHeating = (currentPhases > 0 || currentPWM > 0);
-
+    m_out_boilerHeating = (phaseCtrl.getActivePhases() > 0 || phaseCtrl.getPwm() > 0);
     // ── Log entry fields ──
     logEntry.state = (uint8_t)MODE_AUTO;
     logEntry.power = targetPower;
-    logEntry.pwm = currentPWM;
+    logEntry.pwm = phaseCtrl.getPwm();
     logEntry.temp = resolveInputTemp();
-
-    // ── TinyNN log entry ──
-#ifdef TINYNN_ENABLE
-    // Log stack warning if heap is low
-    logStackWarning();
-#endif
-
     return 0;
 }
-
 // ──────────────────────────────────────────────────────────────────────────
-// clampRampDown — limit downward step for cloud-cover smoothing
 //
-// When PV surplus drops sharply (clouds passing), limit the rate of reduction
-// so relays don't toggle instantly.
-// Pure helper → static.
-// ──────────────────────────────────────────────────────────────────────────
-int PinManager::clampRampDown(int targetPower, int lastSmoothedPower)
-{
-    int diff = targetPower - lastSmoothedPower;
-    if (diff < 0)
-    {
-        int maxDrop = RAMP_DOWN_STEP_TOTAL + HYSTERESIS_WATT;
-        if (abs(diff) > maxDrop)
-            targetPower = lastSmoothedPower - maxDrop;
-    }
-    return max(0, targetPower);
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// adjustTargetWithML — TinyNN preheat/boost (no-op when TinyNN disabled)
-//
-// Returns: adjusted targetPower (may add preheat boost).
-// Trains network with experience replay. Updates m_tinyNN_* state.
-// ──────────────────────────────────────────────────────────────────────────
-int PinManager::adjustTargetWithML(int targetPower, int measuredPower, bool doML)
-{
-#ifndef TINYNN_ENABLE
-    return targetPower;
-#endif
-
-    if (tinyNN == nullptr || !doML)
-        return targetPower;
-
-    // ── Normalize + predict ──
-    float normTemp = ((float)m_sensor1 - m_tempMin)
-        / ((float)(m_tempMaxAllowed - m_tempMin));
-    normTemp = fmaxf(0.0f, fminf(1.0f, normTemp));
-
-    TinyNNPrediction pred = tinyNN->predict(
-        normTemp, m_weatherPvRatio, m_weatherCloudAvg, m_weatherOutTemp);
-
-    m_tinyNN_preheat = pred.preheat_score;
-    m_tinyNN_buffer = pred.buffer_pct;
-
-    // ── Preheat boost ──
-    if (pred.preheat_score > 0.5f && m_weatherBonus > 0)
-    {
-        int boost = (int)(onePhase * pred.preheat_score * pred.buffer_pct);
-        targetPower += boost;
-        targetPower = basePower(targetPower);
-    }
-
-    // ── Remember experience ──
-    computeMLReward(measuredPower, targetPower, resolveInputTemp()); // reward signal
-
-    TinyNNExperience exp;
-    exp.temp           = normTemp * 2.0f - 1.0f;
-    exp.pv_ratio       = m_weatherPvRatio * 2.0f - 1.0f;
-    exp.cloud_avg      = m_weatherCloudAvg;
-    exp.temp_outside   = m_weatherOutTemp;
-    exp.target_preheat = pred.preheat_score;
-    exp.target_buffer  = pred.buffer_pct;
-
-    tinyNN->remember(exp);
-    tinyNN->trainReplay();
-
-    return targetPower;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// computeMLReward — reward signal for TinyNN training
-//
-// Positive reward: high surplus utilization, temp increasing toward setpoint
-// Negative reward: wasting surplus (grid feed-in), temp overshooting
-// ──────────────────────────────────────────────────────────────────────────
-float PinManager::computeMLReward(int measuredPower, int targetPower, int temp)
-{
-    float reward = 0.0f;
-
-    // Reward: match target to available surplus (efficient utilization)
-    float utilization = (float)targetPower / (float)max(measuredPower, 1);
-    utilization = fminf(utilization, 1.0f);
-    reward += utilization * 0.5f;
-
-    // Reward: temperature approaching optimal mid-range
-    int midTemp = (m_tempMaxAllowed + m_tempMin) / 2;
-    int tempDiff = abs(temp - midTemp);
-    int maxDiff = max(m_tempMaxAllowed - m_tempMin, 1);
-    float tempScore = 1.0f - ((float)tempDiff / (float)maxDiff);
-    reward += tempScore * 0.3f;
-
-    // Bonus: if surplus is being fully consumed
-    if (measuredPower > 0 && targetPower >= measuredPower * 0.9)
-    {
-        reward += 0.2f;
-    }
-
-    return reward;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// logStackWarning — check ESP free heap and warn if low
-// ──────────────────────────────────────────────────────────────────────────
-void PinManager::logStackWarning()
-{
-#ifdef DEBUG_OUTPUT
-    // ESP32 free heap check
-    size_t freeHeap = ESP.getFreeHeap();
-    if (freeHeap < 10000) // below 10KB → warning
-    {
-        LOG_WARNING(TAG_PID, "Low heap memory: %d bytes", freeHeap);
-    }
-#endif
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// UPDATE — main entry point, called from servicePid() every ~1000ms
-//
-// This method is called with BOTH appLockData() + appLockPidOut() held.
-//
-// Algorithm:
-//   1. pidLockRead() — copy shared data → local members
-//   2. preCheck() — determine control mode
-//   3. Call appropriate mode handler
-//   4. pidLockWrite() — write outputs back to shared state
-//   5. Log state change if hardware changed (thread-safe, own mutex)
-// ──────────────────────────────────────────────────────────────────────────
 void PinManager::update(WEBSOCK_DATA& webSockData,
     int tempMaxBonusC,
     float pvRatio,
@@ -895,16 +305,12 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
     m_weatherPvRatio = pvRatio;
     m_weatherCloudAvg = cloudAvg;
     m_weatherOutTemp = tempOutside;
-
     unsigned long now = millis();
-
     // ── Step 1: Copy shared data into local members ──
     pidLockRead(webSockData);
-
     // ── Step 2: Resolve effective temperature (VOR Force-Checks!) ──
     int temp = resolveInputTemp();
     int effectiveMax = m_tempMaxAllowed + m_weatherBonus;
-
     // ── FORCE-OFF: Heater Kill (aber Frostschutz gewinnt!) ──
     if (m_forceHeatingStop > 0) {
         // Frostschutz: unter min-Temp NICHT abschalten
@@ -916,11 +322,11 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
             logEntry.ts = now;
             logEntry.temp = temp;
             handleModeOff(logEntry);
-            commit(logEntry, webSockData);
+            LogCommitter::writeToLog(logEntry, webSockData);
+            pidLockWrite(webSockData);
             return;
         }
     }
-
     // ── FORCE-HEAT: Vollgas aber mit Temperaturschutz ──
     if (m_forceHeating > 0) {
         // Temperaturschutz: über max-Temp sofort ab
@@ -930,24 +336,21 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
             logEntry.ts = now;
             logEntry.temp = temp;
             handleModeOff(logEntry);
-            commit(logEntry, webSockData);
+            LogCommitter::writeToLog(logEntry, webSockData);
+            pidLockWrite(webSockData);
             return;
         }
         allOn();
-        LogEntry logEntry;
-        fillEntry(logEntry, now, temp, (uint8_t)MODE_MANUAL, onePhase * 3, (uint8_t)OUTPUT_MAX);
-        commit(logEntry, webSockData);
+        LogCommitter::commit(now, (uint8_t)MODE_MANUAL, phaseCtrl.getOnePhase() * 3, (uint8_t)OUTPUT_MAX, temp, webSockData);
+        pidLockWrite(webSockData);
         return;
     }
-
     // ── Step 3: Determine control mode ──
     ControlMode mode;
     bool doML;
     preCheck(temp, now, mode, doML);
-
     // ── Step 4: Handle forced heating from setup ──
     int measuredPower = 0;
-
     switch (mode)
     {
     case MODE_OFF:
@@ -956,41 +359,30 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
         logEntry.ts = now;
         logEntry.temp = temp;
         handleModeOff(logEntry);
-        commit(logEntry, webSockData);
+        LogCommitter::writeToLog(logEntry, webSockData);
+        pidLockWrite(webSockData);
         break;
     }
-
     case MODE_LEGIONELLA:
     {
         legionella = true;
         allOn();
-
-        LogEntry logEntry;
-        fillEntry(logEntry, now, temp,
-                  (uint8_t)MODE_LEGIONELLA, onePhase * 3, (uint8_t)OUTPUT_MAX);
-        commit(logEntry, webSockData);
+        LogCommitter::commit(now, (uint8_t)MODE_LEGIONELLA, phaseCtrl.getOnePhase() * 3, (uint8_t)OUTPUT_MAX, temp, webSockData);
+        pidLockWrite(webSockData);
         break;
     }
-
     case MODE_MIN_TEMP:
     {
         allOn();
-
-        LogEntry logEntry;
-        fillEntry(logEntry, now, temp,
-                  (uint8_t)MODE_MIN_TEMP, onePhase * 3, (uint8_t)OUTPUT_MAX);
-        commit(logEntry, webSockData);
+        LogCommitter::commit(now, (uint8_t)MODE_MIN_TEMP, phaseCtrl.getOnePhase() * 3, (uint8_t)OUTPUT_MAX, temp, webSockData);
+        pidLockWrite(webSockData);
         break;
     }
-
     case MODE_AUTO:
     {
         LogEntry logEntry;
-        fillEntry(logEntry, now, temp,
-                  (uint8_t)MODE_AUTO, 0, 0);
-
-        measuredPower = getMeanOfAvailAblePower();
-
+        LogCommitter::fillEntry(logEntry, now, (uint8_t)MODE_AUTO, 0, 0, temp);
+        measuredPower = batteryMon.getAvailablePower(phaseCtrl.getHeaterPower(), m_out_wattBiasForTest);
         if (measuredPower > 0)
         {
             handleModeAuto(logEntry, measuredPower, doML);
@@ -999,18 +391,18 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
         {
             handleModeOff(logEntry);
         }
-
-        commit(logEntry, webSockData);
+        LogCommitter::writeToLog(logEntry, webSockData);
+        pidLockWrite(webSockData);
         break;
     }
-
     default:
     {
         LogEntry logEntry;
         logEntry.ts = now;
         logEntry.temp = temp;
         handleModeOff(logEntry);
-        commit(logEntry, webSockData);
+        LogCommitter::writeToLog(logEntry, webSockData);
+        pidLockWrite(webSockData);
         break;
     }
     }
