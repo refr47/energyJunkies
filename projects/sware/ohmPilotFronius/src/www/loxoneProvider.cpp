@@ -106,8 +106,8 @@ void loxoneProvider_register(AsyncWebServer& server)
 
             char buf[96];
             snprintf(buf, sizeof(buf),
-                "{\"watt\":%d,\"active\":%s,\"temperatur\":%d}",
-                ret.watt, ret.active ? "true" : "false", ret.temp);
+                "{\"watt\":%d,\"active\":%d,\"temperatur\":%d}",
+                ret.watt, ret.active ? 1 : 0, ret.temp);
 
             request->send(200, "application/json", buf);
         });
