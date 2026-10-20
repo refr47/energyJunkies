@@ -58,6 +58,7 @@ void smartLogExec(esp_log_level_t level, const char *tag, const char *file, int 
 #define TAG_TIME    "TIME"
 #define TAG_LOGGER "LOGGER"
 #define TAG_TFT "TFT"
+#define TAG_PHASE "PHASE"
 
 /* ── Level-Gate: wenn MIN_LOG_LEVEL < Log-Level, wird gar nichts gemacht ──
    Kein Stack-Frame, kein va_list, kein Mutex, keine Formatierung.       */

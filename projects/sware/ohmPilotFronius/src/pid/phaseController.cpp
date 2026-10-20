@@ -38,6 +38,11 @@ void PhaseController::initPins(int l1, int l2, int pwm)
     pinL1  = l1;
     pinL2  = l2;
     pwmPin = pwm;
+
+    // Configure all relay + PWM pins as OUTPUT so digitalWrite/analogWrite work
+    if (pinL1  > 0) pinMode(pinL1,  OUTPUT);
+    if (pinL2  > 0) pinMode(pinL2,  OUTPUT);
+    if (pwmPin > 0) pinMode(pwmPin, OUTPUT);
 }
 
 // ── pin read-back helper (static: no PinManager-state needed) ──────────────
@@ -90,10 +95,14 @@ void PhaseController::apply(int targetPower, LogEntry &logEntry)
     if (power < 0)               power = 0;
     if (power > onePhase * 3)    power = onePhase * 3;
 
+    LOG_INFO(TAG_PHASE, "apply() enter | target=%dW clamped=%dW lastTarget=%dW diff=%d DEADBAND=%d",
+             targetPower, power, lastTargetPower, abs(power - lastTargetPower), DEAD_BAND);
+
     // ── Deadband: only evaluate hardware changes if difference exceeds ────
     int diff = abs(power - lastTargetPower);
     if (diff < DEAD_BAND)
     {
+        LOG_INFO(TAG_PHASE, "DEADBAND skip | no hardware change");
         lastTargetPower = power;
         logEntry.power = power;
         logEntry.state = (uint8_t)MODE_AUTO;
@@ -152,6 +161,13 @@ void PhaseController::apply(int targetPower, LogEntry &logEntry)
     logEntry.power = power;
     logEntry.pwm  = (uint8_t)currentPWM;
     logEntry.state = (uint8_t)MODE_AUTO;
+
+    int pwmWatt = (currentPWM * onePhase) / (float)OUTPUT_MAX;
+    int totalWatt = currentPhases * onePhase + pwmWatt;
+    LOG_INFO(TAG_PHASE, "APPLY result | L1=%s L2=%s | phases=%d PWM=%d/%.0f (%dW) | total=%dW",
+             isPinHigh(pinL1) ? "ON" : "off",
+             isPinHigh(pinL2) ? "ON" : "off",
+             currentPhases, currentPWM, OUTPUT_MAX, pwmWatt, totalWatt);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
