@@ -83,6 +83,15 @@
 
 #define DEFAULT_IP_ACCESS_POINT "192.168.4.1"
 
+enum ControlMode
+{
+    MODE_OFF,        // Alles aus (Max Temp erreicht)
+    MODE_LEGIONELLA, // Vollgas (Legionellen-Programm)
+    MODE_MIN_TEMP,   // Vollgas (Frostschutz / Min-Temp)
+    MODE_MANUAL,     // Manuelle Steuerung
+    MODE_AUTO        // RL / PID Controller übernimmt
+};
+
 #define UDP_LOCAL_PORT 5683
 #define UDP_SHELLY_DEFAULT_PORT 5683
 /* shelly*/

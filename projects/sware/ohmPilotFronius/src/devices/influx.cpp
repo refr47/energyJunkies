@@ -74,26 +74,16 @@ bool influx_write(WEBSOCK_DATA &webSockData)
 
     energy.clearFields();
     boiler.clearFields();
-#ifdef FRONIUS_IV
-    if (webSockData.states.froniusAPI)
+    // ── energyState ist quelle-agnostisch befüllt ──
+    if (webSockData.setupData.akku)
     {
-        if (webSockData.setupData.akku)
-        {
-            energy.addField("akku", webSockData.fronius_SOLAR_POWERFLOW.p_akku);
-        }
-
-        energy.addField("grid", webSockData.fronius_SOLAR_POWERFLOW.p_grid);
-        energy.addField("load", webSockData.fronius_SOLAR_POWERFLOW.p_load);
-        energy.addField("pv", webSockData.fronius_SOLAR_POWERFLOW.p_pv);
-        energy.addField("availableWatt", (webSockData.fronius_SOLAR_POWERFLOW.p_pv + webSockData.fronius_SOLAR_POWERFLOW.p_akku + webSockData.fronius_SOLAR_POWERFLOW.p_load));
+        energy.addField("akku", webSockData.energyState.p_akku);
     }
-
-#else
     energy.addField("grid", webSockData.energyState.p_grid);
-    energy.addField("load", (webSockData.energyState.p_pv + webSockData.energyState.p_grid));
+    energy.addField("load", webSockData.energyState.p_load);
     energy.addField("pv", webSockData.energyState.p_pv);
-    energy.addField("availableWatt", webSockData.energyState.p_pv + webSockData.energyState.p_grid);
-#endif
+    energy.addField("availableWatt",
+        webSockData.energyState.p_pv + webSockData.energyState.p_akku + webSockData.energyState.p_load);
     energy.addField("pwm", webSockData.pidContainer.mAnalogOut);
     energy.addField("relay1", webSockData.pidContainer.PID_PIN1);
     energy.addField("relay2", webSockData.pidContainer.PID_PIN2);

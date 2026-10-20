@@ -83,7 +83,6 @@ private:
     // ── lokale Eingabedaten (thread-safe: aus appLock()-Kontext kopiert) ──
     int   m_sensor1;
     int   m_sensor2;
-    bool  m_froniusAPI;
     bool  m_boilerHeating;
     int   m_tempMaxAllowed;
     int   m_tempMin;

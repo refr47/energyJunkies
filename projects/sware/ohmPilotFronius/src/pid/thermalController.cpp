@@ -48,6 +48,7 @@ void ThermalController::evaluateMode(
             {
                 mode = MODE_LEGIONELLA;
                 doML = false; // No ML during legio
+                LOG_INFO(TAG_THERMAL, "LEGIO (active, temp reached: %d >= %d)", temp, legionellenMaxTemp);
                 return;
             }
         }
@@ -60,6 +61,7 @@ void ThermalController::evaluateMode(
                 mode = MODE_LEGIONELLA;
                 lastLegionellaMs = nowMS;
                 doML = false;
+                LOG_INFO(TAG_THERMAL, "LEGIO (cycle start after %lu ms)", nowMS - lastLegionellaMs);
                 return;
             }
         }
@@ -70,6 +72,7 @@ void ThermalController::evaluateMode(
     {
         mode = MODE_OFF;
         legionellaCycleActive = false; // cancel legio if max temp hit
+        LOG_INFO(TAG_THERMAL, "OFF (temp %d >= effMax %d)", temp, effectiveMax);
         return;
     }
 
@@ -77,12 +80,14 @@ void ThermalController::evaluateMode(
     if (temp < tempMin)
     {
         mode = MODE_MIN_TEMP;
+        LOG_INFO(TAG_THERMAL, "FROST (temp %d < min %d)", temp, tempMin);
         return;
     }
 
     // ── Normal auto mode ──
     mode = MODE_AUTO;
     doML = true;
+    LOG_DEBUG(TAG_THERMAL, "AUTO (temp %d in range [%d..%d) doML=1)", temp, tempMin, effectiveMax);
 }
 
 // ──────────────────────────────────────────────────────────────────────────

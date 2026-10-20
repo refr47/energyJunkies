@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
-#include "defines.h"
-#include "phaseController.h" // enum ControlMode
+#include "defines.h"        // LOG_* macros, TAG_*, enum ControlMode
+#include "phaseController.h"
 
 // =============================================================================
 // ThermalController — Temperature resolution \& control mode evaluation

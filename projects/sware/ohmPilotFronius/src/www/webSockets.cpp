@@ -16,6 +16,7 @@
 #include "app_sync.h"          // g_jsonMutex / g_jsonResultMutex
 #include "utils.h"
 #include "app_state.h"        // appLockData / appUnlockData
+#include "energySource.h"     // g_activeSource
 #include <ArduinoJson.h>
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@
 #define STATE_MODBUS 2         // 1 << 2 = 4
 #define STATE_TEMPSENSOR 3     //      1 << 3 = 8
 #define STATE_BOILER_HEATING 4 // 1 << 4 = 16
-#define STATE_AMIS_READER 5    // 1 << 5 = 32
+#define STATE_SOURCE_DOWN 5    // 1 << 5 = 32  (energy source unavailable)
 #define STATE_MQTT 6           // 1 << 6 = 64
 #define STATE_INFLUX 7         // 1 << 7 = 128
 #define STATE_WATT_BIAS 8      // 1 << 8 = 256
@@ -102,17 +103,26 @@ static double s_prevValueFromSmartMeter = 0.0;
 
 static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
 {
-    if (data.states.froniusAPI)
+    // ── Alle Werte aus energyState (quelle-agnostisch) ──
+    auto &es = data.energyState;
+    live[PRODUKTION]         = es.p_pv;
+    live[NETZ_BEZUG]         = es.p_grid;
+    live[EIGENVERBRAUCH]     = es.p_load;
+    live[AKKU_ZUSTAND]       = es.soc;
+    live[AKKU_ENTLADEN]      = es.p_akku;
+    if (data.setupData.akku)
     {
-        live[PRODUKTION]         = data.fronius_SOLAR_POWERFLOW.p_pv;
-        live[NETZ_BEZUG]         = data.fronius_SOLAR_POWERFLOW.p_grid;
-        live[EIGENVERBRAUCH]     = data.fronius_SOLAR_POWERFLOW.p_load;
-        // Batteriewerte (Solar API)
-        live[AKKU_CAPACITA]      = BATTERY_CAPACITY_KW;
-        live[AKKU_ZUSTAND]       = data.fronius_SOLAR_POWERFLOW.soc;
-        live[AKKU_ENTLADEN]      = data.fronius_SOLAR_POWERFLOW.p_akku; // <0 laden, > 0 laden
+        live[AKKU_CAPACITA]  = BATTERY_CAPACITY_KW;
+    }
 
-        live["dataSource"]       = "fronius";
+    // dataSource-String
+    if (g_activeSource)
+    {
+        live["dataSource"] = g_activeSource->name();
+    }
+    else
+    {
+        live["dataSource"] = "none";
     }
     // else if (data.states.modbusOK)
     // {
@@ -132,20 +142,9 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
     //         live[EIGENVERBRAUCH] = data.energyState.p_pv
     //                               + s_prevValueFromSmartMeter;
     //     }
-    //     live["dataSource"]       = "modbus";
-    // }
-    else // amis reader
-    {
-        // AmisReader = Smart-Meter an der Netzgrenze.
-        // saldo = 1.7.0 - 2.7.0  ≡  p_grid  (+Bezug, −Einspeisung)
-        live[NETZ_BEZUG]       = data.amisReader.consumptionInWatt;         // ≡ p_grid
-        live[EIGENVERBRAUCH]   = data.amisReader.saldo; // 1.7.0
-        live[PRODUKTION]       = data.amisReader.exportInWatt;       // 2.7.0
-        live[STROM_EXPORT_INS] = data.amisReader.absolutExportInkWh;
-        live[STROM_IMPORT_INS] = data.amisReader.absolutImportInkWh;
-
-        live["dataSource"]     = "amis";
-    }
+    
+    // energieState enthält alle relevanten Werte,
+    // dataSource-String wird oben gesetzt
 }
 
 static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
@@ -198,20 +197,15 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
     if (!data.states.flashOK)
         bitMaster |= (1 << STATE_FLASH);
 
-#ifdef FRONIUS_IV
-    // if (!data.states.modbusOK)
-    //     bitMaster |= (1 << STATE_MODBUS);
-#endif
 
     if (!data.states.tempSensorOK)
         bitMaster |= (1 << STATE_TEMPSENSOR);
     if (!data.states.boilerHeating)
         bitMaster |= (1 << STATE_BOILER_HEATING);
 
-#ifdef AMIS_READER_DEV
-    if (!data.states.amisReader)
-        bitMaster |= (1 << STATE_AMIS_READER);
-#endif
+    // Energy-Source down (quelle-agnostisch)
+    if (g_activeSource == nullptr)
+        bitMaster |= (1 << STATE_SOURCE_DOWN);
 
 #ifdef MQTT
     if (!data.states.mqtt)

@@ -6,18 +6,12 @@
 #include "defines.h"
 //#include "dataTypes.hpp"
 
+
+
 class PinManager;
 
 
 
-    enum ControlMode
-{
-    MODE_OFF,        // Alles aus (Max Temp erreicht)
-    MODE_LEGIONELLA, // Vollgas (Legionellen-Programm)
-    MODE_MIN_TEMP,   // Vollgas (Frostschutz / Min-Temp)
-    MODE_MANUAL,     // Manuelle Steuerung
-    MODE_AUTO        // RL / PID Controller übernimmt
-};
 
 
 const double OUTPUT_MAX = 255.0;
@@ -49,12 +43,12 @@ public:
 
     // ── Hardware apply ────────────────────────────────────────────────────
     // Translate target power → relay + PWM outputs, fill log fields.
-    void apply(int targetPower, LogEntry &logEntry);
+    void apply(int targetPower, LogEntry& logEntry);
 
     // ── State queries (read by caller, thread-safe after apply) ────────────
-    int  getOnePhase()    const { return onePhase;        }
+    int  getOnePhase()    const { return onePhase; }
     int  getActivePhases() const { return currentPhases; }
-    int  getPwm()         const { return currentPWM;    }
+    int  getPwm()         const { return currentPWM; }
     int  getHeaterPower() const;
 
     // ── Test / Force helpers ──────────────────────────────────────────────
@@ -66,25 +60,25 @@ private:
     // ── Relay state ──────────────────────────────────────────────────────
     int  pinL1 = -1, pinL2 = -1, pwmPin = -1;
     int  currentPhases = 0;
-    int  currentPWM    = 0;
+    int  currentPWM = 0;
 
     // ── Timing ────────────────────────────────────────────────────────────
-    unsigned long lastSwitchL1   = 0;
-    unsigned long lastSwitchL2   = 0;
-    unsigned long lastSwitchPwm  = 0;
-    int           lastTargetPower= 0;
+    unsigned long lastSwitchL1 = 0;
+    unsigned long lastSwitchL2 = 0;
+    unsigned long lastSwitchPwm = 0;
+    int           lastTargetPower = 0;
 
     // ── Config (set once, never changed) ──────────────────────────────────
     int    onePhase;
-    const unsigned long MIN_SWITCH_L1  = 10000; // 10s Hysterese Relay 1
-    const unsigned long MIN_SWITCH_L2  = 10000; // 10s Hysterese Relay 2
+    const unsigned long MIN_SWITCH_L1 = 10000; // 10s Hysterese Relay 1
+    const unsigned long MIN_SWITCH_L2 = 10000; // 10s Hysterese Relay 2
     const unsigned long MIN_SWITCH_PWM = 2000;  // 2s PWM
 
     // ── Pin read-back helper (static: no PinManager-state needed) ──────────
-     bool isPinHigh(int pin);
-     bool toggleRelay(int pin, bool wantOn, bool keepOn,
-                       unsigned long &lastSwitch, unsigned long minSwitch,
-                       unsigned long now);
+    bool isPinHigh(int pin);
+    bool toggleRelay(int pin, bool wantOn, bool keepOn,
+        unsigned long& lastSwitch, unsigned long minSwitch,
+        unsigned long now);
 };
 
 #endif // PHASECONTROLLER_H

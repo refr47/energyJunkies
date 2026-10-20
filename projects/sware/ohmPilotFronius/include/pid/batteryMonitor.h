@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "debugConsole.h" // LOG_* macros + TAG_*
 
 // =============================================================================
 // BatteryMonitor — Battery & Grid Surplus Monitoring

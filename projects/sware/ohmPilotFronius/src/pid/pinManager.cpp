@@ -13,6 +13,7 @@
 // 2. Auto mode — PID-like controller using PV surplus data
 // 3. NO compensation: smart meter reads include heater → no feedback loop
 // 4. Battery priority: charger first, boiler only on excess
+
 // 5. Phase-safe: relays only ON when full phase-power available
 // =============================================================================
 #include "utils.h"
@@ -25,6 +26,19 @@
 #define RAMP_DOWN_STEP 100      // Max W decrease per ramp interval (per phase, legacy)
 #define RAMP_DOWN_STEP_TOTAL 300 // Max W decrease TOTAL (3 phases × 100)
 #define EMA_ALPHA 0.15          // Glättungsfaktor (0.15 → 160s Halbwertszeit bei 40s Fetch)
+
+static const char* modeStr(ControlMode m)
+{
+    switch (m) {
+        case MODE_OFF:        return "OFF";
+        case MODE_AUTO:       return "AUTO";
+        case MODE_LEGIONELLA: return "LEGIONELLA";
+        case MODE_MIN_TEMP:   return "FROST";
+        default:              return "???";
+    }
+}
+//
+
 // ──────────────────────────────────────────────────────────────────────────
 // Constructor
 // ──────────────────────────────────────────────────────────────────────────
@@ -34,7 +48,6 @@ PinManager::PinManager()
     legionella = false;
     m_sensor1 = 0;
     m_sensor2 = 0;
-    m_froniusAPI = false;
     m_boilerHeating = false;
     m_tempMaxAllowed = 60;
     m_tempMin = 45;
@@ -121,7 +134,6 @@ void PinManager::reset()
     lastLegionella = 0;
     legionella = false;
     lastSmoothedPower = 0;
-    m_froniusAPI = false;
     m_boilerHeating = false;
     m_out_boilerHeating = false;
 }
@@ -149,7 +161,6 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
 {
     m_sensor1 = webSockData.temperature.sensor1;
     m_sensor2 = webSockData.temperature.sensor2;
-    m_froniusAPI = webSockData.states.froniusAPI;
     m_boilerHeating = webSockData.states.boilerHeating;
     m_tempMaxAllowed = webSockData.setupData.tempMaxAllowedInGrad;
     m_tempMin = webSockData.setupData.tempMinInGrad;
@@ -157,31 +168,14 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
     m_legionellenDelta = webSockData.setupData.legionellenDelta;
     m_forceHeating = webSockData.setupData.forceHeating;
     m_forceHeatingStop = (int)webSockData.setupData.forceHeatingStop;
-    // ── Energy state → BatteryMonitor ──
-    if (m_froniusAPI)
-    {
-#ifdef FRONIUS_IV
-        batteryMon.update(
-            webSockData.fronius_SOLAR_POWERFLOW.p_grid,
-            webSockData.fronius_SOLAR_POWERFLOW.p_akku,
-            webSockData.fronius_SOLAR_POWERFLOW.soc,
-            webSockData.setupData.akkuPriori,
-            webSockData.setupData.wattSetupForTest);
-#endif
-    }
-#ifdef AMIS_READER_DEV
-    else
-    {
-        // AmisReader Smart-Meter am Netzgrenzpunkt:
-        //   saldo  = 1.7.0 - 2.7.0  ≡  p_grid  (+Bezug, −Einspeisung)
-        batteryMon.update(
-            (float)webSockData.amisReader.saldo,
-            0,  // No battery power data
-            0,  // No SOC data
-            webSockData.setupData.akkuPriori,
-            webSockData.setupData.wattSetupForTest);
-    }
-#endif
+    // ── Energy state → BatteryMonitor (quelle-agnostisch) ──
+    // energyState wird von g_activeSource->read() befüllt
+    batteryMon.update(
+        (float)webSockData.energyState.p_grid,
+        (float)webSockData.energyState.p_akku,
+        (float)webSockData.energyState.soc,
+        webSockData.setupData.akkuPriori,
+        webSockData.setupData.wattSetupForTest);
 }
 // ──────────────────────────────────────────────────────────────────────────
 // pidLockWrite — write local output back to shared pidContainer
@@ -349,6 +343,8 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
     ControlMode mode;
     bool doML;
     preCheck(temp, now, mode, doML);
+    LOG_INFO(TAG_PID, "MODE=%s temp=%d effMax=%d min=%d force=%d ml=%d",
+             modeStr(mode), temp, effectiveMax, m_tempMin, m_forceHeating, doML);
     // ── Step 4: Handle forced heating from setup ──
     int measuredPower = 0;
     switch (mode)
@@ -377,7 +373,7 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
         LogCommitter::commit(now, (uint8_t)MODE_MIN_TEMP, phaseCtrl.getOnePhase() * 3, (uint8_t)OUTPUT_MAX, temp, webSockData);
         pidLockWrite(webSockData);
         break;
-    }
+    } 
     case MODE_AUTO:
     {
         LogEntry logEntry;

@@ -249,7 +249,7 @@ static void shellyScanTask(void *parameter)
     bool listResult = shelly_listAllDevices(allDevices, range, SHELLY_SCAN_MAX_DEVICES);
     if (!listResult)
     {
-        LOG_WARNING(TAG_AJAX, "shellyScanTask - shelly_listAllDevices returned false");
+        LOG_ERROR(TAG_AJAX, "shellyScanTask - shelly_listAllDevices returned false");
     }
 
     for (int jj = 0; jj < SHELLY_SCAN_MAX_DEVICES; ++jj)
@@ -447,7 +447,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     bool nvsOk = eprom_getSetup(setup);
     if (!nvsOk)
     {
-        LOG_WARNING(TAG_AJAX, "handleStoreSetup: NVS read failed — using zeroed struct");
+        LOG_ERROR(TAG_AJAX, "handleStoreSetup: NVS read failed — using zeroed struct");
         memset(&setup, 0, sizeof(Setup));
     }
 

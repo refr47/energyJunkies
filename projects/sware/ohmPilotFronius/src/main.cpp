@@ -7,10 +7,17 @@
 
 #include "debugConsole.h"
 #include "wlan.h"
+#include "energySource.h"
 #ifdef FRONIUS_IV
 #include "modbusReader.h"
 #include "froniusSolarAPI.h"
-
+#include "devices/froniusHTTP.h"
+#endif
+#ifdef AMIS_READER_DEV
+#include "devices/amisREST.h"
+#endif
+#ifdef HUAWEI_MODBUS
+#include "devices/huaweiModbus.h"
 #endif
 #ifdef CARD_READER
 #include "cardRW.h"
@@ -197,20 +204,41 @@ void setup()
 
 
 
-#ifdef FRONIUS_IV
-        bool akkuAvailable = false;
-        g_app.webSockData.setupData.akku = false;
-        g_app.webSockData.states.froniusAPI = false;
-
-        if (soloar_init(g_app.webSockData, &akkuAvailable))
+// ── Energy-Source Init (quelle-agnostisch) ──
         {
-            g_app.webSockData.setupData.akku = akkuAvailable;
-            if (solar_get_powerflow(g_app.webSockData))
+#ifdef FRONIUS_IV
+            { auto *src = new FroniusHTTP();
+              if (src->init(g_app.webSockData.setupData, g_app.webSockData))
+                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_FRONIUS; }
+              else delete src;
+            }
+#endif
+#ifdef AMIS_READER_DEV
+            if (!g_activeSource)
+            { auto *src = new AmisREST();
+              if (src->init(g_app.webSockData.setupData, g_app.webSockData))
+                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_AMIS; }
+              else delete src;
+            }
+#endif
+#ifdef HUAWEI_MODBUS
+            if (!g_activeSource)
+            { auto *src = new HuaweiModbus();
+              if (src->init(g_app.webSockData.setupData, g_app.webSockData))
+                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_HUAWEI; }
+              else delete src;
+            }
+#endif
+            if (g_activeSource)
             {
-                g_app.webSockData.states.froniusAPI = true;
+                LOG_INFO(TAG_MAIN, "Energy source: %s", g_activeSource->name());
+                g_app.webSockData.setupData.akku = g_activeSource->hasBattery();
+            }
+            else
+            {
+                LOG_ERROR(TAG_MAIN, "No energy source available");
             }
         }
-#endif
 
         g_app.pinManager.config(
             g_app.webSockData,
@@ -222,10 +250,6 @@ void setup()
 
 #ifdef INFLUX
         g_app.webSockData.states.influx = influx_init(getDataForWebSocket);
-#endif
-
-#ifdef AMIS_READER_DEV
-        g_app.webSockData.states.amisReader = amisReader_initRestTargets(g_app.webSockData);
 #endif
 
 #ifdef SHELLY
@@ -253,8 +277,8 @@ void setup()
         LOG_INFO(TAG_MAIN, " -------- States ---------------");
         LOG_INFO(TAG_MAIN, "Network: %c", g_app.webSockData.states.networkOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "IP-Address: %s", g_app.webSockData.setupData.currentIP);
-        LOG_INFO(TAG_MAIN, "Fronius: %c", g_app.webSockData.states.froniusAPI == true ? 'y' : 'n');
-        LOG_INFO(TAG_MAIN, "AmisReader: %c", g_app.webSockData.states.amisReader == true ? 'y' : 'n');
+        LOG_INFO(TAG_MAIN, "EnergySource: %s",
+                 (g_activeSource ? g_activeSource->name() : "none"));
         LOG_INFO(TAG_MAIN, "CardWrite: %c", g_app.webSockData.states.cardWriterOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "FlashFS: %c", g_app.webSockData.states.flashOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "Influx: %c", g_app.webSockData.states.influx == true ? 'y' : 'n');
@@ -266,9 +290,9 @@ void setup()
         LOG_INFO(TAG_MAIN, "LogReader: y");
         LOG_INFO(TAG_MAIN, "HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
 
-        if (! (g_app.webSockData.states.amisReader  || g_app.webSockData.states.froniusAPI))
+        if (!g_activeSource)
         {
-            LOG_ERROR(TAG_MAIN, "No data source configured. Please configure at least one data source. AmisReader: %d, Fronius", g_app.webSockData.states.amisReader, g_app.webSockData.states.froniusAPI);
+            LOG_ERROR(TAG_MAIN, "No energy source configured/available");
         }
        
         tft_clearScreen();

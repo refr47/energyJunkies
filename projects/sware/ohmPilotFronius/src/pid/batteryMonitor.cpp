@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "batteryMonitor.h"
+#include "debugConsole.h"
 
 // ──────────────────────────────────────────────────────────────────────────
 // Constructor
@@ -57,7 +58,10 @@ int BatteryMonitor::getAvailablePower(int heaterPower, bool &outWattBiasForTest)
 {
     // ━━━ Step 1: Battery discharge guard ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━───
     // Battery discharging → don't heat with battery energy
-    if (m_battPower < 0) return 0;
+    if (m_battPower < 0) {
+        LOG_INFO(TAG_BATT, "BLOCKED batt discharging %.0fW", m_battPower);
+        return 0; 
+    }
 
     // AmisReader (m_battPower == 0) → always proceeds past this guard
 
@@ -88,13 +92,18 @@ int BatteryMonitor::getAvailablePower(int heaterPower, bool &outWattBiasForTest)
     }
 
     // No surplus after smoothing → heater OFF
-    if (m_emaSurplus <= 0) return 0;
+    if (m_emaSurplus <= 0) {
+        LOG_INFO(TAG_BATT, "BLOCKED no surplus raw=%.0f ema=%.0f grid=%.0f batt=%.0f",
+                 measuredSurplus, m_emaSurplus, m_gridPower, m_battPower);
+        return 0;
+    }
 
     // ━━━ Step 4: Battery priority (SOC threshold) ━━━━━━━━━━━━━━━━━━━━━━━━━
     if (m_akkuPriori > 0 && m_soc > 0)
     {
-        if (static_cast<int>(m_soc) < BatteryMonitor::BATT_THRESHOLD)
-        {
+        if (static_cast<int>(m_soc) < BatteryMonitor::BATT_THRESHOLD) {
+            LOG_INFO(TAG_BATT, "BLOCKED soc %d%% < threshold %d%%",
+                     (int)m_soc, BatteryMonitor::BATT_THRESHOLD);
             return 0;  // SOC too low → charge battery first
         }
     }

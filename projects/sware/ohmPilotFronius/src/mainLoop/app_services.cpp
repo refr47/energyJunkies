@@ -29,19 +29,24 @@
 
 
 #include "froniusSolarAPI.h"
-
-#include "weather.h"
-
-
-#ifdef AMIS_READER_DEV
-#include "amisReader.h"
+// ── Energy-Source Abstraction ──
+#include "energySource.h"
+#ifdef FRONIUS_IV
+#include "devices/froniusHTTP.h"
 #endif
-
+#ifdef AMIS_READER_DEV
+#include "devices/amisREST.h"
+#endif
+#ifdef HUAWEI_MODBUS
+#include "devices/huaweiModbus.h"
+#endif
+#include "weather.h"
 #ifdef CARD_READER
 #include "cardRW.h"
 #endif
-
+#ifdef FRONIUS_IV
 #include "modbusReader.h"
+#endif
 
 static constexpr uint32_t TEMPERATURE_OVERHEATED_WAIT_IN_SECS = 300;
 static constexpr uint32_t NETWORK_RECOVERY_GRACE_CYCLES   = 2;
@@ -206,74 +211,43 @@ void serviceNetworkSupervisor()
 
     ledHandler_showNetworkError(false);
 
-    // --- FIX (Blocking under Lock): mb_init() and amisReader_init() perform
-    //     I/O with vTaskDelay(10000ms) / HTTP calls. NEVER hold dataMutex
-    //     during these calls — it blocks ALL telemetry consumers for seconds.
-    //     Strategy: copy data under lock, do heavy init lock-free, write result under lock.
-#ifdef FRONIUS_IV
-    // { modbusOK = false;
-    //     if (appLockData(LOCK_TIMEOUT_DATA_MS))
-    //     {
-    //         modbusOK = g_app.webSockData.states.modbusOK;
-    //         appUnlockData();
-    //     }
-    //     if (!modbusOK)
-    //     {
-    //         LOG_ERROR(TAG_APP_SERVICES, "Modbus connection to Fronius failed, try reconnecting");
-    //         Setup localModbusSetup;
-    //         if (appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
-    //         {
-    //             localModbusSetup = g_app.webSockData.setupData;
-    //             appUnlockConfig();
-    //         }
-    //         else
-    //         {
-    //             LOG_DEBUG(TAG_APP_SERVICES, "Modbus down, could not read setup for reconnect");
-    //         }
-    //         bool result = mb_init(localModbusSetup);
-    //         if (appLockData(LOCK_TIMEOUT_DATA_MS))
-    //         {
-    //             g_app.webSockData.states.modbusOK = result;
-    //             appUnlockData();
-    //         }
-    //     }
-    // }
-#endif
-#ifdef AMIS_READER_DEV
+    // ── Energy-Source Reconnect ──
+    // FIX (Blocking under Lock): init() performs I/O. NEVER hold dataMutex.
+    // Strategy: check state under lock, do heavy init lock-free.
     {
-        bool amisOK = false;
-        // Read current state (fast, under lock)
+        bool sourceOK = false;
         if (appLockData(LOCK_TIMEOUT_DATA_MS))
         {
-            amisOK = g_app.webSockData.states.amisReader;
+            sourceOK = (g_activeSource != nullptr);
             appUnlockData();
         }
-        if (!amisOK)
+        if (!sourceOK && g_activeSource)
         {
-            LOG_ERROR(TAG_APP_SERVICES, "AmisReader connection failed, try reconnecting");
-            // FIX: run amisReader_init() lock-free (HTTP calls)
-            if (appLockData(LOCK_TIMEOUT_DATA_MS))
+            LOG_ERROR(TAG_APP_SERVICES, "%s connection failed, trying to reconnect...", g_activeSource->name());
+            Setup localSetup;
+            if (appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
             {
-                WEBSOCK_DATA localAmisData = g_app.webSockData;
-                appUnlockData();
-                bool result = amisReader_initRestTargets(localAmisData);
-                if (appLockData(LOCK_TIMEOUT_DATA_MS))
-                {
-                    g_app.webSockData.states.amisReader = result;
-                    appUnlockData();
-                }
-                else
-                {
-                    LOG_DEBUG(TAG_APP_SERVICES, "AmisReader init finished but could not write state");
-                }
+                localSetup = g_app.webSockData.setupData;
+                appUnlockConfig();
             }
             else
             {
-                LOG_DEBUG(TAG_APP_SERVICES, "AmisReader down, could not read state for reconnect");
+                LOG_DEBUG(TAG_APP_SERVICES, "Source down, could not read setup for reconnect");
+            }
+            // Lock-free reconnect attempt
+            bool result = g_activeSource->init(localSetup, g_app.webSockData);
+            if (result)
+            {
+                LOG_INFO(TAG_APP_SERVICES, "%s reconnect OK", g_activeSource->name());
+            }
+            else
+            {
+                LOG_ERROR(TAG_APP_SERVICES, "%s reconnect failed", g_activeSource->name());
+                g_activeSource = nullptr;
+                g_sourceType = EnergySourceType::SOURCE_NONE;
             }
         }
     }
-#endif
 }
 
 void serviceTemperature()
@@ -376,13 +350,6 @@ static void tryMarkNetworkDown(const char* reason, const char* failMsg)
 
 namespace
 {
-enum EnergySource
-{
-    SRC_NONE,
-    SRC_FRONIUS,
-    SRC_AMIS
-};
-
 // -----------------------------------------------------------------------------
 // checkTempSensorAndReset – Gate: temp sensor OK?
 // -----------------------------------------------------------------------------
@@ -420,112 +387,33 @@ static bool checkTempSensorAndReset()
 }
 
 // -----------------------------------------------------------------------------
-// resolveEnergySource – select fronius vs amis (DATA domain)
+// fetchEnergy — unified: g_activeSource->read() -> energyState -> influx
+//   g_activeSource ist eine EnergySource*-Pointer (energySource.h),
+//   gesetzt bei Boot via #ifdef-Fragement. Hot-Path kennt keine Quellen.
 // -----------------------------------------------------------------------------
-static EnergySource resolveEnergySource()
+static bool fetchEnergy()
 {
-    EnergySource src = SRC_NONE;
-
-    if (appLockData(LOCK_TIMEOUT_DATA_MS))
+    if (!g_activeSource)
     {
-#ifdef FRONIUS_IV
-        if (g_app.webSockData.states.froniusAPI && g_app.webSockData.states.networkOK)
-            src = SRC_FRONIUS;
-#endif
-#ifdef AMIS_READER_DEV
-       if (g_app.webSockData.states.amisReader && g_app.webSockData.states.networkOK)
-            src = SRC_AMIS;
-#endif
-        appUnlockData();
-    }
-    else
-    {
-        handleLockFailure("Could not acquire lock to select energy source");
-    }
-
-    return src;
-}
-
-// -----------------------------------------------------------------------------
-// fillEnergyState – write Solar API results into direct energy state (DATA domain)
-//   Einfach: keine MB-Container-Union, keine doppelte Indirektion.
-//   Alle Werte kommen direkt aus der Fronius Solar API:
-//     p_pv, p_grid, p_load, rel_Autonomy, rel_SelfConsumption (Site)
-//     p_batt, soc, e_day, e_total  (Inverter[1])
-// -----------------------------------------------------------------------------
-static void fillEnergyState()
-{
-    auto &solar = g_app.webSockData.fronius_SOLAR_POWERFLOW;
-
-    if (appLockData(LOCK_TIMEOUT_DATA_MS))
-    {
-        g_app.webSockData.energyState.p_grid   = solar.p_grid;  // < 0 = Einspeisung, > 0 = Bezug
-        g_app.webSockData.energyState.p_load   = solar.p_load; // haus verbrauch < 0: verbrauch > 0 einspeisung
-        g_app.webSockData.energyState.p_pv     = solar.p_pv;   // PV-Leistung (W)
-        g_app.webSockData.energyState.soc      = solar.soc; // Batterie SoC (%) ladezustand
-        g_app.webSockData.energyState.p_akku   = solar.p_akku; // > 0: Bezug vom akku,  <0: akku laden
-
-        appUnlockData();
-
-        LOG_INFO(TAG_APP_SERVICES, "EnergyState: pv=%.0fW grid=%.0fW load=%.0fW batt=%.0fW soc=%.1f%%",
-                 solar.p_pv, solar.p_grid, solar.p_load, solar.p_akku, solar.soc);
-    }
-    else
-    {
-        handleLockFailure("Fronius API succeeded, but could not acquire lock to fill energy state");
-    }
-}
-
-// -----------------------------------------------------------------------------
-// fetchFroniusEnergy – Solar API → energyState → influx
-// -----------------------------------------------------------------------------
-static bool fetchFroniusEnergy()
-{
-    LOG_DEBUG(TAG_APP_SERVICES, "Fetching Fronius energy data...");
-    if (!solar_get_powerflow(g_app.webSockData))
-    {
-        tryMarkNetworkDown("Fronius API read failed",
-            "Fronius API failed, but could not acquire lock to update state");
+        LOG_ERROR(TAG_APP_SERVICES, "No active energy source");
         return false;
     }
 
-    fillEnergyState();
+    LOG_DEBUG(TAG_APP_SERVICES, "Fetching energy data from %s...", g_activeSource->name());
+
+    if (!g_activeSource->read(g_app.webSockData))
+    {
+        tryMarkNetworkDown((String(g_activeSource->name()) + " read failed").c_str(),
+            "Energy read failed, could not acquire lock to update state");
+        return false;
+    }
+
+    // energyState wird schon vom Adapter geloggt
 
 #ifdef INFLUX
     influx_write(g_app.webSockData);
 #endif
 
-    return true;
-}
-
-// -----------------------------------------------------------------------------
-// fetchAmisEnergy – AMIS REST → energyState
-// -----------------------------------------------------------------------------
-static bool fetchAmisEnergy()
-{
-    #ifdef AMIS_READER_DEV
-
-    if (!amisReader_readRestTarget(g_app.webSockData))
-    {
-        tryMarkNetworkDown("AMIS reader failed",
-            "AMIS reader failed, but could not acquire lock to update state");
-        return false;
-    }
-
-    if (appLockData(LOCK_TIMEOUT_DATA_MS))
-    {
-        g_app.webSockData.energyState.p_grid   = g_app.webSockData.amisReader.saldo;
-        g_app.webSockData.energyState.p_load   = g_app.webSockData.amisReader.consumptionInWatt;
-        g_app.webSockData.energyState.p_pv     = g_app.webSockData.amisReader.exportInWatt;
-        g_app.webSockData.energyState.soc      = 0.0;       // AMIS: kein Batterie
-g_app.webSockData.energyState.p_akku   = 0.0;
-        appUnlockData();
-    }
-    else
-    {
-        handleLockFailure("AMIS reader succeeded, but could not acquire lock to update state");
-    }
-#endif
     return true;
 }
 
@@ -640,16 +528,7 @@ void serviceEnergy()
         return;
     }
 
-    EnergySource energySource = resolveEnergySource();
-
-    if (energySource == SRC_FRONIUS)
-    {
-        fetchFroniusEnergy();
-    }
-    else if (energySource == SRC_AMIS)
-    {
-        fetchAmisEnergy();
-    }
+    fetchEnergy();
 
     refreshEnergyDisplay();
 }
