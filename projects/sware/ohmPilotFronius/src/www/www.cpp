@@ -206,6 +206,15 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
                     if (buf) delete[] buf;
                 } });
 
+    // --- API-Handler VOR serveStatic registrieren! ---
+    // ESPAsyncWebServer evaluiert Routen in Registrierungsreihenfolge.
+    // serveStatic("/", ...) ist ein Catch-All und matched ALLE Pfade mit "/".
+    // Daher müssen spezifische Routen (loxoneProvider, webSockets) zuerst kommen!
+    loxoneProvider_register(server);
+    server.addHandler(webSockets_init(webSockData));
+    ajaxCalls_init(webSockData, setupChanged);
+
+    // --- Statische Dateien (LittleFS) ---
     server.serveStatic("/assets/", LittleFS, "/assets/")
         .setCacheControl("max-age=600");
 
@@ -226,10 +235,6 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
         request->send(404);
     } });
 
-    // Initialisierung abschließen
-    ajaxCalls_init(webSockData, setupChanged);
-    server.addHandler(webSockets_init(webSockData));
-    loxoneProvider_register(server);
     server.begin();
 
     LOG_INFO(TAG_WEB, "WebServer started. Free Heap: %u", ESP.getFreeHeap());

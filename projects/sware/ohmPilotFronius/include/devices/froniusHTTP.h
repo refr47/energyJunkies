@@ -18,7 +18,7 @@ public:
     bool init(Setup &setupData, WEBSOCK_DATA &webSockData) override;
     bool read(WEBSOCK_DATA &webSockData) override;
 
-    const char*      name()   const override { return "Fronius Solar API"; }
+    const char*      name()   const override { return "fronius"; }
     EnergySourceType type()   const override { return EnergySourceType::SOURCE_FRONIUS; }
     bool             hasBattery() const override;
 };

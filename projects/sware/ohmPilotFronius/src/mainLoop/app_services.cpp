@@ -211,7 +211,7 @@ void serviceNetworkSupervisor()
 
     ledHandler_showNetworkError(false);
 
-    // ── Energy-Source Reconnect ──
+    // ── Energy-Source Reconnect + Initial-Retry ──
     // FIX (Blocking under Lock): init() performs I/O. NEVER hold dataMutex.
     // Strategy: check state under lock, do heavy init lock-free.
     {
@@ -221,30 +221,83 @@ void serviceNetworkSupervisor()
             sourceOK = (g_activeSource != nullptr);
             appUnlockData();
         }
-        if (!sourceOK && g_activeSource)
+
+        if (!sourceOK)
         {
-            LOG_ERROR(TAG_APP_SERVICES, "%s connection failed, trying to reconnect...", g_activeSource->name());
-            Setup localSetup;
-            if (appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
+            if (g_activeSource)
             {
-                localSetup = g_app.webSockData.setupData;
-                appUnlockConfig();
+                // ── Case 1: Nachträglicher Ausfall → bestehenden Adapter reconnecten ──
+                LOG_ERROR(TAG_APP_SERVICES, "%s down, trying to reconnect...", g_activeSource->name());
+                Setup localSetup;
+                if (appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
+                {
+                    localSetup = g_app.webSockData.setupData;
+                    appUnlockConfig();
+                }
+                else
+                {
+                    LOG_DEBUG(TAG_APP_SERVICES, "Source down, could not read setup for reconnect");
+                }
+                bool result = g_activeSource->init(localSetup, g_app.webSockData);
+                if (result)
+                {
+                    LOG_INFO(TAG_APP_SERVICES, "%s reconnect OK", g_activeSource->name());
+                }
+                else
+                {
+                    LOG_ERROR(TAG_APP_SERVICES, "%s reconnect failed", g_activeSource->name());
+                    g_activeSource = nullptr;
+                    g_sourceType = EnergySourceType::SOURCE_NONE;
+                }
             }
             else
             {
-                LOG_DEBUG(TAG_APP_SERVICES, "Source down, could not read setup for reconnect");
-            }
-            // Lock-free reconnect attempt
-            bool result = g_activeSource->init(localSetup, g_app.webSockData);
-            if (result)
-            {
-                LOG_INFO(TAG_APP_SERVICES, "%s reconnect OK", g_activeSource->name());
-            }
-            else
-            {
-                LOG_ERROR(TAG_APP_SERVICES, "%s reconnect failed", g_activeSource->name());
-                g_activeSource = nullptr;
-                g_sourceType = EnergySourceType::SOURCE_NONE;
+                // ── Case 2: Initial-Fehler (Boot-Init fehlgeschlagen) → neu initialisieren ──
+                LOG_DEBUG(TAG_APP_SERVICES, "No energy source active, attempting initial init...");
+                Setup localSetup;
+                if (appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
+                {
+                    localSetup = g_app.webSockData.setupData;
+                    appUnlockConfig();
+                }
+                else
+                {
+                    LOG_DEBUG(TAG_APP_SERVICES, "Could not read setup for initial source init");
+                }
+
+                bool initialized = false;
+#ifdef FRONIUS_IV
+                { auto *src = new FroniusHTTP();
+                    if (src->init(localSetup, g_app.webSockData))
+                    { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_FRONIUS; initialized = true; }
+                    else delete src;
+                }
+#endif
+#ifdef AMIS_READER_DEV
+                if (!initialized)
+                { auto *src = new AmisREST();
+                    if (src->init(localSetup, g_app.webSockData))
+                    { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_AMIS; initialized = true; }
+                    else delete src;
+                }
+#endif
+#ifdef HUAWEI_MODBUS
+                if (!initialized)
+                { auto *src = new HuaweiModbus();
+                    if (src->init(localSetup, g_app.webSockData))
+                    { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_HUAWEI; initialized = true; }
+                    else delete src;
+                }
+#endif
+                if (initialized)
+                {
+                    LOG_INFO(TAG_APP_SERVICES, "Energy source successfully initialized: %s", g_activeSource->name());
+                    g_app.webSockData.setupData.akku = g_activeSource->hasBattery();
+                }
+                else
+                {
+                    LOG_DEBUG(TAG_APP_SERVICES, "No energy source available yet, will retry on next cycle");
+                }
             }
         }
     }

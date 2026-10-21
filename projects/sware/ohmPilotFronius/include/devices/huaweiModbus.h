@@ -17,7 +17,7 @@ public:
     bool init(Setup &setupData, WEBSOCK_DATA &webSockData) override;
     bool read(WEBSOCK_DATA &webSockData) override;
 
-    const char*      name()   const override { return "Huawei SUN2000"; }
+    const char*      name()   const override { return "modbus"; }
     EnergySourceType type()   const override { return EnergySourceType::SOURCE_HUAWEI; }
     bool          hasBattery() const override { return true; }
 

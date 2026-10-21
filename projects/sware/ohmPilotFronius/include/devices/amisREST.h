@@ -17,7 +17,7 @@ public:
     bool init(Setup &setupData, WEBSOCK_DATA &webSockData) override;
     bool read(WEBSOCK_DATA &webSockData) override;
 
-    const char*      name()   const override { return "AmisReader"; }
+    const char*      name()   const override { return "amis"; }
     EnergySourceType type()   const override { return EnergySourceType::SOURCE_AMIS; }
     bool          hasBattery() const override { return false; }
 };
