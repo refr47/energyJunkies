@@ -14,8 +14,7 @@
 #include "logCommitter.h"
 
 
-#define DEAD_BAND_WATT 30.0
-#define HYSTERESIS_WATT 12
+
 
 
 
@@ -58,32 +57,15 @@ private:
     TinyNN *tinyNN;
 #endif
 
-    // RL
-   /*  static const int S_T = 5;
-    static const int S_P = 5;
-    static const int A = 5;
-    double Q[S_T][S_P][A]; */
-
-    double epsilon = 0.05;
-    double alpha = 0.1;
-
     // Legionella
     unsigned long lastLegionella = 0;
     bool legionella = false;
 
-    // Config
-    /* const double MIN_TEMP = 45;
-     const double MAX_TEMP = 70;
-     const double LEG_TEMP = 60;
- */
-    const int EPSILON_TEMP = 20;
-   
- 
+
 
     // ── lokale Eingabedaten (thread-safe: aus appLock()-Kontext kopiert) ──
     int   m_sensor1;
     int   m_sensor2;
-    bool  m_boilerHeating;
     int   m_tempMaxAllowed;
     int   m_tempMin;
     int   m_legionellenMaxTemp;
@@ -115,8 +97,20 @@ private:
     void pidLockRead(WEBSOCK_DATA& webSockData);
     void pidLockWrite(WEBSOCK_DATA& webSockData);
 
-    // ── update() helpers ──
-    void  handleModeOff(LogEntry &logEntry);
-    int   handleModeAuto(LogEntry &logEntry, int &measuredPower, bool &doML);
+    // ── update() steps ──
+    void  stepPrepare(WEBSOCK_DATA &webSockData, int tempMaxBonusC,
+                      float pvRatio, float cloudAvg, float tempOutside);
+    bool  stepForceOff(int temp, unsigned long now, WEBSOCK_DATA &webSockData);
+    bool  stepForceHeat(int temp, int effectiveMax, unsigned long now,
+                        WEBSOCK_DATA &webSockData);
+    void  stepControlMode(int temp, int effectiveMax, unsigned long now,
+                          WEBSOCK_DATA &webSockData);
+
+    // ── per-mode executors ──
+    void  execModeOff(LogEntry &logEntry);
+    void  execModeLegionella(int temp, unsigned long now, WEBSOCK_DATA &webSockData);
+    void  execModeMinTemp(int temp, unsigned long now, WEBSOCK_DATA &webSockData);
+    void  execModeAuto(int temp, unsigned long now, bool doML,
+                       int effectiveMax, WEBSOCK_DATA &webSockData);
 };
  

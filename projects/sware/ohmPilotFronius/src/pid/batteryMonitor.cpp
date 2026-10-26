@@ -77,7 +77,7 @@ int BatteryMonitor::getAvailablePower(int heaterPower, bool &outWattBiasForTest)
         measuredSurplus += heaterPower;
     }
 
-    // ━━━ Step 3: EMA smoothing ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ━━━ Step 3: EMA smoothing ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ewie
     // α=0.15 → half-life ≈ 4.7 fetch cycles (~188s at 40s interval)
     // Reduces jitter while still responding to genuine changes
     if (!m_emaInitialized)

@@ -1,9 +1,7 @@
 // =============================================================================
-// huaweiModbus.cpp — Huawei SUN2000 Speicher via Modbus/TCP
+// huaweiModbus.cpp — Huawei SUN2000-10KTL-M1 via Modbus/TCP
 //
-// Register-Karten stehen in huaweiModbus.h.
-// Die Adressen basieren auf Huawei Modbus Protocol Specification:
-//   "Huawei-SUN2000-Modbus-Communication-Protocol-01V01-EN"
+// Register-Map: Huawei-SUN2000-Modbus-Communication-Protocol-01V01-EN
 // =============================================================================
 
 #include "devices/huaweiModbus.h"
@@ -13,13 +11,8 @@
 #include <freertos/task.h>
 
 // ------------------------------------------------------------------
-// Modbus TCP helper — raw socket (kein externer Modbus-Stack nötig)
+// Modbus-TCP-Header (MBAP)
 // ------------------------------------------------------------------
-
-// ── Modbus TCP-Header ───────────────────────────────────────────
-// Transaction ID (2), Protocol ID (2), Length (2), Unit ID (1),
-// Function Code (1), Register Address (2), Quantity (2)
-// Response: ... + Byte Count (1) + Data (N)
 
 struct __attribute__((packed)) ModbusTcpRequest
 {
@@ -42,15 +35,27 @@ struct __attribute__((packed)) ModbusTcpResponse
     uint8_t  byteCount;
 };
 
-static const uint16_t MB_TRANS_ID   = 0x1234;
-static const uint16_t MB_PROTO_ID   = 0;
-static const uint32_t MB_READ_TIMEOUT_MS = 2000;
+static const uint16_t MB_PROTO_ID        = 0;
+static const uint32_t MB_READ_TIMEOUT_MS = 3000;
+static const uint32_t MB_POLL_INTERVAL_MS = 50;
 
 // ------------------------------------------------------------------
-// readU16 — Modbus Read Holding Register (FC 0x03), 16-Bit
+// parseFloat32 — Big-Endian ABCD (Reg[0]=Hi, Reg[1]=Lo)
 // ------------------------------------------------------------------
 
-bool HuaweiModbus::readU16(uint16_t registerAddr, uint16_t &data)
+float HuaweiModbus::parseFloat32(uint16_t hi, uint16_t lo)
+{
+    uint32_t combined = ((uint32_t)hi << 16) | (uint32_t)lo;
+    float result;
+    memcpy(&result, &combined, 4);
+    return result;
+}
+
+// ------------------------------------------------------------------
+// readBatch — atomarer Modbus FC03-Request (N Register, max 125)
+// ------------------------------------------------------------------
+
+bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *buf)
 {
     if (!m_connected || !m_client.connected())
     {
@@ -62,96 +67,73 @@ bool HuaweiModbus::readU16(uint16_t registerAddr, uint16_t &data)
     }
 
     ModbusTcpRequest req;
-    req.transId   = MB_TRANS_ID;
+    req.transId   = m_transId++;
     req.protoId   = MB_PROTO_ID;
-    req.quantity  = 1;
-    req.length    = 6;       // Unit(1) + FC(1) + Addr(2) + Qty(2)
+    req.quantity  = quantity;
+    req.length    = 6;
     req.unitId    = HUAWAI_REG_DEVICE_ID;
-    req.funcCode  = 0x03;    // Read Holding Register
-    req.startAddr = registerAddr;
+    req.funcCode  = 0x03;
+    req.startAddr = startAddr;
 
     m_client.write((uint8_t*)&req, sizeof(req));
 
-    // ── Antwort warten ─────────────────────────────────────────────
-    uint32_t waitStart = millis();
-    while (m_client.available() == 0)
+    // ── Antwort warten (kompletter Header) ──────────────────────────
+    ModbusTcpResponse hdr;
+    uint32_t t0 = millis();
+    while (m_client.available() < (int)sizeof(hdr))
     {
-        vTaskDelay(pdMS_TO_TICKS(50));
-        if (millis() - waitStart > MB_READ_TIMEOUT_MS)
+        vTaskDelay(pdMS_TO_TICKS(MB_POLL_INTERVAL_MS));
+        if (millis() - t0 > MB_READ_TIMEOUT_MS)
         {
-            LOG_ERROR(TAG_MODBUS, "Huawei: Modbus read timeout (%d)", registerAddr);
+            LOG_ERROR(TAG_MODBUS, "Huawei: timeout header (0x%04x)", startAddr);
             return false;
         }
     }
 
-    // ── Header parsen ──────────────────────────────────────────────
-    ModbusTcpResponse hdr;
     if (m_client.read((uint8_t*)&hdr, sizeof(hdr)) < (int)sizeof(hdr))
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: incomplete Modbus response header");
+        LOG_ERROR(TAG_MODBUS, "Huawei: short header");
         return false;
     }
 
     if (hdr.funcCode & 0x80)
     {
-        uint8_t errCode;
-        m_client.read(&errCode, 1);
-        LOG_ERROR(TAG_MODBUS, "Huawei: Modbus error FC=0x%02x err=%d",
+        uint8_t errCode = 0;
+        if (m_client.available() > 0)
+            m_client.read(&errCode, 1);
+        LOG_ERROR(TAG_MODBUS, "Huawei: error FC=0x%02x err=%d",
                   hdr.funcCode, errCode);
         return false;
     }
 
-    // ── 16-Bit-Daten lesen ─────────────────────────────────────────
-    if (m_client.read((uint8_t*)&data, 2) < 2)
+    // ── Payload lesen ───────────────────────────────────────────────
+    size_t expectedBytes = hdr.byteCount;
+    uint8_t tmp[254];
+
+    uint32_t t1 = millis();
+    while (m_client.available() < expectedBytes)
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: incomplete 16-bit data");
-        return false;
-    }
-
-    return true;
-}
-
-// ------------------------------------------------------------------
-// readFloat32 — Modbus Read Holding Register, 32-Bit Float (2 Registers)
-//              Byte-Reihenfolge: Big-Endian (A B C D)
-// ------------------------------------------------------------------
-
-bool HuaweiModbus::readFloat32(uint16_t registerAddr, float &result)
-{
-    uint16_t raw[2];
-    if (!readU16(registerAddr, raw[0]))
-        return false;
-    if (!readU16(registerAddr + 1, raw[1]))
-        return false;
-
-    uint32_t combined = ((uint32_t)raw[0] << 16) | (uint32_t)raw[1];
-    memcpy(&result, &combined, 4);
-
-    return true;
-}
-
-// ------------------------------------------------------------------
-// readFloat — Convenience: liest Register und wendet Skalierung an
-// ------------------------------------------------------------------
-
-float HuaweiModbus::readFloatRaw(int16_t raw, float scale)
-{
-    return (float)raw * scale;
-}
-
-float HuaweiModbus::readFloat(uint16_t registerAddr)
-{
-    float val = 0.0f;
-    if (!readFloat32(registerAddr, val))
-    {
-        static int lastWarn = 0;
-        if (millis() - lastWarn > 30000)
+        vTaskDelay(pdMS_TO_TICKS(MB_POLL_INTERVAL_MS));
+        if (millis() - t1 > MB_READ_TIMEOUT_MS)
         {
-            LOG_ERROR(TAG_MODBUS, "Huawei: fallback 0.0 for reg 0x%04x", registerAddr);
-            lastWarn = millis();
+            LOG_ERROR(TAG_MODBUS, "Huawei: timeout payload (%u/%u)",
+                      m_client.available(), expectedBytes);
+            return false;
         }
+    } 
+
+    if (m_client.read(tmp, expectedBytes) < (int)expectedBytes)
+    {
+        LOG_ERROR(TAG_MODBUS, "Huawei: short payload");
+        return false;
     }
-    return val;
+
+    for (uint16_t i = 0; i < quantity; i++)
+    {
+        buf[i] = ((uint16_t)tmp[2 * i] << 8) | (uint16_t)tmp[2 * i + 1];
+    }
+
+    return true;
 }
 
 // ------------------------------------------------------------------
@@ -160,7 +142,7 @@ float HuaweiModbus::readFloat(uint16_t registerAddr)
 
 bool HuaweiModbus::connect()
 {
-    LOG_INFO(TAG_MODBUS, "Huawei: Modbus/TCP connect → %s:502",
+    LOG_INFO(TAG_MODBUS, "Huawei: connect → %s:502",
              m_ip.toString().c_str());
 
     if (m_client.connected())
@@ -173,10 +155,9 @@ bool HuaweiModbus::connect()
         return false;
     }
 
-    // Kleine Pause nach Verbindung
     vTaskDelay(pdMS_TO_TICKS(500));
     m_connected = true;
-    LOG_INFO(TAG_MODBUS, "Huawei: Modbus/TCP connected");
+    LOG_INFO(TAG_MODBUS, "Huawei: connected");
     return true;
 }
 
@@ -186,84 +167,130 @@ bool HuaweiModbus::disconnect()
     m_connected = false;
     return true;
 }
- 
+
 // ------------------------------------------------------------------
-// init — Modbus/TCP-Verbindung herstellen
+// init
 // ------------------------------------------------------------------
 
 bool HuaweiModbus::init(Setup &setupData, WEBSOCK_DATA &webSockData)
 {
-    (void)webSockData;
-
-    // ── Ziel-IP aus Setup-Struct ────────────────────────────────────
-    // Reuses setupData.inverter field (IP-Adresse der Inverter/Speicher)
     if (setupData.inverter[0] == '\0')
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: no target IP configured in setupData.inverter");
+        LOG_ERROR(TAG_MODBUS, "Huawei: no target IP");
         return false;
     }
 
     if (!m_ip.fromString(setupData.inverter))
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: cannot parse IP \"%s\"", setupData.inverter);
+        LOG_ERROR(TAG_MODBUS, "Huawei: bad IP \"%s\"", setupData.inverter);
         return false;
     }
 
     if (!connect())
         return false;
 
-    // ── Test-Read: Device Info (Register 0x0000) ──────────────────
-    uint16_t deviceStatus = 0;
-    if (readU16(0x0000, deviceStatus))
+    // Test-Read
     {
-        LOG_INFO(TAG_MODBUS, "Huawei: device status = 0x%04x", deviceStatus);
+        uint16_t testBuf[2];
+        if (readBatch(0x7D80, 2, testBuf))
+        {
+            float pv = parseFloat32(testBuf[0], testBuf[1]);
+            LOG_INFO(TAG_MODBUS, "Huawei: init OK, PV=%.1f W", pv);
+        }
     }
 
-    webSockData.setupData.akku = 1; // Huawei SUN2000 hat Batterie
+    webSockData.setupData.akku = 1;
     return true;
 }
 
+/*
+
+
+
+
+
+
+
+
+*/
+
+
 // ------------------------------------------------------------------
-// read — alle Energie-Register lesen → energyState
+// read — 3 Batches, sofort Konventionenumwandlung
 // ------------------------------------------------------------------
 
 bool HuaweiModbus::read(WEBSOCK_DATA &webSockData)
 {
+    bool ok = true;
+    float pvRaw = 0;
+    float gridRaw = 0;
+    float battRaw = 0;
+
+    // ── Batch 1: PV Power (0x7D80) ──────────────────────────────────
+    {
+        uint16_t buf[2];
+        if (!readBatch(HUAWAI_REG_ACTIVE_POWER, 2, buf))
+        {
+            LOG_ERROR(TAG_MODBUS, "Huawei: PV batch failed");
+            ok = false;
+        }
+        else
+        {
+            pvRaw = parseFloat32(buf[0], buf[1]);
+        }
+    }
+
+    // ── Batch 2: Grid Power (0x9129) ────────────────────────────────
+    {
+        uint16_t buf[2];
+        if (!readBatch(HUAWAI_REG_GRID_POWER, 2, buf))
+        {
+            LOG_ERROR(TAG_MODBUS, "Huawei: grid batch failed");
+            ok = false;
+        }
+        else
+        {
+            gridRaw = parseFloat32(buf[0], buf[1]);
+        }
+    }
+
+    // ── Batch 3: SoC (0x9390) + Batt Power (0x9392) ────────────────
+    {
+        uint16_t buf[3];
+        if (!readBatch(HUAWAI_REG_BATT_SOC, 3, buf))
+        {
+            LOG_ERROR(TAG_MODBUS, "Huawei: batt batch failed");
+            ok = false;
+        }
+        else
+        {
+            m_soc    = (double)buf[0];
+            battRaw  = parseFloat32(buf[1], buf[2]);
+        }
+    } 
+
+    // ── Sofort umwandeln ────────────────────────────────────────────
+    // Huawei: grid +1=Bezug, -1=Einsp  → negate
+    // Huawei: batt +1=Laden, -1=Entlad → negate
+    // P_LOAD = PV + Netz_Bezug + Akku_Entladen
+    m_p_pv   = pvRaw;   // >=0 
+    m_p_grid = -gridRaw;  //> 0: einspeisung < 0 bezug  -- invers zu fronius
+    m_p_akku = -battRaw; // auch hier invers zu fronius
+    m_p_load = pvRaw - gridRaw ;
+
+    // ── In energyState schreiben ────────────────────────────────────
     auto &dst = webSockData.energyState;
-    bool success = true;
+    dst.p_pv   = m_p_pv;
+    dst.p_grid = m_p_grid;
+    dst.p_akku = m_p_akku;
+    dst.p_load = m_p_load;
+    dst.soc    = m_soc;
 
-    // ── PV-Leistung (float) ────────────────────────────────────────
-    dst.p_pv = readFloat(HUAWAI_REG_PV_POWER);
-
-    // ── Netzleistung (float) ──────────────────────────────────────
-    dst.p_grid = readFloat(HUAWAI_REG_GRID_POWER);
-
-    // ── Last (float) ──────────────────────────────────────────────
-    dst.p_load = readFloat(HUAWAI_REG_LOAD_POWER);
-
-    // ── Batterie-Leistung (float) ─────────────────────────────────
-    dst.p_akku = readFloat(HUAWAI_REG_BATT_POWER);
-
-    // ── Batterie SoC (0.1 % → integer / 10) ───────────────────────
-    uint16_t rawSoc = 0;
-    if (readU16(HUAWAI_REG_BATT_SOC, rawSoc))
-    {
-        dst.soc = (double)rawSoc / 10.0;
-    }
-    else
-    {
-        dst.soc = 0.0;
-        success = false;
-        LOG_ERROR(TAG_MODBUS, "Huawei: SoC read failed, using 0");
-    }
-
-    // ── Logging ───────────────────────────────────────────────────
     LOG_INFO(TAG_APP_SERVICES,
-             "energy (huawei): pv=%.0fW grid=%.0fW load=%.0fW batt=%.0fW soc=%.1f%%",
+             "energy (huawei): pv=%.0fW grid=%.0fW load=%.0fW akku=%.0fW soc=%.1f%%",
              dst.p_pv, dst.p_grid, dst.p_load, dst.p_akku, dst.soc);
 
-    // Kleiner Delay zwischen zyklischen Reads
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    return success;
+    return ok;
 }

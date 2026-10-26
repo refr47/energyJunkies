@@ -239,7 +239,7 @@ void setup()
                 LOG_ERROR(TAG_MAIN, "No energy source available");
             }
         }
-
+ 
         g_app.pinManager.config(
             g_app.webSockData,
             RELAY_L1,

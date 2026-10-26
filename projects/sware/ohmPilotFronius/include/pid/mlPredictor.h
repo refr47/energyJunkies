@@ -58,7 +58,4 @@ private:
     float m_tempMin = 45.0f;
     float m_tempMax = 60.0f;
     int   m_maxPower = 1728; // 3 phases × onePhase
-
-    // ── Ramp-down limiter state ─────────────────────────────────────────
-    float m_lastSmoothedPower = 0.0f;
 };

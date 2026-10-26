@@ -596,7 +596,7 @@ void servicePid()
         float pvRatio = weatherGetPvRatio();
         float cloud   = weatherGetCloudAvg();
         float outTemp = weatherGetTempOutside();
-        
+         
         if (bonus > 0)        
         {
             LOG_INFO(TAG_APP_SERVICES, "Preheat-Bonus: +%d°C (Max=%d→%d°C)",

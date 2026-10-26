@@ -20,12 +20,8 @@
 #include "pinManager.h"
 #include "batteryMonitor.h"
 #include "logCommitter.h"
-// ── Constants (legacy, used by original code) ──
+// ── Constants ──
 #define FASE_EINS_POWER 576     // W per phase (standard 3-phase heater)
-#define PUFFER_AKKU_PRIORI 99   // Battery SoC threshold for priority
-#define RAMP_DOWN_STEP 100      // Max W decrease per ramp interval (per phase, legacy)
-#define RAMP_DOWN_STEP_TOTAL 300 // Max W decrease TOTAL (3 phases × 100)
-#define EMA_ALPHA 0.15          // Glättungsfaktor (0.15 → 160s Halbwertszeit bei 40s Fetch)
 
 static const char* modeStr(ControlMode m)
 {
@@ -48,7 +44,6 @@ PinManager::PinManager()
     legionella = false;
     m_sensor1 = 0;
     m_sensor2 = 0;
-    m_boilerHeating = false;
     m_tempMaxAllowed = 60;
     m_tempMin = 45;
     m_legionellenMaxTemp = 0;
@@ -134,7 +129,6 @@ void PinManager::reset()
     lastLegionella = 0;
     legionella = false;
     lastSmoothedPower = 0;
-    m_boilerHeating = false;
     m_out_boilerHeating = false;
 }
 // ──────────────────────────────────────────────────────────────────────────
@@ -161,7 +155,6 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
 {
     m_sensor1 = webSockData.temperature.sensor1;
     m_sensor2 = webSockData.temperature.sensor2;
-    m_boilerHeating = webSockData.states.boilerHeating;
     m_tempMaxAllowed = webSockData.setupData.tempMaxAllowedInGrad;
     m_tempMin = webSockData.setupData.tempMinInGrad;
     m_legionellenMaxTemp = webSockData.setupData.legionellenMaxTemp;
@@ -228,9 +221,9 @@ void PinManager::preCheck(int temp, unsigned long nowMS,
         mode, doML);
 }
 // ──────────────────────────────────────────────────────────────────────────
-// handleModeOff — max-temp reached; heater off, log state
+// execModeOff — max-temp reached; heater off, log state
 // ──────────────────────────────────────────────────────────────────────────
-void PinManager::handleModeOff(LogEntry& logEntry)
+void PinManager::execModeOff(LogEntry& logEntry)
 {
     allOff();
     logEntry.state = (uint8_t)MODE_OFF;
@@ -238,7 +231,95 @@ void PinManager::handleModeOff(LogEntry& logEntry)
     logEntry.pwm = 0;
 }
 // ──────────────────────────────────────────────────────────────────────────
-// handleModeAuto — PID-like controller for automatic mode
+// stepPrepare — copy weather inputs and shared data into local members
+// ──────────────────────────────────────────────────────────────────────────
+void PinManager::stepPrepare(WEBSOCK_DATA& webSockData, int tempMaxBonusC,
+                              float pvRatio, float cloudAvg, float tempOutside)
+{
+    m_weatherBonus = tempMaxBonusC;
+    m_weatherPvRatio = pvRatio;
+    m_weatherCloudAvg = cloudAvg;
+    m_weatherOutTemp = tempOutside;
+    pidLockRead(webSockData);
+}
+// ──────────────────────────────────────────────────────────────────────────
+// stepForceOff — Heater Kill (Frostschutz gewinnt)
+// Returns true if handled (early exit needed).
+// ──────────────────────────────────────────────────────────────────────────
+bool PinManager::stepForceOff(int temp, unsigned long now,
+                               WEBSOCK_DATA& webSockData)
+{
+    if (m_forceHeatingStop > 0) {
+        if (temp < m_tempMin) {
+            LOG_INFO(TAG_PID, "Force-Stop aufgehoben: Frostschutz (temp=%d < min=%d)", temp, m_tempMin);
+            legionella = false;
+        } else {
+            legionella = false;
+            LogEntry logEntry;
+            logEntry.ts = now;
+            logEntry.temp = temp;
+            execModeOff(logEntry);
+            LogCommitter::writeToLog(logEntry, webSockData);
+            pidLockWrite(webSockData);
+            return true;
+        }
+    }
+    return false;
+}
+// ──────────────────────────────────────────────────────────────────────────
+// stepForceHeat — Vollgas mit Temperaturschutz
+// Returns true if handled (early exit needed).
+// ──────────────────────────────────────────────────────────────────────────
+bool PinManager::stepForceHeat(int temp, int effectiveMax, unsigned long now,
+                                WEBSOCK_DATA& webSockData)
+{
+    if (m_forceHeating > 0) {
+        if (temp >= effectiveMax) {
+            LOG_INFO(TAG_PID, "Force-Heat unterbrochen: Max-Temp erreicht (temp=%d >= max=%d)",
+                     temp, effectiveMax);
+            legionella = false;
+            LogEntry logEntry;
+            logEntry.ts = now;
+            logEntry.temp = temp;
+            execModeOff(logEntry);
+            LogCommitter::writeToLog(logEntry, webSockData);
+            pidLockWrite(webSockData);
+            return true;
+        }
+        legionella = false;
+        allOn();
+        LogCommitter::commit(now, (uint8_t)MODE_MANUAL, phaseCtrl.getOnePhase() * 3,
+                            (uint8_t)OUTPUT_MAX, temp, webSockData);
+        pidLockWrite(webSockData);
+        return true;
+    }
+    return false;
+}
+// ──────────────────────────────────────────────────────────────────────────
+// execModeLegionella
+// ──────────────────────────────────────────────────────────────────────────
+void PinManager::execModeLegionella(int temp, unsigned long now,
+                                    WEBSOCK_DATA& webSockData)
+{
+    legionella = true;
+    allOn();
+    LogCommitter::commit(now, (uint8_t)MODE_LEGIONELLA, phaseCtrl.getOnePhase() * 3,
+                        (uint8_t)OUTPUT_MAX, temp, webSockData);
+    pidLockWrite(webSockData);
+}
+// ──────────────────────────────────────────────────────────────────────────
+// execModeMinTemp — frost protection, full power
+// ──────────────────────────────────────────────────────────────────────────
+void PinManager::execModeMinTemp(int temp, unsigned long now,
+                                 WEBSOCK_DATA& webSockData)
+{
+    allOn();
+    LogCommitter::commit(now, (uint8_t)MODE_MIN_TEMP, phaseCtrl.getOnePhase() * 3,
+                        (uint8_t)OUTPUT_MAX, temp, webSockData);
+    pidLockWrite(webSockData);
+}
+// ──────────────────────────────────────────────────────────────────────────
+// execModeAuto — PID-like controller for automatic mode
 //
 // Control Loop:
 //   1. Read actual PV surplus from smart meter (NO compensation)
@@ -249,15 +330,24 @@ void PinManager::handleModeOff(LogEntry& logEntry)
 //
 // Battery priority: Boiler only heats if SOC >= threshold
 // Phase safety: Relays only ON for full phase-power, PWM for partial
-//
-// Returns: 0 on success
 // ──────────────────────────────────────────────────────────────────────────
-int PinManager::handleModeAuto(LogEntry& logEntry,
-    int& measuredPower, bool& doML)
+void PinManager::execModeAuto(int temp, unsigned long now, bool doML,
+                              int /*effectiveMax*/, WEBSOCK_DATA& webSockData)
 {
-    // ── Compute available PV surplus ──
-    measuredPower = batteryMon.getAvailablePower(phaseCtrl.getHeaterPower(), m_out_wattBiasForTest);
-    logEntry.power = measuredPower;
+    LogEntry logEntry;
+    LogCommitter::fillEntry(logEntry, now, (uint8_t)MODE_AUTO, 0, 0, temp);
+
+    // ── Compute available PV surplus (single source of truth) ──
+    int measuredPower = batteryMon.getAvailablePower(
+        phaseCtrl.getHeaterPower(), m_out_wattBiasForTest);
+
+    if (measuredPower <= 0) {
+        execModeOff(logEntry);
+        LogCommitter::writeToLog(logEntry, webSockData);
+        pidLockWrite(webSockData);
+        return;
+    }
+
     // ── Compute target power ──
     int maxPower = phaseCtrl.getOnePhase() * 3;
     int targetPower = std::max(0, std::min(measuredPower, maxPower));
@@ -284,69 +374,21 @@ int PinManager::handleModeAuto(LogEntry& logEntry,
     logEntry.power = targetPower;
     logEntry.pwm = phaseCtrl.getPwm();
     logEntry.temp = resolveInputTemp();
-    return 0;
+    LogCommitter::writeToLog(logEntry, webSockData);
+    pidLockWrite(webSockData);
 }
 // ──────────────────────────────────────────────────────────────────────────
-//
-void PinManager::update(WEBSOCK_DATA& webSockData,
-    int tempMaxBonusC,
-    float pvRatio,
-    float cloudAvg,
-    float tempOutside)
+// stepControlMode — determine and execute the correct control mode
+// ──────────────────────────────────────────────────────────────────────────
+void PinManager::stepControlMode(int temp, int effectiveMax, unsigned long now,
+                                 WEBSOCK_DATA& webSockData)
 {
-    // ── Copy weather/prediction inputs ──
-    m_weatherBonus = tempMaxBonusC;
-    m_weatherPvRatio = pvRatio;
-    m_weatherCloudAvg = cloudAvg;
-    m_weatherOutTemp = tempOutside;
-    unsigned long now = millis();
-    // ── Step 1: Copy shared data into local members ──
-    pidLockRead(webSockData);
-    // ── Step 2: Resolve effective temperature (VOR Force-Checks!) ──
-    int temp = resolveInputTemp();
-    int effectiveMax = m_tempMaxAllowed + m_weatherBonus;
-    // ── FORCE-OFF: Heater Kill (aber Frostschutz gewinnt!) ──
-    if (m_forceHeatingStop > 0) {
-        // Frostschutz: unter min-Temp NICHT abschalten
-        if (temp < m_tempMin) {
-            LOG_INFO(TAG_PID, "Force-Stop aufgehoben: Frostschutz (temp=%d < min=%d)", temp, m_tempMin);
-            // Fallt auf normale Steuerung durch
-        } else {
-            LogEntry logEntry;
-            logEntry.ts = now;
-            logEntry.temp = temp;
-            handleModeOff(logEntry);
-            LogCommitter::writeToLog(logEntry, webSockData);
-            pidLockWrite(webSockData);
-            return;
-        }
-    }
-    // ── FORCE-HEAT: Vollgas aber mit Temperaturschutz ──
-    if (m_forceHeating > 0) {
-        // Temperaturschutz: über max-Temp sofort ab
-        if (temp >= effectiveMax) {
-            LOG_INFO(TAG_PID, "Force-Heat unterbrochen: Max-Temp erreicht (temp=%d >= max=%d)", temp, effectiveMax);
-            LogEntry logEntry;
-            logEntry.ts = now;
-            logEntry.temp = temp;
-            handleModeOff(logEntry);
-            LogCommitter::writeToLog(logEntry, webSockData);
-            pidLockWrite(webSockData);
-            return;
-        }
-        allOn();
-        LogCommitter::commit(now, (uint8_t)MODE_MANUAL, phaseCtrl.getOnePhase() * 3, (uint8_t)OUTPUT_MAX, temp, webSockData);
-        pidLockWrite(webSockData);
-        return;
-    }
-    // ── Step 3: Determine control mode ──
     ControlMode mode;
     bool doML;
     preCheck(temp, now, mode, doML);
     LOG_INFO(TAG_PID, "MODE=%s temp=%d effMax=%d min=%d force=%d ml=%d",
-             modeStr(mode), temp, effectiveMax, m_tempMin, m_forceHeating, doML);
-    // ── Step 4: Handle forced heating from setup ──
-    int measuredPower = 0;
+              modeStr(mode), temp, effectiveMax, m_tempMin, m_forceHeating, doML);
+
     switch (mode)
     {
     case MODE_OFF:
@@ -354,41 +396,24 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
         LogEntry logEntry;
         logEntry.ts = now;
         logEntry.temp = temp;
-        handleModeOff(logEntry);
+        execModeOff(logEntry);
         LogCommitter::writeToLog(logEntry, webSockData);
         pidLockWrite(webSockData);
         break;
     }
     case MODE_LEGIONELLA:
     {
-        legionella = true;
-        allOn();
-        LogCommitter::commit(now, (uint8_t)MODE_LEGIONELLA, phaseCtrl.getOnePhase() * 3, (uint8_t)OUTPUT_MAX, temp, webSockData);
-        pidLockWrite(webSockData);
+        execModeLegionella(temp, now, webSockData);
         break;
     }
     case MODE_MIN_TEMP:
     {
-        allOn();
-        LogCommitter::commit(now, (uint8_t)MODE_MIN_TEMP, phaseCtrl.getOnePhase() * 3, (uint8_t)OUTPUT_MAX, temp, webSockData);
-        pidLockWrite(webSockData);
+        execModeMinTemp(temp, now, webSockData);
         break;
-    } 
+    }
     case MODE_AUTO:
     {
-        LogEntry logEntry;
-        LogCommitter::fillEntry(logEntry, now, (uint8_t)MODE_AUTO, 0, 0, temp);
-        measuredPower = batteryMon.getAvailablePower(phaseCtrl.getHeaterPower(), m_out_wattBiasForTest);
-        if (measuredPower > 0)
-        {
-            handleModeAuto(logEntry, measuredPower, doML);
-        }
-        else
-        {
-            handleModeOff(logEntry);
-        }
-        LogCommitter::writeToLog(logEntry, webSockData);
-        pidLockWrite(webSockData);
+        execModeAuto(temp, now, doML, effectiveMax, webSockData);
         break;
     }
     default:
@@ -396,10 +421,35 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
         LogEntry logEntry;
         logEntry.ts = now;
         logEntry.temp = temp;
-        handleModeOff(logEntry);
+        execModeOff(logEntry);
         LogCommitter::writeToLog(logEntry, webSockData);
         pidLockWrite(webSockData);
         break;
     }
     }
+}
+// ──────────────────────────────────────────────────────────────────────────
+// update — top-level orchestration (called under appLockData + appLockPidOut)
+// ──────────────────────────────────────────────────────────────────────────
+void PinManager::update(WEBSOCK_DATA& webSockData,
+    int tempMaxBonusC,
+    float pvRatio,
+    float cloudAvg,
+    float tempOutside)
+{
+    // ── 1. Prepare inputs ──
+    stepPrepare(webSockData, tempMaxBonusC, pvRatio, cloudAvg, tempOutside);
+
+    unsigned long now = millis();
+    int temp = resolveInputTemp();
+    int effectiveMax = m_tempMaxAllowed + m_weatherBonus;
+
+    // ── 2. Force-Off (early exit) ──
+    if (stepForceOff(temp, now, webSockData)) return;
+
+    // ── 3. Force-Heat (early exit) ──
+    if (stepForceHeat(temp, effectiveMax, now, webSockData)) return;
+
+    // ── 4. Normal control loop ──
+    stepControlMode(temp, effectiveMax, now, webSockData);
 }

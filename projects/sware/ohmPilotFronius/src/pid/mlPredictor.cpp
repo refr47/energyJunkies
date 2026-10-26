@@ -13,8 +13,7 @@
 // Constructors
 // ──────────────────────────────────────────────────────────────────────────
 MlPredictor::MlPredictor()
-    : m_tempMin(45.0f), m_tempMax(60.0f), m_maxPower(1728),
-      m_lastSmoothedPower(0.0f)
+    : m_tempMin(45.0f), m_tempMax(60.0f), m_maxPower(1728)
 {
 }
 
@@ -26,7 +25,6 @@ void MlPredictor::init(float tempMin, float tempMax, int maxPower)
     m_tempMin = tempMin;
     m_tempMax = tempMax;
     m_maxPower = maxPower;
-    m_lastSmoothedPower = 0.0f;
 }
 
 
