@@ -62,6 +62,7 @@ bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *bu
         if (!connect())
         {
             LOG_ERROR(TAG_MODBUS, "Huawei: reconnect failed");
+            m_connected = false;
             return false;
         }
     }
@@ -86,6 +87,7 @@ bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *bu
         if (millis() - t0 > MB_READ_TIMEOUT_MS)
         {
             LOG_ERROR(TAG_MODBUS, "Huawei: timeout header (0x%04x)", startAddr);
+            m_connected = false;
             return false;
         }
     }
@@ -93,6 +95,7 @@ bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *bu
     if (m_client.read((uint8_t*)&hdr, sizeof(hdr)) < (int)sizeof(hdr))
     {
         LOG_ERROR(TAG_MODBUS, "Huawei: short header");
+        m_connected = false;
         return false;
     }
 
@@ -103,6 +106,7 @@ bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *bu
             m_client.read(&errCode, 1);
         LOG_ERROR(TAG_MODBUS, "Huawei: error FC=0x%02x err=%d",
                   hdr.funcCode, errCode);
+        m_connected = false;
         return false;
     }
 
@@ -118,13 +122,15 @@ bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *bu
         {
             LOG_ERROR(TAG_MODBUS, "Huawei: timeout payload (%u/%u)",
                       m_client.available(), expectedBytes);
+            m_connected = false;
             return false;
         }
-    } 
+    }
 
     if (m_client.read(tmp, expectedBytes) < (int)expectedBytes)
     {
         LOG_ERROR(TAG_MODBUS, "Huawei: short payload");
+        m_connected = false;
         return false;
     }
 
@@ -203,94 +209,82 @@ bool HuaweiModbus::init(Setup &setupData, WEBSOCK_DATA &webSockData)
     return true;
 }
 
-/*
-
-
-
-
-
-
-
-
-*/
-
-
 // ------------------------------------------------------------------
-// read — 3 Batches, sofort Konventionenumwandlung
+// read - 3 Batches, sofort Konventionenumwandlung
+//   All-or-nothing: bei fehlgeschlagenem Batch wird sofort abgebrochen,
+//   energyState bleibt unveraendert (alte gueltige Werte).
+//   m_connected wird bei jedem Fehler auf false gesetzt.
 // ------------------------------------------------------------------
 
 bool HuaweiModbus::read(WEBSOCK_DATA &webSockData)
 {
-    bool ok = true;
-    float pvRaw = 0;
-    float gridRaw = 0;
-    float battRaw = 0;
+    if (!m_connected || !m_client.connected())
+    {
+        if (!connect())
+        {
+            LOG_ERROR(TAG_MODBUS, "Huawei: not connected, read skipped");
+            m_connected = false;
+            return false;
+        }
+    }
 
-    // ── Batch 1: PV Power (0x7D80) ──────────────────────────────────
+    float pvRaw   = 0.0f;
+    float gridRaw = 0.0f;
+    float battRaw = 0.0f;
+    double socVal = 0.0;
+
+    // Batch 1: PV Power (0x7D80)
     {
         uint16_t buf[2];
         if (!readBatch(HUAWAI_REG_ACTIVE_POWER, 2, buf))
         {
-            LOG_ERROR(TAG_MODBUS, "Huawei: PV batch failed");
-            ok = false;
+            m_connected = false;
+            LOG_ERROR(TAG_MODBUS, "Huawei: PV batch failed - connection lost");
+            return false;
         }
-        else
-        {
-            pvRaw = parseFloat32(buf[0], buf[1]);
-        }
+        pvRaw = parseFloat32(buf[0], buf[1]);
     }
 
-    // ── Batch 2: Grid Power (0x9129) ────────────────────────────────
+    // Batch 2: Grid Power (0x9129)
     {
         uint16_t buf[2];
         if (!readBatch(HUAWAI_REG_GRID_POWER, 2, buf))
         {
-            LOG_ERROR(TAG_MODBUS, "Huawei: grid batch failed");
-            ok = false;
+            m_connected = false;
+            LOG_ERROR(TAG_MODBUS, "Huawei: grid batch failed - connection lost");
+            return false;
         }
-        else
-        {
-            gridRaw = parseFloat32(buf[0], buf[1]);
-        }
+        gridRaw = parseFloat32(buf[0], buf[1]);
     }
 
-    // ── Batch 3: SoC (0x9390) + Batt Power (0x9392) ────────────────
+    // Batch 3: SoC (0x9390) + Batt Power (0x9392)
     {
         uint16_t buf[3];
         if (!readBatch(HUAWAI_REG_BATT_SOC, 3, buf))
         {
-            LOG_ERROR(TAG_MODBUS, "Huawei: batt batch failed");
-            ok = false;
+            m_connected = false;
+            LOG_ERROR(TAG_MODBUS, "Huawei: batt batch failed - connection lost");
+            return false;
         }
-        else
-        {
-            m_soc    = (double)buf[0];
-            battRaw  = parseFloat32(buf[1], buf[2]);
-        }
-    } 
+        socVal  = (double)buf[0];
+        battRaw = parseFloat32(buf[1], buf[2]);
+    }
 
-    // ── Sofort umwandeln ────────────────────────────────────────────
-    // Huawei: grid +1=Bezug, -1=Einsp  → negate
-    // Huawei: batt +1=Laden, -1=Entlad → negate
+    // Nur wenn ALLE 3 Batches OK -> energyState beschreiben
+    // Huawei: grid +1=Bezug, -1=Einsp -> negate
+    // Huawei: batt +1=Laden, -1=Entlad -> negate
     // P_LOAD = PV + Netz_Bezug + Akku_Entladen
-    m_p_pv   = pvRaw;   // >=0 
-    m_p_grid = -gridRaw;  //> 0: einspeisung < 0 bezug  -- invers zu fronius
-    m_p_akku = -battRaw; // auch hier invers zu fronius
-    m_p_load = pvRaw - gridRaw ;
-
-    // ── In energyState schreiben ────────────────────────────────────
     auto &dst = webSockData.energyState;
-    dst.p_pv   = m_p_pv;
-    dst.p_grid = m_p_grid;
-    dst.p_akku = m_p_akku;
-    dst.p_load = m_p_load;
-    dst.soc    = m_soc;
+    dst.p_pv   = pvRaw;
+    dst.p_grid = -gridRaw;
+    dst.p_akku = -battRaw;
+    dst.p_load = pvRaw - gridRaw;
+    dst.soc    = socVal;
 
     LOG_INFO(TAG_APP_SERVICES,
              "energy (huawei): pv=%.0fW grid=%.0fW load=%.0fW akku=%.0fW soc=%.1f%%",
              dst.p_pv, dst.p_grid, dst.p_load, dst.p_akku, dst.soc);
 
     vTaskDelay(pdMS_TO_TICKS(100));
-
-    return ok;
+    return true;
 }
