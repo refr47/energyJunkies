@@ -401,7 +401,7 @@
 	const isExporting = computed(() => (props.liveData?.netzBezug || 0) <= 0);
 	// --- Datenquelle aus WebSocket ---
 	const dataSource   = computed(() => props.liveData?.dataSource ?? null);
-	const isRichSource = computed(() => ['fronius', 'modbus'].includes(dataSource.value));
+	const isRichSource = computed(() => ['fronius', 'modbus','huawei'].includes(dataSource.value));
 	const isAmis       = computed(() => dataSource.value === 'amis');
 
 	// --- Battery (nur bei fronius/modbus relevant) ---

@@ -7,6 +7,7 @@
     <span v-if="source === 'fronius'">☀️ Fronius Solar</span>
     <span v-else-if="source === 'modbus'">📡 Modbus</span>
     <span v-else-if="source === 'amis'">📊 AMIS Reader</span>
+    <span v-else-if="source === 'huawei'">🔋 Huawei</span>
     <span v-else>⚠️ Keine Quelle</span>
   </span>
 </template>
@@ -21,6 +22,7 @@ const badgeClasses = () => {
     case 'fronius': return 'bg-amber-50 text-amber-700 border-amber-200';
     case 'modbus':  return 'bg-sky-50 text-sky-700 border-sky-200';
     case 'amis':    return 'bg-violet-50 text-violet-700 border-violet-200';
+    case 'huawei':  return 'bg-teal-50 text-teal-700 border-teal-200';
     default:        return 'bg-rose-50 text-rose-600 border-rose-200';
   }
 };
