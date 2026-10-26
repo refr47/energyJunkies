@@ -2,42 +2,28 @@
 // huaweiModbus.cpp — Huawei SUN2000-10KTL-M1 via Modbus/TCP
 //
 // Register-Map: Huawei-SUN2000-Modbus-Communication-Protocol-01V01-EN
+// Uses ModbusIP_ESP8266 library — konsistent zum Fronius Modbus-Reader.
 // =============================================================================
 
 #include "devices/huaweiModbus.h"
 #include "debugConsole.h"
 
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#else
+#include <WiFi.h>
+#endif
+
+#include <ModbusIP_ESP8266.h>
+#include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
 // ------------------------------------------------------------------
-// Modbus-TCP-Header (MBAP)
+// ModbusIP-Instanz (getrennt vom Fronius-Reader)
 // ------------------------------------------------------------------
 
-struct __attribute__((packed)) ModbusTcpRequest
-{
-    uint16_t transId;
-    uint16_t protoId;
-    uint16_t length;
-    uint8_t  unitId;
-    uint8_t  funcCode;
-    uint16_t startAddr;
-    uint16_t quantity;
-};
-
-struct __attribute__((packed)) ModbusTcpResponse
-{
-    uint16_t transId;
-    uint16_t protoId;
-    uint16_t length;
-    uint8_t  unitId;
-    uint8_t  funcCode;
-    uint8_t  byteCount;
-};
-
-static const uint16_t MB_PROTO_ID        = 0;
-static const uint32_t MB_READ_TIMEOUT_MS = 3000;
-static const uint32_t MB_POLL_INTERVAL_MS = 50;
+static ModbusIP mbHuawei;
 
 // ------------------------------------------------------------------
 // parseFloat32 — Big-Endian ABCD (Reg[0]=Hi, Reg[1]=Lo)
@@ -52,125 +38,65 @@ float HuaweiModbus::parseFloat32(uint16_t hi, uint16_t lo)
 }
 
 // ------------------------------------------------------------------
-// readBatch — atomarer Modbus FC03-Request (N Register, max 125)
+// connect — ModbusIP-Verbindung zum Huawei-Inverter
 // ------------------------------------------------------------------
 
-bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *buf)
+bool HuaweiModbus::connect(Setup &setupData)
 {
-    if (!m_connected || !m_client.connected())
+    if (!m_ip.fromString(setupData.inverter))
     {
-        if (!connect())
-        {
-            LOG_ERROR(TAG_MODBUS, "Huawei: reconnect failed");
-            m_connected = false;
-            return false;
-        }
-    }
-
-    ModbusTcpRequest req;
-    req.transId   = m_transId++;
-    req.protoId   = MB_PROTO_ID;
-    req.quantity  = quantity;
-    req.length    = 6;
-    req.unitId    = HUAWAI_REG_DEVICE_ID;
-    req.funcCode  = 0x03;
-    req.startAddr = startAddr;
-
-    m_client.write((uint8_t*)&req, sizeof(req));
-
-    // ── Antwort warten (kompletter Header) ──────────────────────────
-    ModbusTcpResponse hdr;
-    uint32_t t0 = millis();
-    while (m_client.available() < (int)sizeof(hdr))
-    {
-        vTaskDelay(pdMS_TO_TICKS(MB_POLL_INTERVAL_MS));
-        if (millis() - t0 > MB_READ_TIMEOUT_MS)
-        {
-            LOG_ERROR(TAG_MODBUS, "Huawei: timeout header (0x%04x)", startAddr);
-            m_connected = false;
-            return false;
-        }
-    }
-
-    if (m_client.read((uint8_t*)&hdr, sizeof(hdr)) < (int)sizeof(hdr))
-    {
-        LOG_ERROR(TAG_MODBUS, "Huawei: short header");
-        m_connected = false;
+        LOG_ERROR(TAG_MODBUS, "Huawei: bad IP \"%s\"", setupData.inverter);
         return false;
     }
 
-    if (hdr.funcCode & 0x80)
-    {
-        uint8_t errCode = 0;
-        if (m_client.available() > 0)
-            m_client.read(&errCode, 1);
-        LOG_ERROR(TAG_MODBUS, "Huawei: error FC=0x%02x err=%d",
-                  hdr.funcCode, errCode);
-        m_connected = false;
-        return false;
-    }
-
-    // ── Payload lesen ───────────────────────────────────────────────
-    size_t expectedBytes = hdr.byteCount;
-    uint8_t tmp[254];
-
-    uint32_t t1 = millis();
-    while (m_client.available() < expectedBytes)
-    {
-        vTaskDelay(pdMS_TO_TICKS(MB_POLL_INTERVAL_MS));
-        if (millis() - t1 > MB_READ_TIMEOUT_MS)
-        {
-            LOG_ERROR(TAG_MODBUS, "Huawei: timeout payload (%u/%u)",
-                      m_client.available(), expectedBytes);
-            m_connected = false;
-            return false;
-        }
-    }
-
-    if (m_client.read(tmp, expectedBytes) < (int)expectedBytes)
-    {
-        LOG_ERROR(TAG_MODBUS, "Huawei: short payload");
-        m_connected = false;
-        return false;
-    }
-
-    for (uint16_t i = 0; i < quantity; i++)
-    {
-        buf[i] = ((uint16_t)tmp[2 * i] << 8) | (uint16_t)tmp[2 * i + 1];
-    }
-
-    return true;
-}
-
-// ------------------------------------------------------------------
-// connect / disconnect
-// ------------------------------------------------------------------
-
-bool HuaweiModbus::connect()
-{
-    LOG_INFO(TAG_MODBUS, "Huawei: connect → %s:502",
-             m_ip.toString().c_str());
-
-    if (m_client.connected())
+    if (mbHuawei.isConnected(m_ip))
         return true;
 
-    if (!m_client.connect(m_ip, 502))
+    LOG_INFO(TAG_MODBUS, "Huawei: connect → %s:502", m_ip.toString().c_str());
+
+    bool ok = mbHuawei.connect(m_ip);
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    if (!ok)
     {
         LOG_ERROR(TAG_MODBUS, "Huawei: connection refused");
         m_connected = false;
         return false;
     }
 
-    vTaskDelay(pdMS_TO_TICKS(500));
     m_connected = true;
     LOG_INFO(TAG_MODBUS, "Huawei: connected");
     return true;
 }
 
-bool HuaweiModbus::disconnect()
+// ------------------------------------------------------------------
+// readBatch — Modbus FC03 via ModbusIP
+// ------------------------------------------------------------------
+
+bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *buf)
 {
-    m_client.stop();
-    m_connected = false;
+    if (!m_connected || !mbHuawei.isConnected(m_ip))
+    {
+        LOG_ERROR(TAG_MODBUS, "Huawei: not connected, reconnect skipped");
+        m_connected = false;
+        return false;
+    }
+
+    // ModbusIP sendet asynchron, transId==0 bedeutet Fehler
+    uint16_t transId = mbHuawei.readHreg(m_ip, startAddr, buf, quantity,
+                                         NULL, HUAWAI_REG_DEVICE_ID);
+
+    if (transId == 0)
+    {
+        LOG_ERROR(TAG_MODBUS, "Huawei: readHreg failed at 0x%04x", startAddr);
+        m_connected = false;
+        return false;
+    }
+
+    // Auf Antwort warten
+    mbHuawei.task();
+    vTaskDelay(pdMS_TO_TICKS(100));
+
     return true;
 }
 
@@ -186,19 +112,13 @@ bool HuaweiModbus::init(Setup &setupData, WEBSOCK_DATA &webSockData)
         return false;
     }
 
-    if (!m_ip.fromString(setupData.inverter))
-    {
-        LOG_ERROR(TAG_MODBUS, "Huawei: bad IP \"%s\"", setupData.inverter);
-        return false;
-    }
-
-    if (!connect())
+    if (!connect(setupData))
         return false;
 
     // Test-Read
     {
         uint16_t testBuf[2];
-        if (readBatch(0x7D80, 2, testBuf))
+        if (readBatch(HUAWAI_REG_ACTIVE_POWER, 2, testBuf))
         {
             float pv = parseFloat32(testBuf[0], testBuf[1]);
             LOG_INFO(TAG_MODBUS, "Huawei: init OK, PV=%.1f W", pv);
@@ -218,14 +138,11 @@ bool HuaweiModbus::init(Setup &setupData, WEBSOCK_DATA &webSockData)
 
 bool HuaweiModbus::read(WEBSOCK_DATA &webSockData)
 {
-    if (!m_connected || !m_client.connected())
+    if (!m_connected || !mbHuawei.isConnected(m_ip))
     {
-        if (!connect())
-        {
-            LOG_ERROR(TAG_MODBUS, "Huawei: not connected, read skipped");
-            m_connected = false;
-            return false;
-        }
+        LOG_ERROR(TAG_MODBUS, "Huawei: not connected, read skipped");
+        m_connected = false;
+        return false;
     }
 
     float pvRaw   = 0.0f;
@@ -233,7 +150,7 @@ bool HuaweiModbus::read(WEBSOCK_DATA &webSockData)
     float battRaw = 0.0f;
     double socVal = 0.0;
 
-    // Batch 1: PV Power (0x7D80)
+    // Batch 1: PV Power (0x7D80 → 0x7D90 = ACTIVE_POWER)
     {
         uint16_t buf[2];
         if (!readBatch(HUAWAI_REG_ACTIVE_POWER, 2, buf))

@@ -39,8 +39,6 @@ private:
     // ── Modbus/TCP-Verbindung ─────────────────────────────────────────
     bool       m_connected = false;
     IPAddress  m_ip;
-    WiFiClient m_client;
-    uint16_t   m_transId = 0x0001;
 
     // ── Lokale Cache-Variablen (bereits benutzer-konvention) ──────────
     float  m_p_pv   = 0.0f;
@@ -62,11 +60,10 @@ private:
     static const uint16_t HUAWAI_REG_GRID_POWER = 37113;  //aktuelle netz bezugsleistung (W) > 0: einspeisung < 0 bezug; 0x9129
     static const uint16_t HUAWAI_REG_BATT_SOC   = 37760; //aktueller akku ladestand (SoC) in % 0x9390
     static const uint16_t HUAWAI_REG_BATT_POWER = 37765; //aktuelle batterie lade/entladeleistung (W) < 0: entladen > 0 laden; 0x9392
-    static const uint16_t HUAWAI_REG_DEVICE_ID  = 1;
+    static const uint8_t  HUAWAI_REG_DEVICE_ID  = 1;
 
     // ── Register-Helper ────────────────────────────────────────────────
-    bool connect();
-    bool disconnect();
+    bool connect(Setup &setupData);
     bool readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *buf);
     static float parseFloat32(uint16_t hi, uint16_t lo);
 };
