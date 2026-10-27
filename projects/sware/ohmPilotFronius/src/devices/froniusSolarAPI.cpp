@@ -38,7 +38,7 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
     LOG_DEBUG(TAG_SOLAR,"solar_init() for %s", buf);
     webSockData.setupData.akku = false;
     *akku = false;
-    webSockData.states.froniusAPI = false;
+    webSockData.states.device = false;
 
     String json_array = util_GET_Request(uRL.c_str(), &httpResponseCode);
     if (httpResponseCode != 200)
@@ -58,7 +58,7 @@ bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku)
          LOG_ERROR(TAG_SOLAR,"Parsing input failed!");
         return false;
     }
-    webSockData.states.froniusAPI = true;
+    webSockData.states.device = true;
     if (JSON.typeof(my_obj["Body"]["Data"]["Site"]["P_Akku"]) == "undefined")
     {
         LOG_DEBUG(TAG_SOLAR,"solar_init Akku is not available!!");

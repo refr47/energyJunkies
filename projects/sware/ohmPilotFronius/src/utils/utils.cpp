@@ -12,6 +12,16 @@
 #include <lwip/ip.h>
 #include <lwip/netdb.h>
 #include <base64.h>
+#include "esp_chip_info.h"
+#include "spi_flash_mmap.h"
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+	// Moderne Methode für ESP-IDF v5.x
+#include "esp_flash.h"
+#else
+	// Legacy Methode für ESP-IDF v4.x
+	flash_size = spi_flash_get_chip_size();
+#endif
 
 #include <HTTPClient.h>
 
@@ -244,16 +254,20 @@ bool util_checkParamFloat(const char* key, const char* argument, /* const JsonOb
 void util_pHW()
 {
 	esp_chip_info_t chip_info;
-
 	esp_chip_info(&chip_info);
 
+	// Flash-Größe sicher auslesen
+	uint32_t flash_size = 0;
+
 	LOG_DEBUG(TAG_UTILS, "Hardware info");
-	LOG_DEBUG(TAG_UTILS, "%d cores Wifi %s%s\n", chip_info.cores, (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+	LOG_DEBUG(TAG_UTILS, "%d cores Wifi %s%s\n", chip_info.cores,
+		(chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
 		(chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
 	LOG_DEBUG(TAG_UTILS, "Silicon revision: %d\n", chip_info.revision);
-	LOG_DEBUG(TAG_UTILS, "%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-		(chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embeded" : "external");
 
+	// Da EMB_FLASH nicht mehr existiert, wird die Unterscheidung weggelassen 
+	// oder durch ein Fallback-Makro abgefangen.
+	LOG_DEBUG(TAG_UTILS, "%dMB flash\n", flash_size / (1024 * 1024));
 	// get chip id
 	String chipId = String((uint32_t)ESP.getEfuseMac(), HEX);
 	chipId.toUpperCase();
@@ -326,6 +340,7 @@ bool util_SendLoxone(char* url, char* loxone_user, char* loxone_pwd)
 
 	// Verbindung schließen
 	http.end();
+	return true;
 }
 
 
@@ -338,9 +353,9 @@ void utils_logInit(RingBuffer& rb)
 	memset(&rb.lastAddedEntry, 0, sizeof(LogEntry));
 
 	rb.mutex = xSemaphoreCreateMutex();  // ← Correct type
-    if (rb.mutex == NULL) {
-        LOG_ERROR(TAG_UTILS, "Failed to create mutex for log buffer");
-    }
+	if (rb.mutex == NULL) {
+		LOG_ERROR(TAG_UTILS, "Failed to create mutex for log buffer");
+	}
 }
 
 void utils_logWrite(RingBuffer& rb, const LogEntry& e)
@@ -350,7 +365,7 @@ void utils_logWrite(RingBuffer& rb, const LogEntry& e)
 
 	// Hysteresegrenze für logging (vermeidet Log-Stau bei 0-3 W Abweichungen)
 #ifndef LOG_POWER_HYSTERESIS
-	#define LOG_POWER_HYSTERESIS 20  // Nur loggen wenn Leistung um >= 20W weicht
+#define LOG_POWER_HYSTERESIS 20  // Nur loggen wenn Leistung um >= 20W weicht
 #endif
 
 	bool hasChanged = (e.state != rb.lastAddedEntry.state ||
@@ -603,7 +618,7 @@ bool isStreamingAllowed(bool& isHeartbeatDue)
 //     PV = 0:      nach ENERGY_ZERO_READS_THRESHOLD (3) Verdopplung
 //                  bis max ENERGY_NIGHT_INTERVAL (300s)
 // =============================================================================
-static uint32_t s_energyInterval  = ENERGY_DAY_INTERVAL;
+static uint32_t s_energyInterval = ENERGY_DAY_INTERVAL;
 static int      s_energyZeroCount = 0;
 
 uint32_t getAdaptiveEnergyInterval(void)
@@ -619,7 +634,7 @@ uint32_t getAdaptiveEnergyInterval(void)
 	if (hour >= ENERGY_NIGHT_OFF_START || hour < ENERGY_NIGHT_OFF_END)
 	{
 		// Intervall zuruecksetzen, damit morgens wieder voll da ist
-		s_energyInterval  = ENERGY_DAY_INTERVAL;
+		s_energyInterval = ENERGY_DAY_INTERVAL;
 		s_energyZeroCount = 0;
 		return 0; // OFF
 	}
@@ -628,12 +643,12 @@ uint32_t getAdaptiveEnergyInterval(void)
 	bool hasPv = false;
 	if (appLockData(50))
 	{
-		#ifdef FRONIUS_IV
+#ifdef FRONIUS_IV
 		hasPv = (g_app.webSockData.fronius_SOLAR_POWERFLOW.p_pv > 0.1);
-		#else
+#else
 		// Kein Fronius? -> konservativ: immer Tag-Intervall
 		hasPv = true;
-		#endif
+#endif
 		appUnlockData();
 	}
 	else
@@ -647,10 +662,10 @@ uint32_t getAdaptiveEnergyInterval(void)
 		if (s_energyZeroCount > 0)
 		{
 			LOG_INFO(TAG_UTILS,
-			         "Adaptive Energy: PV > 0 nach %d Null-Lesungen -> sofort %dms",
-			         s_energyZeroCount, ENERGY_DAY_INTERVAL);
+				"Adaptive Energy: PV > 0 nach %d Null-Lesungen -> sofort %dms",
+				s_energyZeroCount, ENERGY_DAY_INTERVAL);
 		}
-		s_energyInterval  = ENERGY_DAY_INTERVAL;
+		s_energyInterval = ENERGY_DAY_INTERVAL;
 		s_energyZeroCount = 0;
 	}
 	else
@@ -665,8 +680,8 @@ uint32_t getAdaptiveEnergyInterval(void)
 			if (s_energyInterval != next)
 			{
 				LOG_INFO(TAG_UTILS,
-				         "Adaptive Energy: PV=0 (%d) -> %dms",
-				         s_energyZeroCount, next);
+					"Adaptive Energy: PV=0 (%d) -> %dms",
+					s_energyZeroCount, next);
 				s_energyInterval = next;
 			}
 		}

@@ -202,14 +202,14 @@ bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
     /*  setup.pid_min_time_before_switch_off_channel_inMS = 2000;
      setup.pid_min_time_for_dig_output_inMS = 10000; */
     setup.legionellenMaxTemp = 70;
-    strcpy(setup.mqttHost, EMPTY_VALUE_IN_SETUP);
-    strcpy(setup.mqttPass, "MQTT_PASS");
-    strcpy(setup.mqttUser, "MQTT_USER");
-    strcpy(setup.influxHost, "http://rantanplan-ethernet:8086");
+    strcpy(setup.mqttSetup.mqttHost, EMPTY_VALUE_IN_SETUP);
+    strcpy(setup.mqttSetup.mqttPass, "MQTT_PASS");
+    strcpy(setup.mqttSetup.mqttUser, "MQTT_USER");
+    strcpy(setup.influxSetup.influxHost, "http://rantanplan-ethernet:8086");
     //strcpy(setup.influxHost, EMPTY_VALUE_IN_SETUP);
-    strcpy(setup.influxBucket, "energieJunkies");
-    strcpy(setup.influxOrg, "d727c1fb692f26f9");
-    strcpy(setup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q==");
+    strcpy(setup.influxSetup.influxBucket, "energieJunkies");
+    strcpy(setup.influxSetup.influxOrg, "d727c1fb692f26f9");
+    strcpy(setup.influxSetup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q==");
     //strcpy(setup.influxToken, "---");
     strcpy(setup.amisReaderHost, "10.0.0.2");
     // strcpy(setup.amisReaderHost, "192.168.178.45");
@@ -233,7 +233,7 @@ void printEprom(Setup &setup)
     memset(buffer, 0, 2000);
     LOG_DEBUG(TAG_EPPROM,"eprom::printEprom ============================================ ");
     sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %d Influx: %s ,inverter: %s,  LegionellenCheckDelta: %d   forceHeating: %d , Epsilon-PinManager: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.akku, setup.akkuPriori, setup.influxOrg, setup.inverter, setup.legionellenDelta, setup.forceHeating, setup.epsilonML_PinManager, setup.amisReaderHost, setup.mqttHost, setup.mqttUser, setup.mqttPass, setup.influxHost, setup.influxOrg, setup.influxToken, setup.influxBucket);
+            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.akku, setup.akkuPriori, setup.influxSetup.influxOrg, setup.inverter, setup.legionellenDelta, setup.forceHeating, setup.epsilonML_PinManager, setup.amisReaderHost, setup.mqttSetup.mqttHost, setup.mqttSetup.mqttUser, setup.mqttSetup.mqttPass, setup.influxSetup.influxOrg, setup.influxSetup.influxToken, setup.influxSetup.influxBucket);
     LOG_DEBUG(TAG_EPPROM,"%s", buffer);
 
     // DBGf("\n==========================(%d)============================== ", strlen(buffer));

@@ -4,6 +4,11 @@
 #include "freertos/semphr.h"
 
 #include "defines.h"
+#ifndef ledcSetup
+  #define ledcSetup(channel, freq, resolution) ledcAttach(TFT_BL, freq, resolution)
+  #define ledcAttachPin(pin, channel)          // Wird ignoriert
+  #define ledcWrite(channel, duty)             ledcWrite(TFT_BL, duty)
+#endif
 
 #ifdef ESP_LILY_GO
 

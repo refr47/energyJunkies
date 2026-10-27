@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include "esp_clk.h"
 #include <SPI.h>
 #include "esp32-hal-log.h"
 #include "esp_heap_trace.h"
