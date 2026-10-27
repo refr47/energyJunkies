@@ -1,6 +1,23 @@
 #include "setupFields.h"
 #include "ajaxConst.h"
 
+// Getter/Setter fuer verschachtelte Members (Lambda-Field-Template)
+static const char *mqttHostGet(const Setup &s) { return s.mqttSetup.mqttHost; }
+static void mqttHostSet(Setup &s, const char *v) { strlcpy(s.mqttSetup.mqttHost, v, MQTT_HOST_LEN + 1); }
+static const char *mqttUserGet(const Setup &s) { return s.mqttSetup.mqttUser; }
+static void mqttUserSet(Setup &s, const char *v) { strlcpy(s.mqttSetup.mqttUser, v, MQTT_USER_LEN + 1); }
+static const char *mqttPassGet(const Setup &s) { return s.mqttSetup.mqttPass; }
+static void mqttPassSet(Setup &s, const char *v) { strlcpy(s.mqttSetup.mqttPass, v, MQTT_PASS_LEN + 1); }
+
+static const char *influxHostGet(const Setup &s) { return s.influxSetup.influxHost; }
+static void influxHostSet(Setup &s, const char *v) { strlcpy(s.influxSetup.influxHost, v, INFLUX_HOST_LEN + 1); }
+static const char *influxTokenGet(const Setup &s) { return s.influxSetup.influxToken; }
+static void influxTokenSet(Setup &s, const char *v) { strlcpy(s.influxSetup.influxToken, v, INFLUX_TOKEN_LEN + 1); }
+static const char *influxOrgGet(const Setup &s) { return s.influxSetup.influxOrg; }
+static void influxOrgSet(Setup &s, const char *v) { strlcpy(s.influxSetup.influxOrg, v, INFLUX_ORG_LEN + 1); }
+static const char *influxBucketGet(const Setup &s) { return s.influxSetup.influxBucket; }
+static void influxBucketSet(Setup &s, const char *v) { strlcpy(s.influxSetup.influxBucket, v, INFLUX_BUCKET_LEN + 1); }
+
 // 1. Statische Instanzen der Felder (werden einmalig beim Start angelegt)
 namespace Fields
 {
@@ -19,14 +36,14 @@ namespace Fields
 
     static const BooleanField<Setup> akku(AKKU, &Setup::akku);
     static const NumericField<short, Setup> akkuPrio(AKKU_PRIORI, &Setup::akkuPriori);
-    static const StringField<Setup, MQTT_HOST_LEN + 1> mHost(WWW_MQTT_HOST, &Setup::mqttHost);
-    static const StringField<Setup, MQTT_USER_LEN + 1> mUser(WWW_MQTT_USER, &Setup::mqttUser);
-    static const StringField<Setup, MQTT_PASS_LEN + 1> mPass(WWW_MQTT_PASWWD, &Setup::mqttPass);
+    static const LambdaStringField<Setup, MQTT_HOST_LEN + 1> mHost(WWW_MQTT_HOST, mqttHostGet, mqttHostSet);
+    static const LambdaStringField<Setup, MQTT_USER_LEN + 1> mUser(WWW_MQTT_USER, mqttUserGet, mqttUserSet);
+    static const LambdaStringField<Setup, MQTT_PASS_LEN + 1> mPass(WWW_MQTT_PASWWD, mqttPassGet, mqttPassSet);
 
-    static const StringField<Setup, INFLUX_HOST_LEN + 1> influxHost(WWW_INFLUX_HOST, &Setup::influxHost);
-    static const StringField<Setup, INFLUX_TOKEN_LEN + 1> influxToken(WWW_INFLUX_TOKEN, &Setup::influxToken);
-    static const StringField<Setup, INFLUX_ORG_LEN + 1> influxOrg(WWW_INFLUX_ORG, &Setup::influxOrg);
-    static const StringField<Setup, INFLUX_BUCKET_LEN + 1> influxBucket(WWW_INFLUX_BUCKET, &Setup::influxBucket);
+    static const LambdaStringField<Setup, INFLUX_HOST_LEN + 1> influxHost(WWW_INFLUX_HOST, influxHostGet, influxHostSet);
+    static const LambdaStringField<Setup, INFLUX_TOKEN_LEN + 1> influxToken(WWW_INFLUX_TOKEN, influxTokenGet, influxTokenSet);
+    static const LambdaStringField<Setup, INFLUX_ORG_LEN + 1> influxOrg(WWW_INFLUX_ORG, influxOrgGet, influxOrgSet);
+    static const LambdaStringField<Setup, INFLUX_BUCKET_LEN + 1> influxBucket(WWW_INFLUX_BUCKET, influxBucketGet, influxBucketSet);
     static const NumericField<double, Setup> epsilon(PID_EPSILON, &Setup::epsilonML_PinManager);
     static const NumericField<unsigned int, Setup> biasWatt(WWW_WATT_BIAS, &Setup::wattSetupForTest);
 }

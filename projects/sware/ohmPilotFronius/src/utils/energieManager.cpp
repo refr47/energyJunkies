@@ -27,9 +27,9 @@ void eM_hibernate()
     // Shut down RTC (Low Power) Peripherals
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
     // Shut down RTC Slow Memory
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
+    //esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW, ESP_PD_OPTION_OFF);
     // Shut down RTC Fast Memory
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
+    esp_sleep_pd_config(ESP_PD_DOMAIN_RC_FAST, ESP_PD_OPTION_OFF);
     // Shut down Crystal Oscillator XTAL
     esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_OFF);
     // Enter Deep Sleep

@@ -54,12 +54,12 @@ void WiFiEvent(WiFiEvent_t event)
 {
     switch (event)
     {
-    case SYSTEM_EVENT_STA_CONNECTED:
+    case WIFI_EVENT_STA_CONNECTED:
         LOG_INFO("TAG_WLAN", "wlan::WiFiEvent(SYSTEM_EVENT_STA_CONNECTED) - Connected to WiFi");
         connected = false;
         break;
 
-    case SYSTEM_EVENT_STA_DISCONNECTED:
+    case WIFI_EVENT_STA_DISCONNECTED:
 
         if (WiFi.status() != WL_CONNECTED)
         {
@@ -75,7 +75,7 @@ void WiFiEvent(WiFiEvent_t event)
 
       
         break;
-    case SYSTEM_EVENT_STA_GOT_IP:
+    case IP_EVENT_STA_GOT_IP:
     {
         String s = WiFi.localIP().toString();
         LOG_INFO("TAG_WLAN", "wlan::WiFiEvent(SYSTEM_EVENT_STA_GOT_IP) - IP address: %s", s.c_str());

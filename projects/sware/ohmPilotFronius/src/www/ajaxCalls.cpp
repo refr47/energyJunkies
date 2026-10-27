@@ -359,14 +359,14 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     result[AKKU] = setup.akku;
     result[AKKU_PRIORI] = setup.akkuPriori;
 
-    result[WWW_MQTT_HOST] = setup.mqttHost;
-    result[WWW_MQTT_USER] = setup.mqttUser;
-    result[WWW_MQTT_PASWWD] = setup.mqttPass;
+    result[WWW_MQTT_HOST] = setup.mqttSetup.mqttHost;
+    result[WWW_MQTT_USER] = setup.mqttSetup.mqttUser;
+    result[WWW_MQTT_PASWWD] = setup.mqttSetup.mqttPass;
 
-    result[WWW_INFLUX_HOST] = setup.influxHost;
-    result[WWW_INFLUX_TOKEN] = setup.influxToken;
-    result[WWW_INFLUX_ORG] = setup.influxOrg;
-    result[WWW_INFLUX_BUCKET] = setup.influxBucket;
+    result[WWW_INFLUX_HOST] = setup.influxSetup.influxHost;
+    result[WWW_INFLUX_TOKEN] = setup.influxSetup.influxToken;
+    result[WWW_INFLUX_ORG] = setup.influxSetup.influxOrg;
+    result[WWW_INFLUX_BUCKET] = setup.influxSetup.influxBucket;
     result[PID_EPSILON] = setup.epsilonML_PinManager;
 
     result[WWW_WATT_BIAS] = setup.wattSetupForTest;

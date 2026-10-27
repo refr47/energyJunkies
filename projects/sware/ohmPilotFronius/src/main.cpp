@@ -199,8 +199,8 @@ void setup()
 #endif
 
         g_app.webSockData.states.tempSensorOK = temp_init();
-        g_app.webSockData.states.froniusAPI = false;
-        g_app.webSockData.states.amisReader = false;
+       
+        
 
 
 
@@ -209,7 +209,7 @@ void setup()
 #ifdef FRONIUS_IV
             { auto *src = new FroniusHTTP();
               if (src->init(g_app.webSockData.setupData, g_app.webSockData))
-                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_FRONIUS; }
+                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_FRONIUS;  g_app.webSockData.states.device = true; }
               else delete src;
             }
 #endif
@@ -217,7 +217,7 @@ void setup()
             if (!g_activeSource)
             { auto *src = new AmisREST();
               if (src->init(g_app.webSockData.setupData, g_app.webSockData))
-                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_AMIS; }
+                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_AMIS; g_app.webSockData.states.device = true; }
               else delete src;
             }
 #endif
@@ -225,7 +225,7 @@ void setup()
             if (!g_activeSource)
             { auto *src = new HuaweiModbus();
               if (src->init(g_app.webSockData.setupData, g_app.webSockData))
-                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_HUAWEI; }
+                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_HUAWEI; g_app.webSockData.states.device = true; }
               else delete src;
             }
 #endif
@@ -279,6 +279,10 @@ void setup()
         LOG_INFO(TAG_MAIN, "IP-Address: %s", g_app.webSockData.setupData.currentIP);
         LOG_INFO(TAG_MAIN, "EnergySource: %s",
                  (g_activeSource ? g_activeSource->name() : "none"));
+         LOG_INFO(TAG_MAIN, "EnergySource Initialized: %d",
+                 (g_app.webSockData.states.device == true ? 1 : 0));
+        
+        LOG_INFO(TAG_MAIN, "IP-Address WRichter/AmisR: %s", g_app.webSockData.setupData.inverter);
         LOG_INFO(TAG_MAIN, "CardWrite: %c", g_app.webSockData.states.cardWriterOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "FlashFS: %c", g_app.webSockData.states.flashOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "Influx: %c", g_app.webSockData.states.influx == true ? 'y' : 'n');

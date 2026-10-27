@@ -60,7 +60,7 @@ static inline bool ws_getAmisReader()
     bool result;
     if (appLock(50))
     {
-        result = g_app.webSockData.states.amisReader;
+        result = g_app.webSockData.states.device;
         appUnlock();
     }
     else
@@ -90,7 +90,7 @@ static inline bool ws_getFroniusAPI()
     bool result;
     if (appLock(50))
     {
-        result = g_app.webSockData.states.froniusAPI;
+        result = g_app.webSockData.states.device;
         appUnlock();
     }
     else
@@ -204,7 +204,7 @@ static inline void ws_setFroniusAPI(bool val)
 {
     if (appLock(100))
     {
-        g_app.webSockData.states.froniusAPI = val;
+        g_app.webSockData.states.device = val;
         appUnlock();
     }
 }
@@ -222,7 +222,7 @@ static inline void ws_setAmisReader(bool val)
 {
     if (appLock(100))
     {
-        g_app.webSockData.states.amisReader = val;
+        g_app.webSockData.states.device = val;
         appUnlock();
     }
 }

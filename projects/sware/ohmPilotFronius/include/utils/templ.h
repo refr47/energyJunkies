@@ -88,7 +88,7 @@ struct NumericField : FieldBase<Struct>
     }
 };
 
-// Für char-Arrays (Strings)
+// Für char-Arrays (Strings) — direkter Member-Zugriff
 template <typename Struct, size_t N>
 struct StringField : FieldBase<Struct>
 {
@@ -106,11 +106,9 @@ struct StringField : FieldBase<Struct>
         }
         const char *str = value.as<const char *>();
 
-        // 2. Zusätzliche Sicherheit gegen Null-Pointer (doppelt hält besser)
         if (str == nullptr)
             return false;
 
-        // 3. Längenprüfung
         if (strlen(str) >= N)
             return false;
 
@@ -120,5 +118,99 @@ struct StringField : FieldBase<Struct>
     void serialize(const Struct &obj, JsonObject &json) const override
     {
         json[key] = (const char *)(obj.*target);
+    }
+};
+
+// Lambda-basierter StringField für verschachtelte Members
+// Zugriff ueber Funktoren statt Pointer-to-Member
+template <typename Struct, size_t N>
+struct LambdaStringField : FieldBase<Struct>
+{
+    const char *key;
+    const char * (*_get)(const Struct &obj);
+    void (*_set)(Struct &obj, const char *str);
+
+    LambdaStringField(const char *k, const char * (*g)(const Struct &), void (*s)(Struct &, const char *))
+        : key(k), _get(g), _set(s) {}
+
+    const char *getKey() const override { return key; }
+    bool update(Struct &obj, JsonVariant value) const override
+    {
+        if (value.isNull() || !value.is<const char *>())
+            return false;
+
+        const char *str = value.as<const char *>();
+        if (str == nullptr)
+            return false;
+
+        if (strlen(str) >= N)
+            return false;
+
+        _set(obj, str);
+        return true;
+    }
+    void serialize(const Struct &obj, JsonObject &json) const override
+    {
+        json[key] = _get(obj);
+    }
+};
+
+// Lambda-basierter NumericField fuer verschachtelte Members
+template <typename T, typename Struct>
+struct LambdaNumericField : FieldBase<Struct>
+{
+    const char *key;
+    T (*_get)(const Struct &obj);
+    void (*_set)(Struct &obj, T value);
+
+    LambdaNumericField(const char *k, T (*g)(const Struct &), void (*s)(Struct &, T))
+        : key(k), _get(g), _set(s) {}
+
+    const char *getKey() const override { return key; }
+    bool update(Struct &obj, JsonVariant value) const override
+    {
+        if (value.isNull() || !value.is<T>())
+            return false;
+
+        _set(obj, value.as<T>());
+        return true;
+    }
+    void serialize(const Struct &obj, JsonObject &json) const override
+    {
+        json[key] = _get(obj);
+    }
+};
+
+// Lambda-basierter BooleanField fuer verschachtelte Members
+template <typename Struct>
+struct LambdaBooleanField : FieldBase<Struct>
+{
+    const char *key;
+    bool (*_get)(const Struct &obj);
+    void (*_set)(Struct &obj, bool val);
+
+    LambdaBooleanField(const char *k, bool (*g)(const Struct &), void (*s)(Struct &, bool))
+        : key(k), _get(g), _set(s) {}
+
+    const char *getKey() const override { return key; }
+    bool update(Struct &obj, JsonVariant value) const override
+    {
+        if (value.isNull())
+            return false;
+
+        bool b = false;
+        if (value.is<bool>())
+            b = value.as<bool>();
+        else if (value.is<int>())
+            b = (value.as<int>() != 0);
+        else
+            return false;
+
+        _set(obj, b);
+        return true;
+    }
+    void serialize(const Struct &obj, JsonObject &json) const override
+    {
+        json[key] = _get(obj);
     }
 };

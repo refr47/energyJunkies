@@ -133,64 +133,68 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
     }
     // mqtt
 
-    if (strcmp(d.mqttHost, webSockData.setupData.mqttHost) != 0)
+    if (strcmp(d.mqttSetup.mqttHost, webSockData.setupData.mqttSetup.mqttHost) != 0)
     {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: mqttHost changed !! - no reboot :: eprom: %s, web: %s", d.mqttHost, webSockData.setupData.mqttHost);
-        strcpy(webSockData.setupData.mqttHost, d.mqttHost);
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: mqttHost changed !! - no reboot :: eprom: %s, web: %s", d.mqttSetup.mqttHost, webSockData.setupData.mqttSetup.mqttHost);
+        strcpy(webSockData.setupData.mqttSetup.mqttHost, d.mqttSetup.mqttHost);
         updated = true;
     }
-    if (strcmp(d.mqttUser, webSockData.setupData.mqttUser) != 0)
+    if (strcmp(d.mqttSetup.mqttUser, webSockData.setupData.mqttSetup.mqttUser) != 0)
     {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: mqttUser changed !! - no reboot :: eprom: %s, web: %s", d.mqttUser, webSockData.setupData.mqttUser);
-        strcpy(webSockData.setupData.mqttUser, d.mqttUser);
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: mqttUser changed !! - no reboot :: eprom: %s, web: %s", d.mqttSetup.mqttUser, webSockData.setupData.mqttSetup.mqttUser);
+        strcpy(webSockData.setupData.mqttSetup.mqttUser, d.mqttSetup.mqttUser);
         updated = true;
     }
 
-    if (strcmp(d.mqttPass, webSockData.setupData.mqttPass) != 0)
+    if (strcmp(d.mqttSetup.mqttPass, webSockData.setupData.mqttSetup.mqttPass) != 0)
     {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: mqttPasswd changed !! - no reboot :: eprom: %s, web: %s", d.mqttPass, webSockData.setupData.mqttPass);
-        strcpy(webSockData.setupData.mqttPass, d.mqttPass);
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: mqttPasswd changed !! - no reboot :: eprom: %s, web: %s", d.mqttSetup.mqttPass, webSockData.setupData.mqttSetup.mqttPass);
+        strcpy(webSockData.setupData.mqttSetup.mqttPass, d.mqttSetup.mqttPass);
         updated = true;
     }
 
     // influx
-    if (d.influxHost != webSockData.setupData.influxHost)
+    if (d.influxSetup.influxHost != webSockData.setupData.influxSetup.influxHost)
     {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxHost changed !! - no reboot :: eprom: %s, web: %s", d.influxHost, webSockData.setupData.influxHost);
-        strcpy(webSockData.setupData.influxHost, d.influxHost);
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxHost changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxHost, webSockData.setupData.influxSetup.influxHost);
+        strcpy(webSockData.setupData.influxSetup.influxHost, d.influxSetup.influxHost);
         updated = true;
     }
-    if (d.influxToken != webSockData.setupData.influxToken)
+    if (d.influxSetup.influxToken != webSockData.setupData.influxSetup.influxToken)
     {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxToken changed !! - no reboot :: eprom: %s, web: %s", d.influxToken, webSockData.setupData.influxToken);
-        strcpy(webSockData.setupData.influxToken, d.influxToken);
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxToken changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxToken, webSockData.setupData.influxSetup.influxToken);
+        strcpy(webSockData.setupData.influxSetup.influxToken, d.influxSetup.influxToken);
         updated = true;
     }
-    if (d.influxBucket != webSockData.setupData.influxBucket)
+    if (d.influxSetup.influxBucket != webSockData.setupData.influxSetup.influxBucket)
     {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxBucket changed !! - no reboot :: eprom: %s, web: %s", d.influxBucket, webSockData.setupData.influxBucket);
-        strcpy(webSockData.setupData.influxBucket, d.influxBucket);
-        updated = true;
-    }
-
-
-    if (d.influxOrg != webSockData.setupData.influxOrg) {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxOrg changed !! - no reboot :: eprom: %s, web: %s", d.influxOrg, webSockData.setupData.influxOrg);
-        strcpy(webSockData.setupData.influxOrg, d.influxOrg);
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxBucket changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxBucket, webSockData.setupData.influxSetup.influxBucket);
+        strcpy(webSockData.setupData.influxSetup.influxBucket, d.influxSetup.influxBucket);
         updated = true;
     }
 
 
-    if (d.influxOrg != webSockData.setupData.influxOrg)
-    {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxOrg changed !! - no reboot :: eprom: %s, web: %s", d.influxOrg, webSockData.setupData.influxOrg);
-        strcpy(webSockData.setupData.influxOrg, d.influxOrg);
+    if (d.influxSetup.influxOrg != webSockData.setupData.influxSetup.influxOrg) {
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxOrg changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxOrg, webSockData.setupData.influxSetup.influxOrg);
+        strcpy(webSockData.setupData.influxSetup.influxOrg, d.influxSetup.influxOrg);
         updated = true;
     }
-    if (d.influxToken != webSockData.setupData.influxToken)
+
+
+    if (d.influxSetup.influxToken != webSockData.setupData.influxSetup.influxToken) {
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxToken changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxToken, webSockData.setupData.influxSetup.influxToken);
+        strcpy(webSockData.setupData.influxSetup.influxToken, d.influxSetup.influxToken);
+        updated = true;
+    }
     {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxToken changed !! - no reboot :: eprom: %s, web: %s", d.influxToken, webSockData.setupData.influxToken);
-        strcpy(webSockData.setupData.influxToken, d.influxToken);
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxOrg changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxOrg, webSockData.setupData.influxSetup.influxOrg);
+        strcpy(webSockData.setupData.influxSetup.influxOrg, d.influxSetup.influxOrg);
+        updated = true;
+    }
+    if (d.influxSetup.influxToken != webSockData.setupData.influxSetup.influxToken)
+    {
+        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxToken changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxToken, webSockData.setupData.influxSetup.influxToken);
+        strcpy(webSockData.setupData.influxSetup.influxToken, d.influxSetup.influxToken);
         updated = true;
     }
 

@@ -26,7 +26,7 @@
 #define INFLUX_TOKEN_LEN 95
 #define INFLUX_ORG_LEN 30
 #define INFLUX_BUCKET_LEN 30
-  
+
 #define HEATING_OFF 10
 #define HEATING_ON_PHASE_1 1
 #define HEATING_ON_PHASE_1_2 2
@@ -44,10 +44,10 @@
 /* ── Legacy-Defines (MB_CONTAINER entfaellt, EnergyState direkt) ──
    INVERTER_DATA, METER_DATA, AKKU_STATE, AKKU_STRG sind entfaellt.
    Direkt: g_app.webSockData.energyState.p_grid, .p_pv, .soc, .p_akku  ── */
-// #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
+   // #define FRONIUS webSockData.fronius_SOLAR_POWERFLOW
 
-/* ****************** SOCKETS *****************/
-// length of ip address string
+   /* ****************** SOCKETS *****************/
+   // length of ip address string
 #define IP_LENGTH 64
 // host name length
 #define HOSTNAME_LENGTH 64
@@ -116,6 +116,22 @@ enum ControlMode
 #define LOG_BUFFER_SIZE 60
 // #defin
 
+
+typedef struct {
+    char influxHost[INFLUX_HOST_LEN + 1];
+    char influxToken[INFLUX_TOKEN_LEN + 1];
+    char influxOrg[INFLUX_ORG_LEN + 1];
+    char influxBucket[INFLUX_BUCKET_LEN + 1];
+} INFLUX_SETUP;
+
+
+typedef struct {
+    char mqttHost[MQTT_HOST_LEN + 1];
+    char mqttUser[MQTT_USER_LEN + 1];
+    char mqttPass[MQTT_PASS_LEN + 1];
+} MQTT_SETUP;
+
+
 typedef struct
 {
     char ssid[LEN_WLAN + 1];
@@ -135,27 +151,24 @@ typedef struct
     unsigned int legionellenDelta;
     unsigned int legionellenMaxTemp;
 
+    INFLUX_SETUP influxSetup;
+    MQTT_SETUP mqttSetup;
     // unsigned int pid_powerWhichNeedNotConsumed; // Wieviel müss übrig bleiben
     //  bool pidChanged;
     //  unsigned int ipAmisReaderHost;
     char amisKey[AMIS_KEY_LEN + 1];
-
     char amisReaderHost[INET_ADDRSTRLEN + 1];
+
     //char loxoneHost[INET_ADDRSTRLEN + 1];
-    char mqttHost[MQTT_HOST_LEN + 1];
-    char mqttUser[MQTT_USER_LEN + 1];
-    char mqttPass[MQTT_PASS_LEN + 1];
- 
-    char influxHost[INFLUX_HOST_LEN + 1];
-    char influxToken[INFLUX_TOKEN_LEN + 1];
-    char influxOrg[INFLUX_ORG_LEN + 1];
-    char influxBucket[INFLUX_BUCKET_LEN + 1];
+
+
+
 
     double epsilonML_PinManager;
     int forceHeating;
     short forceHeatingStop;
     unsigned int wattSetupForTest;
-    bool setupChanged; 
+    bool setupChanged;
 
 } Setup;
 
@@ -189,7 +202,7 @@ typedef struct mbContainer
 } MB_CONTAINER;
 
 typedef struct pidContaienr
-{ 
+{
 
     double mCurrentPower;
     int mAnalogOut;
@@ -215,7 +228,7 @@ typedef struct _LIFE_DATA
     long heatingLastTime;
 
 } LIFE_DATA;
- 
+
 typedef struct _STATES
 {
     bool cardWriterOK;
@@ -224,8 +237,7 @@ typedef struct _STATES
     bool flashOK;
     bool tempSensorOK;
     bool tempUnderflow;
-    bool froniusAPI;
-    bool amisReader;
+    bool device;
     bool loxone;
     bool timeServer;
     bool influx;
@@ -299,27 +311,27 @@ typedef struct
     char ip[INET_ADDRSTRLEN];
     bool sent, received;
     long long timestamp64Sent;
-    ERROR_CONTAINER *errorContainer;
+    ERROR_CONTAINER* errorContainer;
     SHELLY_DEVICE shellyDevice;
     SHELLY_RESPONSE response;
 } SHELLY_OBJ;
 
 typedef struct
 {
-    SHELLY_DEVICE *shellyDevice;
-    ERROR_CONTAINER *errorContainer;
+    SHELLY_DEVICE* shellyDevice;
+    ERROR_CONTAINER* errorContainer;
     bool valid;
 } ALL_SHELLY_DEVICES;
 
-struct __attribute__((packed)) LogEntry 
-{ 
+struct __attribute__((packed)) LogEntry
+{
     uint32_t ts;
     uint8_t state;
     int16_t power;
     uint8_t pwm;
     int16_t temp;
-}; 
- 
+};
+
 struct RingBuffer
 {
     LogEntry buffer[LOG_BUFFER_SIZE];
@@ -353,8 +365,8 @@ typedef struct _WEBSOCK
 
 } WEBSOCK_DATA;
 
-typedef WEBSOCK_DATA &(*CALLBACK_GET_DATA)();
-typedef bool &(*CALLBACK_SET_SETUP_CHANGED)(bool);
+typedef WEBSOCK_DATA& (*CALLBACK_GET_DATA)();
+typedef bool& (*CALLBACK_SET_SETUP_CHANGED)(bool);
 
 typedef struct
 {
@@ -383,12 +395,12 @@ typedef struct
     // number of values to build from json object
     int valueCount;
     // json object key to values mapping array
-    KEY_VALUE_MAP_t *mapping;
+    KEY_VALUE_MAP_t* mapping;
 
     WiFiClient localClient;
 } HTTP_REST_TARGET_t;
 
-typedef void (*GET_JSON_DATA)(HTTP_REST_TARGET_t *, char *, WEBSOCK_DATA &);
+typedef void (*GET_JSON_DATA)(HTTP_REST_TARGET_t*, char*, WEBSOCK_DATA&);
 
 #ifdef WEATHER_API
 typedef struct _WHEATER_DATA

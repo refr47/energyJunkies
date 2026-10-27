@@ -15,12 +15,11 @@ bool AmisREST::init(Setup &setupData, WEBSOCK_DATA &webSockData)
     bool ok = amisReader_initRestTargets(webSockData);
     if (ok)
     {
-        webSockData.states.amisReader = true;
+        
         LOG_INFO(TAG_AMIS, "AmisReader init OK");
     }
     else
     {
-        webSockData.states.amisReader = false;
         LOG_ERROR(TAG_AMIS, "AmisReader init failed");
     }
     return ok;
