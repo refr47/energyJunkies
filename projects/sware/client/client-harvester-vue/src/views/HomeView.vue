@@ -115,7 +115,10 @@
 		  <div class="space-y-2">
 		    <div class="flex justify-between text-xs">
 		      <span class="text-slate-500">Preheat-Bonus</span>
-		      <span class="font-bold text-amber-600">+{{ weatherBonus }}°C</span>
+		      <span class="font-bold" :class="weatherBonus === 8 ? 'text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded' : 'text-amber-600'">
+		        +{{ weatherBonus }}°C
+		        <span v-if="weatherBonus === 8" class="text-xs">(fallback aktiv)</span>
+		      </span>
 		    </div>
 		    <div class="flex justify-between text-xs">
 		      <span class="text-slate-500">PV-Verhältnis</span>
@@ -444,8 +447,8 @@
 
 	// ── Heizstab-Logik ──
 	const relayWatt = computed(() => Number(props.liveData?.hsPhase) || 0);
-	const relay1 = computed(() => Boolean(props.liveData?.L1));
-	const relay2 = computed(() => Boolean(props.liveData?.L2));
+	const relay1 = computed(() => Boolean(props.liveData?.HEIZPATRONE_L1));
+	const relay2 = computed(() => Boolean(props.liveData?.HEIZPATRONE_L2));
 	const relayActive = (i) => (i === 1 ? relay1.value : relay2.value);
 	const relayFill = (i) => relayActive(i) ? 140 : 12;
 
