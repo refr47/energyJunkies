@@ -133,38 +133,20 @@
       </div>
     </div>
 
-    <!-- Weather Prediction and Early Heating Status (Desktop) -->
-    <div class="md:col-span-12 bg-white rounded-[2.5rem] shadow-xl p-8 border border-white mt-6">
-      <div class="flex justify-between items-center mb-6">
-        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Heizungsstatus</span>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-5 border border-emerald-100 shadow-sm">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-lg">🌤️</span>
-            <span class="text-[9px] font-black uppercase tracking-widest text-emerald-700">Wetter-Vorhersage</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-emerald-600">Verwendung</span>
-            <span :class="weatherPredictionUsed ? 'bg-emerald-500 text-white' : 'bg-slate-300 text-slate-700'"
-              class="px-3 py-1 rounded-full text-xs font-bold uppercase">
-              {{ weatherPredictionUsed ? 'Aktiv' : 'Inaktiv' }}
-            </span>
+    <!-- Simple Weather and Heating Status (Desktop) -->
+    <div class="md:col-span-12 bg-white rounded-[2.5rem] shadow-xl p-6 border border-white mt-6">
+      <div class="flex flex-wrap gap-4 justify-center">
+        <div class="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-3 border border-emerald-100">
+          <div class="text-xs text-slate-500 uppercase tracking-wider">Wettervorhersage</div>
+          <div :class="{ 'font-bold text-emerald-600': weatherPredictionUsed, 'text-slate-400': !weatherPredictionUsed }">
+            {{ weatherPredictionUsed ? 'Aktiv' : 'Inaktiv' }}
           </div>
         </div>
-
-        <div class="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-5 border border-purple-100 shadow-sm">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-lg">🔥</span>
-            <span class="text-[9px] font-black uppercase tracking-widest text-purple-700">Frühheizung</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-purple-600">Status</span>
-            <span :class="earlyHeatingMode ? 'bg-emerald-500 text-white' : 'bg-slate-300 text-slate-700'"
-              class="px-3 py-1 rounded-full text-xs font-bold uppercase">
-              {{ earlyHeatingMode ? 'Aktiv' : 'Inaktiv' }}
-            </span>
+        
+        <div class="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-3 border border-purple-100">
+          <div class="text-xs text-slate-500 uppercase tracking-wider">Frühheizung</div>
+          <div :class="{ 'font-bold text-purple-600': earlyHeatingMode, 'text-slate-400': !earlyHeatingMode }">
+            {{ earlyHeatingMode ? 'Aktiv' : 'Inaktiv' }}
           </div>
         </div>
       </div>

@@ -215,7 +215,6 @@ typedef struct pidContaienr
     float weatherPvRatio;    // heute/morgen PV-Verhältnis [0..2]
     float weatherCloudAvg;   // Wolken-Mittelwert [0..1]  (0=klar, 1=bedeckt)
     float weatherOutTemp;    // Aussentemperatur [°C]
-
 #ifdef TINYNN_ENABLE
     float tinyNN_preheat_score;  // NN Preheat-Wahrscheinlichkeit [0.0..1.0] 
     float tinyNN_buffer_pct;     // NN Energiebudget-Füllung [0.0..1.0]

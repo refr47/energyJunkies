@@ -182,7 +182,7 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
     live["weatherCloudAvg"]    = data.pidContainer.weatherCloudAvg;
     live["weatherOutTemp"]     = data.pidContainer.weatherOutTemp;
     // ── Weather prediction consideration status ──
-    live["weatherPredictionUsed"] = data.pidContainer.m_weatherBonus > 0 ? 1 : 0;
+    live["weatherPredictionUsed"] = data.pidContainer.weatherBonus > 0 ? 1 : 0;
 
 #ifdef TINYNN_ENABLE
     // ── TinyNN-Neural-Network Prediction ──
