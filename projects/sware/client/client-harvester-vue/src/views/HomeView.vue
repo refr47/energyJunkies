@@ -747,13 +747,7 @@ const errorDefinitions = {
   512: "Manuelle Heizung",
 };
 
-const weatherPredictionUsed = computed(() => {
-  return props.liveData?.weatherPredictionUsed || 0;
-});
 
-const earlyHeatingMode = computed(() => {
-  return props.liveData?.earlyHeatingMode || 0;
-});
 
 // 2. Computed Properties mit "Optional Chaining" (?.) absichern
 const isExporting = computed(() => (props.liveData?.netzBezug || 0) <= 0);
