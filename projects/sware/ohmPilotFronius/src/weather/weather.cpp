@@ -84,9 +84,9 @@ static float pvEnergyPerHour(float G_tilt, float T_amb)
 /* ─── Haupt-Routinen ──────────────────────────────────────────────── */
 static void computeForecast(PROGNOSE &prognose);
 
-bool wheater_fetch(PROGNOSE &prognose)
+bool weather_fetch(PROGNOSE &prognose)
 {
-    LOG_INFO(TAG_WEATHER, "wheater_fetch BEGIN");
+    LOG_INFO(TAG_WEATHER, "weather_fetch BEGIN");
 
     // ── HTTP GET (lock-free, network I/O) ──
     int httpResponseCode = 0;
@@ -170,6 +170,7 @@ static void computeForecast(PROGNOSE &prognose)
         float E_h = pvEnergyPerHour(G_tilt, T_amb);
 
         // ── Unsicherheit (Wolken + Regen) → Risiko-Abzug ──
+        //     sigma: Wolkenfaktor 0.9×(cc/100) + Regen-Penalty 0.3 (bei pr > 0.1 l/h)
         float sigma = 0.9f * (cc / 100.0f) + (pr > 0.1f ? 0.3f : 0.0f);
         float E_adj = E_h * (1.0f - k_risk * sigma);
 
@@ -186,11 +187,16 @@ static void computeForecast(PROGNOSE &prognose)
     // ── TinyNN Features ─────────────────────────────────────────────────
     prognose.cloudAverage   = (cloudSum     / 48.0f) / 100.0f;  // [0..1]
     prognose.tempOutside    = tempOutsideSum / 48.0f;           // [°C]
+    //     pvRatio = heute/morgen (10 Wh Mindestwert morgen → Div-by-Zero-Schutz)
     prognose.pvRatio        = (prognose.forecastTomorow > 10)
                             ? (float)prognose.forecastToday / (float)prognose.forecastTomorow
                             : 1.0f;
 
     // ── Preheat-Bonus aus ratio ─────────────────────────────────────────
+    //     ≥ 2.5 → 8°C   (Heute viel mehr Sonne)
+    //     ≥ 1.5 → 5°C
+    //     ≥ 1.0 → 3°C
+    //     sonst  → 0    (morgen mehr Sonne → warten)
     float ratio = prognose.pvRatio;
 
     int bonus = 0;
@@ -203,7 +209,19 @@ static void computeForecast(PROGNOSE &prognose)
     else
         bonus = 0;                                  // warten
 
-    prognose.preheatBonus = bonus;
+    // ── Check for unreliable predictions and apply fallback logic ──
+    bool predictionUnreliable = (prognose.cloudAverage > 0.8f) || (prognose.tempOutside < 5.0f);
+    if (predictionUnreliable)
+    {
+        LOG_INFO(TAG_WEATHER, "Wettervorhersage nicht zuverlässig - Anhebung der Soll-Temperatur auf 80°C");
+        bonus = WEATHER_PREHEAT_MAX_BONUS; // Set to maximum allowed 8°C
+        prognose.preheatBonus = bonus;
+    }
+    else
+    {
+        prognose.preheatBonus = bonus;
+    }
+
     prognose.validUntil   = time(nullptr) + WEATHER_DATA_MAX_AGE_SEC;
 
     LOG_INFO(TAG_WEATHER, "ratio=%.1f, bonus=%d°C, valid=%lu",

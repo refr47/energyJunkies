@@ -18,6 +18,10 @@
 #define WEATHER_DATA_MAX_AGE_SEC  (6*3600) // Wetter-Daten älter? → Bonus=0
 #define WEATHER_FETCH_INTERVAL_MS (6*3600*1000) // alle 6h neu abfragen
 
+// Fallback threshold values for unreliable predictions
+#define WEATHER_UNRELIABLE_CLOUD_THRESHOLD  0.8f   // >80% Wolken => unzuverlässig
+#define WEATHER_UNRELIABLE_TEMP_THRESHOLD   5.0f   // <5°C Aussentemp => unzuverlässig
+
 /*
  * PROGNOSE – Output der Wetter-Wertung.
  *

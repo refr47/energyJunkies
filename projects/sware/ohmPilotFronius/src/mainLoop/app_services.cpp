@@ -584,7 +584,7 @@ void serviceEnergy()
     fetchEnergy();
 
     refreshEnergyDisplay();
-}
+} 
 
 void servicePid()
 {
