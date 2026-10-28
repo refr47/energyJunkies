@@ -181,12 +181,17 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
     live["weatherPvRatio"]     = data.pidContainer.weatherPvRatio;
     live["weatherCloudAvg"]    = data.pidContainer.weatherCloudAvg;
     live["weatherOutTemp"]     = data.pidContainer.weatherOutTemp;
+    // ── Weather prediction consideration status ──
+    live["weatherPredictionUsed"] = data.pidContainer.m_weatherBonus > 0 ? 1 : 0;
 
 #ifdef TINYNN_ENABLE
     // ── TinyNN-Neural-Network Prediction ──
     live["tinyNN_preheat"]     = data.pidContainer.tinyNN_preheat_score;
     live["tinyNN_buffer"]      = data.pidContainer.tinyNN_buffer_pct;
 #endif
+
+    // ── Early heating mode status ──
+    live["earlyHeatingMode"] = (data.setupData.forceHeating == 2) ? 1 : 0;
 
     live[AAKU_AVAILABLE]         = data.setupData.akku;
 

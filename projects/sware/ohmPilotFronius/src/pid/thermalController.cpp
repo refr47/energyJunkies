@@ -38,6 +38,17 @@ void ThermalController::evaluateMode(
     doML = false;
     mode = MODE_AUTO;
 
+    // === Dynamic Recovery Logic ===
+    const int tempBuffer = effectiveMax - tempMin;
+    if ((effectiveMax - temp) <= tempBuffer / 5 && 
+        !legionellaCycleActive && temp < effectiveMax) {
+        // Approaching max temperature with power available - enable auto mode early
+        mode = MODE_AUTO;
+        doML = true;
+        LOG_DEBUG(TAG_THERMAL, "AUTO recovery triggered (temp %d near max %d)", temp, effectiveMax);
+        return;
+    }
+
     // ── Legionella cycle handling ──
     if ((legionellenMaxTemp > 0) && (legionellenDelta > 0))
     {

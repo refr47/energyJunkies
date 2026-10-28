@@ -381,13 +381,26 @@ void PinManager::execModeAuto(int temp, unsigned long now, bool doML,
 // stepControlMode — determine and execute the correct control mode
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::stepControlMode(int temp, int effectiveMax, unsigned long now,
-                                 WEBSOCK_DATA& webSockData)
+                                  WEBSOCK_DATA& webSockData)
 {
     ControlMode mode;
     bool doML;
     preCheck(temp, now, mode, doML);
-    LOG_INFO(TAG_PID, "MODE=%s temp=%d effMax=%d min=%d force=%d ml=%d",
-              modeStr(mode), temp, effectiveMax, m_tempMin, m_forceHeating, doML);
+    
+    // === Dynamic Recovery Mode ===
+    // When system is close to max temp and power is available, 
+    // allow earlier heating without waiting for temperature to fall below min
+    const int tempBuffer = (m_tempMaxAllowed - m_tempMin) / 5; // 20% buffer
+    bool enableEarlyHeating = false;
+    
+    if ((effectiveMax - temp) <= tempBuffer && 
+        batteryMon.getAvailablePower(phaseCtrl.getHeaterPower(), m_out_wattBiasForTest) > 0) {
+        enableEarlyHeating = true;
+        LOG_INFO(TAG_PID, "Dynamic recovery mode: temp=%d, max=%d, buffer=%d", temp, effectiveMax, tempBuffer);
+    }
+    
+    LOG_INFO(TAG_PID, "MODE=%s temp=%d effMax=%d min=%d force=%d ml=%d early=%d",
+              modeStr(mode), temp, effectiveMax, m_tempMin, m_forceHeating, doML, enableEarlyHeating);
 
     switch (mode)
     {
@@ -396,6 +409,13 @@ void PinManager::stepControlMode(int temp, int effectiveMax, unsigned long now,
         LogEntry logEntry;
         logEntry.ts = now;
         logEntry.temp = temp;
+        
+        // Override OFF mode if recovery conditions are met
+        if (enableEarlyHeating && !ThermalController::isTempAboveMax(temp, effectiveMax)) {
+            execModeAuto(temp, now, doML, effectiveMax, webSockData);
+            return;
+        }
+        
         execModeOff(logEntry);
         LogCommitter::writeToLog(logEntry, webSockData);
         pidLockWrite(webSockData);
