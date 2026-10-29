@@ -133,7 +133,7 @@ static void taskEnergy(void* pvParameters)
         if (interval == 0)
         {
             LOG_DEBUG(TAG_APP_SERVICES, "Adaptive Energy: Nacht-Sperre, keine Abfrage");
-            vTaskDelay(pdMS_TO_TICKS(60000));
+            vTaskDelay(pdMS_TO_TICKS(6000));
             continue;
         }
 

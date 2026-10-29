@@ -21,8 +21,11 @@ public:
     const char*      name()   const override { return "fronius"; }
     EnergySourceType type()   const override { return EnergySourceType::SOURCE_FRONIUS; }
     bool             hasBattery() const override;
+
+    private:
+        bool m_akkuAvailable = false;
 };
 
 // Forward-Deklaration (existierende Funktionen in froniusSolarAPI.cpp)
-bool soloar_init(WEBSOCK_DATA &webSockData, bool *akku);
+bool soloar_init(WEBSOCK_DATA &webSockData);
 bool solar_get_powerflow(WEBSOCK_DATA &webSockData);

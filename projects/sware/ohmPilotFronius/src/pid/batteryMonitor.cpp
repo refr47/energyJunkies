@@ -58,10 +58,18 @@ int BatteryMonitor::getAvailablePower(int heaterPower, bool &outWattBiasForTest)
 {
     // ━━━ Step 1: Battery discharge guard ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━───
     // Battery discharging → don't heat with battery energy
-    if (m_battPower < 0) {
+    if (m_akkuPriori > BAT_PRIORITY_OFF) {
+        if (m_battPower > BAT_POWER_TRESHOLD) {
+            LOG_INFO(TAG_BATT, "BLOCKED batt discharging %.0fW  (treshold: %d )due to priority %d", m_battPower, BAT_POWER_TRESHOLD, m_akkuPriori);
+            return 0; 
+        } 
+    } else {
+        m_battPower=0; // AmisReader (no battery) → ignore battery power
+    }
+   /*  if (m_battPower < 0) {
         LOG_INFO(TAG_BATT, "BLOCKED batt discharging %.0fW", m_battPower);
         return 0; 
-    }
+    }  */
 
     // AmisReader (m_battPower == 0) → always proceeds past this guard
 
@@ -90,7 +98,7 @@ int BatteryMonitor::getAvailablePower(int heaterPower, bool &outWattBiasForTest)
         m_emaSurplus = BatteryMonitor::EMA_ALPHA * measuredSurplus + 
                        (1.0f - BatteryMonitor::EMA_ALPHA) * m_emaSurplus;
     }
-
+ 
     // No surplus after smoothing → heater OFF
     if (m_emaSurplus <= 0) {
         LOG_INFO(TAG_BATT, "BLOCKED no surplus raw=%.0f ema=%.0f grid=%.0f batt=%.0f",

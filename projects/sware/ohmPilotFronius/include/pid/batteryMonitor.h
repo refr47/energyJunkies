@@ -2,6 +2,10 @@
 #include <Arduino.h>
 #include "debugConsole.h" // LOG_* macros + TAG_*
 
+
+#define BAT_PRIORITY_OFF 0
+#define BAT_PRIORITY_ON  1
+#define BAT_POWER_TRESHOLD 30  // 
 // =============================================================================
 // BatteryMonitor — Battery & Grid Surplus Monitoring
 //

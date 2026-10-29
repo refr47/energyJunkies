@@ -450,7 +450,7 @@ static bool fetchEnergy()
     {
         LOG_ERROR(TAG_APP_SERVICES, "No active energy source");
         return false;
-    }
+    } 
 
     LOG_DEBUG(TAG_APP_SERVICES, "Fetching energy data from %s...", g_activeSource->name());
 
