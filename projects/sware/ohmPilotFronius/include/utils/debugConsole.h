@@ -44,6 +44,7 @@ void smartLogExec(esp_log_level_t level, const char* tag, const char* file, int 
 #define TAG_CARD "CARD"
 #define TAG_MODBUS "MODBUS"
 #define TAG_FRONIUS "FRONIUS"
+#define TAG_HUAWEI "HUAWEI"
 #define TAG_AMIS "AMIS"
 #define TAG_LOXONE "LOXONE"
 #define TAG_WEATHER "WEATHER"
@@ -63,8 +64,7 @@ void smartLogExec(esp_log_level_t level, const char* tag, const char* file, int 
 #define TAG_ML      "ML_PRED"
 #define TAG_THERMAL "THERMAL"
 #define TAG_TINYNN  "TINYNN"
-#define TAG_BATT    "AKKU"
-#define TAG_FRONIUS      "FRONIUS"
+
 
 /* ── Level-Gate: wenn MIN_LOG_LEVEL < Log-Level, wird gar nichts gemacht ──
    Kein Stack-Frame, kein va_list, kein Mutex, keine Formatierung.       */
