@@ -6,6 +6,7 @@ void serviceClock();
 void serviceNetworkSupervisor();
 void serviceTemperature();
 void serviceEnergy();
+void serviceWeather();
 void servicePid();
 void serviceWeb();
 void serviceMaintenance();

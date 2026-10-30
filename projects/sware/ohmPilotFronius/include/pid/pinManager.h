@@ -24,7 +24,7 @@ public:
     PinManager();
     void config(WEBSOCK_DATA &data, int l1, int l2, int pwm);
     void update(WEBSOCK_DATA &webSockData, int tempMaxBonusC,
-                float pvRatio, float cloudAvg, float tempOutside);
+                float pvRatio, float cloudAvg, float tempOutside, bool forecastValid);
 
     // ── Hardware delegation (wrapped PhaseController calls) ────────────────
     void allOn() { phaseCtrl.allOn(); }
@@ -99,7 +99,7 @@ private:
 
     // ── update() steps ──
     void  stepPrepare(WEBSOCK_DATA &webSockData, int tempMaxBonusC,
-                      float pvRatio, float cloudAvg, float tempOutside);
+                      float pvRatio, float cloudAvg, float tempOutside, bool forecastValid);
     bool  stepForceOff(int temp, unsigned long now, WEBSOCK_DATA &webSockData);
     bool  stepForceHeat(int temp, int effectiveMax, unsigned long now,
                         WEBSOCK_DATA &webSockData);

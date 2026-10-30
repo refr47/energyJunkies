@@ -1,153 +1,61 @@
-// =============================================================================
-// mlPredictor.cpp — MlPredictor Implementation for OhmPilot
-//
-// Responsibilities:
-//   - TinyNN prediction and training
-//   - Reward computation for RL training
-//   - Downward ramp limiting for cloud-cover smoothing
-// =============================================================================
-
 #include "mlPredictor.h"
+#include "weather.h"
+#include <algorithm>
+#include <cmath>
 
-// ──────────────────────────────────────────────────────────────────────────
-// Constructors
-// ──────────────────────────────────────────────────────────────────────────
-MlPredictor::MlPredictor()
-    : m_tempMin(45.0f), m_tempMax(60.0f), m_maxPower(1728)
+int MlPredictor::temperatureBonus(int ruleBonus, bool forecastValid, int temperature,
+                                 int normalMax, int tempMin, float pvRatio,
+                                 float cloud, float outside, unsigned long now,
+                                 float &preheat, float &buffer)
 {
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// init — set configuration bounds
-// ──────────────────────────────────────────────────────────────────────────
-void MlPredictor::init(float tempMin, float tempMax, int maxPower)
-{
-    m_tempMin = tempMin;
-    m_tempMax = tempMax;
-    m_maxPower = maxPower;
-}
-
-
+    preheat = buffer = 0;
+    if (!forecastValid || temperature < 0 || !std::isfinite(pvRatio) ||
+        !std::isfinite(cloud) || !std::isfinite(outside)) return 0;
+    ruleBonus = std::max(0, std::min(ruleBonus, WEATHER_PREHEAT_MAX_BONUS));
 #ifdef TINYNN_ENABLE
-void MlPredictor::setTinyNN(TinyNN *nn)
-{
-    m_tinyNN = nn;
-}
-#endif
-// ──────────────────────────────────────────────────────────────────────────
-// computeReward — reward signal for TinyNN training
-//
-// Positive reward: high surplus utilization, temp increasing toward setpoint
-// Negative reward: wasting surplus (grid feed-in), temp overshooting
-// ──────────────────────────────────────────────────────────────────────────
-#ifdef TINYNN_ENABLE
-float MlPredictor::computeReward(float measuredPower, float targetPower, float currentTemp) const
-{
-    float reward = 0.0f;
-
-    // Reward: match target to available surplus (efficient utilization)
-    float utilization = targetPower / std::max(measuredPower, 1.0f);
-    utilization = std::min(utilization, 1.0f);
-    reward += utilization * 0.5f;
-
-    // Reward: temperature approaching optimal mid-range
-    int midTemp = static_cast<int>(m_tempMax + m_tempMin) / 2;
-    int tempDiff = std::abs(static_cast<int>(currentTemp) - midTemp);
-    int maxDiff = std::max(static_cast<int>(m_tempMax - m_tempMin), 1);
-    float tempScore = 1.0f - (static_cast<float>(tempDiff) / static_cast<float>(maxDiff));
-    reward += tempScore * 0.3f;
-
-    // Bonus: if surplus is being fully consumed
-    if (measuredPower > 0 && targetPower >= measuredPower * 0.9f)
-    {
-        reward += 0.2f;
+    if (!m_tinyNN) return ruleBonus;
+    auto clamp = [](float x, float lo, float hi) { return std::max(lo, std::min(x, hi)); };
+    // Exactly the same normalized inputs are used for inference and replay.
+    TinyNNExperience sample{};
+    const float range = std::max(1, WEATHER_PREHEAT_MAX_SAFE - tempMin);
+    sample.temp = clamp(2.0f * (temperature - tempMin) / range - 1.0f, -1, 1);
+    sample.pv_ratio = clamp(pvRatio / 2.0f - 1.0f, -1, 1);
+    sample.cloud_avg = clamp(cloud, 0, 1);
+    sample.temp_outside = clamp((outside - 10.0f) / 30.0f, -1, 1);
+    // Supervised rule targets, not the network's own predictions. These are
+    // planning heuristics, not a learned household hot-water demand model.
+    sample.target_preheat = ruleBonus / static_cast<float>(WEATHER_PREHEAT_MAX_BONUS);
+    const int target = std::min(WEATHER_PREHEAT_MAX_SAFE, normalMax + ruleBonus);
+    sample.target_buffer = clamp((target - temperature) / range, 0, 1);
+    const TinyNNPrediction prediction = m_tinyNN->predict(sample.temp, sample.pv_ratio,
+                                                         sample.cloud_avg, sample.temp_outside);
+    if (!std::isfinite(prediction.preheat_score) || !std::isfinite(prediction.buffer_pct))
+        return ruleBonus;
+    preheat = prediction.preheat_score;
+    buffer = prediction.buffer_pct;
+    // Do not replay essentially identical observations every two seconds.
+    if (!m_haveTrainingSample || now - m_lastTraining >= 30UL * 60 * 1000) {
+        m_haveTrainingSample = true;
+        m_lastTraining = now;
+        m_tinyNN->remember(sample);
+        m_tinyNN->trainReplay();
     }
-
-    return reward;
-}
+    // Cold-start fallback; ML cannot invent preheating or reduce a full reserve.
+    if (ruleBonus == 0 || ruleBonus == WEATHER_PREHEAT_MAX_BONUS ||
+        m_tinyNN->sampleCount() < 100) return ruleBonus;
+    const float correction = (preheat - sample.target_preheat) +
+                             (buffer - sample.target_buffer);
+    return std::max(0, std::min(WEATHER_PREHEAT_MAX_BONUS,
+        ruleBonus + static_cast<int>(std::lround(clamp(correction * 2, -2, 2)))));
+#else
+    (void)normalMax; (void)tempMin; (void)now;
+    return ruleBonus;
 #endif
-
-// ──────────────────────────────────────────────────────────────────────────
-// adjustTarget — TinyNN preheat/boost adjustment
-//
-// No-op when TinyNN disabled, tinyNN is nullptr, or doML is false.
-// Returns: adjusted targetPower (may add preheat boost).
-// Trains network with experience replay. Updates output state members.
-// ──────────────────────────────────────────────────────────────────────────
-int MlPredictor::adjustTarget(int targetPower, int measuredPower, bool doML,
-                              int currentSensor,
-                              float weatherPvRatio, float weatherCloudAvg, float weatherOutTemp,
-                              int weatherBonus, int onePhase,
-                              int &outTINYNN_preheat, int &outTINYNN_buffer)
-{
-#ifndef TINYNN_ENABLE
-    return targetPower;
-#endif
-
-    outTINYNN_preheat = 0;
-    outTINYNN_buffer = 0;
-
-#ifdef TINYNN_ENABLE
-    if (m_tinyNN == nullptr || !doML)
-        return targetPower;
-
-    // ── Normalize temperature ──
-    float normTemp = ((float)currentSensor - m_tempMin) / (m_tempMax - m_tempMin);
-    normTemp = std::fmaxf(0.0f, std::fminf(1.0f, normTemp));
-
-    // ── Predict ──
-    TinyNNPrediction pred = m_tinyNN->predict(
-        normTemp, weatherPvRatio, weatherCloudAvg, weatherOutTemp);
-
-    outTINYNN_preheat = pred.preheat_score;
-    outTINYNN_buffer = pred.buffer_pct;
-
-    // ── Preheat boost ──
-    if (pred.preheat_score > 0.5f && weatherBonus > 0)
-    {
-        int boost = static_cast<int>(onePhase * pred.preheat_score * pred.buffer_pct);
-        targetPower += boost;
-        targetPower = std::min(targetPower, m_maxPower);
-    }
-
-    // ── Remember experience ──
-    (void)computeReward(
-        static_cast<float>(measuredPower),
-        static_cast<float>(targetPower),
-        static_cast<float>(currentSensor));
-    TinyNNExperience exp;
-    exp.temp           = normTemp * 2.0f - 1.0f;
-    exp.pv_ratio       = weatherPvRatio * 2.0f - 1.0f;
-    exp.cloud_avg      = weatherCloudAvg;
-    exp.temp_outside   = weatherOutTemp;
-    exp.target_preheat = pred.preheat_score;
-    exp.target_buffer  = pred.buffer_pct;
-    m_tinyNN->remember(exp);
-    m_tinyNN->trainReplay();
-#endif
-
-    return targetPower;
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// clampRampDown — limit downward step for cloud-cover smoothing
-//
-// When PV surplus drops sharply (clouds passing), limit the rate of reduction
-// so relays don't toggle instantly.
-// Pure helper → static.
-// ──────────────────────────────────────────────────────────────────────────
 int MlPredictor::clampRampDown(float targetPower, float lastSmoothedPower)
 {
-    // Ramp-down limits (configurable constants)
-    constexpr float MAX_DROP_TOTAL = 300.0f;
-    constexpr float HYSTERESIS = 12.0f;
-
-    float diff = targetPower - lastSmoothedPower;
-    if (diff < 0)
-    {
-        float maxDrop = MAX_DROP_TOTAL + HYSTERESIS;
-        if (std::abs(diff) > maxDrop)
-            targetPower = lastSmoothedPower - maxDrop;
-    }
+    if (targetPower < lastSmoothedPower - 312.0f)
+        targetPower = lastSmoothedPower - 312.0f;
     return std::max(0, static_cast<int>(targetPower));
 }

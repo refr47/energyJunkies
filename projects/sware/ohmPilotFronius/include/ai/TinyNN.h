@@ -26,7 +26,7 @@ struct TinyNNExperience
 {
     // ── Normalisierte Inputs ──
     float temp;         // [-1 .. 1]  (Boiler relativ zu Min/Max)
-    float pv_ratio;     // [-1 .. 1]  (heute/morgen, 0..2 → -1..1)
+    float pv_ratio;     // [-1 .. 1]  (today / weaker future day, 0..4)
     float cloud_avg;    // [0 .. 1]   (Wolkenmittel)
     float temp_outside; // [-1 .. 1]  (Aussentemperatur)
 
@@ -53,6 +53,7 @@ public:
     // ── Training (Regression, MSE) ──
     void remember(const TinyNNExperience &exp);
     void trainReplay();
+    unsigned sampleCount() const { return trainingSamples; }
 
     // ── Persistenz ──
     void save();
@@ -75,7 +76,8 @@ private:
 
     float lr = 0.005;      // niedriger LR für Regression
 
-    int updateCounter = 0;
+    unsigned trainingSamples = 0;
+    unsigned long lastSaved = 0;
 
     // ── Normalisierungs-Parameter ──
     float MIN_Temp;

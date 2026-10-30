@@ -1,51 +1,31 @@
 #pragma once
 #include <ctime>
+#include <cstdint>
+
+// Common limits also apply when WEATHER_API is disabled.
+constexpr int WEATHER_PREHEAT_MAX_BONUS = 20;
+constexpr int WEATHER_PREHEAT_MAX_SAFE = 80;
+constexpr time_t WEATHER_DATA_MAX_AGE_SEC = 6 * 3600;
+constexpr uint32_t WEATHER_FETCH_INTERVAL_MS = 6UL * 3600 * 1000;
+constexpr uint32_t WEATHER_RETRY_INTERVAL_MS = 5UL * 60 * 1000;
+
+struct PROGNOSE {
+    int preheatBonus = 0;
+    int forecastToday = 0;          // Full local day, Wh; used only for trend
+    int forecastRemainingToday = 0; // Only future part of today's intervals, Wh
+    int forecastTomorrow = 0;
+    int forecastDayAfterTomorrow = 0;
+    bool valid = false;
+    time_t validUntil = 0;
+    float cloudAverage = 0.5f;      // Tomorrow + day after tomorrow, [0,1]
+    float tempOutside = 20.0f;
+    float pvRatio = 1.0f;           // Today / weaker of next two days, [0,4]
+};
+
+// Pure parser/model, independent of network and GPIO; uses local timezone.
+bool weather_parse(const char *payload, time_t now, PROGNOSE &forecast);
+int weather_preheatBonus(int today, int remaining, int tomorrow, int dayAfter,
+                         float &ratio);
 #ifdef WEATHER_API
-#define LATITUDE "48.24"          // Breitengrad
-#define LATITUDE_f 48.24
-#define LONGITUDE "13.3208"
-#define LONGITUDE_f 13.3208
-
-#define FORCAST_DAYS_STRING "2"   // heute + morgen
-#define FORCAST_DAYS 2
-#define HOURS_PER_DAY 24
-#define TEMPERATURE_SIZE FORCAST_DAYS * HOURS_PER_DAY
-#define SUNDAY_LIGHT_SIZE FORCAST_DAYS * HOURS_PER_DAY
-#define DAILY_VALUES_SIZE 2
-
-#define WEATHER_PREHEAT_MAX_BONUS  8      // maximale °C Bonus (safety cap)
-#define WEATHER_PREHEAT_MAX_SAFE  65     // absolutes Temp-Max auch mit Bonus
-#define WEATHER_DATA_MAX_AGE_SEC  (6*3600) // Wetter-Daten älter? → Bonus=0
-#define WEATHER_FETCH_INTERVAL_MS (6*3600*1000) // alle 6h neu abfragen
-
-// Fallback threshold values for unreliable predictions
-#define WEATHER_UNRELIABLE_CLOUD_THRESHOLD  0.8f   // >80% Wolken => unzuverlässig
-#define WEATHER_UNRELIABLE_TEMP_THRESHOLD   5.0f   // <5°C Aussentemp => unzuverlässig
-
-/*
- * PROGNOSE – Output der Wetter-Wertung.
- *
- * preheatBonus  : in °C, wie weit über setupData.tempMaxAllowedInGrad
- *                 der Boiler heute geheizt werden soll. 0 = kein Bonus.
- * validUntil    : Unix-Zeitstempel, wann die Daten verfallen.
- * forecastToday : PV-Energie heute   [Wh], adjustiert (Wolken/Risiko)
- * forecastTomorow: PV-Energie morgen [Wh], adjustiert
- * cloudAverage  : Wolkenmittel 48h [0..1]  → TinyNN-Input
- * tempOutside   : Aussentemperatur-Mittel [°C] → TinyNN-Input
- * pvRatio       : heute/morgen [0..2.0] → TinyNN-Input
- */
-typedef struct _PROGNOSE
-{
-    int     preheatBonus;             // °C Bonus (0..WEATHER_PREHEAT_MAX_BONUS)
-    int     forecastToday;            // Wh heute (adjusted)
-    int     forecastTomorow;          // Wh morgen (adjusted)
-    bool    valid;                    // true wenn Daten aktuell
-    time_t  validUntil;               // Unix-TS wann Daten verfallen
-    float   cloudAverage;             // Wolkenmittel 48h [0..1]
-    float   tempOutside;              // Aussentemp-Mittel [°C]
-    float   pvRatio;                  // heute / morgen [0..2.0]
-} PROGNOSE;
-
-bool wheater_fetch(PROGNOSE &prognose);
-
+bool weather_fetch(PROGNOSE &forecast);
 #endif

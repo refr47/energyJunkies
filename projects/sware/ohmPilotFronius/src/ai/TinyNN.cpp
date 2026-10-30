@@ -5,21 +5,15 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <Arduino.h>
 
 // ── Konstruktor ────────────────────────────────────────────────────────────
 TinyNN::TinyNN(float, float min_t, float max_t)
 {
-    prefs.begin("tinynn", false);
-
-    if (static_cast<int>(prefs.getBytesLength("w1")) == static_cast<int>(sizeof(w1)))
-    {
-        load();
-    }
-    else
-    {
-        randomInit();
-        save();
-    }
+    // New namespace: old weights were trained with incompatible input scales.
+    prefs.begin("tinynn-v2", false);
+    load();
+    lastSaved = millis();
 
     MIN_Temp = min_t;
     MAX_Temp = max_t;
@@ -94,14 +88,6 @@ void TinyNN::train(float in[TINYNN_INPUTS], float target[TINYNN_OUTPUTS])
         delta2[k]    = mse * output[k] * (1.0f - output[k]);  // dSigmoid
     }
 
-    // Layer 2: w2 += lr * hidden.T * delta2
-    for (int j = 0; j < TINYNN_HIDDEN; j++)
-        for (int k = 0; k < TINYNN_OUTPUTS; k++)
-            w2[j][k] += lr * delta2[k] * hidden[j];
-
-    for (int k = 0; k < TINYNN_OUTPUTS; k++)
-        b2[k] += lr * delta2[k];
-
     // Backprop nach Layer 1
     for (int j = 0; j < TINYNN_HIDDEN; j++)
     {
@@ -119,16 +105,22 @@ void TinyNN::train(float in[TINYNN_INPUTS], float target[TINYNN_OUTPUTS])
         b1[j] += lr * delta1;
     }
 
-    // 🔁 Persist alle N Updates
-    updateCounter++;
-    if ((updateCounter % 500) == 0)
-        save();
+    // Layer 2: w2 += lr * hidden.T * delta2
+    for (int j = 0; j < TINYNN_HIDDEN; j++)
+        for (int k = 0; k < TINYNN_OUTPUTS; k++)
+            w2[j][k] += lr * delta2[k] * hidden[j];
+
+    for (int k = 0; k < TINYNN_OUTPUTS; k++)
+        b2[k] += lr * delta2[k];
+
+
 }
 
 // ── Replay-Buffer ────────────────────────────────────────────────────────
 void TinyNN::remember(const TinyNNExperience &exp)
 {
     replay[replayIndex] = exp;
+    if (trainingSamples < 1000000) ++trainingSamples;
     replayIndex = (replayIndex + 1) % TINYNN_REPLAY;
     if (replayCount < TINYNN_REPLAY)
         replayCount++;
@@ -149,6 +141,11 @@ void TinyNN::trainReplay()
 
         train(in, tgt);
     }
+    if (millis() - lastSaved >= 6UL * 3600 * 1000) {
+        save();
+        lastSaved = millis();
+    }
+
 }
 
 // ── Persistenz (NVS) ────────────────────────────────────────────────────
@@ -158,12 +155,28 @@ void TinyNN::save()
     prefs.putBytes("b1", b1, sizeof(b1));
     prefs.putBytes("w2", w2, sizeof(w2));
     prefs.putBytes("b2", b2, sizeof(b2));
+    prefs.putUInt("samples", trainingSamples);
 }
 
 void TinyNN::load()
 {
+    if (prefs.getBytesLength("w1") != sizeof(w1) ||
+        prefs.getBytesLength("b1") != sizeof(b1) ||
+        prefs.getBytesLength("w2") != sizeof(w2) ||
+        prefs.getBytesLength("b2") != sizeof(b2)) {
+        randomInit();
+        trainingSamples = 0;
+        return;
+    }
     prefs.getBytes("w1", w1, sizeof(w1));
     prefs.getBytes("b1", b1, sizeof(b1));
     prefs.getBytes("w2", w2, sizeof(w2));
     prefs.getBytes("b2", b2, sizeof(b2));
+    bool valid = true;
+    for (auto &row : w1) for (float value : row) valid = valid && isfinite(value);
+    for (auto &row : w2) for (float value : row) valid = valid && isfinite(value);
+    for (float value : b1) valid = valid && isfinite(value);
+    for (float value : b2) valid = valid && isfinite(value);
+    trainingSamples = valid ? prefs.getUInt("samples", 0) : 0;
+    if (!valid) randomInit();
 }

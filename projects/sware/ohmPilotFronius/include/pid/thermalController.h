@@ -18,7 +18,7 @@ class ThermalController
 public:
     // ── Temperature resolution ───────────────────────────────────────────
     // Compute average from two sensors. Handles negative values (sensor fail).
-    // Returns effective temperature clamped to tempMaxAllowed on dual-fail.
+    // Returns -1 on dual failure; callers must switch off in every mode.
     static int resolveInputTemp(int sensor1, int sensor2,
                                 int tempMaxAllowed, int tempMin);
 
@@ -35,6 +35,8 @@ public:
         bool &legionellaCycleActive, unsigned long &lastLegionellaMs,
         // Output
         ControlMode &mode, bool &doML);
+
+    static bool mustStopHeating(int sensor1, int sensor2);
 
     // ── Safety checks ────────────────────────────────────────────────────
     // Returns true if temperature is above max (heater must be off)

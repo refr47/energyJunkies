@@ -20,6 +20,7 @@
 #include "pinManager.h"
 #include "batteryMonitor.h"
 #include "logCommitter.h"
+#include "weather.h"
 // ── Constants ──
 #define FASE_EINS_POWER 576     // W per phase (standard 3-phase heater)
 
@@ -84,24 +85,18 @@ void PinManager::config(WEBSOCK_DATA& data, int l1, int l2, int pwm)
 {
     // Initialize PhaseController with pin numbers
     phaseCtrl.initPins(l1, l2, pwm);
-    // TinyNN needs onePhase for target bounds
+    // Electrical output limit from configured heater power
     float totalPower = (float)data.setupData.heizstab_leistung_in_watt;
     int onePhase = (totalPower > 0.0f) ? (int)(totalPower / 3.0f) : FASE_EINS_POWER;
     phaseCtrl.setOnePhase(onePhase);
-    // Initialize MLPredictor with temp bounds and max power
-    int maxPower = onePhase * 3;
-    mlPredictor.init(
-        (float)data.setupData.tempMinInGrad,
-        (float)data.setupData.tempMaxAllowedInGrad,
-        maxPower);
 #ifdef TINYNN_ENABLE
+    const int maxPower = onePhase * 3;
     // Initialize TinyNN if enabled
     if (tinyNN == nullptr)
     {
         tinyNN = new TinyNN((float)maxPower,
             (float)data.setupData.tempMinInGrad,
             (float)data.setupData.tempMaxAllowedInGrad);
-        tinyNN->load();
     }
     // Pass TinyNN pointer to MlPredictor
     mlPredictor.setTinyNN(tinyNN);
@@ -214,7 +209,7 @@ int PinManager::resolveInputTemp() const
 void PinManager::preCheck(int temp, unsigned long nowMS,
     ControlMode& mode, bool& doML)
 {
-    int effectiveMax = (int)(m_tempMaxAllowed + m_weatherBonus);
+    int effectiveMax = std::min(WEATHER_PREHEAT_MAX_SAFE, m_tempMaxAllowed + m_weatherBonus);
     ThermalController::evaluateMode(
         temp, effectiveMax, m_tempMin,
         m_legionellenMaxTemp, m_legionellenDelta,
@@ -236,13 +231,26 @@ void PinManager::execModeOff(LogEntry& logEntry)
 // stepPrepare — copy weather inputs and shared data into local members
 // ──────────────────────────────────────────────────────────────────────────
 void PinManager::stepPrepare(WEBSOCK_DATA& webSockData, int tempMaxBonusC,
-                              float pvRatio, float cloudAvg, float tempOutside)
+                              float pvRatio, float cloudAvg, float tempOutside, bool forecastValid)
 {
     m_weatherBonus = tempMaxBonusC;
     m_weatherPvRatio = pvRatio;
     m_weatherCloudAvg = cloudAvg;
     m_weatherOutTemp = tempOutside;
     pidLockRead(webSockData);
+    float preheat = 0, buffer = 0;
+    m_weatherBonus = mlPredictor.temperatureBonus(tempMaxBonusC, forecastValid,
+        resolveInputTemp(), m_tempMaxAllowed, m_tempMin, pvRatio, cloudAvg,
+        tempOutside, millis(), preheat, buffer);
+    // Forecast reserve is only used while PV is actually producing. The
+    // BatteryMonitor independently enforces the available electrical budget.
+    if (!(webSockData.energyState.p_pv > 0)) m_weatherBonus = 0;
+    m_weatherBonus = std::min(m_weatherBonus,
+        std::max(0, WEATHER_PREHEAT_MAX_SAFE - m_tempMaxAllowed));
+#ifdef TINYNN_ENABLE
+    m_tinyNN_preheat = preheat;
+    m_tinyNN_buffer = buffer;
+#endif
 }
 // ──────────────────────────────────────────────────────────────────────────
 // stepForceOff — Heater Kill (Frostschutz gewinnt)
@@ -354,16 +362,8 @@ void PinManager::execModeAuto(int temp, unsigned long now, bool doML,
     int targetPower = std::max(0, std::min(measuredPower, maxPower));
     // ── Clamp down-ramp for cloud-cover protection ──
     targetPower = mlPredictor.clampRampDown(targetPower, lastSmoothedPower);
-    // ── TinyNN ML adjustment (returns adjusted target) ──
-    int tinyNN_preheat = 0, tinyNN_buffer = 0;
-    targetPower = mlPredictor.adjustTarget(
-        targetPower, measuredPower, doML,
-        m_sensor1,
-        m_weatherPvRatio, m_weatherCloudAvg, m_weatherOutTemp,
-        m_weatherBonus, phaseCtrl.getOnePhase(),
-        tinyNN_preheat, tinyNN_buffer);
-    m_tinyNN_preheat = tinyNN_preheat;
-    m_tinyNN_buffer = tinyNN_buffer;
+    // TinyNN adjusts the temperature reserve in stepPrepare, not watts.
+    (void)doML;
     // BatteryMonitor defines the available budget; smoothing and ML must
     // not increase consumption beyond it (or the hardware limit).
     targetPower = std::max(0, std::min(targetPower, std::min(measuredPower, maxPower)));
@@ -439,20 +439,32 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
     int tempMaxBonusC,
     float pvRatio,
     float cloudAvg,
-    float tempOutside)
+    float tempOutside, bool forecastValid)
 {
     // ── 1. Prepare inputs ──
-    stepPrepare(webSockData, tempMaxBonusC, pvRatio, cloudAvg, tempOutside);
+    stepPrepare(webSockData, tempMaxBonusC, pvRatio, cloudAvg, tempOutside, forecastValid);
 
     unsigned long now = millis();
     int temp = resolveInputTemp();
-    int effectiveMax = m_tempMaxAllowed + m_weatherBonus;
+    int effectiveMax = std::min(WEATHER_PREHEAT_MAX_SAFE, m_tempMaxAllowed + m_weatherBonus);
+
+    // Independent of mode and forecast: failed sensors or either sensor at the
+    // absolute limit must disable every path, including manual/frost/legionella.
+    if (ThermalController::mustStopHeating(m_sensor1, m_sensor2)) {
+        legionella = false;
+        LogEntry entry;
+        LogCommitter::fillEntry(entry, now, MODE_OFF, 0, 0, temp);
+        execModeOff(entry);
+        LogCommitter::writeToLog(entry, webSockData);
+        pidLockWrite(webSockData);
+        return;
+    }
 
     // ── 2. Force-Off (early exit) ──
     if (stepForceOff(temp, now, webSockData)) return;
 
     // ── 3. Force-Heat (early exit) ──
-    if (stepForceHeat(temp, effectiveMax, now, webSockData)) return;
+    if (stepForceHeat(temp, std::min(m_tempMaxAllowed, WEATHER_PREHEAT_MAX_SAFE), now, webSockData)) return;
 
     // ── 4. Normal control loop ──
     stepControlMode(temp, effectiveMax, now, webSockData);
