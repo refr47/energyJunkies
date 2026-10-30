@@ -100,8 +100,8 @@ int BatteryMonitor::getAvailablePower(int heaterPower, bool &outWattBiasForTest)
         availablePower = m_wattSetupForTest;
         outWattBiasForTest = true;
     }
-    LOG_INFO(TAG_BATT, "AVAILABLE power=%dW (raw=%.0f ema=%.0f grid=%.0f batt=%.0f soc=%.0f%% bias=%dW)",
+    LOG_INFO(TAG_BATT, "AVAILABLE power=%dW (raw=%.0f ema=%.0f grid=%.0f batt=%.0f soc=%.0f%% priority=%d heater=%dW bias=%dW)",
              availablePower, measuredSurplus, m_emaSurplus, m_gridPower,
-             m_battPower, m_soc, m_wattSetupForTest);
+             m_battPower, m_soc, m_akkuPriori, heaterPower, m_wattSetupForTest);
     return availablePower;
 }

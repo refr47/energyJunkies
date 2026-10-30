@@ -98,8 +98,10 @@ void PhaseController::apply(int targetPower, LogEntry &logEntry)
     LOG_INFO(TAG_PHASE, "apply() enter | target=%dW clamped=%dW lastTarget=%dW diff=%d DEADBAND=%d",
              targetPower, power, lastTargetPower, abs(power - lastTargetPower), DEAD_BAND);
 
-    // ── Deadband: only evaluate hardware changes if difference exceeds ────
-    int diff = abs(power - lastTargetPower);
+    // Compare with applied output, not the previous request. A request may
+    // not have reached the relays yet because their minimum dwell is active.
+    // This also lets small successive increases accumulate past the deadband.
+    int diff = abs(power - getHeaterPower());
     if (diff < DEAD_BAND)
     {
         LOG_INFO(TAG_PHASE, "DEADBAND skip | no hardware change");
