@@ -793,8 +793,8 @@ const weatherOutTemp = computed(() => props.liveData?.weatherOutTemp ?? 20.0);
 
 // ── Heizstab-Logik ──
 const relayWatt = computed(() => Number(props.liveData?.hsPhase) || 0);
-const relay1 = computed(() => Boolean(props.liveData?.HEIZPATRONE_L1));
-const relay2 = computed(() => Boolean(props.liveData?.HEIZPATRONE_L2));
+const relay1 = computed(() => Number(props.liveData?.L1) === 1);
+const relay2 = computed(() => Number(props.liveData?.L2) === 1);
 const relayActive = (i) => (i === 1 ? relay1.value : relay2.value);
 const relayFill = (i) => (relayActive(i) ? 140 : 12);
 
