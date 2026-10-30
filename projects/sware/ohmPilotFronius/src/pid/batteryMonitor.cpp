@@ -25,6 +25,10 @@ BatteryMonitor::BatteryMonitor()
 void BatteryMonitor::update(float gridPower, float battPower, float soc,
                            int akkuPriori, int wattSetupForTest)
 {
+    if (m_akkuPriori != akkuPriori) {
+        m_emaSurplus = 0;
+        m_emaInitialized = false;
+    }
     m_gridPower = gridPower;
     m_battPower = battPower;
     m_soc = soc;
@@ -39,92 +43,65 @@ bool BatteryMonitor::isBatteryOK() const
 {
     // AmisReader (no battery): soc=0 → always OK
     // Fronius (with battery): check if battery is not discharging
-    return (m_soc <= 0) || (m_battPower >= 0);
+    return (m_soc <= 0) || (m_battPower <= BAT_POWER_TRESHOLD);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
 // getAvailablePower — calculate available power for heating
 //
 // Universal: Works with both AmisReader (battPower=0) and Fronius (battPower≠0)
-// Steps:
-//   1. Guard: Battery discharging → return 0
-//   2. Calculate raw surplus (grid + battery aware)
-//   3. Compensate for current heater draw (only when drawing from grid)
-//   4. Apply EMA smoothing to reduce jitter
-//   5. Check SOC threshold (battery priority mode)
-//   6. Apply test bias override
+// Returns total heater target power, including the current heater draw.
+// Charging is negative; discharging is positive (Fronius convention).
 // ──────────────────────────────────────────────────────────────────────────
 int BatteryMonitor::getAvailablePower(int heaterPower, bool &outWattBiasForTest)
 {
-    // ━━━ Step 1: Battery discharge guard ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━───
-    // Battery discharging → don't heat with battery energy
-    if (m_akkuPriori > BAT_PRIORITY_OFF) {
-        if (m_battPower > BAT_POWER_TRESHOLD) {
-            LOG_INFO(TAG_BATT, "BLOCKED batt discharging %.0fW  (treshold: %d )due to priority %d", m_battPower, BAT_POWER_TRESHOLD, m_akkuPriori);
-            return 0; 
-        } 
-    } else {
-        m_battPower=0; // AmisReader (no battery) → ignore battery power
-    }
-   /*  if (m_battPower < 0) {
-        LOG_INFO(TAG_BATT, "BLOCKED batt discharging %.0fW", m_battPower);
-        return 0; 
-    }  */
+    outWattBiasForTest = false;
+    const bool allowDischarge = m_akkuPriori == BAT_PRIORITY_ALLOW_DISCHARGE;
+    const bool chargePriority = m_akkuPriori > BAT_PRIORITY_OFF;
 
-    // AmisReader (m_battPower == 0) → always proceeds past this guard
-
-    // ━━━ Step 2: Raw surplus calculation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━───
-    // p_grid < 0 → feeding (surplus), p_grid > 0 → drawing from grid
-    // -m_battPower: when charging (>0) reduces surplus, when neutral (0) no effect
-    float measuredSurplus = -m_gridPower - m_battPower;
-
-    // Self-compensation: only when actually drawing from grid
-    // Otherwise we'd add previous state to an already-negative balance
-    if (m_gridPower > 0)
-    {
-        measuredSurplus += heaterPower;
-    }
-
-    // ━━━ Step 3: EMA smoothing ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ewie
-    // α=0.15 → half-life ≈ 4.7 fetch cycles (~188s at 40s interval)
-    // Reduces jitter while still responding to genuine changes
-    if (!m_emaInitialized)
-    {
-        m_emaSurplus = measuredSurplus;
-        m_emaInitialized = true;
-    }
-    else
-    {
-        m_emaSurplus = BatteryMonitor::EMA_ALPHA * measuredSurplus + 
-                       (1.0f - BatteryMonitor::EMA_ALPHA) * m_emaSurplus;
-    }
- 
-    // No surplus after smoothing → heater OFF
-    if (m_emaSurplus <= 0) {
-        LOG_INFO(TAG_BATT, "BLOCKED no surplus raw=%.0f ema=%.0f grid=%.0f batt=%.0f",
-                 measuredSurplus, m_emaSurplus, m_gridPower, m_battPower);
+    // Modes 0 and 1 must not heat from the battery. Mode 2 allows it.
+    // Reset history so a later release cannot reuse an old surplus.
+    if ((!allowDischarge && m_battPower > BAT_POWER_TRESHOLD) ||
+        (chargePriority && !allowDischarge && m_soc > 0 &&
+         m_soc < BatteryMonitor::BATT_THRESHOLD)) {
+        m_emaSurplus = 0;
+        m_emaInitialized = false;
+        LOG_INFO(TAG_BATT, "BLOCKED battery batt=%.0fW soc=%.0f%% priority=%d",
+                 m_battPower, m_soc, m_akkuPriori);
         return 0;
     }
 
-    // ━━━ Step 4: Battery priority (SOC threshold) ━━━━━━━━━━━━━━━━━━━━━━━━━
-    if (m_akkuPriori > 0 && m_soc > 0)
-    {
-        if (static_cast<int>(m_soc) < BatteryMonitor::BATT_THRESHOLD) {
-            LOG_INFO(TAG_BATT, "BLOCKED soc %d%% < threshold %d%%",
-                     (int)m_soc, BatteryMonitor::BATT_THRESHOLD);
-            return 0;  // SOC too low → charge battery first
-        }
+    // The grid balance already includes battery charging and heater draw.
+    // Add back the heater draw to obtain a total target, for either grid sign.
+    float measuredSurplus = heaterPower - m_gridPower;
+    if (!chargePriority && m_battPower < 0) {
+        measuredSurplus -= m_battPower;
     }
 
-    // ━━━ Step 5: Test bias override ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Smooth increases only; stale surplus must not delay a reduction.
+    if (!m_emaInitialized || measuredSurplus < m_emaSurplus) {
+        m_emaSurplus = measuredSurplus;
+        m_emaInitialized = true;
+    } else {
+        m_emaSurplus = BatteryMonitor::EMA_ALPHA * measuredSurplus +
+                       (1.0f - BatteryMonitor::EMA_ALPHA) * m_emaSurplus;
+    }
+
+    if (m_emaSurplus <= 0) {
+        m_emaSurplus = 0;
+        LOG_INFO(TAG_BATT, "BLOCKED no surplus raw=%.0f grid=%.0f batt=%.0f",
+                 measuredSurplus, m_gridPower, m_battPower);
+        return 0;
+    }
+
+    // Test override remains subject to the battery and surplus guards.
     int availablePower = static_cast<int>(m_emaSurplus);
-    if (m_wattSetupForTest > 0)
-    {
+    if (m_wattSetupForTest > 0) {
         availablePower = m_wattSetupForTest;
         outWattBiasForTest = true;
     }
-LOG_INFO(TAG_BATT, "AVAILABLE power=%.0fW (raw=%.0f ema=%.0f grid=%.0f batt=%.0f soc=%d%% bias=%dW)",
-             (float)availablePower, measuredSurplus, m_emaSurplus, m_gridPower, m_battPower,
-             (int)m_soc, m_wattSetupForTest);
+    LOG_INFO(TAG_BATT, "AVAILABLE power=%dW (raw=%.0f ema=%.0f grid=%.0f batt=%.0f soc=%.0f%% bias=%dW)",
+             availablePower, measuredSurplus, m_emaSurplus, m_gridPower,
+             m_battPower, m_soc, m_wattSetupForTest);
     return availablePower;
 }

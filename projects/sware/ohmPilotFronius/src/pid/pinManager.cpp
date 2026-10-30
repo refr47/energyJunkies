@@ -363,6 +363,9 @@ void PinManager::execModeAuto(int temp, unsigned long now, bool doML,
         tinyNN_preheat, tinyNN_buffer);
     m_tinyNN_preheat = tinyNN_preheat;
     m_tinyNN_buffer = tinyNN_buffer;
+    // BatteryMonitor defines the available budget; smoothing and ML must
+    // not increase consumption beyond it (or the hardware limit).
+    targetPower = std::max(0, std::min(targetPower, std::min(measuredPower, maxPower)));
     // ── Smoothed logging state ──
     lastSmoothedPower = targetPower;
     // ── Apply target power to hardware ──

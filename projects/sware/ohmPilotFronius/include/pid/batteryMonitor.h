@@ -5,7 +5,8 @@
 
 #define BAT_PRIORITY_OFF 0
 #define BAT_PRIORITY_ON  1
-#define BAT_POWER_TRESHOLD 30  // 
+#define BAT_PRIORITY_ALLOW_DISCHARGE 2
+#define BAT_POWER_TRESHOLD 30  // Discharge tolerance in watts
 // =============================================================================
 // BatteryMonitor — Battery & Grid Surplus Monitoring
 //
@@ -33,7 +34,7 @@ public:
 
     // ── Core: Calculate available power for heating ───────────────────────
     // Returns available power in watts, considering battery state and
-    // grid surplus. Uses heaterPower() to get current heater draw for
+    // grid surplus. Includes the supplied current heaterPower for
     // self-compensation.
     int getAvailablePower(int heaterPower, bool &outWattBiasForTest);
 
@@ -43,11 +44,11 @@ public:
 
 private:
     // ── Configuration ────────────────────────────────────────────────────
-    float m_akkuPriori = 0;      // Battery priority flag (1=active, 0=disabled)
+    int m_akkuPriori = 0;        // 0=release charging power, 1=charge first, 2=allow discharge
 
     // ── Live data (updated via update()) ─────────────────────────────────
     float m_gridPower = 0;       // Grid power (W), negative = feeding
-    float m_battPower = 0;       // Battery power (W), negative = discharging
+    float m_battPower = 0;       // Battery power (W), negative = charging, positive = discharging
     float m_soc = 0;             // State of charge (%)
     int   m_wattSetupForTest = 0; // Test override power
 
