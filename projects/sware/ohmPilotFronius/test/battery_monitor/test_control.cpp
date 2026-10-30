@@ -43,8 +43,12 @@ int main() {
     // All 2000 W initially charge the battery. Mode 0 must claim that power.
     for (int cycle = 0; cycle < 60; ++cycle) {
         int heater = phase.getHeaterPower();
-        battery.update(0, -(2000 - heater), 20, 0, 0);
-        int target = battery.getAvailablePower(heater, bias);
+        // Meter updates every 40 s, control and hardware every 2 s.
+        if (cycle % 20 == 0) {
+            battery.update(0, -(2000 - heater), 20, 0, 0,
+                           cycle / 20 + 1, heater);
+        }
+        int target = battery.getAvailablePower(bias);
         phase.apply(target, entry);
         now += 2000;
     }

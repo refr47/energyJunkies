@@ -224,12 +224,16 @@ bool HuaweiModbus::read(WEBSOCK_DATA &webSockData)
     // Huawei: grid +1=Bezug, -1=Einsp -> negate
     // Huawei: batt +1=Laden, -1=Entlad -> negate
     // P_LOAD = PV + Netz_Bezug + Akku_Entladen
-    auto &dst = webSockData.energyState;
+    ENERGY_STATE dst{};
     dst.p_pv   = pvRaw;
     dst.p_grid = -gridRaw;
     dst.p_akku = -battRaw;
     dst.p_load = pvRaw - gridRaw;
     dst.soc    = socVal;
+
+    if (!publishSample(webSockData, dst)) {
+        return false;
+    }
 
     LOG_INFO(TAG_APP_SERVICES,
              "energy (huawei): pv=%.0fW grid=%.0fW load=%.0fW akku=%.0fW soc=%.1f%%",

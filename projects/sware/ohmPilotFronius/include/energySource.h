@@ -37,6 +37,11 @@ public:
     virtual const char*   name()  const = 0;
     virtual EnergySourceType type() const = 0;
     virtual bool          hasBattery() const { return false; }
+
+protected:
+    // Publish a complete measurement and its heater reference atomically.
+    // Network I/O must finish before this short critical section.
+    static bool publishSample(WEBSOCK_DATA &data, ENERGY_STATE sample);
 };
 
 // ── Globale Pointer — auf exakt eine aktive Instanz zeigen ──────────────

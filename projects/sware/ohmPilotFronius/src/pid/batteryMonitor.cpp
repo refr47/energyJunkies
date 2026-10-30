@@ -23,15 +23,22 @@ BatteryMonitor::BatteryMonitor()
 // update — refresh live data from shared state
 // ──────────────────────────────────────────────────────────────────────────
 void BatteryMonitor::update(float gridPower, float battPower, float soc,
-                           int akkuPriori, int wattSetupForTest)
+                           int akkuPriori, int wattSetupForTest,
+                           uint32_t sampleSequence, int heaterPowerAtSample)
 {
     if (m_akkuPriori != akkuPriori) {
         m_emaSurplus = 0;
         m_emaInitialized = false;
+        m_budgetDirty = true;
     }
-    m_gridPower = gridPower;
-    m_battPower = battPower;
-    m_soc = soc;
+    if (m_sampleSequence != sampleSequence && sampleSequence != 0) {
+        m_gridPower = gridPower;
+        m_battPower = battPower;
+        m_soc = soc;
+        m_heaterPowerAtSample = heaterPowerAtSample;
+        m_sampleSequence = sampleSequence;
+        m_budgetDirty = true;
+    }
     m_akkuPriori = akkuPriori;
     m_wattSetupForTest = wattSetupForTest;
 }
@@ -50,12 +57,21 @@ bool BatteryMonitor::isBatteryOK() const
 // getAvailablePower — calculate available power for heating
 //
 // Universal: Works with both AmisReader (battPower=0) and Fronius (battPower≠0)
-// Returns total heater target power, including the current heater draw.
+// Returns total heater target power, using heater draw at sample reception.
 // Charging is negative; discharging is positive (Fronius convention).
 // ──────────────────────────────────────────────────────────────────────────
-int BatteryMonitor::getAvailablePower(int heaterPower, bool &outWattBiasForTest)
+int BatteryMonitor::getAvailablePower(bool &outWattBiasForTest)
 {
+    if (!m_budgetDirty) {
+        outWattBiasForTest = m_availablePower > 0 && m_wattSetupForTest > 0;
+        return outWattBiasForTest ? m_wattSetupForTest : m_availablePower;
+    }
+    m_budgetDirty = false;
+    m_availablePower = 0;
     outWattBiasForTest = false;
+    if (m_sampleSequence == 0) {
+        return 0;
+    }
     const bool allowDischarge = m_akkuPriori == BAT_PRIORITY_ALLOW_DISCHARGE;
     const bool chargePriority = m_akkuPriori > BAT_PRIORITY_OFF;
 
@@ -72,12 +88,14 @@ int BatteryMonitor::getAvailablePower(int heaterPower, bool &outWattBiasForTest)
     }
 
     // The grid balance already includes battery charging and heater draw.
-    // Add back the heater draw to obtain a total target, for either grid sign.
-    float measuredSurplus = heaterPower - m_gridPower;
+    // Add back only the heater draw captured with this measurement. Using
+    // current draw here would repeatedly count changes against an old meter value.
+    float measuredSurplus = m_heaterPowerAtSample - m_gridPower;
     if (!chargePriority && m_battPower < 0) {
         measuredSurplus -= m_battPower;
     }
 
+    // Advance EMA once per new sample; repeated PID calls return the cached budget.
     // Smooth increases only; stale surplus must not delay a reduction.
     if (!m_emaInitialized || measuredSurplus < m_emaSurplus) {
         m_emaSurplus = measuredSurplus;
@@ -95,13 +113,14 @@ int BatteryMonitor::getAvailablePower(int heaterPower, bool &outWattBiasForTest)
     }
 
     // Test override remains subject to the battery and surplus guards.
-    int availablePower = static_cast<int>(m_emaSurplus);
+    m_availablePower = static_cast<int>(m_emaSurplus);
+    int availablePower = m_availablePower;
     if (m_wattSetupForTest > 0) {
         availablePower = m_wattSetupForTest;
         outWattBiasForTest = true;
     }
     LOG_INFO(TAG_BATT, "AVAILABLE power=%dW (raw=%.0f ema=%.0f grid=%.0f batt=%.0f soc=%.0f%% priority=%d heater=%dW bias=%dW)",
              availablePower, measuredSurplus, m_emaSurplus, m_gridPower,
-             m_battPower, m_soc, m_akkuPriori, heaterPower, m_wattSetupForTest);
+             m_battPower, m_soc, m_akkuPriori, m_heaterPowerAtSample, m_wattSetupForTest);
     return availablePower;
 }

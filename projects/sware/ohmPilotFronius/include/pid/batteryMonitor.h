@@ -30,13 +30,14 @@ public:
 
     // ── Update data from shared state (called under pidLockRead) ───────────
     void update(float gridPower, float battPower, float soc, 
-                int akkuPriori, int wattSetupForTest);
+                int akkuPriori, int wattSetupForTest,
+                uint32_t sampleSequence, int heaterPowerAtSample);
 
     // ── Core: Calculate available power for heating ───────────────────────
     // Returns available power in watts, considering battery state and
-    // grid surplus. Includes the supplied current heaterPower for
-    // self-compensation.
-    int getAvailablePower(int heaterPower, bool &outWattBiasForTest);
+    // grid surplus. Uses only the heater reference captured with the sample.
+    // Repeated calls hold the budget until a new sample or setup change.
+    int getAvailablePower(bool &outWattBiasForTest);
 
     // ── State queries ────────────────────────────────────────────────────
     bool isBatteryCharging() const { return m_battPower < 0; }
@@ -51,6 +52,11 @@ private:
     float m_battPower = 0;       // Battery power (W), negative = charging, positive = discharging
     float m_soc = 0;             // State of charge (%)
     int   m_wattSetupForTest = 0; // Test override power
+
+    uint32_t m_sampleSequence = 0;
+    int m_heaterPowerAtSample = 0;
+    bool m_budgetDirty = false;
+    int m_availablePower = 0;
 
     // ── EMA state ────────────────────────────────────────────────────────
     float m_emaSurplus = 0;

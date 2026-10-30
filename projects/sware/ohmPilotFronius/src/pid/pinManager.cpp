@@ -168,7 +168,9 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
         (float)webSockData.energyState.p_akku,
         (float)webSockData.energyState.soc,
         webSockData.setupData.akkuPriori,
-        webSockData.setupData.wattSetupForTest);
+        webSockData.setupData.wattSetupForTest,
+        webSockData.energyState.sampleSequence,
+        webSockData.energyState.heaterPowerAtSample);
 }
 // ──────────────────────────────────────────────────────────────────────────
 // pidLockWrite — write local output back to shared pidContainer
@@ -338,8 +340,7 @@ void PinManager::execModeAuto(int temp, unsigned long now, bool doML,
     LogCommitter::fillEntry(logEntry, now, (uint8_t)MODE_AUTO, 0, 0, temp);
 
     // ── Compute available PV surplus (single source of truth) ──
-    int measuredPower = batteryMon.getAvailablePower(
-        phaseCtrl.getHeaterPower(), m_out_wattBiasForTest);
+    int measuredPower = batteryMon.getAvailablePower(m_out_wattBiasForTest);
 
     if (measuredPower <= 0) {
         execModeOff(logEntry);

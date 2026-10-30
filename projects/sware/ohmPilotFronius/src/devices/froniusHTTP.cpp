@@ -44,13 +44,17 @@ bool FroniusHTTP::read(WEBSOCK_DATA &webSockData)
 
     // ── fronius_SOLAR_POWERFLOW → unified energyState ──
     auto &src = webSockData.fronius_SOLAR_POWERFLOW;
-    auto &dst = webSockData.energyState;
+    ENERGY_STATE dst{};
 
     dst.p_grid   = src.p_grid;
     dst.p_load   = src.p_load;
     dst.p_pv     = src.p_pv;
     dst.soc      = src.soc;
     dst.p_akku   = src.p_akku;
+
+    if (!publishSample(webSockData, dst)) {
+        return false;
+    }
 
     LOG_INFO(TAG_FRONIUS,
              "energy (fronius): pv=%.0fW grid=%.0fW load=%.0fW batt=%.0fW soc=%.1f%%",

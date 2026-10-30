@@ -38,13 +38,17 @@ bool AmisREST::read(WEBSOCK_DATA &webSockData)
     }
 
     auto &src = webSockData.amisReader;
-    auto &dst = webSockData.energyState;
+    ENERGY_STATE dst{};
 
     dst.p_grid   = (double)src.saldo;
     dst.p_load   = (double)src.consumptionInWatt;
     dst.p_pv     = (double)src.exportInWatt;
     dst.soc      = 0.0;
     dst.p_akku   = 0.0;
+
+    if (!publishSample(webSockData, dst)) {
+        return false;
+    }
 
     LOG_INFO(TAG_APP_SERVICES,
              "energy (amis): pv=%.0fW grid=%.0fW load=%.0fW",

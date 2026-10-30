@@ -186,6 +186,8 @@ typedef struct energyState
     double p_pv;         // PV-Ertrag (W)
     double soc;          // Batterie SoC (%)
     double p_akku;       // Batterieleistung (W), neg = laden
+    uint32_t sampleSequence = 0; // 0 = no successful measurement yet
+    int heaterPowerAtSample = 0; // Applied heater output when sample was received
 } ENERGY_STATE;
 
 // ── MB_CONTAINER: nur fuer Modbus-Infrastruktur (mb_readInverter)
