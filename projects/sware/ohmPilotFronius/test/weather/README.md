@@ -17,9 +17,11 @@ Implementation assumptions:
   local calendar boundaries are used (including DST). The fourth requested day
   supplies the final midnight interval needed for three complete local days.
   Documentation: https://open-meteo.com/en/docs
-- Until panel orientation is confirmed, PV power is estimated from horizontal
-  irradiation with the existing 36 x 405 W / 10 kW inverter parameters. It is an
-  approximate trend model, not a calibrated production forecast.
+- Panel orientation is configured in `src/weather/weather.cpp`: tilt=30 and
+  azimuth=35 (35 degrees west of south, equivalent to compass bearing 215).
+  The API supplies `global_tilted_irradiance` on that plane. The model uses it
+  directly with the existing 36 x 405 W / 10 kW inverter parameters; no second
+  geometric correction is applied. It remains an uncalibrated yield estimate.
 - The reserve rule compares today's full-day forecast with the weaker of the
   next two days and scales the bonus down below 2 kWh remaining today. The rule
   permits up to +20 C, with a separate absolute 80 C limit in every heating mode.

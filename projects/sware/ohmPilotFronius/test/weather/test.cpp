@@ -21,7 +21,7 @@ JsonDocument fixture(time_t midnight) {
     JsonDocument doc;
     auto h = doc["hourly"].to<JsonObject>();
     auto times = h["time"].to<JsonArray>();
-    auto radiation = h["shortwave_radiation"].to<JsonArray>();
+    auto radiation = h["global_tilted_irradiance"].to<JsonArray>();
     auto clouds = h["cloud_cover"].to<JsonArray>();
     auto temperatures = h["temperature_2m"].to<JsonArray>();
     tm first{}; localtime_r(&midnight, &first);
@@ -65,12 +65,17 @@ void weatherTests() {
         assert(parse(doc, day + 21 * 3600, p));
         assert(p.preheatBonus == 0 && p.forecastRemainingToday == 0);
         assert(p.validUntil - (day + 21 * 3600) <= 4 * 3600);
-        doc["hourly"]["shortwave_radiation"][12] = nullptr;
+        doc["hourly"]["global_tilted_irradiance"][12] = nullptr;
         assert(!parse(doc, day + 12 * 3600, p) && !p.valid);
     }
     PROGNOSE p;
     auto doc = fixture(days[0]);
     doc["hourly"]["time"][20] = doc["hourly"]["time"][19];
+    assert(!parse(doc, days[0], p));
+    // A horizontal-only response must not silently replace module-plane data.
+    doc = fixture(days[0]);
+    doc["hourly"]["shortwave_radiation"] = doc["hourly"]["global_tilted_irradiance"];
+    doc["hourly"].remove("global_tilted_irradiance");
     assert(!parse(doc, days[0], p));
     doc = fixture(days[0]); doc["hourly"].remove("cloud_cover");
     assert(!parse(doc, days[0], p));

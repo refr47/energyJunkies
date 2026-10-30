@@ -4,8 +4,9 @@
 #include <cmath>
 
 namespace {
-// Existing installation rating. Horizontal irradiation is an approximation
-// until panel orientation is confirmed; no ambiguous azimuth correction.
+// Existing installation rating. Open-Meteo supplies irradiation on the
+// configured module plane (30 degrees tilt, 35 degrees west of south).
+// Do not apply a second orientation correction here.
 constexpr float ARRAY_WP = 405.0f * 36;
 constexpr float INVERTER_W = 10000.0f;
 float pvPower(float radiation, float ambient)
@@ -46,7 +47,7 @@ bool weather_parse(const char *payload, time_t now, PROGNOSE &forecast)
     if (deserializeJson(doc, payload)) return false;
     const JsonObjectConst hourly = doc["hourly"].as<JsonObjectConst>();
     const JsonArrayConst times = hourly["time"].as<JsonArrayConst>();
-    const JsonArrayConst radiation = hourly["shortwave_radiation"].as<JsonArrayConst>();
+    const JsonArrayConst radiation = hourly["global_tilted_irradiance"].as<JsonArrayConst>();
     const JsonArrayConst clouds = hourly["cloud_cover"].as<JsonArrayConst>();
     const JsonArrayConst temperatures = hourly["temperature_2m"].as<JsonArrayConst>();
     const size_t count = times.size();

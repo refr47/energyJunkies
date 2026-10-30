@@ -5,9 +5,12 @@
 #ifdef WEATHER_API
 // Hourly radiation is the mean of the preceding hour. Request an extra day
 // so the interval ending at midnight after day 3 is available as well.
+// Installation: tilt 30 degrees; azimuth +35 degrees west of south
+// (Open-Meteo convention: south=0, west=+90, east=-90).
 static const char *PARAM = WEATHER_API "/v1/forecast?"
     "latitude=48.24&longitude=13.3208"
-    "&hourly=cloud_cover,shortwave_radiation,temperature_2m"
+    "&hourly=cloud_cover,global_tilted_irradiance,temperature_2m"
+    "&tilt=30&azimuth=35"
     "&timezone=Europe%2FVienna&timeformat=unixtime&forecast_days=4";
 
 bool weather_fetch(PROGNOSE &forecast)
