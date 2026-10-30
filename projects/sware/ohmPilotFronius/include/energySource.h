@@ -15,7 +15,8 @@ enum class EnergySourceType {
     SOURCE_NONE = 0,
     SOURCE_FRONIUS,
     SOURCE_AMIS,
-    SOURCE_HUAWEI
+    SOURCE_HUAWEI,
+    SOURCE_LOXONE
 };
 
 class EnergySource

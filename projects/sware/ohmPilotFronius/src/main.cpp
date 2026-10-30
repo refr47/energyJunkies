@@ -18,6 +18,9 @@
 #ifdef HUAWEI_MODBUS
 #include "devices/huaweiModbus.h"
 #endif
+#ifdef LOXONE_API
+#include "devices/loxoneAsProvider.h"
+#endif
 #ifdef CARD_READER
 #include "cardRW.h"
 #endif
@@ -225,6 +228,14 @@ void setup()
             { auto *src = new HuaweiModbus();
               if (src->init(g_app.webSockData.setupData, g_app.webSockData))
                 { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_HUAWEI; g_app.webSockData.states.device = true; }
+              else delete src;
+            }
+#endif
+#ifdef LOXONE_API
+            if (!g_activeSource)
+            { auto *src = new LoxoneAsProvider();
+              if (src->init(g_app.webSockData.setupData, g_app.webSockData))
+                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_LOXONE; g_app.webSockData.states.device = true; }
               else delete src;
             }
 #endif

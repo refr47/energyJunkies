@@ -40,6 +40,9 @@
 #ifdef HUAWEI_MODBUS
 #include "devices/huaweiModbus.h"
 #endif
+#ifdef LOXONE_API
+#include "devices/loxoneAsProvider.h"
+#endif
 #include "weather.h"
 #ifdef CARD_READER
 #include "cardRW.h"
@@ -286,6 +289,14 @@ void serviceNetworkSupervisor()
                 { auto *src = new HuaweiModbus();
                     if (src->init(localSetup, g_app.webSockData))
                     { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_HUAWEI; initialized = true; }
+                    else delete src;
+                }
+#endif
+#ifdef LOXONE_API
+                if (!initialized)
+                { auto *src = new LoxoneAsProvider();
+                    if (src->init(localSetup, g_app.webSockData))
+                    { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_LOXONE; initialized = true; }
                     else delete src;
                 }
 #endif

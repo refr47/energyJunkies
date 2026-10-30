@@ -11,8 +11,7 @@
 #include "temp.h"
 
 #define PATH_NAME_LOXONE "/dev/sps/io/boilerPower_watt/" // LOXONE, virtueller eingang
-#define LOXONE_USER "api_user"
-#define LOXONE_PASSWD "derMannOhneEigenschaften"
+#include "loxoneConfig.h"
 
 static IPAddress remote;
 
