@@ -36,13 +36,13 @@
 #include "froniusHTTP.h"
 #endif
 #ifdef AMIS_READER_DEV
-#include "devices/amisREST.h"
+#include "amisREST.h"
 #endif
 #ifdef HUAWEI_MODBUS
 #include "huaweiModbus.h"
 #endif
 #ifdef LOXONE_API
-#include "loxoneAsProvider.h"
+#include "devices/loxoneAsProvider.h"
 #endif
 #include "weather.h"
 #ifdef CARD_READER

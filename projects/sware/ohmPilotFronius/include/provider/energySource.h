@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <Arduino.h>
 #include "defines.h"
 
@@ -48,5 +49,5 @@ protected:
 // ── Globale Pointer — auf exakt eine aktive Instanz zeigen ──────────────
 // In app_services.cpp gesetzt, von niemandem mehr mit #ifdef gelesen.
 
-inline EnergySource*  g_activeSource = nullptr;
+inline std::atomic<EnergySource*> g_activeSource{nullptr};
 inline EnergySourceType g_sourceType = EnergySourceType::SOURCE_NONE;
