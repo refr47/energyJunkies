@@ -75,7 +75,10 @@ bool HuaweiModbus::connect(Setup& setupData)
     }
 
     m_connected = true;
-    LOG_INFO(TAG_HUAWEI, "Huawei: connected");
+    LOG_INFO(TAG_HUAWEI, "Huawei: connected, waiting 5000 ms before first request");
+    // Der Smart Dongle braucht nach einem neuen TCP-Verbindungsaufbau Zeit,
+    // bevor er Modbus-Anfragen an den Wechselrichter weiterleiten kann.
+    vTaskDelay(pdMS_TO_TICKS(5000));
     return true;
 }
 
