@@ -76,6 +76,9 @@ bool HuaweiModbus::connect(Setup &setupData)
 
     m_connected = true;
     LOG_INFO(TAG_MODBUS, "Huawei: connected");
+    // Wie huawei-solar: dem Dongle nach TCP-Aufbau Zeit geben,
+    // bevor die erste Modbus-Anfrage gesendet wird.
+    vTaskDelay(pdMS_TO_TICKS(1000));
     return true;
 }
 
@@ -105,6 +108,8 @@ bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *bu
 
 uint8_t HuaweiModbus::readBatchOnce(uint16_t startAddr, uint16_t quantity, uint16_t *buf)
 {
+    // Auch direkt aufeinanderfolgende Batches mit Abstand senden.
+    vTaskDelay(pdMS_TO_TICKS(50));
     if (!m_connected || !mbHuawei.isConnected(m_ip))
     {
         LOG_ERROR(TAG_MODBUS, "Huawei: not connected, reconnect skipped");
@@ -115,6 +120,7 @@ uint8_t HuaweiModbus::readBatchOnce(uint16_t startAddr, uint16_t quantity, uint1
     // Alle mbHuawei-Zugriffe muessen seriell in der aufrufenden Task erfolgen.
     // Callback und Puffer bleiben bis zum Transaktionsende gueltig.
     Modbus::ResultCode result = Modbus::EX_TIMEOUT;
+    const uint32_t requestStarted = millis();
     uint16_t transId = mbHuawei.readHreg(m_ip, startAddr, buf, quantity,
         [&result](Modbus::ResultCode event, uint16_t, void*) {
             result = event;
@@ -141,8 +147,9 @@ uint8_t HuaweiModbus::readBatchOnce(uint16_t startAddr, uint16_t quantity, uint1
     }
     if (result != Modbus::EX_SUCCESS)
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: FC03 unit=%u register=%u (0x%04x) count=%u failed: 0x%02x",
-                  HUAWAI_REG_DEVICE_ID, startAddr, startAddr, quantity, static_cast<unsigned>(result));
+        LOG_ERROR(TAG_MODBUS, "Huawei: FC03 unit=%u register=%u (0x%04x) count=%u failed: 0x%02x after %lu ms (timeout=%u ms)",
+                  HUAWAI_REG_DEVICE_ID, startAddr, startAddr, quantity, static_cast<unsigned>(result),
+                  static_cast<unsigned long>(millis() - requestStarted), static_cast<unsigned>(MODBUSIP_TIMEOUT));
         m_connected = mbHuawei.isConnected(m_ip);
         // Lokale Transport-/Protokollfehler: Socket fuer den naechsten Zyklus erneuern.
         // Modbus-Exceptions (0x01..0x0B) lassen eine intakte Verbindung bestehen.
