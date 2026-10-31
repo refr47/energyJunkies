@@ -120,9 +120,10 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
     }
 
     // dataSource-String
-    if (g_activeSource)
+    EnergySource* source = g_activeSource.load();
+    if (source)
     {
-        live["dataSource"] = g_activeSource->name();
+        live["dataSource"] = source->name();
     }
     else
     {
@@ -213,7 +214,7 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
         bitMaster |= (1 << STATE_BOILER_HEATING);
 
     // Energy-Source down (quelle-agnostisch)
-    if (g_activeSource == nullptr)
+    if (!data.energyState.valid)
         bitMaster |= (1 << STATE_SOURCE_DOWN);
 
 #ifdef MQTT

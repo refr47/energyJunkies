@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <cstring>
+#include <memory>
 
 #include "app_state.h"
 #include "app_sync.h"
@@ -152,16 +153,13 @@ void serviceClock()
 
 #ifdef MQTT
     {
-        // KR-2: states.mqtt is DATA domain
-        bool mqttActive = false;
+        // Retry MQTT while WLAN is available, even if the previous MQTT
+        // connection failed. Publish the broker state, not the WLAN state.
+        const bool mqttActive = WiFi.status() == WL_CONNECTED && mqtt_loop();
         if (appLockData(LOCK_TIMEOUT_DATA_MS))
         {
-            mqttActive = g_app.webSockData.states.mqtt;
+            g_app.webSockData.states.mqtt = mqttActive;
             appUnlockData();
-        }
-        if (mqttActive)
-        {
-            mqtt_loop();
         }
     }
 #endif
@@ -203,118 +201,15 @@ void serviceNetworkSupervisor()
         return;
     }
 
-    // KR-2: states.networkOK/mqtt are DATA domain
+    // WLAN status does not establish MQTT or energy-source health.
     if (appLockData(LOCK_TIMEOUT_DATA_MS))
     {
         g_app.webSockData.states.networkOK = true;
-#ifdef MQTT
-        g_app.webSockData.states.mqtt = true;
-#endif
         appUnlockData();
     }
 
     ledHandler_showNetworkError(false);
 
-    if (isEnergyNight()) return; // WiFi supervision above remains active.
-
-    // ── Energy-Source Reconnect + Initial-Retry ──
-    // FIX (Blocking under Lock): init() performs I/O. NEVER hold dataMutex.
-    // Strategy: check state under lock, do heavy init lock-free.
-    {
-        bool sourceOK = false;
-        if (appLockData(LOCK_TIMEOUT_DATA_MS))
-        {
-            sourceOK = (g_activeSource != nullptr);
-            appUnlockData();
-        }
-
-        if (!sourceOK)
-        {
-            if (g_activeSource)
-            {
-                // ── Case 1: Nachträglicher Ausfall → bestehenden Adapter reconnecten ──
-                LOG_ERROR(TAG_APP_SERVICES, "%s down, trying to reconnect...", g_activeSource->name());
-                Setup localSetup;
-                if (appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
-                {
-                    localSetup = g_app.webSockData.setupData;
-                    appUnlockConfig();
-                }
-                else
-                {
-                    LOG_DEBUG(TAG_APP_SERVICES, "Source down, could not read setup for reconnect");
-                }
-                bool result = g_activeSource->init(localSetup, g_app.webSockData);
-                if (result)
-                {
-                    LOG_INFO(TAG_APP_SERVICES, "%s reconnect OK", g_activeSource->name());
-                }
-                else
-                {
-                    LOG_ERROR(TAG_APP_SERVICES, "%s reconnect failed", g_activeSource->name());
-                    g_activeSource = nullptr;
-                    g_sourceType = EnergySourceType::SOURCE_NONE;
-                }
-            }
-            else
-            {
-                // ── Case 2: Initial-Fehler (Boot-Init fehlgeschlagen) → neu initialisieren ──
-                LOG_DEBUG(TAG_APP_SERVICES, "No energy source active, attempting initial init...");
-                Setup localSetup;
-                if (appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
-                {
-                    localSetup = g_app.webSockData.setupData;
-                    appUnlockConfig();
-                }
-                else
-                {
-                    LOG_DEBUG(TAG_APP_SERVICES, "Could not read setup for initial source init");
-                }
-
-                bool initialized = false;
-#ifdef FRONIUS_IV
-                { auto *src = new FroniusHTTP();
-                    if (src->init(localSetup, g_app.webSockData))
-                    { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_FRONIUS; initialized = true; }
-                    else delete src;
-                }
-#endif
-#ifdef AMIS_READER_DEV
-                if (!initialized)
-                { auto *src = new AmisREST();
-                    if (src->init(localSetup, g_app.webSockData))
-                    { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_AMIS; initialized = true; }
-                    else delete src;
-                }
-#endif
-#ifdef HUAWEI_MODBUS
-                if (!initialized)
-                { auto *src = new HuaweiModbus();
-                    if (src->init(localSetup, g_app.webSockData))
-                    { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_HUAWEI; initialized = true; }
-                    else delete src;
-                }
-#endif
-#ifdef LOXONE_API
-                if (!initialized)
-                { auto *src = new LoxoneAsProvider();
-                    if (src->init(localSetup, g_app.webSockData))
-                    { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_LOXONE; initialized = true; }
-                    else delete src;
-                }
-#endif
-                if (initialized)
-                {
-                    LOG_INFO(TAG_APP_SERVICES, "Energy source successfully initialized: %s", g_activeSource->name());
-                    g_app.webSockData.setupData.akku = g_activeSource->hasBattery();
-                }
-                else
-                {
-                    LOG_DEBUG(TAG_APP_SERVICES, "No energy source available yet, will retry on next cycle");
-                }
-            }
-        }
-    }
 }
 
 void serviceTemperature()
@@ -398,10 +293,15 @@ static void handleLockFailure(const char* context)
 static void tryMarkNetworkDown(const char* reason, const char* failMsg)
 {
     // KR-2: needs Data + PidOut for markNetworkDown
-    if (!appLockData(LOCK_TIMEOUT_DATA_MS) || !appLockPidOut(LOCK_TIMEOUT_PIDOUT_MS))
+    if (!appLockData(LOCK_TIMEOUT_DATA_MS))
     {
-        g_app.pinManager.reset();
-        LOG_DEBUG(TAG_APP_SERVICES, "%s", failMsg);
+        handleLockFailure(failMsg);
+        return;
+    }
+    if (!appLockPidOut(LOCK_TIMEOUT_PIDOUT_MS))
+    {
+        appUnlockData();
+        LOG_ERROR(TAG_APP_SERVICES, "%s", failMsg);
         return;
     }
 
@@ -453,25 +353,89 @@ static bool checkTempSensorAndReset()
     return true;
 }
 
+// Only the Energy task calls this helper and adapter init/read. Once published,
+// the adapter stays alive; read failures are recovered by the adapter itself.
+static bool ensureEnergySource()
+{
+    if (g_activeSource.load()) return true;
+
+    // Keep a successfully initialized adapter if publishing metadata must wait
+    // for a lock. Do not repeat network initialization in that case.
+    static std::unique_ptr<EnergySource> pending;
+    if (!pending)
+    {
+        Setup setup;
+        if (!appLockConfig(LOCK_TIMEOUT_CONFIG_MS)) return false;
+        setup = g_app.webSockData.setupData;
+        appUnlockConfig();
+
+        auto attempt = [&](EnergySource* candidate) {
+            std::unique_ptr<EnergySource> source(candidate);
+            LOG_INFO(TAG_APP_SERVICES, "Energy task: initializing %s", source->name());
+            if (source->init(setup, g_app.webSockData)) pending = std::move(source);
+        };
+#ifdef FRONIUS_IV
+        attempt(new FroniusHTTP());
+#endif
+#ifdef AMIS_READER_DEV
+        if (!pending) attempt(new AmisREST());
+#endif
+#ifdef HUAWEI_MODBUS
+        if (!pending) attempt(new HuaweiModbus());
+#endif
+#ifdef LOXONE_API
+        if (!pending) attempt(new LoxoneAsProvider());
+#endif
+        if (!pending) return false;
+    }
+
+    if (!appLockData(LOCK_TIMEOUT_DATA_MS)) return false;
+    if (!appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
+    {
+        appUnlockData();
+        return false;
+    }
+    g_app.webSockData.setupData.akku = pending->hasBattery();
+    g_app.webSockData.states.device = true;
+    g_sourceType = pending->type();
+    EnergySource* source = pending.release();
+    g_activeSource.store(source);
+    appUnlockConfig();
+    appUnlockData();
+    LOG_INFO(TAG_APP_SERVICES, "Energy source initialized: %s", source->name());
+    return true;
+}
+
+static void markEnergyUnavailable(const char* reason)
+{
+    // A failed measurement says nothing about WLAN or MQTT connectivity.
+    if (appLockData(LOCK_TIMEOUT_DATA_MS))
+    {
+        g_app.webSockData.energyState.valid = false;
+        appUnlockData();
+    }
+    stopHeating(reason);
+}
+
 // -----------------------------------------------------------------------------
 // fetchEnergy — unified: g_activeSource->read() -> energyState -> influx
 //   g_activeSource ist eine EnergySource*-Pointer (energySource.h),
-//   gesetzt bei Boot via #ifdef-Fragement. Hot-Path kennt keine Quellen.
+//   initialized and read exclusively by the Energy task.
 // -----------------------------------------------------------------------------
 static bool fetchEnergy()
 {
-    if (!g_activeSource)
+    EnergySource* source = g_activeSource.load();
+    if (!source)
     {
         LOG_ERROR(TAG_APP_SERVICES, "No active energy source");
         return false;
     } 
 
-    LOG_DEBUG(TAG_APP_SERVICES, "Fetching energy data from %s...", g_activeSource->name());
+    LOG_DEBUG(TAG_APP_SERVICES, "Fetching energy data from %s...", source->name());
 
-    if (!g_activeSource->read(g_app.webSockData))
+    if (!source->read(g_app.webSockData))
     {
-        tryMarkNetworkDown((String(g_activeSource->name()) + " read failed").c_str(),
-            "Energy read failed, could not acquire lock to update state");
+        markEnergyUnavailable((String(source->name()) + " read failed").c_str());
         return false;
     }
 
@@ -550,7 +514,7 @@ void serviceEnergy()
 {
     if (isEnergyNight()) return;
 
-    if (!networkIsAvailable())
+    if (WiFi.status() != WL_CONNECTED)
     {
         tryMarkNetworkDown(
             "Energy service skipped because network is unavailable",
@@ -563,10 +527,12 @@ void serviceEnergy()
         return;
     }
 
-    if (!fetchEnergy() && appLockData(LOCK_TIMEOUT_DATA_MS)) {
-        g_app.webSockData.energyState.valid = false;
-        appUnlockData();
+    if (!ensureEnergySource())
+    {
+        markEnergyUnavailable("Energy source initialization pending");
+        return;
     }
+    fetchEnergy();
 
     refreshEnergyDisplay();
 } 

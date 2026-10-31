@@ -206,50 +206,8 @@ void setup()
 
 
 
-// ── Energy-Source Init (quelle-agnostisch) ──
-        if (!isEnergyNight()) {
-#ifdef FRONIUS_IV
-            { auto *src = new FroniusHTTP();
-              if (src->init(g_app.webSockData.setupData, g_app.webSockData))
-                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_FRONIUS;  g_app.webSockData.states.device = true; }
-              else delete src;
-            }
-#endif
-#ifdef AMIS_READER_DEV
-            if (!g_activeSource)
-            { auto *src = new AmisREST();
-              if (src->init(g_app.webSockData.setupData, g_app.webSockData))
-                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_AMIS; g_app.webSockData.states.device = true; }
-              else delete src;
-            }
-#endif
-#ifdef HUAWEI_MODBUS
-            if (!g_activeSource)
-            { auto *src = new HuaweiModbus();
-              if (src->init(g_app.webSockData.setupData, g_app.webSockData))
-                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_HUAWEI; g_app.webSockData.states.device = true; }
-              else delete src;
-            }
-#endif
-#ifdef LOXONE_API
-            if (!g_activeSource)
-            { auto *src = new LoxoneAsProvider();
-              if (src->init(g_app.webSockData.setupData, g_app.webSockData))
-                { g_activeSource = src; g_sourceType = EnergySourceType::SOURCE_LOXONE; g_app.webSockData.states.device = true; }
-              else delete src;
-            }
-#endif
-            if (g_activeSource)
-            {
-                LOG_INFO(TAG_MAIN, "Energy source: %s", g_activeSource->name());
-                g_app.webSockData.setupData.akku = g_activeSource->hasBattery();
-            }
-            else
-            {
-                LOG_ERROR(TAG_MAIN, "No energy source available");
-            }
-        }
- 
+        // Energy adapters are initialized by the Energy task after startup.
+
         g_app.pinManager.config(
             g_app.webSockData,
             RELAY_L1,
@@ -287,8 +245,7 @@ void setup()
         LOG_INFO(TAG_MAIN, " -------- States ---------------");
         LOG_INFO(TAG_MAIN, "Network: %c", g_app.webSockData.states.networkOK == true ? 'y' : 'n');
         LOG_INFO(TAG_MAIN, "IP-Address: %s", g_app.webSockData.setupData.currentIP);
-        LOG_INFO(TAG_MAIN, "EnergySource: %s",
-                 (g_activeSource ? g_activeSource->name() : "none"));
+        LOG_INFO(TAG_MAIN, "EnergySource: initialization pending in Energy task");
          LOG_INFO(TAG_MAIN, "EnergySource Initialized: %d",
                  (g_app.webSockData.states.device == true ? 1 : 0));
         
@@ -304,11 +261,6 @@ void setup()
         LOG_INFO(TAG_MAIN, "LogReader: y");
         LOG_INFO(TAG_MAIN, "HeapSizeDiff after Initializing: %d", heapSize[1].heapSize - heapSize[0].heapSize);
 
-        if (!g_activeSource)
-        {
-            LOG_ERROR(TAG_MAIN, "No energy source configured/available");
-        }
-       
         tft_clearScreen();
         vTaskDelay(pdMS_TO_TICKS(5000));
     }

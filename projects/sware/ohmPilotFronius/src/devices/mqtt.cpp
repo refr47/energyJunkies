@@ -56,10 +56,10 @@ bool mqtt_init()
     return false;
 }
 
-void mqtt_loop()
+bool mqtt_loop()
 {
     if (reconnectTries > MAX_RECONNECT)
-        return;
+        return client.connected();
     if (!client.connected())
     {
         ++reconnectTries;
@@ -71,6 +71,7 @@ void mqtt_loop()
         }
     }
     client.loop();
+    return client.connected();
 }
 
 void mqtt_publish_en(int pwm, double availableWatt)
