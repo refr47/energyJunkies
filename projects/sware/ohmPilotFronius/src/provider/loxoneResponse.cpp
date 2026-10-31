@@ -1,5 +1,5 @@
 #ifdef LOXONE_API
-#include "devices/loxoneResponse.h"
+#include "loxoneResponse.h"
 #include <ArduinoJson.h>
 #include <cmath>
 #include <cstdlib>

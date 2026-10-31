@@ -10,16 +10,16 @@
 #ifdef FRONIUS_IV
 #include "modbusReader.h"
 #include "froniusSolarAPI.h"
-#include "devices/froniusHTTP.h"
+#include "froniusHTTP.h"
 #endif
 #ifdef AMIS_READER_DEV
-#include "devices/amisREST.h"
+#include "amisREST.h"
 #endif
 #ifdef HUAWEI_MODBUS
-#include "devices/huaweiModbus.h"
+#include "huaweiModbus.h"
 #endif
 #ifdef LOXONE_API
-#include "devices/loxoneAsProvider.h"
+#include "loxoneAsProvider.h"
 #endif
 #ifdef CARD_READER
 #include "cardRW.h"

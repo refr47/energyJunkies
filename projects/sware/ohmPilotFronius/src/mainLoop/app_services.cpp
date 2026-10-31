@@ -33,16 +33,16 @@
 // ── Energy-Source Abstraction ──
 #include "energySource.h"
 #ifdef FRONIUS_IV
-#include "devices/froniusHTTP.h"
+#include "froniusHTTP.h"
 #endif
 #ifdef AMIS_READER_DEV
 #include "devices/amisREST.h"
 #endif
 #ifdef HUAWEI_MODBUS
-#include "devices/huaweiModbus.h"
+#include "huaweiModbus.h"
 #endif
 #ifdef LOXONE_API
-#include "devices/loxoneAsProvider.h"
+#include "loxoneAsProvider.h"
 #endif
 #include "weather.h"
 #ifdef CARD_READER

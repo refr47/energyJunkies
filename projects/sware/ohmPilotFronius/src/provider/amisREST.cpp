@@ -2,7 +2,7 @@
 // amisREST.cpp — EnergySource-Adapter für AmisReader
  // =============================================================================
 
-#include "devices/amisREST.h"
+#include "amisREST.h"
 #include "debugConsole.h"
 
 // ------------------------------------------------------------------
@@ -11,6 +11,8 @@
 
 bool AmisREST::init(Setup &setupData, WEBSOCK_DATA &webSockData)
 {
+    LOG_INFO(TAG_AMIS, "AmisReader: init called from task=%s",
+        pcTaskGetName(nullptr));
     (void)setupData;
     bool ok = amisReader_initRestTargets(webSockData);
     if (ok)

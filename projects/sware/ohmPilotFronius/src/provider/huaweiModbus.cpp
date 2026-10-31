@@ -5,7 +5,7 @@
 // Uses ModbusIP_ESP8266 library — konsistent zum Fronius Modbus-Reader.
 // =============================================================================
 
-#include "devices/huaweiModbus.h"
+#include "huaweiModbus.h"
 #include "debugConsole.h"
 
 #ifdef ESP8266
@@ -41,13 +41,13 @@ int32_t HuaweiModbus::parseInt32(uint16_t hi, uint16_t lo)
 // connect — ModbusIP-Verbindung zum Huawei-Inverter
 // ------------------------------------------------------------------
 
-bool HuaweiModbus::connect(Setup &setupData)
+bool HuaweiModbus::connect(Setup& setupData)
 {
     IPAddress target;
     if (!target.fromString(setupData.inverter))
     {
         m_connected = false;
-        LOG_ERROR(TAG_MODBUS, "Huawei: bad IP \"%s\"", setupData.inverter);
+        LOG_ERROR(TAG_HUAWEI, "Huawei: bad IP \"%s\"", setupData.inverter);
         return false;
     }
 
@@ -63,22 +63,19 @@ bool HuaweiModbus::connect(Setup &setupData)
     if (WiFi.status() != WL_CONNECTED)
         return false;
 
-    LOG_INFO(TAG_MODBUS, "Huawei: connect → %s:502", m_ip.toString().c_str());
+    LOG_INFO(TAG_HUAWEI, "Huawei: connect → %s:502", m_ip.toString().c_str());
 
     bool ok = mbHuawei.connect(m_ip);
 
     if (!ok)
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: TCP connect failed to %s:502", m_ip.toString().c_str());
+        LOG_ERROR(TAG_HUAWEI, "Huawei: TCP connect failed to %s:502", m_ip.toString().c_str());
         m_connected = false;
         return false;
     }
 
     m_connected = true;
-    LOG_INFO(TAG_MODBUS, "Huawei: connected");
-    // Wie huawei-solar: dem Dongle nach TCP-Aufbau Zeit geben,
-    // bevor die erste Modbus-Anfrage gesendet wird.
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    LOG_INFO(TAG_HUAWEI, "Huawei: connected");
     return true;
 }
 
@@ -86,7 +83,7 @@ bool HuaweiModbus::connect(Setup &setupData)
 // readBatch — Modbus FC03 via ModbusIP
 // ------------------------------------------------------------------
 
-bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *buf)
+bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t* buf)
 {
     for (unsigned attempt = 0; attempt < 2; ++attempt)
     {
@@ -97,7 +94,7 @@ bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *bu
         if (attempt == 0 && m_connected &&
             (result == Modbus::EX_SLAVE_FAILURE || result == Modbus::EX_SLAVE_DEVICE_BUSY))
         {
-            LOG_INFO(TAG_MODBUS, "Huawei: retry register %u on existing connection", startAddr);
+            LOG_INFO(TAG_HUAWEI, "Huawei: retry register %u on existing connection", startAddr);
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
@@ -106,13 +103,11 @@ bool HuaweiModbus::readBatch(uint16_t startAddr, uint16_t quantity, uint16_t *bu
     return false;
 }
 
-uint8_t HuaweiModbus::readBatchOnce(uint16_t startAddr, uint16_t quantity, uint16_t *buf)
+uint8_t HuaweiModbus::readBatchOnce(uint16_t startAddr, uint16_t quantity, uint16_t* buf)
 {
-    // Auch direkt aufeinanderfolgende Batches mit Abstand senden.
-    vTaskDelay(pdMS_TO_TICKS(50));
     if (!m_connected || !mbHuawei.isConnected(m_ip))
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: not connected, reconnect skipped");
+        LOG_ERROR(TAG_HUAWEI, "Huawei: not connected, reconnect skipped");
         m_connected = false;
         return Modbus::EX_CONNECTION_LOST;
     }
@@ -120,7 +115,6 @@ uint8_t HuaweiModbus::readBatchOnce(uint16_t startAddr, uint16_t quantity, uint1
     // Alle mbHuawei-Zugriffe muessen seriell in der aufrufenden Task erfolgen.
     // Callback und Puffer bleiben bis zum Transaktionsende gueltig.
     Modbus::ResultCode result = Modbus::EX_TIMEOUT;
-    const uint32_t requestStarted = millis();
     uint16_t transId = mbHuawei.readHreg(m_ip, startAddr, buf, quantity,
         [&result](Modbus::ResultCode event, uint16_t, void*) {
             result = event;
@@ -129,7 +123,7 @@ uint8_t HuaweiModbus::readBatchOnce(uint16_t startAddr, uint16_t quantity, uint1
 
     if (transId == 0)
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: readHreg failed at 0x%04x", startAddr);
+        LOG_ERROR(TAG_HUAWEI, "Huawei: readHreg failed at 0x%04x", startAddr);
         m_connected = mbHuawei.isConnected(m_ip);
         return Modbus::EX_GENERAL_FAILURE;
     }
@@ -147,9 +141,8 @@ uint8_t HuaweiModbus::readBatchOnce(uint16_t startAddr, uint16_t quantity, uint1
     }
     if (result != Modbus::EX_SUCCESS)
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: FC03 unit=%u register=%u (0x%04x) count=%u failed: 0x%02x after %lu ms (timeout=%u ms)",
-                  HUAWAI_REG_DEVICE_ID, startAddr, startAddr, quantity, static_cast<unsigned>(result),
-                  static_cast<unsigned long>(millis() - requestStarted), static_cast<unsigned>(MODBUSIP_TIMEOUT));
+        LOG_ERROR(TAG_HUAWEI, "Huawei: FC03 unit=%u register=%u (0x%04x) count=%u failed: 0x%02x",
+            HUAWAI_REG_DEVICE_ID, startAddr, startAddr, quantity, static_cast<unsigned>(result));
         m_connected = mbHuawei.isConnected(m_ip);
         // Lokale Transport-/Protokollfehler: Socket fuer den naechsten Zyklus erneuern.
         // Modbus-Exceptions (0x01..0x0B) lassen eine intakte Verbindung bestehen.
@@ -168,11 +161,14 @@ uint8_t HuaweiModbus::readBatchOnce(uint16_t startAddr, uint16_t quantity, uint1
 // init
 // ------------------------------------------------------------------
 
-bool HuaweiModbus::init(Setup &setupData, WEBSOCK_DATA &webSockData)
+bool HuaweiModbus::init(Setup& setupData, WEBSOCK_DATA& webSockData)
 {
+
+    LOG_INFO(TAG_HUAWEI, "Huawei: init called from task=%s",
+        pcTaskGetName(nullptr));
     if (setupData.inverter[0] == '\0')
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: no target IP");
+        LOG_ERROR(TAG_HUAWEI, "Huawei: no target IP");
         return false;
     }
 
@@ -185,7 +181,7 @@ bool HuaweiModbus::init(Setup &setupData, WEBSOCK_DATA &webSockData)
         if (!readBatch(HUAWAI_REG_ACTIVE_POWER, 2, testBuf))
             return false;
         double activePower = parseInt32(testBuf[0], testBuf[1]);
-        LOG_INFO(TAG_MODBUS, "Huawei: init OK, AC=%.1f W", activePower);
+        LOG_INFO(TAG_HUAWEI, "Huawei: init OK, AC=%.1f W", activePower);
     }
 
     webSockData.setupData.akku = 1;
@@ -199,12 +195,12 @@ bool HuaweiModbus::init(Setup &setupData, WEBSOCK_DATA &webSockData)
 //   Modbus-Exceptions lassen eine intakte TCP-Verbindung bestehen.
 // ------------------------------------------------------------------
 
-bool HuaweiModbus::read(WEBSOCK_DATA &webSockData)
+bool HuaweiModbus::read(WEBSOCK_DATA& webSockData)
 {
     // Ein Reconnect-Versuch je Messzyklus, keine endlose Retry-Schleife.
     if (!connect(webSockData.setupData))
     {
-        LOG_ERROR(TAG_MODBUS, "Huawei: reconnect failed, read skipped");
+        LOG_ERROR(TAG_HUAWEI, "Huawei: reconnect failed, read skipped");
         m_connected = false;
         return false;
     }
@@ -228,7 +224,7 @@ bool HuaweiModbus::read(WEBSOCK_DATA &webSockData)
         uint16_t buf[2];
         if (!readBatch(HUAWAI_REG_ACTIVE_POWER, 2, buf))
         {
-            LOG_ERROR(TAG_MODBUS, "Huawei: AC batch failed");
+            LOG_ERROR(TAG_HUAWEI, "Huawei: AC batch failed");
             return false;
         }
         activeRaw = parseInt32(buf[0], buf[1]);
@@ -239,7 +235,7 @@ bool HuaweiModbus::read(WEBSOCK_DATA &webSockData)
         uint16_t buf[2];
         if (!readBatch(HUAWAI_REG_GRID_POWER, 2, buf))
         {
-            LOG_ERROR(TAG_MODBUS, "Huawei: grid batch failed");
+            LOG_ERROR(TAG_HUAWEI, "Huawei: grid batch failed");
             return false;
         }
         gridRaw = parseInt32(buf[0], buf[1]);
@@ -252,10 +248,10 @@ bool HuaweiModbus::read(WEBSOCK_DATA &webSockData)
         if (!readBatch(HUAWAI_REG_BATT_SOC, 1, socBuf) ||
             !readBatch(HUAWAI_REG_BATT_POWER, 2, powerBuf))
         {
-            LOG_ERROR(TAG_MODBUS, "Huawei: batt batch failed");
+            LOG_ERROR(TAG_HUAWEI, "Huawei: batt batch failed");
             return false;
         }
-        socVal  = socBuf[0] / 10.0;
+        socVal = socBuf[0] / 10.0;
         battRaw = parseInt32(powerBuf[0], powerBuf[1]);
     }
 
@@ -264,19 +260,19 @@ bool HuaweiModbus::read(WEBSOCK_DATA &webSockData)
     // Huawei: batt +1=Laden, -1=Entlad -> negate
     // AC-Ausgang enthaelt den Batterieanteil bereits; Hauslast ist negativ.
     ENERGY_STATE dst{};
-    dst.p_pv   = pvRaw;
+    dst.p_pv = pvRaw;
     dst.p_grid = -gridRaw;
     dst.p_akku = -battRaw;
     dst.p_load = gridRaw - activeRaw;
-    dst.soc    = socVal;
+    dst.soc = socVal;
 
     if (!publishSample(webSockData, dst)) {
         return false;
     }
 
     LOG_INFO(TAG_APP_SERVICES,
-             "energy (huawei): pv=%.0fW grid=%.0fW load=%.0fW akku=%.0fW soc=%.1f%%",
-             dst.p_pv, dst.p_grid, dst.p_load, dst.p_akku, dst.soc);
+        "energy (huawei): pv=%.0fW grid=%.0fW load=%.0fW akku=%.0fW soc=%.1f%%",
+        dst.p_pv, dst.p_grid, dst.p_load, dst.p_akku, dst.soc);
 
     return true;
 }

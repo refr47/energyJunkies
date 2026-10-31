@@ -1,13 +1,13 @@
 #ifdef LOXONE_API
-#include "devices/loxoneAsProvider.h"
-#include "devices/loxoneResponse.h"
+#include "loxoneAsProvider.h"
+#include "loxoneResponse.h"
 #include "www/loxoneConfig.h"
 #include "debugConsole.h"
 #include <HTTPClient.h>
 
 // Dieselben fünf Messgrößen wie FroniusHTTP::read().
 // Die gleichnamigen Controls müssen im Miniserver verfügbar sein.
-bool LoxoneAsProvider::readValue(const char* control, double &value)
+bool LoxoneAsProvider::readValue(const char* control, double& value)
 {
     HTTPClient http;
     const String url = String("http://") + LOXONE + "/jdev/sps/io/" + control + "/state";
@@ -26,8 +26,11 @@ bool LoxoneAsProvider::readValue(const char* control, double &value)
     return ok;
 }
 
-bool LoxoneAsProvider::init(Setup &setupData, WEBSOCK_DATA &webSockData)
+bool LoxoneAsProvider::init(Setup& setupData, WEBSOCK_DATA& webSockData)
 {
+
+    LOG_INFO(TAG_LOXONE, "Loxone: init called from task=%s",
+        pcTaskGetName(nullptr));
     (void)setupData;
     m_hasBattery = false;
     // Erreichbarkeit allein reicht nicht: erst einen vollständigen Satz prüfen.
@@ -36,7 +39,7 @@ bool LoxoneAsProvider::init(Setup &setupData, WEBSOCK_DATA &webSockData)
     return ok;
 }
 
-bool LoxoneAsProvider::read(WEBSOCK_DATA &webSockData)
+bool LoxoneAsProvider::read(WEBSOCK_DATA& webSockData)
 {
     ENERGY_STATE sample{};
     if (!readValue("P_Grid", sample.p_grid) ||
