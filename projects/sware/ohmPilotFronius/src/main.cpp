@@ -207,7 +207,7 @@ void setup()
 
 
 // ── Energy-Source Init (quelle-agnostisch) ──
-        {
+        if (!isEnergyNight()) {
 #ifdef FRONIUS_IV
             { auto *src = new FroniusHTTP();
               if (src->init(g_app.webSockData.setupData, g_app.webSockData))

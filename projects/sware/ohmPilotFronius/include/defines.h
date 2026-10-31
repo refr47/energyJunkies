@@ -186,6 +186,10 @@ typedef struct energyState
     double p_pv;         // PV-Ertrag (W)
     double soc;          // Batterie SoC (%)
     double p_akku;       // Batterieleistung (W), neg = laden
+    bool valid = false; // false on read failure, expiry or night pause
+    bool saving = false; // automatic heating limited to minimum temperature
+    bool night = false;
+    uint32_t sampledAt = 0; // millis(), last successful measurement
     uint32_t sampleSequence = 0; // 0 = no successful measurement yet
     int heaterPowerAtSample = 0; // Applied heater output when sample was received
 } ENERGY_STATE;

@@ -21,6 +21,7 @@
 #include "batteryMonitor.h"
 #include "logCommitter.h"
 #include "weather.h"
+#include "energyPolling.h"
 // ── Constants ──
 #define FASE_EINS_POWER 576     // W per phase (standard 3-phase heater)
 
@@ -390,6 +391,13 @@ void PinManager::stepControlMode(int temp, int effectiveMax, unsigned long now,
     ControlMode mode;
     bool doML;
     preCheck(temp, now, mode, doML);
+    const auto &sample = webSockData.energyState;
+    // Minimum-temperature and legionella protection remain independent of PV.
+    if (mode == MODE_AUTO && (sample.saving || isEnergyNight() || !sample.valid ||
+        sample.sampleSequence == 0 || uint32_t(now - sample.sampledAt) > 2 * ENERGY_DAY_INTERVAL)) {
+        mode = MODE_OFF;
+        doML = false;
+    }
     LOG_INFO(TAG_PID, "MODE=%s temp=%d effMax=%d min=%d force=%d ml=%d",
               modeStr(mode), temp, effectiveMax, m_tempMin, m_forceHeating, doML);
 

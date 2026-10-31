@@ -123,22 +123,29 @@ static void taskTemperature(void* pvParameters)
 static void taskEnergy(void* pvParameters)
 {
     int wdId = watchdogRegister("Energy", TASK_MODBUS_AMISREADER_INTERVAL * 2);
+    uint32_t lastAttempt = 0;
+    bool attempted = false;
+    bool wasNight = false;
     for (;;)
     {
         watchdogKick(wdId);
-        xEventGroupWaitBits(wifi_event_group, WIFI_STA_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
-
-        uint32_t interval = getAdaptiveEnergyInterval();
-        // 0 = Nacht-Sperre (23h-05h) -> alle 60s neu pruefen
-        if (interval == 0)
-        {
-            LOG_DEBUG(TAG_APP_SERVICES, "Adaptive Energy: Nacht-Sperre, keine Abfrage");
-            vTaskDelay(pdMS_TO_TICKS(6000));
-            continue;
+        const uint32_t interval = getAdaptiveEnergyInterval();
+        if (interval == 0) {
+            wasNight = true;
+        } else {
+            const uint32_t now = millis();
+            if (wasNight) attempted = false; // fresh read immediately after night
+            wasNight = false;
+            if ((!attempted || uint32_t(now - lastAttempt) >= interval) &&
+                (xEventGroupGetBits(wifi_event_group) & WIFI_STA_CONNECTED_BIT)) {
+                serviceEnergy();
+                lastAttempt = millis();
+                attempted = true;
+                getAdaptiveEnergyInterval(); // apply the newly published sample
+            }
         }
-
-        serviceEnergy();
-        vTaskDelay(pdMS_TO_TICKS(interval));
+        // Keep watchdog and night transitions responsive even with 5-minute polling.
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 

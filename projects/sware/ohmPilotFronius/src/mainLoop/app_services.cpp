@@ -107,6 +107,7 @@ static void markNetworkDown(const char* reason)
     LOG_ERROR(TAG_APP_SERVICES, "%s", reason);
     ledHandler_showNetworkError(true);
     g_app.webSockData.states.networkOK = false;
+    g_app.webSockData.energyState.valid = false;
     g_app.pinManager.reset();
     g_app.webSockData.states.boilerHeating = false;
     g_app.webSockData.pidContainer.mAnalogOut = 0;
@@ -213,6 +214,8 @@ void serviceNetworkSupervisor()
     }
 
     ledHandler_showNetworkError(false);
+
+    if (isEnergyNight()) return; // WiFi supervision above remains active.
 
     // ── Energy-Source Reconnect + Initial-Retry ──
     // FIX (Blocking under Lock): init() performs I/O. NEVER hold dataMutex.
@@ -545,6 +548,8 @@ static PROGNOSE weatherSnapshot() { return PROGNOSE{}; }
 // =============================================================================
 void serviceEnergy()
 {
+    if (isEnergyNight()) return;
+
     if (!networkIsAvailable())
     {
         tryMarkNetworkDown(
@@ -558,7 +563,10 @@ void serviceEnergy()
         return;
     }
 
-    fetchEnergy();
+    if (!fetchEnergy() && appLockData(LOCK_TIMEOUT_DATA_MS)) {
+        g_app.webSockData.energyState.valid = false;
+        appUnlockData();
+    }
 
     refreshEnergyDisplay();
 } 

@@ -105,6 +105,10 @@ static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
 {
     // ── Alle Werte aus energyState (quelle-agnostisch) ──
     auto &es = data.energyState;
+    live["energyValid"] = es.valid;
+    live["energySaving"] = es.saving;
+    live["energyNight"] = es.night;
+    live["energyAgeMs"] = es.sampleSequence ? uint32_t(millis() - es.sampledAt) : 0;
     live[PRODUKTION]         = es.p_pv;
     live[NETZ_BEZUG]         = es.p_grid;
     live[EIGENVERBRAUCH]     = es.p_load;

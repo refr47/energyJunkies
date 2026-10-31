@@ -33,8 +33,10 @@ bool isStreamingAllowed(bool &isHeartbeatDue);
 /**
  * Adaptive Energy-Query-Intervall basierend auf Uhrzeit + PV-Leistung.
  * - Nacht 23h-05h: OFF (Rückgabe 0)
- * - Tag 05h-23h: 40s (PV > 0) bis 300s (PV = 0 über 3 Abfragen)
+ * - Tag: 40s; nach 5 Minuten unter 20W alle 300s, Rueckkehr ueber 50W.
+ * - Aktualisiert Gueltigkeit und Ruhemodus unter DATA-Lock; nicht unter Lock aufrufen.
  */
+bool isEnergyNight();
 uint32_t getAdaptiveEnergyInterval(void);
 char *utils_floatToString(float value);
 
