@@ -91,7 +91,7 @@ bool amisReader_initRestTargets(WEBSOCK_DATA &webSockData)
     LOG_INFO(TAG_AMIS, "amisReader_initRestTargets , HOST: %s", webSockData.setupData.amisReaderHost);
     sprintf(buf, "http://%s%s", webSockData.setupData.amisReaderHost, PATH_NAME_AMIS);
     uRL = buf;
-    webSockData.states.amisReader = false;
+    webSockData.states.device = false;
     String json_array = util_GET_Request(uRL.c_str(), &httpResponseCode);
     if (httpResponseCode != 200)
     {
@@ -101,11 +101,11 @@ bool amisReader_initRestTargets(WEBSOCK_DATA &webSockData)
     bool success = amisReader_mb_init(webSockData.setupData);
     if (success)
     {
-        webSockData.states.amisReader = true;
+        webSockData.states.device= true;
     }
     else
     {
-        webSockData.states.amisReader = false;
+        webSockData.states.device = false;
     }
 
     return success;
