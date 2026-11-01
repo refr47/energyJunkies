@@ -19,7 +19,7 @@ static IPAddress remote;
 
 // static bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData);
 
-#define BUF_SIZE 7 + strlen(LOXONE) + strlen(PATH_NAME_LOXONE) + 5 + 1;
+#define  BUF_SIZE  7 + sizeof(LOXONE)-1 + sizeof(PATH_NAME_LOXONE) + 5 
 
 
 static char base_url[BUF_SIZE];
