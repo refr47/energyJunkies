@@ -4,6 +4,9 @@
 #include <time.h>
 #include "influx.h"
 #include "eprom.h"
+#include "app_state.h"
+#include "hotUpdate.h"
+#include <atomic>
 
 #include "debugConsole.h"
 static InfluxDBClient client;
@@ -19,55 +22,54 @@ static Point means("means");
 //  static bool *isInfluxValid = &influxAvailable;
 static CALLBACK_GET_DATA webSockData;
 
+static INFLUX_SETUP influxConfig{};
+static bool connected = false;
+static bool attempted = false;
+static uint32_t lastAttempt = 0;
+static std::atomic<uint32_t> applied{0};
+uint32_t influx_appliedRevision() { return applied.load(); }
+
 bool influx_init(CALLBACK_GET_DATA getData)
 {
     webSockData = getData;
-    Setup setup;
-    influxEnabled = eprom_getSetup(setup) && setup.influxSetup.influxHost[0];
-    if (!influxEnabled) return false;
-    client.setConnectionParams(setup.influxSetup.influxHost, setup.influxSetup.influxOrg,
-                               setup.influxSetup.influxBucket, setup.influxSetup.influxToken);
-    client.setInsecure();
-    timeSync(EUROPE_VIENNA_TZ, NtpServer1, NtpServer2);
-    // isInfluxValid = &webSockData.states.influx;
-    LOG_INFO(TAG_INFLUX,"Init influx");
-    // Check server connection
-    if (client.validateConnection())
-    {
-        LOG_INFO(TAG_INFLUX,"Connected to InfluxDB: %s", client.getServerUrl().c_str());
-    }
-    else
-    {
-        LOG_ERROR(TAG_INFLUX,"InfluxDB connection failed: %s", client.getLastErrorMessage().c_str());
-        return false;
-    }
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-    char buf[80];
-    sprintf(buf, "%d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    return false; // The energy task owns configuration, connections and writes.
+}
 
-    // Report RSSI of currently connected network
-    // sensor2.addTag("device", "ES32");
-    Point environment("environment");
-    environment.addField("device", "esp32");
-    environment.addField("inverter", "fronius");
-    environment.addField("model", "gen24");
-    environment.addField("bootAt", buf);
-    // Print what are we exactly writing
-
-    client.pointToLineProtocol(environment);
-    LOG_DEBUG(TAG_INFLUX,"influx::Write to influx: %s", client.pointToLineProtocol(environment).c_str());
-    if (!client.writePoint(environment))
-    {
-        Serial.print("InfluxDB write failed: ");
-        Serial.println(client.getLastErrorMessage());
+void influx_service()
+{
+    INFLUX_SETUP next;
+    bool enabled;
+    uint32_t revision;
+    if (!appLockConfig(50)) return;
+    next = g_app.webSockData.setupData.influxSetup;
+    enabled = g_app.webSockData.setupData.influxEnabled;
+    revision = setupAppliedRevision();
+    appUnlockConfig();
+    if (enabled != influxEnabled || memcmp(&next, &influxConfig, sizeof(next))) {
+        influxConfig = next;
+        influxEnabled = enabled;
+        connected = attempted = false;
+        if (enabled) {
+            client.setConnectionParams(next.influxHost, next.influxOrg, next.influxBucket, next.influxToken);
+            client.setInsecure();
+        }
     }
-    return true;
+    applied.store(revision);
+    if (!enabled || WiFi.status() != WL_CONNECTED) connected = false;
+    else if (!connected && (!attempted || uint32_t(millis() - lastAttempt) >= 30000)) {
+        lastAttempt = millis();
+        attempted = true;
+        connected = client.validateConnection();
+    }
+    if (appLockData(50)) {
+        g_app.webSockData.states.influx = connected;
+        appUnlockData();
+    }
 }
 
 bool influx_write(WEBSOCK_DATA &webSockData)
 {
-    if (!influxEnabled) return false;
+    if (!influxEnabled || !connected) return false;
 
     if (!webSockData.states.influx || !webSockData.states.networkOK)
         return false;
@@ -94,6 +96,7 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     String proto = client.pointToLineProtocol(energy);
     if (!client.writePoint(energy))
     {
+        connected = false;
         Serial.print("InfluxDB write failed: ");
         Serial.println(client.getLastErrorMessage());
         return false;
@@ -101,6 +104,7 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     proto = client.pointToLineProtocol(boiler);
     if (!client.writePoint(boiler))
     {
+        connected = false;
         Serial.print("InfluxDB write failed: ");
         Serial.println(client.getLastErrorMessage());
         return false;
@@ -110,7 +114,7 @@ bool influx_write(WEBSOCK_DATA &webSockData)
 
 bool influx_write_test(double boilerData, double availableWatt)
 {
-    if (!influxEnabled) return false;
+    if (!influxEnabled || !connected) return false;
     WEBSOCK_DATA data = webSockData();
     if (!data.states.influx || !data.states.networkOK)
         return false;
@@ -126,6 +130,7 @@ bool influx_write_test(double boilerData, double availableWatt)
     String proto = client.pointToLineProtocol(simulation);
     if (!client.writePoint(simulation))
     {
+        connected = false;
         Serial.print("InfluxDB write failed (simulation): ");
         Serial.println(client.getLastErrorMessage());
         return false;
@@ -135,7 +140,7 @@ bool influx_write_test(double boilerData, double availableWatt)
 
 bool influx_write_production(double pv, double akku, double load)
 {
-    if (!influxEnabled) return false;
+    if (!influxEnabled || !connected) return false;
     // DBGf("influx_write_production BEGIN");
     WEBSOCK_DATA data = webSockData();
     if (!data.states.influx || !data.states.networkOK)
@@ -149,6 +154,7 @@ bool influx_write_production(double pv, double akku, double load)
     String proto = client.pointToLineProtocol(inverter);
     if (!client.writePoint(inverter))
     {
+        connected = false;
         Serial.print("InfluxDB write failed (inverter): ");
         Serial.println(client.getLastErrorMessage());
         return false;
@@ -160,7 +166,7 @@ bool influx_write_production(double pv, double akku, double load)
 
 bool influx_write_mean_val(double watt)
 {
-    if (!influxEnabled) return false;
+    if (!influxEnabled || !connected) return false;
     WEBSOCK_DATA data = webSockData();
     if (!data.states.influx || !data.states.networkOK)
         return false;
@@ -170,6 +176,7 @@ bool influx_write_mean_val(double watt)
     String proto = client.pointToLineProtocol(means);
     if (!client.writePoint(means))
     {
+        connected = false;
         Serial.print("InfluxDB write failed (means): ");
         Serial.println(client.getLastErrorMessage());
         return false;
@@ -179,7 +186,7 @@ bool influx_write_mean_val(double watt)
 
 bool influx_write_mean(double mean)
 {
-    if (!influxEnabled) return false;
+    if (!influxEnabled || !connected) return false;
     WEBSOCK_DATA data = webSockData();
     if (!data.states.influx || !data.states.networkOK)
         return false;
@@ -189,6 +196,7 @@ bool influx_write_mean(double mean)
     String proto = client.pointToLineProtocol(means);
     if (!client.writePoint(means))
     {
+        connected = false;
         Serial.print("InfluxDB write failed (means): ");
         Serial.println(client.getLastErrorMessage());
         return false;

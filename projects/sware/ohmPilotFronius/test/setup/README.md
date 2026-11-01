@@ -10,4 +10,4 @@ SETUP_TEST_CXXFLAGS='-fsanitize=address,undefined -g' python3 test/setup/run.py
 
 When running under ptrace, LeakSanitizer may require `ASAN_OPTIONS=detect_leaks=0`; address and undefined-behavior checks remain enabled.
 
-Runtime policy: omitted fields retain their values; optional text fields accept null as empty. Empty or legacy `---` hosts disable MQTT/Influx. Invalid supplied values reject the whole patch with all field errors. Influx requires organization, token and bucket when enabled. MQTT credentials may be empty. Network client settings are applied after reboot and require the corresponding firmware feature to be compiled in. Invalid NVS data is retained for recovery; safe AP defaults are returned in memory instead.
+The suite also checks legacy schema migration (retaining original bytes), schema-2 round trips and revisions, activation flags, runtime energy bounds, and hotupdate lock failures, retries, restart decisions and consecutive saves. See `docs/runtime-setup.md` for the API and runtime policy. Energy-policy state transitions are tested separately by `test/energy_polling/run.sh`.

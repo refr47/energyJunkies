@@ -8,7 +8,7 @@
           <h1 class="text-3xl font-black text-slate-800 tracking-tight">System-Stammdaten</h1>
           <p class="text-slate-500 font-medium">Harvester v3.0 Konfigurationspanel</p>
         </div>
-        <button @click="pushToESP"
+        <button @click="pushToESP" :disabled="saving"
           class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl shadow-lg sticky bottom-4 z-30 sm:static shadow-emerald-200 transition-all font-bold flex items-center gap-2">
           <span>💾 Konfiguration speichern</span>
         </button>
@@ -20,7 +20,12 @@
           <li v-for="(error, index) in validationErrors" :key="index">{{ error.field }}: {{ error.message }}<span v-if="error.maxLength"> (max. {{ error.maxLength }} Bytes)</span></li>
         </ul>
       </div>
-      <p class="mb-4 text-sm text-slate-500">MQTT und Influx sind optional. Ein leeres Server-Feld deaktiviert den jeweiligen Dienst.</p>
+      <p class="mb-4 text-sm text-slate-500">MQTT und Influx lassen sich unabhängig aktivieren. Beim Abschalten bleiben die Zugangsdaten erhalten.</p>
+      <div class="mb-4 text-sm text-slate-600" role="status" aria-live="polite">
+        {{ applyMessage }}
+        <span v-if="setup.mqtt_enabled"> · MQTT: {{ runtimeState.mqttConnected ? 'verbunden' : 'nicht verbunden' }}</span>
+        <span v-if="setup.influx_enabled"> · Influx: {{ runtimeState.influxConnected ? 'verbunden' : 'nicht verbunden' }}</span>
+      </div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
         <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
@@ -94,20 +99,46 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div class="space-y-4">
               <p class="text-[10px] font-bold text-slate-300 -mb-2 italic">MQTT Broker</p>
-              <ConfigInput label="Server IP" v-model="setup.mqtt_server_ip" icon="server" />
+              <label class="flex gap-2"><input type="checkbox" v-model="setup.mqtt_enabled" :disabled="!capabilities.mqtt" /> MQTT aktivieren</label>
+              <p v-if="!capabilities.mqtt" class="text-sm text-amber-700">In dieser Firmware nicht verfügbar.</p>
+              <fieldset :disabled="!setup.mqtt_enabled || !capabilities.mqtt" class="space-y-4 disabled:opacity-50">
+              <ConfigInput label="Hostname / IP" v-model="setup.mqtt_server_ip" />
+              <ConfigInput label="Port" v-model="setup.mqtt_port" type="number" min="1" max="65535" step="1" />
               <div class="grid grid-cols-2 gap-3">
                 <ConfigInput label="User" v-model="setup.mqtt_user" />
                 <ConfigInput label="Passwort" v-model="setup.mqtt_passwd" type="password" />
               </div>
+              </fieldset>
             </div>
             <div class="space-y-4 border-l border-slate-50 md:pl-8">
               <p class="text-[10px] font-bold text-slate-300 -mb-2 italic">InfluxDB Time-Series</p>
-              <ConfigInput label="Server URL" v-model="setup.influx_server_ip" />
+              <label class="flex gap-2"><input type="checkbox" v-model="setup.influx_enabled" :disabled="!capabilities.influx" /> Influx aktivieren</label>
+              <p v-if="!capabilities.influx" class="text-sm text-amber-700">In dieser Firmware nicht verfügbar.</p>
+              <fieldset :disabled="!setup.influx_enabled || !capabilities.influx" class="space-y-4 disabled:opacity-50">
+              <ConfigInput label="Server URL" v-model="setup.influx_server_ip" placeholder="http://influx.local:8086" />
               <ConfigInput label="Organization" v-model="setup.influx_org" />
               <ConfigInput label="Access Token" v-model="setup.influx_token" type="password" />
               <ConfigInput label="Bucket" v-model="setup.influx_bucket" />
+              </fieldset>
             </div>
           </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 lg:col-span-3">
+          <h2 class="font-bold mb-4">Adaptive Energy-Abfrage</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ConfigInput label="Normalintervall" v-model="setup.energy_day_seconds" type="number" min="5" max="3600" step="1" unit="s" />
+            <ConfigInput label="Intervall bei geringer PV-Leistung" v-model="setup.energy_saving_seconds" type="number" :min="setup.energy_day_seconds" max="86400" step="1" unit="s" />
+            <ConfigInput label="Mindestdauer geringer PV-Leistung" v-model="setup.energy_hold_seconds" type="number" min="1" max="86400" step="1" unit="s" />
+            <ConfigInput label="Sparbetrieb unter" v-model="setup.energy_low_pv_watts" type="number" min="0" max="1000000" step="0.1" unit="W" />
+            <ConfigInput label="Normalbetrieb über" v-model="setup.energy_wake_pv_watts" type="number" min="0" max="1000000" step="0.1" unit="W" />
+          </div>
+          <label class="flex gap-2 my-4"><input type="checkbox" v-model="setup.energy_night_enabled" /> Nächtliche Abfragepause aktivieren</label>
+          <fieldset :disabled="!setup.energy_night_enabled" class="flex gap-6 disabled:opacity-50">
+            <label>Beginn <select v-model.number="setup.energy_night_start"><option v-for="hour in 24" :key="hour" :value="hour - 1">{{ String(hour - 1).padStart(2, '0') }}:00</option></select></label>
+            <label>Ende <select v-model.number="setup.energy_night_end"><option v-for="hour in 24" :key="hour" :value="hour - 1">{{ String(hour - 1).padStart(2, '0') }}:00</option></select></label>
+          </fieldset>
+          <p class="mt-3 text-sm text-slate-500">Während der Pause erfolgen keine Energy-Abfragen. Gleiche Start- und Endzeit bedeutet keine Pause. Energieparameter werden ohne Neustart übernommen.</p>
         </div>
 
       </div>
@@ -116,7 +147,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import ConfigInput from '../components/ConfigInput.vue'; // Eine kleine Hilfs-Komponente
 import StatusToast from '../components/StatusToast.vue'; // Importieren
 
@@ -153,6 +184,17 @@ const setup = ref({
   akku_priori: 0,
 
   // Daten-Schnittstellen (MQTT / Influx)
+  mqtt_enabled: false,
+  mqtt_port: 1883,
+  influx_enabled: false,
+  energy_day_seconds: 40,
+  energy_saving_seconds: 300,
+  energy_night_enabled: true,
+  energy_night_start: 23,
+  energy_night_end: 5,
+  energy_low_pv_watts: 20,
+  energy_wake_pv_watts: 50,
+  energy_hold_seconds: 300,
   mqtt_server_ip: '',
   mqtt_user: '',
   mqtt_passwd: '',
@@ -165,6 +207,37 @@ const setup = ref({
   pid_epsilon: 0.1,
   watt_bias: 0
 });
+
+const capabilities = ref({ mqtt: false, influx: false });
+const runtimeState = ref({});
+const applyMessage = ref('');
+const saving = ref(false);
+let pollTimer;
+let disposed = false;
+
+const updateState = data => {
+  capabilities.value = data.capabilities || { mqtt: false, influx: false };
+  runtimeState.value = data.state || {};
+  if (data.source === 'defaults') { applyMessage.value = 'Standardwerte geladen; noch nicht gespeichert.'; return; }
+  applyMessage.value = runtimeState.value.pending ? 'Gespeichert; Übernahme durch die Dienste steht aus.' : 'Gespeicherte Einstellungen sind übernommen.';
+};
+const pollApplied = (revision, attempt = 0) => {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => {
+    if (disposed) return;
+    try {
+      const response = await fetch('/getSetup');
+      const data = await response.json();
+      if (disposed) return;
+      if (response.ok && data.error?.code === 1) {
+        updateState(data); // Do not overwrite edits made while polling.
+        if (data.state?.savedRevision === revision && !data.state.pending) return;
+      }
+    } catch { /* A restart temporarily interrupts the connection. */ }
+    if (!disposed && attempt < 29) pollApplied(revision, attempt + 1);
+    else if (!disposed) applyMessage.value = 'Übernahme noch nicht bestätigt. Verbindung oder Gerätestatus prüfen.';
+  }, 2000);
+};
 
 const load = async () => {
   try {
@@ -180,9 +253,10 @@ const load = async () => {
       result.akku_vorhanden = result.akku_vorhanden !== 0;
     }
     setup.value = { ...setup.value, ...result };
+    updateState(data);
 
 
-    notify("Konfiguration erfolgreich geladen!", "success");
+    notify(data.warning || "Konfiguration erfolgreich geladen!", data.warning ? "info" : "success");
   } catch (e) {
     notify("Keine Verbindung zum ESP32.", "error");
     console.error("Fetch-Error:", e);
@@ -192,6 +266,9 @@ const load = async () => {
 const validationErrors = ref([]);
 
 const pushToESP = async () => {
+  if (saving.value) return;
+  saving.value = true;
+  clearTimeout(pollTimer);
   validationErrors.value = [];
   statusMsg.value = "Speichere...";
 
@@ -205,7 +282,9 @@ const pushToESP = async () => {
     console.log("storeSetup - returned data:", data);
     if (data.done) {
       const warnings = Array.isArray(data.warnings) ? data.warnings : [];
-      notify(warnings.length ? warnings.join(' ') : "Konfiguration gespeichert. Bei geaenderten Netzwerkeinstellungen startet das Geraet neu.", warnings.length ? "info" : "success", warnings.length ? 0 : 4000);
+      applyMessage.value = data.apply === 'restart_required' ? 'Gespeichert; Gerät startet neu.' : 'Gespeichert; Übernahme läuft.';
+      notify(warnings.length ? warnings.join(' ') : applyMessage.value, warnings.length ? 'info' : 'success', warnings.length ? 0 : 4000);
+      pollApplied(data.revision);
 
     } else {
       validationErrors.value = Array.isArray(data.errors) ? data.errors : [];
@@ -217,9 +296,11 @@ const pushToESP = async () => {
   } catch (e) {
     notify("Fehler beim Speichern der Konfiguration!", "error");
     console.log("Fehlerdetails:", e);
-
+  } finally {
+    saving.value = false;
   }
 };
 
 onMounted(load);
+onUnmounted(() => { disposed = true; clearTimeout(pollTimer); });
 </script>

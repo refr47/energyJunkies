@@ -14,6 +14,9 @@
 #include "ajaxConst.h"
 #include "setupFields.h"
 #include "setupValidation.h"
+#include "hotUpdate.h"
+#include "mqtt.h"
+#include "influx.h"
 #include "ajaxCalls.h"
 #ifndef SHELLY_SCAN_MAX_DEVICES
 #define SHELLY_SCAN_MAX_DEVICES 254
@@ -320,103 +323,57 @@ void ajaxCalls_handleBuildAndGetShelly(AsyncWebServerRequest *request)
 
 void ajaxCalls_handleGetFullSetup(AsyncWebServerRequest *request)
 {
-    Setup setup;
-    eprom_getSetup(setup);
-    JsonDocument data;
-    JsonObject result = data["result"].to<JsonObject>();
-
-    for (size_t i = 0; i < setupFieldsCount; i++)
-    {
-        setupFields[i]->serialize(setup, result);
-    }
+    ajaxCalls_handleGetSetup(request);
 }
-
-/* ---------- get setup ---------- */
 
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 {
     Setup setup;
-    if (!eprom_getSetup(setup))
-    {
-        request->send(500, "application/json", "{\"result\":null,\"error\":{\"code\":0,\"msg\":\"Konfiguration nicht lesbar\"}}");
-        return;
-    }
-
+    uint32_t revision = 0;
+    const bool stored = eprom_getSetup(setup, &revision);
     JsonDocument data;
     JsonObject result = data["result"].to<JsonObject>();
-
-    LOG_INFO(TAG_AJAX, "ajaxCalls_handleGetSetup - begin");
-
-    result[WLAN_ESSID] = setup.ssid;
-    result[WLAN_PASSWD] = setup.passwd;
-    result[IP_INVERTER] = setup.inverter;
-    result[AMIS_READER_HOST] = setup.amisReaderHost;
-    result[AMIS_READER_KEY] = setup.amisKey;
-
-    result[FORCE_HEIZPATRONE] = setup.forceHeating;
-    result[HEIZSTABLEISTUNG] = setup.heizstab_leistung_in_watt;
-    result[TEMP_AUSSCHALTEN] = setup.tempMaxAllowedInGrad;
-    result[TEMP_EINSCHALT] = setup.tempMinInGrad;
-
-    result[LEGIONELLEN_DELTA_TIME] = setup.legionellenDelta;
-    result[LEGIONELLEN_TEMP] = setup.legionellenMaxTemp;
-
-    result[AKKU] = setup.akku;
-    result[AKKU_PRIORI] = setup.akkuPriori;
-
-    result[WWW_MQTT_HOST] = setup.mqttSetup.mqttHost;
-    result[WWW_MQTT_USER] = setup.mqttSetup.mqttUser;
-    result[WWW_MQTT_PASWWD] = setup.mqttSetup.mqttPass;
-
-    result[WWW_INFLUX_HOST] = setup.influxSetup.influxHost;
-    result[WWW_INFLUX_TOKEN] = setup.influxSetup.influxToken;
-    result[WWW_INFLUX_ORG] = setup.influxSetup.influxOrg;
-    result[WWW_INFLUX_BUCKET] = setup.influxSetup.influxBucket;
-    result[PID_EPSILON] = setup.epsilonML_PinManager;
-
-    result[WWW_WATT_BIAS] = setup.wattSetupForTest;
+    for (size_t i = 0; i < setupFieldsCount; ++i) setupFields[i]->serialize(setup, result);
+    data["schema"] = 2;
+    data["source"] = stored ? "stored" : "defaults";
+    data["state"]["savedRevision"] = revision;
+    data["state"]["appliedRevision"] = setupAppliedRevision();
+    bool pending = revision != setupAppliedRevision();
+#ifdef FEATURE_MQTT
+    data["capabilities"]["mqtt"] = true;
+    data["state"]["mqttRevision"] = mqtt_appliedRevision();
+    pending = pending || mqtt_appliedRevision() != revision;
+#else
+    data["capabilities"]["mqtt"] = false;
+#endif
+#ifdef FEATURE_INFLUX
+    data["capabilities"]["influx"] = true;
+    data["state"]["influxRevision"] = influx_appliedRevision();
+    pending = pending || influx_appliedRevision() != revision;
+#else
+    data["capabilities"]["influx"] = false;
+#endif
+    data["state"]["pending"] = pending;
+    if (appLockData(50)) {
+        data["state"]["mqttConnected"] = g_app.webSockData.states.mqtt;
+        data["state"]["influxConnected"] = g_app.webSockData.states.influx;
+        appUnlockData();
+    }
+    data["error"]["code"] = 1;
+    data["error"]["msg"] = "";
+    if (!stored) data["warning"] = "Keine gueltige gespeicherte Konfiguration; sichere Standardwerte geladen";
+    if (data.overflowed()) {
+        request->send(500, "application/json", "{\"error\":{\"code\":0,\"msg\":\"Nicht genug Speicher\"}}");
+        return;
+    }
     String response;
-    unsigned httpCode = 200;
-
-    if (data.overflowed())
-    {
-        LOG_ERROR(TAG_AJAX, "JsonDocument overflowed! Not enough memory.");
-        data.clear(); // Alles raus, wir brauchen Platz für die Fehlermeldung
-        data["result"] = nullptr;
-        data["error"]["code"] = 0;
-        data["error"]["msg"] = "JsonDocument ist zu groß!";
-        httpCode = 500;
-    }
-
-    else
-    {
-        data["error"]["code"] = 1;
-        data["error"]["msg"] = "";
-    }
-
     serializeJson(data, response);
-    LOG_DEBUG(TAG_AJAX, "Send AJAX response, status: %u", httpCode);
-    request->send(httpCode, "application/json", response);
+    request->send(200, "application/json", response);
 }
 
 /* ---------- store setup -----
  *********************************************************************
  */
-
-template <typename Struct>
-bool parseStruct(JsonObject obj,
-                 Struct &s,
-                 JsonDocument &res,
-                 const FieldBase<Struct> *const *fields,
-                 size_t count)
-{
-    for (size_t i = 0; i < count; i++)
-    {
-        if (!fields[i]->apply(obj, s, res))
-            return false;
-    }
-    return true;
-}
 
 void ajaxCalls_handleStoreSetup(JsonDocument &json,
                                 AsyncWebServerRequest *request,
@@ -432,19 +389,6 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         returnFromStoreSetup(false, result, request, "invalid root");
         return;
     }
-
-    CALLBACK_SET_SETUP_CHANGED cb = nullptr;
-
-    if (!ajaxCalls_lock(g_ajaxMutex, pdMS_TO_TICKS(AJAX_MUTEX_TIMEOUT_MS)))
-    {
-        request->send(500, "application/json",
-                      "{\"done\":0,\"error\":\"mutex lock failed\"}");
-        return;
-    }
-
-    cb = g_setSetupChangedCallback;
-    ajaxCalls_unlock(g_ajaxMutex);
-    LOG_DEBUG(TAG_AJAX, "===========> cb: %d", cb == NULL);
 
     Setup setup;
     if (!eprom_getSetup(setup) && !isAPModus)
@@ -468,20 +412,28 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     }
     LOG_DEBUG(TAG_AJAX, "Try to write Eprom in calling task.");
 
-    if (!eprom_storeSetup(setup))
+    if (!appLockConfig(100)) {
+        result["error"] = "Konfiguration beschaeftigt; bitte erneut versuchen";
+        returnFromStoreSetup(false, result, request, "config busy", 503);
+        return;
+    }
+    const bool restart = isAPModus || setupNeedsRestart(g_app.webSockData.setupData, setup);
+    appUnlockConfig();
+    uint32_t revision;
+    if (!eprom_storeSetup(setup, &revision))
     {
         result["error"] = "failed to persist setup";
         returnFromStoreSetup(false, result, request, "NVS write", 500);
         return;
     }
-#ifndef MQTT
-    if (setup.mqttSetup.mqttHost[0]) result["warnings"].add("MQTT ist in dieser Firmware nicht aktiviert; Einstellungen wurden gespeichert.");
+#ifndef FEATURE_MQTT
+    if (setup.mqttEnabled) result["warnings"].add("MQTT ist in dieser Firmware nicht aktiviert; Einstellungen wurden gespeichert.");
 #endif
-#ifndef INFLUX
-    if (setup.influxSetup.influxHost[0]) result["warnings"].add("Influx ist in dieser Firmware nicht aktiviert; Einstellungen wurden gespeichert.");
+#ifndef FEATURE_INFLUX
+    if (setup.influxEnabled) result["warnings"].add("Influx ist in dieser Firmware nicht aktiviert; Einstellungen wurden gespeichert.");
 #endif
-    if (cb)
-        cb(true);
+    result["revision"] = revision;
+    result["apply"] = restart ? "restart_required" : "pending";
     returnFromStoreSetup(true, result, request, "stored");
     LOG_DEBUG(TAG_AJAX, "EXIT with isAppMod: %d", isAPModus);
     if (isAPModus)

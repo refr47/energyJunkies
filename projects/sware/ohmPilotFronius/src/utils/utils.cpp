@@ -613,23 +613,25 @@ bool isStreamingAllowed(bool& isHeartbeatDue)
 // Energy polling and freshness state are shared with PID under DATA lock.
 #include "energyPolling.h"
 
-bool isEnergyNight()
+bool isEnergyNight(const EnergyPollingConfig &config)
 {
     const time_t now = time(nullptr);
     if (now < 1704067200) return false; // no valid clock: use PV-based polling
     struct tm local;
     if (!localtime_r(&now, &local)) return false;
-    return energyNightHour(local.tm_hour);
+    return config.nightEnabled && energyNightHour(local.tm_hour, config.nightStart, config.nightEnd);
 }
 
 uint32_t getAdaptiveEnergyInterval(void)
 {
     static EnergyPollingPolicy policy;
-    const bool night = isEnergyNight();
-    if (!appLockData(50)) return night ? 0 : ENERGY_DAY_INTERVAL;
+    if (!appLockData(50)) return 1000;
+    const auto config = g_app.webSockData.setupData.energyPolling;
+    const bool night = isEnergyNight(config);
+    policy.configure(config);
     auto &sample = g_app.webSockData.energyState;
     const uint32_t now = millis();
-    const uint32_t maxAge = 2 * (sample.saving ? ENERGY_NIGHT_INTERVAL : ENERGY_DAY_INTERVAL);
+    const uint32_t maxAge = energyMaxAge(config, sample.saving);
     if (night || sample.sampleSequence == 0 || uint32_t(now - sample.sampledAt) > maxAge)
         sample.valid = false;
     const uint32_t interval = policy.update(now, night, sample.valid,

@@ -1,3 +1,5 @@
+#include "hotUpdate.h"
+#include "influx.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include "freertos/FreeRTOS.h"
@@ -126,9 +128,15 @@ static void taskEnergy(void* pvParameters)
     uint32_t lastAttempt = 0;
     bool attempted = false;
     bool wasNight = false;
+    uint32_t configRevision = 0;
     for (;;)
     {
         watchdogKick(wdId);
+        const uint32_t revision = setupAppliedRevision();
+        if (revision != configRevision) { attempted = false; configRevision = revision; }
+#ifdef FEATURE_INFLUX
+        influx_service();
+#endif
         const uint32_t interval = getAdaptiveEnergyInterval();
         if (interval == 0) {
             wasNight = true;

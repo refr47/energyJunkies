@@ -13,7 +13,7 @@ static void error(JsonArray errors, const char *field, const char *message)
 
 void setupDefaults(Setup &s)
 {
-    memset(&s, 0, sizeof(s));
+    s = Setup{};
     strlcpy(s.ssid, EMPTY_VALUE_IN_SETUP, sizeof(s.ssid));
     s.heizstab_leistung_in_watt = 4500;
     s.phasen_leistung_in_watt = 1500;
@@ -22,6 +22,8 @@ void setupDefaults(Setup &s)
     s.legionellenDelta = 168; // hours, as consumed by thermalController
     s.legionellenMaxTemp = 70;
     s.epsilonML_PinManager = 0.05;
+    s.mqttPort = 1883;
+    s.energyPolling = EnergyPollingConfig{};
 }
 
 static bool optional(const char *key)
@@ -96,14 +98,23 @@ bool validateSetup(Setup &s, JsonArray errors)
     // Legacy disabled-host marker is accepted and normalized.
     if (!strcmp(s.mqttSetup.mqttHost, EMPTY_VALUE_IN_SETUP)) s.mqttSetup.mqttHost[0] = 0;
     if (!strcmp(s.influxSetup.influxHost, EMPTY_VALUE_IN_SETUP)) s.influxSetup.influxHost[0] = 0;
-    if (s.mqttSetup.mqttHost[0] && !hostValid(s.mqttSetup.mqttHost, strlen(s.mqttSetup.mqttHost)))
+    if (s.mqttEnabled && !hostValid(s.mqttSetup.mqttHost, strlen(s.mqttSetup.mqttHost)))
         error(errors, WWW_MQTT_HOST, "Hostname oder IPv4-Adresse ohne Protokoll/Port erwartet");
-    if (s.influxSetup.influxHost[0]) {
+    if (s.influxEnabled) {
         if (!urlValid(s.influxSetup.influxHost)) error(errors, WWW_INFLUX_HOST, "HTTP(S)-URL mit gueltigem Host und optionalem Port erwartet");
         if (!s.influxSetup.influxOrg[0]) error(errors, WWW_INFLUX_ORG, "Bei aktiviertem Influx erforderlich");
         if (!s.influxSetup.influxToken[0]) error(errors, WWW_INFLUX_TOKEN, "Bei aktiviertem Influx erforderlich");
         if (!s.influxSetup.influxBucket[0]) error(errors, WWW_INFLUX_BUCKET, "Bei aktiviertem Influx erforderlich");
     }
+    if (!s.mqttPort) error(errors, "mqtt_port", "Port muss zwischen 1 und 65535 liegen");
+    const auto &c = s.energyPolling;
+    if (c.daySeconds < 5 || c.daySeconds > 3600) error(errors, "energy_day_seconds", "Erlaubt sind 5 bis 3600 Sekunden");
+    if (c.savingSeconds < 5 || c.savingSeconds < c.daySeconds || c.savingSeconds > 86400) error(errors, "energy_saving_seconds", "Mindestens Normalintervall, maximal 86400 Sekunden");
+    if (c.nightStart > 23) error(errors, "energy_night_start", "Stunde muss zwischen 0 und 23 liegen");
+    if (c.nightEnd > 23) error(errors, "energy_night_end", "Stunde muss zwischen 0 und 23 liegen");
+    if (!std::isfinite(c.lowPvWatts) || c.lowPvWatts < 0 || c.lowPvWatts > 1000000) error(errors, "energy_low_pv_watts", "Erlaubt sind 0 bis 1000000 Watt");
+    if (!std::isfinite(c.wakePvWatts) || c.wakePvWatts <= c.lowPvWatts || c.wakePvWatts > 1000000) error(errors, "energy_wake_pv_watts", "Groesser als Sparschwelle, maximal 1000000 Watt");
+    if (c.holdSeconds < 1 || c.holdSeconds > 86400) error(errors, "energy_hold_seconds", "Erlaubt sind 1 bis 86400 Sekunden");
     if (!s.heizstab_leistung_in_watt || s.heizstab_leistung_in_watt > INT_MAX)
         error(errors, HEIZSTABLEISTUNG, "Positive Leistung im unterstuetzten Ganzzahlbereich erwartet");
     if (s.akkuPriori < 0 || s.akkuPriori > 2) error(errors, AKKU_PRIORI, "Erlaubt sind 0, 1 und 2");
@@ -125,7 +136,7 @@ bool applySetupPatch(Setup &s, JsonObject patch, JsonArray errors)
             if (!strcmp(pair.key().c_str(), setupFields[i]->getKey())) { field = setupFields[i]; break; }
         if (!field) { error(errors, pair.key().c_str(), "Unbekanntes Feld"); continue; }
         // For optional text fields null explicitly clears the value; omission preserves it.
-        if (optional(pair.key().c_str()) && pair.value().isNull()) pair.value().set("");
+        if (optional(pair.key().c_str()) && field->maxLength() && pair.value().isNull()) pair.value().set("");
         if (!field->update(candidate, pair.value())) {
             error(errors, field->getKey(), field->validationMessage());
             if (field->maxLength()) errors[errors.size()-1]["maxLength"] = field->maxLength();

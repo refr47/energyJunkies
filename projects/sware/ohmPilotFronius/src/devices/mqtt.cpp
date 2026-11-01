@@ -1,212 +1,94 @@
 #include "mqtt.h"
-#include "eprom.h"
-
-#ifdef MQTT
-
+#ifdef FEATURE_MQTT
+#include "app_state.h"
+#include "hotUpdate.h"
 #include <PubSubClient.h>
 #include <WiFi.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
+#include <freertos/queue.h>
+#include <atomic>
 
-#include "debugConsole.h"
-
-// Add your MQTT Broker IP address, example:
-// const char* mqtt_server = "192.168.1.144";
-static MQTT_SETUP mqttConfig{};
-static bool mqttEnabled = false;
-static WiFiClient espClient;
-static PubSubClient client(espClient);
-unsigned long lastMsg = 0;
-
-#define TOPIC_MESSAGE_GREETING "message/greetings"
-#define TOPIC_LOG_W "log/logw"
-#define TOPIC_LOG_I "log/logi"
-#define TOPIC_LOG_D "log/logd"
-#define TOPIC_LOG_E "log/loge"
-
-#define TOPIC_PWM "energy/pwm"
-#define TOPIC_ENERGY_AVAIL "energy/available"
-#define TOPIC_MODBUS_RECONNECT "modbus/connection/reconnect"
-#define TOPIC_MODBUS_WRONG_PRODUCTION_VAL "modbus/error/currentProduction"
-#define TOPIC_MODBUS_INVERTER_PRODUCTION "modbus/data/currentProduction"
-#define TOPIC_MODBUS_SMART_METER_IN_EXPORT "modbus/data/inExport"
-#define TOPIC_MODBUS_VERBRAUCH "modbus/data/verbrauch"
-
-#define TOPIC_ALARM_TEMP_S1 "alarm/sensor/s1"
-#define TOPIC_ALARM_TEMP_S2 "alarm/sensor/s2"
-
-#define MAX_RECONNECT 5
-#define WAIT_FOR_ANOTHER_RECONNECT 10
-
-#define MSG_BUFFER_SIZE (50)
-char msg[MSG_BUFFER_SIZE];
-int value = 0;
-static int reconnectTries = 0;
-
-static void callback(char *topic, byte *payload, unsigned int length);
-static void reconnect();
+// Only the clock task touches the client; producers enqueue bounded messages.
+struct MqttMessage { char topic[64]; char payload[192]; };
+static QueueHandle_t messages = nullptr;
+static WiFiClient transport;
+static PubSubClient client(transport);
+static MQTT_SETUP config{};
+static bool enabled = false;
+static unsigned short port = 0;
+static uint32_t lastAttempt = 0;
+static bool attempted = false;
+static std::atomic<uint32_t> applied{0};
+uint32_t mqtt_appliedRevision() { return applied.load(); }
 
 bool mqtt_init()
 {
-    Setup setup;
-    mqttEnabled = eprom_getSetup(setup) && setup.mqttSetup.mqttHost[0];
-    if (!mqttEnabled) { client.disconnect(); return false; }
-    mqttConfig = setup.mqttSetup;
-    reconnectTries = 0;
-    client.setServer(mqttConfig.mqttHost, 1883);
-    client.setCallback(callback);
-    if (client.connect("Energy-Harvester", mqttConfig.mqttUser[0] ? mqttConfig.mqttUser : nullptr, mqttConfig.mqttPass))
-    {
-        client.publish(TOPIC_MESSAGE_GREETING, "Init Energy Harvester");
-        return true;
-    }
-    return false;
+    if (!messages) messages = xQueueCreate(16, sizeof(MqttMessage));
+    client.setSocketTimeout(2);
+    return false; // Connections are established by mqtt_loop in its owning task.
 }
 
 bool mqtt_loop()
 {
-    if (!mqttEnabled) return false;
-    if (reconnectTries > MAX_RECONNECT)
-        return client.connected();
-    if (!client.connected())
-    {
-        ++reconnectTries;
-
-        if (WiFi.status() == WL_CONNECTED)
-        {
-            LOG_INFO(TAG_MQTT, "mqtt_loop: reconnect, wifi ok, mqtt-server failed");
-            reconnect();
-        }
+    MQTT_SETUP next;
+    bool nextEnabled;
+    unsigned short nextPort;
+    uint32_t revision;
+    if (!appLockConfig(50)) return client.connected();
+    next = g_app.webSockData.setupData.mqttSetup;
+    nextEnabled = g_app.webSockData.setupData.mqttEnabled;
+    nextPort = g_app.webSockData.setupData.mqttPort;
+    revision = setupAppliedRevision();
+    appUnlockConfig();
+    if (nextEnabled != enabled || nextPort != port || memcmp(&next, &config, sizeof(next))) {
+        client.disconnect();
+        config = next;
+        enabled = nextEnabled;
+        port = nextPort;
+        attempted = false;
+        if (messages) xQueueReset(messages);
+        if (enabled) client.setServer(config.mqttHost, port);
     }
-    client.loop();
+    applied.store(revision);
+    if (!enabled || WiFi.status() != WL_CONNECTED) return false;
+    const uint32_t now = millis();
+    if (!client.connected() && (!attempted || uint32_t(now - lastAttempt) >= 5000)) {
+        attempted = true;
+        lastAttempt = now;
+        client.connect("Energy-Harvester", config.mqttUser[0] ? config.mqttUser : nullptr, config.mqttPass);
+    }
+    if (client.connected()) {
+        client.loop();
+        MqttMessage message;
+        for (unsigned i = 0; messages && i < 16 && xQueueReceive(messages, &message, 0) == pdTRUE; ++i)
+            client.publish(message.topic, message.payload);
+    }
     return client.connected();
 }
 
-void mqtt_publish_en(int pwm, double availableWatt)
+static void publish(const char *topic, const char *payload)
 {
-    char buf[50];
-    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
-        return;
-
-    sprintf(buf, "%d", pwm);
-    client.publish(TOPIC_PWM, buf);
-    sprintf(buf, "%.2lf", availableWatt);
-    client.publish(TOPIC_ENERGY_AVAIL, buf);
+    if (!messages || !payload) return;
+    MqttMessage message{};
+    strlcpy(message.topic, topic, sizeof(message.topic));
+    strlcpy(message.payload, payload, sizeof(message.payload));
+    xQueueSend(messages, &message, 0);
 }
-
-void mqtt_publish_alarm_temp(int tempS1, int tempS2)
-{
-    char buf[30];
-    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
-        return;
-    sprintf(buf, "%d", tempS1);
-    client.publish(TOPIC_ALARM_TEMP_S1, buf);
-    sprintf(buf, "%d", tempS2);
-    client.publish(TOPIC_ALARM_TEMP_S2, buf);
+void mqtt_publish_en(int pwm, double availableWatt) {
+    char value[48]; snprintf(value, sizeof(value), "%d", pwm); publish("energy/pwm", value);
+    snprintf(value, sizeof(value), "%.2f", availableWatt); publish("energy/available", value);
 }
-void mqtt_publish_modbus_reconnect(const char *ipInverter)
-{
-    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
-        return;
-    client.publish(TOPIC_MODBUS_RECONNECT, ipInverter);
+void mqtt_publish_alarm_temp(int a, int b) {
+    char value[32]; snprintf(value, sizeof(value), "%d", a); publish("alarm/sensor/s1", value);
+    snprintf(value, sizeof(value), "%d", b); publish("alarm/sensor/s2", value);
 }
-
-void mqtt_publish_log(char token, const char *logM)
-{
-    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
-        return;
-    if (token == 'W')
-        client.publish(TOPIC_LOG_W, logM);
-    if (token == 'I')
-        client.publish(TOPIC_LOG_I, logM);
-    if (token == 'D')
-        client.publish(TOPIC_LOG_D, logM);
-    if (token == 'E')
-        client.publish(TOPIC_LOG_E, logM);
+void mqtt_publish_modbus_reconnect(const char *ip) { publish("modbus/connection/reconnect", ip); }
+void mqtt_publish_modbus_wrong_production_val(double v) {
+    char value[48]; snprintf(value, sizeof(value), "%.2f", v); publish("modbus/error/currentProduction", value);
 }
-
-void mqtt_publish_modbus_wrong_production_val(double readVal)
-{
-    char buf[30];
-    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
-        return;
-    sprintf(buf, "%.2lf", readVal);
-    client.publish(TOPIC_MODBUS_WRONG_PRODUCTION_VAL, buf);
+void mqtt_publish_log(char token, const char *message) {
+    const char *topic = token == 'W' ? "log/logw" : token == 'E' ? "log/loge" : token == 'D' ? "log/logd" : "log/logi";
+    publish(topic, message);
 }
-/*
-void mqtt_publish_modbus_current_state(MB_CONTAINER &modb)
-{
-    char buf[30];
-    sprintf(buf, "%.2lf", modb.inverterSumValues.data.acCurrentPower);
-    client.publish(TOPIC_MODBUS_INVERTER_PRODUCTION, buf);
-    sprintf(buf, "%.2lf", modb.meterValues.data.acCurrentPower);
-    client.publish(TOPIC_MODBUS_SMART_METER_IN_EXPORT, buf);
-    sprintf(buf, "%.2lf", modb.inverterSumValues.data.acCurrentPower + modb.meterValues.data.acCurrentPower);
-    client.publish(TOPIC_MODBUS_VERBRAUCH, buf);
-}
-
-*/
-/* ****************************/
-
-static void reconnect()
-{
-    // Loop until we're reconnected
-    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
-        return;
-    while (!client.connected())
-    {
-        Serial.print("Attempting MQTT connection...");
-        // Create a random client ID
-        String clientId = "Energy-Harvester";
-        clientId += String(random(0xffff), HEX);
-        // Attempt to connect
-        if (client.connect(clientId.c_str(), mqttConfig.mqttUser[0] ? mqttConfig.mqttUser : nullptr, mqttConfig.mqttPass))
-        {
-            Serial.println("connected");
-            // Once connected, publish an announcement...
-            client.publish("message/greetings", "Hi!");
-            reconnectTries = 0;
-        }
-        else
-        {
-            Serial.print("failed, rc=");
-            Serial.print(client.state());
-            Serial.println(" try again in 5 seconds");
-            ++reconnectTries;
-            if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
-                return;
-            // Wait 5 seconds before retrying
-            vTaskDelay(pdMS_TO_TICKS(5000));
-        }
-    }
-}
-
-void callback(char *topic, byte *payload, unsigned int length)
-{
-    Serial.print("Message arrived [");
-    Serial.print(topic);
-    Serial.print("] ");
-    for (int i = 0; i < length; i++)
-    {
-        Serial.print((char)payload[i]);
-    }
-    Serial.println();
-
-    // Switch on the LED if an 1 was received as first character
-    if ((char)payload[0] == '1')
-    {
-        // digitalWrite(BUILTIN_LED, LOW); // Turn the LED on (Note that LOW is the voltage level
-        //  but actually the LED is on; this is because
-        //  it is active low on the ESP-01)
-    }
-    else
-    {
-        // digitalWrite(BUILTIN_LED, HIGH); // Turn the LED off by making the voltage HIGH
-    }
-}
-
 #else
-void mqtt_publish_log(char token, const char *logM)
-{
-}
+void mqtt_publish_log(char, const char *) {}
 #endif

@@ -36,11 +36,11 @@
 #include "weather.h"
 #include "ledHandler.h"
 #include "logReader.h"
-#ifdef MQTT
+#ifdef FEATURE_MQTT
 #include "mqtt.h"
 #endif
 
-#ifdef INFLUX
+#ifdef FEATURE_INFLUX
 #include "influx.h"
 #endif
 #ifdef AMIS_READER_DEV
@@ -192,7 +192,7 @@ void setup()
 #ifdef FRONIUS_IV
         // g_app.webSockData.states.modbusOK = mb_init(g_app.webSockData.setupData);
 #endif
-#ifdef MQTT
+#ifdef FEATURE_MQTT
         g_app.webSockData.states.mqtt = mqtt_init();
 #endif
 
@@ -216,7 +216,7 @@ void setup()
 
         //g_app.pinManager.testPins(RELAY_L1, RELAY_L2, PWM_FOR_PID);
 
-#ifdef INFLUX
+#ifdef FEATURE_INFLUX
         g_app.webSockData.states.influx = influx_init(getDataForWebSocket);
 #endif
 

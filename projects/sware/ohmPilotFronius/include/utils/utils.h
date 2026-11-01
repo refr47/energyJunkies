@@ -36,7 +36,7 @@ bool isStreamingAllowed(bool &isHeartbeatDue);
  * - Tag: 40s; nach 5 Minuten unter 20W alle 300s, Rueckkehr ueber 50W.
  * - Aktualisiert Gueltigkeit und Ruhemodus unter DATA-Lock; nicht unter Lock aufrufen.
  */
-bool isEnergyNight();
+bool isEnergyNight(const EnergyPollingConfig &config);
 uint32_t getAdaptiveEnergyInterval(void);
 char *utils_floatToString(float value);
 

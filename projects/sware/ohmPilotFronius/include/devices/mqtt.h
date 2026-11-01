@@ -1,5 +1,5 @@
 #pragma once
-#ifdef MQTT
+#ifdef FEATURE_MQTT
 
 #include "defines.h"
 
@@ -14,5 +14,6 @@ void mqtt_publish_modbus_wrong_production_val(double readVal);
 // void mqtt_publish_modbus_current_state(MB_CONTAINER &modb);
 
 bool mqtt_loop();
+uint32_t mqtt_appliedRevision();
 #endif
 void mqtt_publish_log(char token, const char *logM);

@@ -1,6 +1,6 @@
 #pragma once
 #include "defines.h"
-#include "debugConsole.h"
-#include "pinManager.h"
-
-bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager);
+enum class SetupApplyResult { Unchanged, Applied, Retry, RestartRequired };
+SetupApplyResult hotUpdate();
+uint32_t setupAppliedRevision();
+bool setupNeedsRestart(const Setup &current, const Setup &next);

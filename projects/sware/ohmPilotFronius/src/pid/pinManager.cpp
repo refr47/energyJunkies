@@ -393,8 +393,8 @@ void PinManager::stepControlMode(int temp, int effectiveMax, unsigned long now,
     preCheck(temp, now, mode, doML);
     const auto &sample = webSockData.energyState;
     // Minimum-temperature and legionella protection remain independent of PV.
-    if (mode == MODE_AUTO && (sample.saving || isEnergyNight() || !sample.valid ||
-        sample.sampleSequence == 0 || uint32_t(now - sample.sampledAt) > 2 * ENERGY_DAY_INTERVAL)) {
+    if (mode == MODE_AUTO && (sample.saving || isEnergyNight(webSockData.setupData.energyPolling) || !sample.valid ||
+        sample.sampleSequence == 0 || uint32_t(now - sample.sampledAt) > energyMaxAge(webSockData.setupData.energyPolling, sample.saving))) {
         mode = MODE_OFF;
         doML = false;
     }

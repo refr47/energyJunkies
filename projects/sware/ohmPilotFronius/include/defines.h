@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "energyPolling.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <WiFi.h>
@@ -169,6 +170,10 @@ typedef struct
     short forceHeatingStop;
     unsigned int wattSetupForTest;
     bool setupChanged;
+    bool mqttEnabled;
+    unsigned short mqttPort;
+    bool influxEnabled;
+    EnergyPollingConfig energyPolling;
 
 } Setup;
 

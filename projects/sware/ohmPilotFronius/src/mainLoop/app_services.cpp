@@ -20,11 +20,11 @@
 #include "hotUpdate.h"
 #include "esp_wifi.h"
 
-#ifdef MQTT
+#ifdef FEATURE_MQTT
 #include "mqtt.h"
 #endif
 
-#ifdef INFLUX
+#ifdef FEATURE_INFLUX
 #include "influx.h"
 #endif
 
@@ -114,7 +114,7 @@ static void markNetworkDown(const char* reason)
     g_app.webSockData.pidContainer.mAnalogOut = 0;
     g_app.webSockData.pidContainer.PID_PIN1 = 0;
     g_app.webSockData.pidContainer.PID_PIN2 = 0;
-#ifdef MQTT
+#ifdef FEATURE_MQTT
     g_app.webSockData.states.mqtt = false;
 #endif
 }
@@ -126,6 +126,11 @@ static int averageTemp()
 
 void serviceClock()
 {
+    if (hotUpdate() == SetupApplyResult::RestartRequired) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        esp_restart();
+        return;
+    }
     if (getCurrentTime(g_app.formatBuffer, FORMAT_CHAR_BUFFER_LEN))
     {
         if (xSemaphoreTake(g_tftMutex, pdMS_TO_TICKS(50)) == pdTRUE)
@@ -151,11 +156,11 @@ void serviceClock()
     // String s = WiFi.localIP().toString();
     // LOG_INFO(TAG_APP_SERVICES, "Current IP: %s", s.c_str());
 
-#ifdef MQTT
+#ifdef FEATURE_MQTT
     {
         // Retry MQTT while WLAN is available, even if the previous MQTT
         // connection failed. Publish the broker state, not the WLAN state.
-        const bool mqttActive = WiFi.status() == WL_CONNECTED && mqtt_loop();
+        const bool mqttActive = mqtt_loop();
         if (appLockData(LOCK_TIMEOUT_DATA_MS))
         {
             g_app.webSockData.states.mqtt = mqttActive;
@@ -226,7 +231,7 @@ void serviceTemperature()
             if (g_app.webSockData.temperature.sensor1 < 0 &&
                 g_app.webSockData.temperature.sensor2 < 0)
             {
-#ifdef MQTT
+#ifdef FEATURE_MQTT
                 if (g_app.webSockData.states.mqtt)
                 {
                     mqtt_publish_alarm_temp(g_app.webSockData.temperature.sensor1,
@@ -471,7 +476,7 @@ static bool fetchEnergy()
 
     // energyState wird schon vom Adapter geloggt
 
-#ifdef INFLUX
+#ifdef FEATURE_INFLUX
     influx_write(g_app.webSockData);
 #endif
 
@@ -542,7 +547,10 @@ static PROGNOSE weatherSnapshot() { return PROGNOSE{}; }
 // =============================================================================
 void serviceEnergy()
 {
-    if (isEnergyNight()) return;
+    if (!appLockConfig(50)) return;
+    const auto energyConfig = g_app.webSockData.setupData.energyPolling;
+    appUnlockConfig();
+    if (isEnergyNight(energyConfig)) return;
 
     if (WiFi.status() != WL_CONNECTED)
     {
@@ -612,39 +620,7 @@ void serviceWeb()
     }
     notifyClients();
 
-    if (appLockData(LOCK_TIMEOUT_DATA_MS))
-    {
-        bool changed = g_app.webSockData.setupData.setupChanged;
-        appUnlockData();
 
-        if (changed)
-        {
-            // KR-2: hotUpdate accesses DATA (webSockData) + PIDOUT (pinManager)
-            if (appLockData(LOCK_TIMEOUT_MULTI_MS) && appLockPidOut(LOCK_TIMEOUT_MULTI_MS))
-            {
-                if (!hotUpdate(g_app.webSockData, g_app.pinManager))
-                {
-                    appUnlockPidOut();
-                    appUnlockData();
-                    LOG_DEBUG(TAG_APP_SERVICES, " Waiting for restart ....");
-                    vTaskDelay(pdMS_TO_TICKS(3000));
-                    esp_restart();
-                    return;
-                }
-                else
-                {
-                    LOG_INFO(TAG_APP_SERVICES, "Hot update applied successfully without reboot");
-                }
-                g_app.webSockData.setupData.setupChanged = false;
-                appUnlockPidOut();
-                appUnlockData();
-            }
-            else
-            {
-                LOG_DEBUG(TAG_APP_SERVICES, "Setup changed, but could not acquire lock to apply hot update");
-            }
-        }
-    }
 }
 
 

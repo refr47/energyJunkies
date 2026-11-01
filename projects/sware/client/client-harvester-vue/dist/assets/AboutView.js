@@ -1,1 +1,1 @@
-import{S as e,g as t}from"./vendor.js";import{t as n}from"./index.js";var r={};function i(n,r){return e(),t(`h1`,null,`Über uns`)}var a=n(r,[[`render`,i]]);export{a as default};
+import{C as e,g as t}from"./vendor.js";import{t as n}from"./index.js";var r={};function i(n,r){return e(),t(`h1`,null,`Über uns`)}var a=n(r,[[`render`,i]]);export{a as default};

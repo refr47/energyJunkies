@@ -7,6 +7,8 @@
 #include "utils.h"
 #include "eprom.h"
 #include "setupValidation.h"
+#include "setupLegacy.h"
+#include <memory>
 
 #define SETUP_CREDENTIALS "setup"
 #define NVS_BLOCK_MAGIC_KEY "blk_magic"
@@ -39,35 +41,38 @@ void eprom_stammDataUpdateReset()
     s_stammDataUpdateWatch.store(false);
 }
 
-bool eprom_storeSetup(Setup &setup)
+static std::atomic<uint32_t> setupRevision{0};
+uint32_t eprom_setupRevision() { return setupRevision.load(); }
+
+bool eprom_storeSetup(Setup &setup, uint32_t *savedRevision)
 {
-    JsonDocument validation;
-    if (!validateSetup(setup, validation.to<JsonArray>()) || validation.overflowed())
-        return false;
+    JsonDocument doc;
+    if (!validateSetup(setup, doc.to<JsonArray>()) || doc.overflowed()) return false;
     std::lock_guard<std::mutex> lock(s_epromMutex);
-    if (!preferences.begin(SETUP_CREDENTIALS, false))
-        return false;
-
-    bool ok = preferences.putBytes("setup_block", &setup, sizeof(Setup)) == sizeof(Setup);
-    if (ok)
-        ok = preferences.putUInt(NVS_BLOCK_MAGIC_KEY, NVS_BLOCK_MAGIC_VAL) == sizeof(uint32_t);
-
-    if (ok) ok = preferences.putUInt("schema", 1) == sizeof(uint32_t);
-
-    Setup verifyBuf;
-    if (ok)
-    {
-        const size_t len = preferences.getBytes("setup_block", &verifyBuf, sizeof(Setup));
-        ok = len == sizeof(Setup)
-            && preferences.getUInt("schema", 0) == 1
-            && preferences.getUInt(NVS_BLOCK_MAGIC_KEY, 0) == NVS_BLOCK_MAGIC_VAL
-            && memcmp(&setup, &verifyBuf, sizeof(Setup)) == 0;
-    }
+    doc.clear();
+    doc["schema"] = 2;
+    uint32_t revision = setupRevision.load() + 1;
+    if (!revision) revision = 1;
+    doc["revision"] = revision;
+    JsonObject fields = doc["settings"].to<JsonObject>();
+    for (size_t i = 0; i < setupFieldsCount; ++i) setupFields[i]->serialize(setup, fields);
+    if (doc.overflowed()) return false;
+    String payload;
+    const size_t bytes = serializeJson(doc, payload);
+    if (!bytes || bytes != measureJson(doc)) return false;
+    if (!preferences.begin(SETUP_CREDENTIALS, false)) return false;
+    // One NVS blob contains schema, revision and settings; legacy bytes stay intact.
+    std::unique_ptr<char[]> verify(new (std::nothrow) char[bytes]);
+    if (!verify) { preferences.end(); return false; }
+    bool ok = preferences.putBytes("setup_v2", payload.c_str(), bytes) == bytes;
+    ok = ok && verify && preferences.getBytes("setup_v2", verify.get(), bytes) == bytes
+        && memcmp(payload.c_str(), verify.get(), bytes) == 0;
     preferences.end();
-    if (ok)
+    if (ok) {
+        setupRevision.store(revision);
+        if (savedRevision) *savedRevision = revision;
         s_stammDataUpdateWatch.store(true);
-    else
-        LOG_ERROR(TAG_EPPROM, "eprom_storeSetup: NVS write/verify failed");
+    }
     return ok;
 }
 
@@ -77,25 +82,76 @@ void eprom_isInit()
     if (preferences.begin(SETUP_CREDENTIALS, true)) preferences.end();
 }
 
-bool eprom_getSetup(Setup &setup)
+bool eprom_getSetup(Setup &setup, uint32_t *revision)
 {
     setupDefaults(setup);
-    Setup candidate{};
+    if (revision) *revision = 0;
     std::lock_guard<std::mutex> lock(s_epromMutex);
     if (!preferences.begin(SETUP_CREDENTIALS, true)) return false;
-    const unsigned schema = preferences.getUInt("schema", 0); // 0: legacy raw Setup
-    const bool headerOK = schema <= 1 && preferences.getUInt(NVS_BLOCK_MAGIC_KEY, 0) == NVS_BLOCK_MAGIC_VAL
-        && preferences.getBytesLength("setup_block") == sizeof(Setup);
-    const size_t len = headerOK ? preferences.getBytes("setup_block", &candidate, sizeof(candidate)) : 0;
+    const size_t size = preferences.getBytesLength("setup_v2");
+    if (size) {
+        if (size > 16384) { preferences.end(); return false; }
+        std::unique_ptr<char[]> buffer(new (std::nothrow) char[size]);
+        const bool read = buffer && preferences.getBytes("setup_v2", buffer.get(), size) == size;
+        preferences.end();
+        if (!read) return false;
+        JsonDocument doc;
+        if (deserializeJson(doc, static_cast<const char *>(buffer.get()), size)
+            || doc["schema"] != 2 || !doc["revision"].is<uint32_t>()
+            || doc["revision"].as<uint32_t>() == 0 || !doc["settings"].is<JsonObject>()) return false;
+        JsonObject fields = doc["settings"];
+        // Stored documents are full snapshots, not partial HTTP patches.
+        for (size_t i = 0; i < setupFieldsCount; ++i)
+            if (fields[setupFields[i]->getKey()].isNull()) return false;
+        JsonDocument errors;
+        Setup candidate;
+        setupDefaults(candidate);
+        if (!applySetupPatch(candidate, fields, errors.to<JsonArray>()) || errors.overflowed()) return false;
+        setup = candidate;
+        const uint32_t loadedRevision = doc["revision"];
+        setupRevision.store(loadedRevision);
+        if (revision) *revision = loadedRevision;
+        return true;
+    }
+    LegacySetupV1 old{};
+    const bool headerOK = preferences.getUInt("schema", 0) <= 1
+        && preferences.getUInt(NVS_BLOCK_MAGIC_KEY, 0) == NVS_BLOCK_MAGIC_VAL
+        && preferences.getBytesLength("setup_block") == sizeof(old);
+    const bool read = headerOK && preferences.getBytes("setup_block", &old, sizeof(old)) == sizeof(old);
     preferences.end();
-    if (len != sizeof(candidate)) return false;
-    // bool object representations must be checked as bytes before using them.
-    const unsigned char *bytes = reinterpret_cast<const unsigned char *>(&candidate);
-    if (bytes[offsetof(Setup, akku)] > 1 || bytes[offsetof(Setup, setupChanged)] > 1) return false;
-    JsonDocument validation;
-    if (!validateSetup(candidate, validation.to<JsonArray>()) || validation.overflowed()) return false;
-    candidate.setupChanged = false;
+    if (!read) return false;
+    const auto *raw = reinterpret_cast<const unsigned char *>(&old);
+    if (raw[offsetof(LegacySetupV1, akku)] > 1) return false;
+    Setup candidate;
+    setupDefaults(candidate);
+    memcpy(candidate.ssid, old.ssid, sizeof(candidate.ssid));
+    memcpy(candidate.passwd, old.passwd, sizeof(candidate.passwd));
+    candidate.heizstab_leistung_in_watt = old.heizstab_leistung_in_watt;
+    candidate.phasen_leistung_in_watt = old.phasen_leistung_in_watt;
+    candidate.tempMaxAllowedInGrad = old.tempMaxAllowedInGrad;
+    candidate.tempMinInGrad = old.tempMinInGrad;
+    memcpy(candidate.inverter, old.inverter, sizeof(candidate.inverter));
+    memcpy(candidate.currentIP, old.currentIP, sizeof(candidate.currentIP));
+    candidate.akku = old.akku;
+    candidate.akkuPriori = old.akkuPriori;
+    candidate.legionellenDelta = old.legionellenDelta;
+    candidate.legionellenMaxTemp = old.legionellenMaxTemp;
+    memcpy(candidate.amisKey, old.amisKey, sizeof(candidate.amisKey));
+    memcpy(candidate.amisReaderHost, old.amisReaderHost, sizeof(candidate.amisReaderHost));
+    candidate.epsilonML_PinManager = old.epsilonML_PinManager;
+    candidate.forceHeating = old.forceHeating;
+    candidate.forceHeatingStop = old.forceHeatingStop;
+    candidate.wattSetupForTest = old.wattSetupForTest;
+    memcpy(&candidate.mqttSetup, &old.mqttSetup, sizeof(candidate.mqttSetup));
+    memcpy(&candidate.influxSetup, &old.influxSetup, sizeof(candidate.influxSetup));
+    candidate.mqttEnabled = candidate.mqttSetup.mqttHost[0] && strncmp(candidate.mqttSetup.mqttHost, "---", sizeof(candidate.mqttSetup.mqttHost));
+    candidate.influxEnabled = candidate.influxSetup.influxHost[0] && strncmp(candidate.influxSetup.influxHost, "---", sizeof(candidate.influxSetup.influxHost));
+    JsonDocument errors;
+    if (!validateSetup(candidate, errors.to<JsonArray>()) || errors.overflowed()) return false;
     setup = candidate;
+    setupRevision.store(1);
+    if (revision) *revision = 1;
+    // Migration is non-destructive; next successful save writes schema 2.
     return true;
 }
 

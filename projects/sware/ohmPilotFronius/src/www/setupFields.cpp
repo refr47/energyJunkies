@@ -21,6 +21,17 @@ static void influxBucketSet(Setup &s, const char *v) { strlcpy(s.influxSetup.inf
 // 1. Statische Instanzen der Felder (werden einmalig beim Start angelegt)
 namespace Fields
 {
+    static const BooleanField<Setup> mqttEnabled("mqtt_enabled", &Setup::mqttEnabled);
+    static const NumericField<unsigned short, Setup> mqttPort("mqtt_port", &Setup::mqttPort);
+    static const BooleanField<Setup> influxEnabled("influx_enabled", &Setup::influxEnabled);
+    static const LambdaNumericField<uint32_t, Setup> daySeconds("energy_day_seconds", [](const Setup &s) { return s.energyPolling.daySeconds; }, [](Setup &s, uint32_t v) { s.energyPolling.daySeconds = v; });
+    static const LambdaNumericField<uint32_t, Setup> savingSeconds("energy_saving_seconds", [](const Setup &s) { return s.energyPolling.savingSeconds; }, [](Setup &s, uint32_t v) { s.energyPolling.savingSeconds = v; });
+    static const LambdaBooleanField<Setup> nightEnabled("energy_night_enabled", [](const Setup &s) { return s.energyPolling.nightEnabled; }, [](Setup &s, bool v) { s.energyPolling.nightEnabled = v; });
+    static const LambdaNumericField<unsigned int, Setup> nightStart("energy_night_start", [](const Setup &s) { return s.energyPolling.nightStart; }, [](Setup &s, unsigned int v) { s.energyPolling.nightStart = v; });
+    static const LambdaNumericField<unsigned int, Setup> nightEnd("energy_night_end", [](const Setup &s) { return s.energyPolling.nightEnd; }, [](Setup &s, unsigned int v) { s.energyPolling.nightEnd = v; });
+    static const LambdaNumericField<double, Setup> lowPvWatts("energy_low_pv_watts", [](const Setup &s) { return s.energyPolling.lowPvWatts; }, [](Setup &s, double v) { s.energyPolling.lowPvWatts = v; });
+    static const LambdaNumericField<double, Setup> wakePvWatts("energy_wake_pv_watts", [](const Setup &s) { return s.energyPolling.wakePvWatts; }, [](Setup &s, double v) { s.energyPolling.wakePvWatts = v; });
+    static const LambdaNumericField<uint32_t, Setup> holdSeconds("energy_hold_seconds", [](const Setup &s) { return s.energyPolling.holdSeconds; }, [](Setup &s, uint32_t v) { s.energyPolling.holdSeconds = v; });
     static const StringField<Setup, LEN_WLAN + 1> ssid(WLAN_ESSID, &Setup::ssid);
     static const StringField<Setup, LEN_WLAN + 1> pass(WLAN_PASSWD, &Setup::passwd);
     static const StringField<Setup, INET_ADDRSTRLEN + 1> inv(IP_INVERTER, &Setup::inverter);
@@ -51,6 +62,16 @@ namespace Fields
 
 // 2. Das zentrale Array(ebenfalls statisch)
 const FieldBase<Setup> *setupFields[] = {
+    &Fields::mqttEnabled, &Fields::mqttPort, &Fields::influxEnabled,
+    &Fields::daySeconds,
+    &Fields::savingSeconds,
+    &Fields::nightEnabled,
+    &Fields::nightStart,
+    &Fields::nightEnd,
+    &Fields::lowPvWatts,
+    &Fields::wakePvWatts,
+    &Fields::holdSeconds,
+
     &Fields::ssid,
     &Fields::pass,
     &Fields::leistung,

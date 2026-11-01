@@ -217,7 +217,7 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
     if (!data.energyState.valid)
         bitMaster |= (1 << STATE_SOURCE_DOWN);
 
-#ifdef MQTT
+#ifdef FEATURE_MQTT
     if (!data.states.mqtt)
         bitMaster |= (1 << STATE_MQTT);
 #endif

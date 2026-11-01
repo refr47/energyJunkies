@@ -44,7 +44,7 @@ static SemaphoreHandle_t g_logMutex = nullptr;
 // ────────────────────────────────────────────────────
 // Hash-Eintrag (Vorschlag D: open-addressing statt linearem Scan)
 // ────────────────────────────────────────────────────
-struct LogEntry
+struct SmartLogEntry
 {
     const char  *file;
     int          line;
@@ -53,7 +53,7 @@ struct LogEntry
     uint32_t     lastLogTime;
 };
 
-static LogEntry hashMap[HASH_MAP_SIZE]; // 64 * 24 B = ~1.5 KB
+static SmartLogEntry hashMap[HASH_MAP_SIZE]; // 64 * 24 B = ~1.5 KB
 
 static inline uint32_t slotKey(const char *file, int line)
 {
