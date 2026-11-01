@@ -191,35 +191,9 @@ const currentTime = ref('');
 let timer = null;
 const isMobileMenuOpen = ref(false);
 
-//defineProps(['connected', 'currentTime']);
-const props = defineProps({
-  connected: {
-    type: Boolean,
-    default: false
-  },
-  currentTime: {
-    type: String,
-    required: true
-  },
-  // Mit Standardwert (Default), falls nichts übergeben wird
-  weather: {
-    type: Object,
-    validator(value) {
-      // Prüft, ob der Status einer der drei erlaubten Werte ist
-      const validStatuses = ['sunny', 'cloudy', 'rainy'];
-      const hasValidStatus = validStatuses.includes(value.status);
-
-      // Prüft, ob die Temperatur eine Zahl ist
-      const hasValidTemp = typeof value.temp === 'number';
-
-      return hasValidStatus && hasValidTemp;
-    }
-  },
-  maxLogs: {
-    type: Number,
-    default: 1000
-  }
-})
+defineProps({
+  weather: { type: Object, required: true },
+});
 
 // Events definieren
 defineEmits(['clear', 'download']);
@@ -235,20 +209,21 @@ const updateTime = () => {
   });
 };
 
+const closeDesktopMenu = () => {
+  if (window.innerWidth >= 640) isMobileMenuOpen.value = false;
+};
+
 onMounted(() => {
   updateTime(); // Sofortiger Aufruf
   timer = setInterval(updateTime, 1000);
 
   // Menü schließen wenn Display auf Desktop wechselt
-  window.addEventListener('resize', () => {
-    if (window.innerWidth >= 640) {
-      isMobileMenuOpen.value = false;
-    }
-  });
+  window.addEventListener('resize', closeDesktopMenu);
 });
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer);
+  clearInterval(timer);
+  window.removeEventListener('resize', closeDesktopMenu);
 });
 
 </script>

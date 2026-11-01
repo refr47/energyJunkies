@@ -39,7 +39,7 @@
 #define _INFLUX_BUCKET "infB"
 
 #define EMPTY_STRING "\0"
-void eprom_storeSetup(Setup &setup);
+bool eprom_storeSetup(Setup &setup);
 bool eprom_getSetup(Setup &setup);
 void eprom_isInit();
 // String& eprom_getInverter(Setup &setup, String &inverter);

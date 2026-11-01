@@ -186,9 +186,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'; // Sicherstellen, dass beides da ist
+import { ref, computed, watch } from 'vue';
 
-// HIER: 'const' statt 'onst'
 const props = defineProps({
     liveData: {
         type: Object,
@@ -209,32 +208,9 @@ const props = defineProps({
     }
 });
 
-const emit = defineEmits(['clear', 'update-max']); // Falls du das Limit nach oben funken willst
-
-const filterTag = ref("");
-const filterLevel = ref("");
-
-const currentPage = ref(1)
-const itemsPerPage = 20
-
-// Verfügbare Tags für das Dropdown
-const availableTags = computed(() => {
-    if (!props.logs) return [];
-    return [...new Set(props.logs.map(l => l.tag))].filter(Boolean).sort();
-});
-
-// Die kombinierte Filter-Logik
-
-
-const getLevelClass = (lvl) => {
-    switch (lvl) {
-        case 'E': return 'bg-rose-100 text-rose-600'; // Error
-        case 'W': return 'bg-amber-100 text-amber-600'; // Warning
-        case 'D': return 'bg-slate-100 text-slate-500'; // Debug
-        case 'I': return 'bg-emerald-100 text-emerald-600'; // Info
-        default: return 'bg-slate-100 text-slate-400';
-    }
-};
+const emit = defineEmits(['clear']);
+const currentPage = ref(1);
+const itemsPerPage = 20;
 
 const clearLogs = () => {
     // confirm() in App.vue — hier nur Event weiterleiten & Seite zurücksetzen
@@ -266,25 +242,15 @@ const getDuration = (first, last) => {
     const secs = diff % 60;
     return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
 };
-const filteredLogs = computed(() => {
-    if (!props.logs) return [];
-
-    return props.logs.filter(l => {
-        const tagMatch = !filterTag.value || l.tag === filterTag.value;
-        const lvlMatch = !filterLevel.value || l.level === filterLevel.value;
-        return tagMatch && lvlMatch;
-    });
+const totalPages = computed(() => Math.max(1, Math.ceil(props.logs.length / itemsPerPage)));
+const paginatedLogs = computed(() => {
+    const start = (currentPage.value - 1) * itemsPerPage;
+    return props.logs.slice(start, start + itemsPerPage);
+});
+watch(totalPages, (pages) => {
+    currentPage.value = Math.min(currentPage.value, pages);
 });
 
-const paginatedLogs = computed(() => {
-    const start = (currentPage.value - 1) * itemsPerPage
-    const end = start + itemsPerPage
-
-    return filteredLogs.value.slice(start, end)
-})
-const totalPages = computed(() => {
-    return Math.ceil(filteredLogs.value.length / itemsPerPage)
-})
 function nextPage() {
     if (currentPage.value < totalPages.value) {
         currentPage.value++

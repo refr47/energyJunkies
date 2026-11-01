@@ -7,14 +7,12 @@
         <span class="headerFont">Energie Junkies</span>
       </div>
 
-      <Navbar :connected="isConnected" :weather="weather" :currentTime="currentTime" @clear="clearLogs"
+      <Navbar :weather="weather" @clear="clearLogs"
         @download="downloadCSV" />
 
       <main class="flex-grow w-full container mx-auto max-w-7xl ">
-        <router-view :liveData="liveData" :logs="logEntries" :isConnected="isConnected" :maxLogs="maxLogs" @update-max="v => maxLogs = v" />
+        <router-view :liveData="liveData" :logs="logEntries" :isConnected="isConnected" :maxLogs="maxLogs" @clear="clearLogs" />
 
-        <!--    <router-view :liveData="liveData" :logs="logEntries" />
-        <router-view :logs="logEntries" :isConnected="isConnected" :maxLogs="maxLogs" @update-max="v => maxLogs = v" /> -->
       </main>
 
       <footer class="w-full flex flex-col sm:flex-row items-center border-t border-slate-200 bg-white overflow-hidden p-0 m-0">
@@ -35,18 +33,18 @@
   </transition>
 </template>
 
-
-
 <script setup>
 import { ref, onMounted, onUnmounted, provide } from "vue";
 import Navbar from "./components/TopNavbar.vue";
 import LoginForm from './components/LoginForm.vue';
 import { db } from './db';
+import { parseLogBlob } from './utils/logs.js';
 
 const weather = ref({ temp: '--', label: 'Lade...', icon: 'Loading' });
 
-
 let socket = null;
+let reconnectTimer = null;
+let disposed = false;
 const isClearing = ref(false);
 const logEntries = ref([]);
 const maxLogs = ref(2000); // Erhöht: 50 → 2000 (ESP32 RingBuffer=60, IndexedDB persistent)
@@ -66,14 +64,6 @@ const handleLoginSuccess = () => {
   // Erst nach dem Login fangen wir an, die Daten vom ESP32 zu laden
 };
 
-const logout = () => {
-  sessionStorage.removeItem('isLoggedIn');
-  isLoggedIn.value = false;
-};
-
-
-
-
 const saveToDb = async (newEntries) => {
   try {
     // 'put' fügt ein oder aktualisiert, falls ts schon existiert (Deduplizierung!)
@@ -88,73 +78,13 @@ const cleanOldLogs = async () => {
   await db.logs.where('ts').below(thirtyDaysAgo).delete();
 };
 
-
-const parseLogBlob = async (base64String, count) => {
-  const binaryString = window.atob(base64String);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  const view = new DataView(bytes.buffer);
-  const entries = [];
-
-  // WICHTIG: Die structSize muss EXAKT deinem C-Struct entsprechen!
-  // uint32(4) + uint8(1) + int16(2) + uint16(2) + int16(2) = 11 Bytes
-  /*
-  struct __attribute__((packed)) LogEntry
-{ 
-    uint32_t ts;
-    uint8_t state;
-    int16_t power;
-    uint8_t pwm;    
-    int temp;
-};
-*/
-  // const safeCount = Math.min(count, 60);
-  /*
-VariableC-TypBytesSummetsuint32_t44stateuint8_t15powerint16_t27pwmuint8_t18tempint16_t210
- 
-  */
-
-  const structSize = 10;
-  // FIX #1: count auf verfügbare Bytes begrenzen (verhindert DataView-Crash)
-  const safeCount = Math.min(count, Math.floor(bytes.byteLength / structSize));
-
-  for (let i = 0; i < safeCount; i++) {
-    let offset = i * structSize;
-    entries.push({
-      ts: view.getUint32(offset + 0, true), // Byte 0, 1, 2, 3
-      state: view.getUint8(offset + 4),        // Byte 4
-      power: view.getInt16(offset + 5, true),  // Byte 5, 6
-      pwm: view.getUint8(offset + 7),        // Byte 7
-      temp: view.getInt16(offset + 8, true)   // Byte 8, 9
-    });
-  }
-  if (entries.length > 0) {
-    // 1. In die Datenbank schreiben (Deduplizierung passiert automatisch via 'ts')
-    await saveToDb(entries);
-  }
-
-  return entries;
-};
-
 const handleWebSockData = async (data) => {
-  if (isClearing.value) return;
-
-  // 1. Prüfen, ob der neue 'blob' vorhanden ist
-  if (!data?.log?.blob || data.log.len <= 0) {
-    // Kein Log-Blob: nur liveData aktualisieren
-    if (data?.live) liveData.value = data.live;
-    return;
-  }
+  if (data?.live) liveData.value = data.live;
+  if (isClearing.value || !data?.log?.blob || data.log.len <= 0) return;
 
   // 2. Den Blob in ein Array von Objekten umwandeln
-  const decodedEntries = await parseLogBlob(data.log.blob, data.log.len);
-
-  // 3. liveData aktualisieren
-  if (data?.live) liveData.value = data.live;
+  const decodedEntries = parseLogBlob(data.log.blob, data.log.len);
+  if (decodedEntries.length) await saveToDb(decodedEntries);
 
   // 4. Deduplizierungs-Logik anwenden (korrekt: 'last' neu bei jedem Durchlauf lesen!)
   for (const newEntry of decodedEntries) {
@@ -189,6 +119,7 @@ const handleWebSockData = async (data) => {
 };
 
 const initWebSocket = () => {
+  if (disposed) return;
   const isLocal = import.meta.env.DEV ||
     window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1';
@@ -218,26 +149,23 @@ const initWebSocket = () => {
     isConnected.value = false;
     // Reconnect nur wenn Socket wirklich geschlossen
     if (socket && socket.readyState !== 3) return;
-    setTimeout(initWebSocket, 3000);
+    reconnectTimer = setTimeout(initWebSocket, 3000);
   };
-  socket.onmessage = (event) => {
+  socket.onmessage = async (event) => {
     try {
       const data = JSON.parse(event.data);
       isConnected.value = true;
-      liveData.value = data.live;
-      handleWebSockData(data);
+      await handleWebSockData(data);
     } catch (err) {
       console.error("WebSocket Message Parse Error:", err);
     }
   };
 };
 
-
-
-
-const startApplication = async () => {
-  // FIX #3: Sauberes Socket-Shutdown (Handler erst vor close deaktivieren)
+const closeWebSocket = () => {
+  clearTimeout(reconnectTimer);
   if (socket) {
+    socket.onopen = null;
     socket.onclose = null;
     socket.onerror = null;
     socket.onmessage = null;
@@ -246,6 +174,10 @@ const startApplication = async () => {
     }
     socket = null;
   }
+};
+
+const startApplication = async () => {
+  closeWebSocket();
 
   // 1. Zuerst lokale Daten laden (Sorgt für sofortige Anzeige)
   try {
@@ -268,33 +200,17 @@ const startApplication = async () => {
   initWebSocket();
 }
 
-
-
 // FIX #2: Timer-IDs speichern für sauberes onUnmounted-Cleanup
 let weatherTimer = null;
-// Referenz auf den Socket, damit wir ihn überall im Script erreichen
 
-
-
-// --- HIER DER WICHTIGE TEIL ---
 onUnmounted(() => {
-  // FIX #2+#3: Sauberes Socket- und Timer-Cleanup
-  if (socket) {
-    socket.onclose = null;
-    socket.onerror = null;
-    socket.onmessage = null;
-    if (socket.readyState <= 1) {
-      socket.close();
-    }
-    socket = null;
-  }
+  disposed = true;
+  closeWebSocket();
   if (weatherTimer) {
     clearInterval(weatherTimer);
     weatherTimer = null;
   }
 });
-
-
 
 const toast = ref({ show: false, message: '', type: 'success' });
 
@@ -399,8 +315,6 @@ const clearLogs = async () => {
 
 };
 
-
-
 const fetchWeather = async () => {
   try {
     // Beispiel-Koordinaten (Wien). Setze hier deine exakten Daten ein!
@@ -432,54 +346,6 @@ onMounted(async () => {
   }
 });
 
-// Simulation für die Entwicklung am PC
-const simulateData = () => {
-  console.log("🔄 Simuliere ESP32 Daten...beginnend mit Live-Daten");
-  liveData.value.netzBezug = Math.random() > 0.5 ? 500 : -500; // Simuliere 
-  liveData.value.ev = 1500;
-  liveData.value.solEr = 2000;
-  liveData.value.bTemp = 45;
-  liveData.value.L1 = Math.random() > 0.5 ? 1 : 0; // Simuliere Entladen/
-  liveData.value.L2 = Math.random() > 0.5 ? 1 : 0; // Simuliere Entladen/
-  liveData.value.L3 = Math.random() > 0.5 ? 10 : 24; // Simuliere Entladen/
-  liveData.value.forceHeizung = Math.random() > 0.5 ? 1 : 0;
-
-  liveData.value.errors = 0; // Simuliere Bit 0 Fehler
-  liveData.value.aakHasBattery = false;
-  liveData.value.aakStat = Math.random() > 0.5 ? 20 : 40; // Simuliere Export/
-  liveData.value.aakPower = Math.random() > 0.5 ? 3000 : 2000; // Simuisliere Export/
-  liveData.value.aakEntladen = Math.random() > 0.5 ? -1 : 1; // Simuliere Entladen/
-  // Wetter-Forecast (immer vorhanden, auch wenn ESP32 WEATHER_API aus)
-  liveData.value.weatherBonus = Math.random() > 0.5 ? 3 : 0;
-  liveData.value.weatherPvRatio = (Math.random() * 1.5 + 0.5).toFixed(2);
-  liveData.value.weatherCloudAvg = (Math.random() * 0.6).toFixed(2);
-  liveData.value.weatherOutTemp = (Math.random() * 30 + 5).toFixed(1);
-  // TinyNN (optional – nur wenn ESP32 TINYNN_ENABLE aktiv hat)
-  liveData.value.tinyNN_preheat = (Math.random()).toFixed(2);
-  liveData.value.tinyNN_buffer = (Math.random()).toFixed(2);
-  console.log("isLoggedIn:", isLoggedIn.value);
-  if (isLoggedIn.value) {
-    console.log("Simuliere Log-Daten... mockPayload wird erstellt und verarbeitet");
-    // 2. MOCK-LOGS (Tabelle)
-    // WICHTIG: Das Objekt muss EXAKT so aufgebaut sein, wie handleWebSockData es erwartet
-    const mockPayload = {
-      log: {
-        entries: [
-          { ts: Date.now(), l1: 1, l2: 0, pwm: 0, temp: 45, tag: "ENERGY" },
-          { ts: Date.now(), l1: 0, l2: 1, pwm: 100, temp: 46, tag: "ENERGY" },
-          { ts: Date.now(), l1: 1, l2: 0, pwm: 0, temp: 85, tag: "ALARM" }
-        ]
-      }
-    };
-
-    // 3. Aufruf der Verarbeitungsfunktion
-    // Hier wird sichergestellt, dass mockPayload NICHT undefined ist
-    if (mockPayload && mockPayload.log) {
-      handleWebSockData(mockPayload);
-    }
-  }
-
-}
 </script>
 
 <style></style>
