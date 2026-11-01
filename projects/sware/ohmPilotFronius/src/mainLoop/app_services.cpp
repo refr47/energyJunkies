@@ -42,7 +42,7 @@
 #include "huaweiModbus.h"
 #endif
 #ifdef LOXONE_API
-#include "devices/loxoneAsProvider.h"
+#include "loxoneAsProvider.h"
 #endif
 #include "weather.h"
 #ifdef CARD_READER
@@ -98,7 +98,7 @@ static void stopHeating(const char* reason)
     appUnlockPidOut();
     appUnlockData();
 
-    LOG_ERROR(TAG_APP_SERVICES, "%s - heating disabled", reason);
+    LOG_INFO(TAG_APP_SERVICES, "%s - heating disabled", reason);
 }
 
 static void markNetworkDown(const char* reason)
@@ -355,6 +355,36 @@ static bool checkTempSensorAndReset()
 
 // Only the Energy task calls this helper and adapter init/read. Once published,
 // the adapter stays alive; read failures are recovered by the adapter itself.
+
+
+/*
+
+
+1. Bereits aktive Quelle prüfen
+
+   if (g_activeSource.load()) return true;
+
+   Existiert bereits ein Adapter, passiert nichts weiter. Auch nach einem Lesefehler wird er dadurch nicht erneut initialisiert.
+2. Konfiguration kopieren
+   Ohne aktive Quelle wird die Konfiguration kurz unter dem Config-Mutex kopiert. Scheitert der Lock, liefert die Funktion false. Während der anschließenden Gerätekommunikation bleibt der Mutex frei.
+3. Aktivierte Adapter ausprobieren
+   In dieser Reihenfolge: Fronius → Amis → Huawei → Loxone. Nur einkompilierte Adapter werden berücksichtigt. Sobald init() erfolgreich ist, werden die weiteren übersprungen. Erfolglose Adapter werden automatisch gelöscht.
+4. Erfolgreichen Adapter zwischenspeichern
+
+   static std::unique_ptr<EnergySource> pending;
+
+   pending hält den erfolgreich initialisierten Adapter fest. Falls anschließend ein Lock scheitert, bleibt er bis zum nächsten Aufruf erhalten – ohne nochmaliges init().
+5. Adapter veröffentlichen
+   Unter Data- und Config-Lock werden Batterieverfügbarkeit, Gerätestatus und Quellentyp gesetzt. Dann:
+
+   EnergySource* source = pending.release();
+g_activeSource.store(source);
+
+   release() übergibt den Zeiger, ohne das Objekt zu löschen. store() macht ihn für andere Tasks atomar verfügbar. Der Adapter bleibt bis zum Neustart bestehen.
+
+Rückgabewert: true bedeutet „Adapter bereit“, false bedeutet „Initialisierung oder Veröffentlichung noch nicht erfolgreich“. Die eigentlichen Messwerte liest danach fetchEnergy().
+
+*/
 static bool ensureEnergySource()
 {
     if (g_activeSource.load()) return true;

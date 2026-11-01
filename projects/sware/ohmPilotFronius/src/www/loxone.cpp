@@ -19,7 +19,9 @@ static IPAddress remote;
 
 // static bool readJsonResponse(HTTP_REST_TARGET_t *target, WEBSOCK_DATA &webSockData);
 
-static const size_t BUF_SIZE = 7 + strlen(LOXONE) + strlen(PATH_NAME_LOXONE) + 5 + 1;
+#define BUF_SIZE 7 + strlen(LOXONE) + strlen(PATH_NAME_LOXONE) + 5 + 1;
+
+
 static char base_url[BUF_SIZE];
 static size_t base_len = 0;
 static char urlBuf[BUF_SIZE];
@@ -39,7 +41,7 @@ bool loxone_init(WEBSOCK_DATA &webSockData)
     bool success = util_SendLoxone(base_url, LOXONE_USER, LOXONE_PASSWD);
     webSockData.states.loxone = success;
     return success;
-}
+} 
 
 static float heizleistungEinePhase = -1;
 bool loxone_sendWattUsed(WEBSOCK_DATA &webSockData)

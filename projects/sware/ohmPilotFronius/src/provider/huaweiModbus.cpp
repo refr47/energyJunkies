@@ -273,7 +273,7 @@ bool HuaweiModbus::read(WEBSOCK_DATA& webSockData)
         return false;
     }
 
-    LOG_INFO(TAG_APP_SERVICES,
+    LOG_INFO(TAG_HUAWEI,
         "energy (huawei): pv=%.0fW grid=%.0fW load=%.0fW akku=%.0fW soc=%.1f%%",
         dst.p_pv, dst.p_grid, dst.p_load, dst.p_akku, dst.soc);
 
