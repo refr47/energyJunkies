@@ -1,4 +1,5 @@
 #include "mqtt.h"
+#include "eprom.h"
 
 #ifdef MQTT
 
@@ -11,7 +12,8 @@
 
 // Add your MQTT Broker IP address, example:
 // const char* mqtt_server = "192.168.1.144";
-static const char *mqtt_server = MQTT;
+static MQTT_SETUP mqttConfig{};
+static bool mqttEnabled = false;
 static WiFiClient espClient;
 static PubSubClient client(espClient);
 unsigned long lastMsg = 0;
@@ -46,9 +48,14 @@ static void reconnect();
 
 bool mqtt_init()
 {
-    client.setServer(mqtt_server, 1883);
+    Setup setup;
+    mqttEnabled = eprom_getSetup(setup) && setup.mqttSetup.mqttHost[0];
+    if (!mqttEnabled) { client.disconnect(); return false; }
+    mqttConfig = setup.mqttSetup;
+    reconnectTries = 0;
+    client.setServer(mqttConfig.mqttHost, 1883);
     client.setCallback(callback);
-    if (client.connect("Energy-Harvester" /*, "theUser", "nurEinTraum"*/))
+    if (client.connect("Energy-Harvester", mqttConfig.mqttUser[0] ? mqttConfig.mqttUser : nullptr, mqttConfig.mqttPass))
     {
         client.publish(TOPIC_MESSAGE_GREETING, "Init Energy Harvester");
         return true;
@@ -58,6 +65,7 @@ bool mqtt_init()
 
 bool mqtt_loop()
 {
+    if (!mqttEnabled) return false;
     if (reconnectTries > MAX_RECONNECT)
         return client.connected();
     if (!client.connected())
@@ -66,7 +74,7 @@ bool mqtt_loop()
 
         if (WiFi.status() == WL_CONNECTED)
         {
-            LOG_INFO("mqtt_loop::mqtt_loop, reconnect, wifi ok, mqtt-server failed.");
+            LOG_INFO(TAG_MQTT, "mqtt_loop: reconnect, wifi ok, mqtt-server failed");
             reconnect();
         }
     }
@@ -77,7 +85,7 @@ bool mqtt_loop()
 void mqtt_publish_en(int pwm, double availableWatt)
 {
     char buf[50];
-    if (reconnectTries > MAX_RECONNECT)
+    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
         return;
 
     sprintf(buf, "%d", pwm);
@@ -89,7 +97,7 @@ void mqtt_publish_en(int pwm, double availableWatt)
 void mqtt_publish_alarm_temp(int tempS1, int tempS2)
 {
     char buf[30];
-    if (reconnectTries > MAX_RECONNECT)
+    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
         return;
     sprintf(buf, "%d", tempS1);
     client.publish(TOPIC_ALARM_TEMP_S1, buf);
@@ -98,14 +106,14 @@ void mqtt_publish_alarm_temp(int tempS1, int tempS2)
 }
 void mqtt_publish_modbus_reconnect(const char *ipInverter)
 {
-    if (reconnectTries > MAX_RECONNECT)
+    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
         return;
     client.publish(TOPIC_MODBUS_RECONNECT, ipInverter);
 }
 
 void mqtt_publish_log(char token, const char *logM)
 {
-    if (reconnectTries > MAX_RECONNECT)
+    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
         return;
     if (token == 'W')
         client.publish(TOPIC_LOG_W, logM);
@@ -120,7 +128,7 @@ void mqtt_publish_log(char token, const char *logM)
 void mqtt_publish_modbus_wrong_production_val(double readVal)
 {
     char buf[30];
-    if (reconnectTries > MAX_RECONNECT)
+    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
         return;
     sprintf(buf, "%.2lf", readVal);
     client.publish(TOPIC_MODBUS_WRONG_PRODUCTION_VAL, buf);
@@ -143,7 +151,7 @@ void mqtt_publish_modbus_current_state(MB_CONTAINER &modb)
 static void reconnect()
 {
     // Loop until we're reconnected
-    if (reconnectTries > MAX_RECONNECT)
+    if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
         return;
     while (!client.connected())
     {
@@ -152,7 +160,7 @@ static void reconnect()
         String clientId = "Energy-Harvester";
         clientId += String(random(0xffff), HEX);
         // Attempt to connect
-        if (client.connect(clientId.c_str()))
+        if (client.connect(clientId.c_str(), mqttConfig.mqttUser[0] ? mqttConfig.mqttUser : nullptr, mqttConfig.mqttPass))
         {
             Serial.println("connected");
             // Once connected, publish an announcement...
@@ -165,7 +173,7 @@ static void reconnect()
             Serial.print(client.state());
             Serial.println(" try again in 5 seconds");
             ++reconnectTries;
-            if (reconnectTries > MAX_RECONNECT)
+            if (!mqttEnabled || reconnectTries > MAX_RECONNECT)
                 return;
             // Wait 5 seconds before retrying
             vTaskDelay(pdMS_TO_TICKS(5000));

@@ -3,17 +3,11 @@
 #include <stdio.h>
 #include <time.h>
 #include "influx.h"
+#include "eprom.h"
 
 #include "debugConsole.h"
-#ifndef INFLUX
-#define INFLUX "NON"
-#endif
-#define INFLUXDB_URL INFLUX
-#define INFLUXDB_TOKEN "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q=="
-#define INFLUXDB_ORG "d727c1fb692f26f9"
-#define INFLUXDB_BUCKET "energieJunkies"
-
-static InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN);
+static InfluxDBClient client;
+static bool influxEnabled = false;
 // Data point
 static Point energy("energy");
 static Point boiler("boiler");
@@ -28,6 +22,11 @@ static CALLBACK_GET_DATA webSockData;
 bool influx_init(CALLBACK_GET_DATA getData)
 {
     webSockData = getData;
+    Setup setup;
+    influxEnabled = eprom_getSetup(setup) && setup.influxSetup.influxHost[0];
+    if (!influxEnabled) return false;
+    client.setConnectionParams(setup.influxSetup.influxHost, setup.influxSetup.influxOrg,
+                               setup.influxSetup.influxBucket, setup.influxSetup.influxToken);
     client.setInsecure();
     timeSync(EUROPE_VIENNA_TZ, NtpServer1, NtpServer2);
     // isInfluxValid = &webSockData.states.influx;
@@ -68,6 +67,7 @@ bool influx_init(CALLBACK_GET_DATA getData)
 
 bool influx_write(WEBSOCK_DATA &webSockData)
 {
+    if (!influxEnabled) return false;
 
     if (!webSockData.states.influx || !webSockData.states.networkOK)
         return false;
@@ -110,6 +110,7 @@ bool influx_write(WEBSOCK_DATA &webSockData)
 
 bool influx_write_test(double boilerData, double availableWatt)
 {
+    if (!influxEnabled) return false;
     WEBSOCK_DATA data = webSockData();
     if (!data.states.influx || !data.states.networkOK)
         return false;
@@ -134,6 +135,7 @@ bool influx_write_test(double boilerData, double availableWatt)
 
 bool influx_write_production(double pv, double akku, double load)
 {
+    if (!influxEnabled) return false;
     // DBGf("influx_write_production BEGIN");
     WEBSOCK_DATA data = webSockData();
     if (!data.states.influx || !data.states.networkOK)
@@ -158,6 +160,7 @@ bool influx_write_production(double pv, double akku, double load)
 
 bool influx_write_mean_val(double watt)
 {
+    if (!influxEnabled) return false;
     WEBSOCK_DATA data = webSockData();
     if (!data.states.influx || !data.states.networkOK)
         return false;
@@ -176,6 +179,7 @@ bool influx_write_mean_val(double watt)
 
 bool influx_write_mean(double mean)
 {
+    if (!influxEnabled) return false;
     WEBSOCK_DATA data = webSockData();
     if (!data.states.influx || !data.states.networkOK)
         return false;

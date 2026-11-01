@@ -14,6 +14,13 @@
         </button>
       </div>
 
+      <div v-if="validationErrors.length" role="alert" class="mb-6 rounded-xl bg-rose-50 p-4 text-rose-800">
+        <p class="font-bold">Nicht gespeichert. Bitte folgende Angaben korrigieren:</p>
+        <ul class="list-disc pl-5">
+          <li v-for="(error, index) in validationErrors" :key="index">{{ error.field }}: {{ error.message }}<span v-if="error.maxLength"> (max. {{ error.maxLength }} Bytes)</span></li>
+        </ul>
+      </div>
+      <p class="mb-4 text-sm text-slate-500">MQTT und Influx sind optional. Ein leeres Server-Feld deaktiviert den jeweiligen Dienst.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
         <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
@@ -59,7 +66,7 @@
           <div class="space-y-4">
             <div class="p-4 bg-amber-50/50 rounded-2xl border border-amber-100">
               <ConfigInput label="Legionellen Ziel-Temp" v-model="setup.legionellen_temp" type="number" unit="°C" />
-              <ConfigInput label="Hysterese (Diff)" v-model="setup.legionellen_differenz" type="number" unit="K" />
+              <ConfigInput label="Legionellenintervall" v-model="setup.legionellen_differenz" type="number" unit="h" />
             </div>
             <div class="pt-4">
               <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 text-emerald-600">
@@ -90,14 +97,15 @@
               <ConfigInput label="Server IP" v-model="setup.mqtt_server_ip" icon="server" />
               <div class="grid grid-cols-2 gap-3">
                 <ConfigInput label="User" v-model="setup.mqtt_user" />
-                <ConfigInput label="Passwort" v-model="setup.mqtt_passwd" />
+                <ConfigInput label="Passwort" v-model="setup.mqtt_passwd" type="password" />
               </div>
             </div>
             <div class="space-y-4 border-l border-slate-50 md:pl-8">
               <p class="text-[10px] font-bold text-slate-300 -mb-2 italic">InfluxDB Time-Series</p>
               <ConfigInput label="Server URL" v-model="setup.influx_server_ip" />
-              <ConfigInput label="Organization" v-model="setup.influg_org" />
-              <ConfigInput label="Access Token" v-model="setup.influx_token" />
+              <ConfigInput label="Organization" v-model="setup.influx_org" />
+              <ConfigInput label="Access Token" v-model="setup.influx_token" type="password" />
+              <ConfigInput label="Bucket" v-model="setup.influx_bucket" />
             </div>
           </div>
         </div>
@@ -172,7 +180,7 @@ const load = async () => {
       result.akku_vorhanden = result.akku_vorhanden !== 0;
     }
     setup.value = { ...setup.value, ...result };
-    console.log("Setup Daten geladen:", result);
+
 
     notify("Konfiguration erfolgreich geladen!", "success");
   } catch (e) {
@@ -181,9 +189,12 @@ const load = async () => {
   }
 };
 
+const validationErrors = ref([]);
+
 const pushToESP = async () => {
+  validationErrors.value = [];
   statusMsg.value = "Speichere...";
-  console.log("Sende Setup Daten:", setup.value);
+
   try {
     const res = await fetch('/storeSetup', {
       method: 'POST',
@@ -193,10 +204,12 @@ const pushToESP = async () => {
     const data = await res.json();
     console.log("storeSetup - returned data:", data);
     if (data.done) {
-      notify("Konfiguration erfolgreich gespeichert! Der ESP32 startet neu...", "success");
+      const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+      notify(warnings.length ? warnings.join(' ') : "Konfiguration gespeichert. Bei geaenderten Netzwerkeinstellungen startet das Geraet neu.", warnings.length ? "info" : "success", warnings.length ? 0 : 4000);
 
     } else {
-      notify("Fehler beim Speichern der Konfiguration!", "error");
+      validationErrors.value = Array.isArray(data.errors) ? data.errors : [];
+      notify(data.error || "Fehler beim Speichern der Konfiguration!", "error", 0);
       if (data.error) {
         console.error("Error in storing setup: ", data.error);
       }

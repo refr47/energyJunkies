@@ -6,6 +6,7 @@
 
 #include "utils.h"
 #include "eprom.h"
+#include "setupValidation.h"
 
 #define SETUP_CREDENTIALS "setup"
 #define NVS_BLOCK_MAGIC_KEY "blk_magic"
@@ -40,6 +41,9 @@ void eprom_stammDataUpdateReset()
 
 bool eprom_storeSetup(Setup &setup)
 {
+    JsonDocument validation;
+    if (!validateSetup(setup, validation.to<JsonArray>()) || validation.overflowed())
+        return false;
     std::lock_guard<std::mutex> lock(s_epromMutex);
     if (!preferences.begin(SETUP_CREDENTIALS, false))
         return false;
@@ -48,11 +52,14 @@ bool eprom_storeSetup(Setup &setup)
     if (ok)
         ok = preferences.putUInt(NVS_BLOCK_MAGIC_KEY, NVS_BLOCK_MAGIC_VAL) == sizeof(uint32_t);
 
+    if (ok) ok = preferences.putUInt("schema", 1) == sizeof(uint32_t);
+
     Setup verifyBuf;
     if (ok)
     {
         const size_t len = preferences.getBytes("setup_block", &verifyBuf, sizeof(Setup));
         ok = len == sizeof(Setup)
+            && preferences.getUInt("schema", 0) == 1
             && preferences.getUInt(NVS_BLOCK_MAGIC_KEY, 0) == NVS_BLOCK_MAGIC_VAL
             && memcmp(&setup, &verifyBuf, sizeof(Setup)) == 0;
     }
@@ -67,174 +74,50 @@ bool eprom_storeSetup(Setup &setup)
 void eprom_isInit()
 {
     std::lock_guard<std::mutex> lock(s_epromMutex);
-
-    preferences.begin(SETUP_CREDENTIALS, true); // READ-ONLY – Flash schonen
-/*
-    if (preferences.getString(_SSID, "") == NULL)
-    {
-        LOG_INFO(TAG_EPPROM,"epeprom_rom_isInit - flash hasn't been used never before ! - reinit ");
-        eprom_test_write_Eprom("Milchbehaelter", "47754775");
-    }
-    else
-    {
-        LOG_INFO(TAG_EPPROM,"eprom_isInit:: Nothing to do");
-    } */
-    preferences.end();
+    if (preferences.begin(SETUP_CREDENTIALS, true)) preferences.end();
 }
 
 bool eprom_getSetup(Setup &setup)
 {
-    LOG_DEBUG(TAG_EPPROM,"eprom_getSetup");
-    memset(&setup, 0, sizeof(Setup));
-
+    setupDefaults(setup);
+    Setup candidate{};
     std::lock_guard<std::mutex> lock(s_epromMutex);
-
-    preferences.begin(SETUP_CREDENTIALS, true); // READ-ONLY
-    // FIX C: Magic-Flag prüfen — NVS-Korruption erkennen
-    uint32_t magic = preferences.getUInt(NVS_BLOCK_MAGIC_KEY, 0);
-    if (magic != NVS_BLOCK_MAGIC_VAL)
-    {
-        LOG_ERROR(TAG_EPPROM, "eprom_getSetup: NVS block magic mismatch (%08X != %08X) — data corrupted", magic, NVS_BLOCK_MAGIC_VAL);
-        preferences.end();
-        return false;  // Signal an Aufrufer: NVS kaputt → Defaults laden
-    }
-    size_t len = preferences.getBytes("setup_block", &setup, sizeof(Setup));
+    if (!preferences.begin(SETUP_CREDENTIALS, true)) return false;
+    const unsigned schema = preferences.getUInt("schema", 0); // 0: legacy raw Setup
+    const bool headerOK = schema <= 1 && preferences.getUInt(NVS_BLOCK_MAGIC_KEY, 0) == NVS_BLOCK_MAGIC_VAL
+        && preferences.getBytesLength("setup_block") == sizeof(Setup);
+    const size_t len = headerOK ? preferences.getBytes("setup_block", &candidate, sizeof(candidate)) : 0;
     preferences.end();
-    return (len == sizeof(Setup));
-
-// --- DEAD CODE: everything below is unreachable due to return above ---
-#ifdef DEBUG_DEBUG
-    String ssid, passwd;
-    // bool result = true;
-
-    ssid = preferences.getString(_SSID, "");
-    passwd = preferences.getString(_PASSWORD, "");
-
-    if (ssid == "" || passwd == "")
-    {
-        LOG_INFO(TAG_EPPROM,"eprom::eprom_getSetup No values saved for ssid or password");
-        strcpy(setup.ssid, EMPTY_VALUE_IN_SETUP);
-        strcpy(setup.passwd, "");
-    }
-    else
-    {
-        strncpy(setup.ssid, (const char *)ssid.c_str(), LEN_WLAN - 1);
-        strncpy(setup.passwd, passwd.c_str(), LEN_WLAN - 1);
-    }
-    //  DBGf("eprom_getSetup() .. WLAN: %s, Passwd: %s", setup.ssid, setup.passwd);
-    setup.heizstab_leistung_in_watt = preferences.getUInt(_HEIZSTAB_LEISTUNG_IN_WATT);
-    setup.phasen_leistung_in_watt = (unsigned int)setup.heizstab_leistung_in_watt / 3; // pre calculation
-    setup.tempMaxAllowedInGrad = preferences.getUInt(_TEMP_MAX_IN_GRAD);
-    setup.tempMinInGrad = preferences.getUInt(_TEMP_MIN_IN_GRAD);
-
-    strncpy(setup.amisReaderHost, preferences.getString(_AMIS_READER_HOST).c_str(), INET_ADDRSTRLEN);
-
-    /*  ipv4_int_to_string(setup.amisReaderHost, setup.ipAmisReaderHost, &result);
-     if (!result)
-         DBGf("ERPROM - Error in converting AmisReader IPAdress!!"); */
-    // DBGf("eprom_getSetup() .. AmisReaderHost:  %s", setup.amisReaderHost);
-
-    // String key = preferences.getString(_AMIS_READER_KEY);
-    strncpy(setup.amisKey, preferences.getString(_AMIS_READER_KEY).c_str(), AMIS_KEY_LEN - 1);
-
-    strncpy(setup.inverter, preferences.getString(_INVERTER_IP).c_str(), INET_ADDRSTRLEN);
-
-    /*
-    ipv4_int_to_string(setup.inverter, setup.ipInverter, &result);
-    if (!result)
-        DBGf("ERPROM - Error in converting Inverter IPAdress!!"); */
-
-    // DBGf("===>IP-Inverter eprom_getSetup: as string: %s ", setup.inverter);
-
-    // DBGf("EPROM::   IP-Inverter as string: %s", setup.inverter);
-    setup.akku = preferences.getChar(_AKKU);
-    setup.akkuPriori = preferences.getChar(_AKKU_PRIORI);
-    /* setup.pid_p = preferences.getFloat(_PID_P);
-    setup.pid_i = preferences.getFloat(_PID_I);
-    setup.pid_d = preferences.getFloat(_PID_D); */
-
-    setup.legionellenDelta = preferences.getUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TIME);
-    setup.legionellenMaxTemp = preferences.getUInt(_LEGIONELLEN_SCHWELLWERT_DELTA_TEMP);
-    /*   setup.pid_min_time_before_switch_off_channel_inMS = preferences.getUInt(_PID_DIG_OUT_OFF_DELAY_MS);
-      setup.pid_min_time_for_dig_output_inMS = preferences.getUInt(_PID_MIN_ON_TIME_MS);
-      setup.pid_powerWhichNeedNotConsumed = preferences.getUInt(_PID_TARGET_POWER);
-      setup.pidChanged = false; */
-
-    strncpy(setup.mqttHost, preferences.getString(_MQTT_HOST).c_str(), MQTT_HOST_LEN - 1);
-    strncpy(setup.mqttPass, preferences.getString(_MQTT_PASSWD).c_str(), MQTT_PASS_LEN - 1);
-    strncpy(setup.mqttUser, preferences.getString(_MQTT_USER).c_str(), MQTT_USER_LEN - 1);
-
-    strncpy(setup.influxHost, preferences.getString(_INFLUX_HOST).c_str(), INFLUX_HOST_LEN - 1);
-    strncpy(setup.influxBucket, preferences.getString(_INFLUX_BUCKET).c_str(), INFLUX_BUCKET_LEN - 1);
-    strncpy(setup.influxOrg, preferences.getString(_INFLUX_ORG).c_str(), INFLUX_ORG_LEN - 1);
-    strncpy(setup.influxToken, preferences.getString(_INFLUX_TOKEN).c_str(), INFLUX_TOKEN_LEN - 1);
-
-    setup.epsilonML_PinManager = preferences.getDouble(_EPSILON_PIN_MANAGER);
-    setup.forceHeating = preferences.getInt(_EN_FORCE_HEATING);
-
-    // DBGf("eprom_getSetup() .. AmisReaderHost: %s, Key: %s", setup.amisReaderHost, setup.amisKey);
-    // DBGf("EPROM::   IP-Inverter %d as string: %s", setup.ipInverter, setup.inverter.c_str());
-#endif
+    if (len != sizeof(candidate)) return false;
+    // bool object representations must be checked as bytes before using them.
+    const unsigned char *bytes = reinterpret_cast<const unsigned char *>(&candidate);
+    if (bytes[offsetof(Setup, akku)] > 1 || bytes[offsetof(Setup, setupChanged)] > 1) return false;
+    JsonDocument validation;
+    if (!validateSetup(candidate, validation.to<JsonArray>()) || validation.overflowed()) return false;
+    candidate.setupChanged = false;
+    setup = candidate;
+    return true;
 }
 
 bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
 {
     Setup setup;
-    strncpy(setup.ssid, wlanE, LEN_WLAN - 1);
-    strncpy(setup.passwd, passW, LEN_WLAN - 1);
-    LOG_DEBUG(TAG_EPPROM,"eprom_test_write_Eprom BEGIN ...WLAN: %s, Passwd: %s", wlanE, setup.passwd);
-
-    setup.heizstab_leistung_in_watt = 4500;
-    setup.tempMaxAllowedInGrad = 80;
-    setup.tempMinInGrad = 5;
-    strcpy(setup.inverter, "10.0.0.2");
-
-    setup.akku = 0;
-    
-    setup.akkuPriori = 0;
-    /*  setup.pid_p = 1.0;
-     setup.pid_i = 0.5;
-     setup.pid_d = 0.01; */
-
-    setup.legionellenDelta = 7UL * 24 * 3600 * 1000;
-    /*  setup.pid_min_time_before_switch_off_channel_inMS = 2000;
-     setup.pid_min_time_for_dig_output_inMS = 10000; */
-    setup.legionellenMaxTemp = 70;
-    strcpy(setup.mqttSetup.mqttHost, EMPTY_VALUE_IN_SETUP);
-    strcpy(setup.mqttSetup.mqttPass, "MQTT_PASS");
-    strcpy(setup.mqttSetup.mqttUser, "MQTT_USER");
-    strcpy(setup.influxSetup.influxHost, "http://rantanplan-ethernet:8086");
-    //strcpy(setup.influxHost, EMPTY_VALUE_IN_SETUP);
-    strcpy(setup.influxSetup.influxBucket, "energieJunkies");
-    strcpy(setup.influxSetup.influxOrg, "d727c1fb692f26f9");
-    strcpy(setup.influxSetup.influxToken, "Zr0fsPmRgvNr0znkbudQNZBnGDHjkBOT41X4wJwZcoMMOAFVLy5eLtIpqlffQ966oQOD4aSmrTtdDX5LcVVu5Q==");
-    //strcpy(setup.influxToken, "---");
-    strcpy(setup.amisReaderHost, "10.0.0.2");
-    // strcpy(setup.amisReaderHost, "192.168.178.45");
-    setup.epsilonML_PinManager=0.05;
-
-    strncpy(setup.amisKey, "9865888B5CC739E9F575053E7868BC34", AMIS_KEY_LEN - 1);
-    setup.wattSetupForTest = 0;
-
-    setup.forceHeating = 0;
-
-    LOG_DEBUG(TAG_EPPROM,"eprom::eprom_test_write_Eprom END");
-
-    // eprom_storeSetup() nimmt intern den Mutex – kein doppeltes lock_guard hier
-    eprom_storeSetup(setup);
-    return true;
-} 
+    setupDefaults(setup);
+    if (!wlanE || !passW || strlen(wlanE) >= sizeof(setup.ssid) || strlen(passW) >= sizeof(setup.passwd)) return false;
+    strlcpy(setup.ssid, wlanE, sizeof(setup.ssid));
+    strlcpy(setup.passwd, passW, sizeof(setup.passwd));
+    return eprom_storeSetup(setup);
+}
 
 void printEprom(Setup &setup)
 {
-    char buffer[2000];
-    memset(buffer, 0, 2000);
-    LOG_DEBUG(TAG_EPPROM,"eprom::printEprom ============================================ ");
-    sprintf(buffer, "EPROM out \n\n WLAN: %s, Passwd: %s HeizstabLeistungInWatt: %d, AusschaltTempInC: %d MindesttempInGrad: %d externer SPeicher: %d Priorität: %d Influx: %s ,inverter: %s,  LegionellenCheckDelta: %d   forceHeating: %d , Epsilon-PinManager: %.3f, amisReader: %s, mqttServer: %s, mqttUser: %s, mqqtPwd: %s, influxHost: %s, influxOrg: %s, influxToken %s, influxBucket: %s,  \n\nEND OF EPROM",
-            setup.ssid, setup.passwd, setup.heizstab_leistung_in_watt, setup.tempMaxAllowedInGrad, setup.tempMinInGrad, setup.akku, setup.akkuPriori, setup.influxSetup.influxOrg, setup.inverter, setup.legionellenDelta, setup.forceHeating, setup.epsilonML_PinManager, setup.amisReaderHost, setup.mqttSetup.mqttHost, setup.mqttSetup.mqttUser, setup.mqttSetup.mqttPass, setup.influxSetup.influxOrg, setup.influxSetup.influxToken, setup.influxSetup.influxBucket);
-    LOG_DEBUG(TAG_EPPROM,"%s", buffer);
-
-    // DBGf("\n==========================(%d)============================== ", strlen(buffer));
+    // Bounded source reads remain safe even for damaged, unterminated NVS strings.
+    LOG_DEBUG(TAG_EPPROM, "Setup: WLAN=%.*s inverter=%.*s MQTT=%.*s Influx=%.*s",
+        (int)sizeof(setup.ssid), setup.ssid, (int)sizeof(setup.inverter), setup.inverter,
+        (int)sizeof(setup.mqttSetup.mqttHost), setup.mqttSetup.mqttHost,
+        (int)sizeof(setup.influxSetup.influxHost), setup.influxSetup.influxHost);
+    LOG_DEBUG(TAG_EPPROM, "Setup: heater=%u min=%u max=%u; credentials omitted",
+        setup.heizstab_leistung_in_watt, setup.tempMinInGrad, setup.tempMaxAllowedInGrad);
 }
 
 void eprom_test_read_Eprom()
@@ -251,8 +134,9 @@ void eprom_show(Setup &setup)
 void eprom_initDefaults()
 {
     LOG_ERROR(TAG_EPPROM,"eprom_initDefaults: NVS corrupt or empty — writing defaults");
-    // test_write_Eprom setzt ssid + passwd + alle Default-Werte und speichert mit Magic-Flag
-    eprom_test_write_Eprom("Milchbehaelter", "47754775");
+    Setup setup;
+    setupDefaults(setup);
+    if (!eprom_storeSetup(setup)) LOG_ERROR(TAG_EPPROM, "Cannot persist defaults");
 }
 
 /* *************************** SHELLY */

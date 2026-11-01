@@ -18,6 +18,8 @@ struct FieldBase
     virtual bool update(Struct &obj, JsonVariant value) const = 0;
     // Serialisierung von Struktur nach JSON
     virtual void serialize(const Struct &obj, JsonObject &json) const = 0;
+    virtual size_t maxLength() const { return 0; }
+    virtual const char *validationMessage() const { return "Ungueltiger Typ oder Wert ausserhalb des Zahlenbereichs"; }
     virtual ~FieldBase() {}
 };
 
@@ -46,6 +48,7 @@ struct BooleanField : FieldBase<Struct>
         }
         else if (value.is<int>())
         {
+            if (value.as<int>() != 0 && value.as<int>() != 1) return false;
             b = (value.as<int>() != 0);
         }
         else
@@ -98,6 +101,8 @@ struct StringField : FieldBase<Struct>
     StringField(const char *k, char (Struct::*t)[N]) : key(k), target(t) {}
 
     const char *getKey() const override { return key; }
+    size_t maxLength() const override { return N - 1; }
+    const char *validationMessage() const override { return "Text erwartet; zu lang oder eingebettetes Nullzeichen"; }
     bool update(Struct &obj, JsonVariant value) const override
     {
         if (value.isNull() || !value.is<const char *>())
@@ -109,7 +114,7 @@ struct StringField : FieldBase<Struct>
         if (str == nullptr)
             return false;
 
-        if (strlen(str) >= N)
+        if (value.as<JsonString>().size() != strlen(str) || strlen(str) >= N)
             return false;
 
         strlcpy(obj.*target, value.as<const char *>(), N);
@@ -134,6 +139,8 @@ struct LambdaStringField : FieldBase<Struct>
         : key(k), _get(g), _set(s) {}
 
     const char *getKey() const override { return key; }
+    size_t maxLength() const override { return N - 1; }
+    const char *validationMessage() const override { return "Text erwartet; zu lang oder eingebettetes Nullzeichen"; }
     bool update(Struct &obj, JsonVariant value) const override
     {
         if (value.isNull() || !value.is<const char *>())
@@ -143,7 +150,7 @@ struct LambdaStringField : FieldBase<Struct>
         if (str == nullptr)
             return false;
 
-        if (strlen(str) >= N)
+        if (value.as<JsonString>().size() != strlen(str) || strlen(str) >= N)
             return false;
 
         _set(obj, str);
@@ -201,8 +208,10 @@ struct LambdaBooleanField : FieldBase<Struct>
         bool b = false;
         if (value.is<bool>())
             b = value.as<bool>();
-        else if (value.is<int>())
+        else if (value.is<int>()) {
+            if (value.as<int>() != 0 && value.as<int>() != 1) return false;
             b = (value.as<int>() != 0);
+        }
         else
             return false;
 

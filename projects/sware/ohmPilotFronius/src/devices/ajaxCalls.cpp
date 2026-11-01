@@ -13,6 +13,7 @@
 #include "templ.h"
 #include "ajaxConst.h"
 #include "setupFields.h"
+#include "setupValidation.h"
 #include "ajaxCalls.h"
 #ifndef SHELLY_SCAN_MAX_DEVICES
 #define SHELLY_SCAN_MAX_DEVICES 254
@@ -335,7 +336,11 @@ void ajaxCalls_handleGetFullSetup(AsyncWebServerRequest *request)
 void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
 {
     Setup setup;
-    eprom_getSetup(setup);
+    if (!eprom_getSetup(setup))
+    {
+        request->send(500, "application/json", "{\"result\":null,\"error\":{\"code\":0,\"msg\":\"Konfiguration nicht lesbar\"}}");
+        return;
+    }
 
     JsonDocument data;
     JsonObject result = data["result"].to<JsonObject>();
@@ -390,7 +395,7 @@ void ajaxCalls_handleGetSetup(AsyncWebServerRequest *request)
     }
 
     serializeJson(data, response);
-    LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
+    LOG_DEBUG(TAG_AJAX, "Send AJAX response, status: %u", httpCode);
     request->send(httpCode, "application/json", response);
 }
 
@@ -441,61 +446,26 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     ajaxCalls_unlock(g_ajaxMutex);
     LOG_DEBUG(TAG_AJAX, "===========> cb: %d", cb == NULL);
 
-    // FIX B: Bestehende NVS-Daten als Basis laden → Felder ohne JSON-Schlüssel
-    // behalten ihre gespeicherten Werte (keine Stack-Müll-Korruption!)
     Setup setup;
-    bool nvsOk = eprom_getSetup(setup);
-    if (!nvsOk)
+    if (!eprom_getSetup(setup) && !isAPModus)
     {
-        LOG_ERROR(TAG_AJAX, "handleStoreSetup: NVS read failed — using zeroed struct");
-        memset(&setup, 0, sizeof(Setup));
-    }
-
-    bool allSuccessful = true;
-
-    LOG_DEBUG(TAG_AJAX, "===========> before parseStruct");
-
-    for (size_t i = 0; i < setupFieldsCount; i++)
-    {
-        const char *key = setupFields[i]->getKey();
-        if (key == NULL)
-        {
-            LOG_DEBUG(TAG_AJAX, "No Key available");
-            result["error"] = "No Key available";
-            allSuccessful = false;
-        }
-        else
-        {
-            if (json.as<JsonObject>().containsKey(key))
-            {
-                // WICHTIG: setup ist jetzt auf dem Stack
-                if (!setupFields[i]->update(setup, json[key]))
-                {
-                    allSuccessful = false;
-                    /*char buf[50];
-                    sprintf(buf, "Wrong type or null value for key: %s.", key);
-                    strcpy(result["error"],buf);*/
-                    LOG_DEBUG(TAG_AJAX, "Wrong type or null value for key: %s", key);
-                    result["error"] = String("Wrong type or null value for ") + key;
-                }
-            }
-        }
-    }
-    /*
-     data["error"]["code"] = 0;
-            data["error"]["msg"] = "JsonDocument ist zu groß!";
-    */
-
-    LOG_DEBUG(TAG_AJAX, "===========> after parseStruct");
-    setup.phasen_leistung_in_watt = setup.heizstab_leistung_in_watt / 3;
-
-    LOG_DEBUG(TAG_AJAX, "after parseStruct, ok: ");
-    if (!allSuccessful)
-    {
-        returnFromStoreSetup(false, result, request, "caller 1");
+        result["error"] = "Gespeicherte Konfiguration konnte nicht gelesen werden; keine Aenderung gespeichert";
+        returnFromStoreSetup(false, result, request, "NVS read", 500);
         return;
     }
-
+    JsonArray errors = result["errors"].to<JsonArray>();
+    const bool valid = applySetupPatch(setup, json.as<JsonObject>(), errors);
+    if (result.overflowed())
+    {
+        request->send(500, "application/json", "{\"done\":0,\"error\":\"Nicht genug Speicher fuer Validierung\"}");
+        return;
+    }
+    if (!valid)
+    {
+        result["error"] = "Konfiguration ungueltig; keine Aenderung gespeichert";
+        returnFromStoreSetup(false, result, request, "validation");
+        return;
+    }
     LOG_DEBUG(TAG_AJAX, "Try to write Eprom in calling task.");
 
     if (!eprom_storeSetup(setup))
@@ -504,6 +474,12 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         returnFromStoreSetup(false, result, request, "NVS write", 500);
         return;
     }
+#ifndef MQTT
+    if (setup.mqttSetup.mqttHost[0]) result["warnings"].add("MQTT ist in dieser Firmware nicht aktiviert; Einstellungen wurden gespeichert.");
+#endif
+#ifndef INFLUX
+    if (setup.influxSetup.influxHost[0]) result["warnings"].add("Influx ist in dieser Firmware nicht aktiviert; Einstellungen wurden gespeichert.");
+#endif
     if (cb)
         cb(true);
     returnFromStoreSetup(true, result, request, "stored");
@@ -566,7 +542,7 @@ static void returnFromStoreSetup(bool inputCorrect,
         LOG_ERROR(TAG_AJAX, "ReturnFromStoreSetup(ERRORS) , caller: %s", caller);
     }
     serializeJson(result, response);
-    LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
+    LOG_DEBUG(TAG_AJAX, "Send AJAX response, status: %u", httpCode);
     request->send(httpCode, "application/json", response);
 }
 

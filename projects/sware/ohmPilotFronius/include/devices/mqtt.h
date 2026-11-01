@@ -13,6 +13,6 @@ void mqtt_publish_modbus_reconnect(const char *ip);
 void mqtt_publish_modbus_wrong_production_val(double readVal);
 // void mqtt_publish_modbus_current_state(MB_CONTAINER &modb);
 
-void mqtt_loop();
+bool mqtt_loop();
 #endif
 void mqtt_publish_log(char token, const char *logM);

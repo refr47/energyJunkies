@@ -9,15 +9,17 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
     updated = false;
     Setup d;
 
-    eprom_getSetup(d);
+    if (!eprom_getSetup(d)) {
+        LOG_ERROR(TAG_HOT_UPDATE, "Cannot read setup; keeping running configuration");
+        return true;
+    }
+    // Recreate network clients at boot, in their owning tasks, using persisted settings.
+    if (strcmp(d.ssid, webSockData.setupData.ssid) || strcmp(d.passwd, webSockData.setupData.passwd)
+        || memcmp(&d.mqttSetup, &webSockData.setupData.mqttSetup, sizeof(d.mqttSetup))
+        || memcmp(&d.influxSetup, &webSockData.setupData.influxSetup, sizeof(d.influxSetup)))
+        return false;
     vTaskDelay(pdMS_TO_TICKS(50)); // "Atempause"
  
-    if (strcmp(d.passwd, webSockData.setupData.passwd) != 0)
-    {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: passwd changed !! - no reboot :: eprom: %s, web: %s", d.passwd, webSockData.setupData.passwd);
-        strncpy(webSockData.setupData.passwd, d.passwd, LEN_WLAN - 1);
-        updated = true;
-    }
     if (strcmp(d.inverter, webSockData.setupData.inverter) != 0)
     {
         LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: inverter changed !! - no reboot :: eprom: %s, web: %s", d.inverter, webSockData.setupData.inverter);
@@ -131,80 +133,14 @@ bool hotUpdate(WEBSOCK_DATA &webSockData, PinManager &pidPinManager)
         webSockData.setupData.akku = d.akku;
         updated = true;
     }
-    // mqtt
-
-    if (strcmp(d.mqttSetup.mqttHost, webSockData.setupData.mqttSetup.mqttHost) != 0)
-    {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: mqttHost changed !! - no reboot :: eprom: %s, web: %s", d.mqttSetup.mqttHost, webSockData.setupData.mqttSetup.mqttHost);
-        strcpy(webSockData.setupData.mqttSetup.mqttHost, d.mqttSetup.mqttHost);
-        updated = true;
-    }
-    if (strcmp(d.mqttSetup.mqttUser, webSockData.setupData.mqttSetup.mqttUser) != 0)
-    {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: mqttUser changed !! - no reboot :: eprom: %s, web: %s", d.mqttSetup.mqttUser, webSockData.setupData.mqttSetup.mqttUser);
-        strcpy(webSockData.setupData.mqttSetup.mqttUser, d.mqttSetup.mqttUser);
-        updated = true;
-    }
-
-    if (strcmp(d.mqttSetup.mqttPass, webSockData.setupData.mqttSetup.mqttPass) != 0)
-    {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: mqttPasswd changed !! - no reboot :: eprom: %s, web: %s", d.mqttSetup.mqttPass, webSockData.setupData.mqttSetup.mqttPass);
-        strcpy(webSockData.setupData.mqttSetup.mqttPass, d.mqttSetup.mqttPass);
-        updated = true;
-    }
-
-    // influx
-    if (d.influxSetup.influxHost != webSockData.setupData.influxSetup.influxHost)
-    {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxHost changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxHost, webSockData.setupData.influxSetup.influxHost);
-        strcpy(webSockData.setupData.influxSetup.influxHost, d.influxSetup.influxHost);
-        updated = true;
-    }
-    if (d.influxSetup.influxToken != webSockData.setupData.influxSetup.influxToken)
-    {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxToken changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxToken, webSockData.setupData.influxSetup.influxToken);
-        strcpy(webSockData.setupData.influxSetup.influxToken, d.influxSetup.influxToken);
-        updated = true;
-    }
-    if (d.influxSetup.influxBucket != webSockData.setupData.influxSetup.influxBucket)
-    {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxBucket changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxBucket, webSockData.setupData.influxSetup.influxBucket);
-        strcpy(webSockData.setupData.influxSetup.influxBucket, d.influxSetup.influxBucket);
-        updated = true;
-    }
-
-
-    if (d.influxSetup.influxOrg != webSockData.setupData.influxSetup.influxOrg) {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxOrg changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxOrg, webSockData.setupData.influxSetup.influxOrg);
-        strcpy(webSockData.setupData.influxSetup.influxOrg, d.influxSetup.influxOrg);
-        updated = true;
-    }
-
-
-    if (d.influxSetup.influxToken != webSockData.setupData.influxSetup.influxToken) {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxToken changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxToken, webSockData.setupData.influxSetup.influxToken);
-        strcpy(webSockData.setupData.influxSetup.influxToken, d.influxSetup.influxToken);
-        updated = true;
-    }
-    {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxOrg changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxOrg, webSockData.setupData.influxSetup.influxOrg);
-        strcpy(webSockData.setupData.influxSetup.influxOrg, d.influxSetup.influxOrg);
-        updated = true;
-    }
-    if (d.influxSetup.influxToken != webSockData.setupData.influxSetup.influxToken)
-    {
-        LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: influxToken changed !! - no reboot :: eprom: %s, web: %s", d.influxSetup.influxToken, webSockData.setupData.influxSetup.influxToken);
-        strcpy(webSockData.setupData.influxSetup.influxToken, d.influxSetup.influxToken);
-        updated = true;
-    }
-
-
     if (d.wattSetupForTest != webSockData.setupData.wattSetupForTest)
     {
         LOG_INFO(TAG_HOT_UPDATE, "hotUpdate:: wattSetupForTest changed !! - no reboot :: eprom: %d, web: %d", d.wattSetupForTest, webSockData.setupData.wattSetupForTest);
         webSockData.setupData.wattSetupForTest = d.wattSetupForTest;
         updated = true;
     }
-    return updated;
+    webSockData.setupData.epsilonML_PinManager = d.epsilonML_PinManager;
+    webSockData.setupData.phasen_leistung_in_watt = d.phasen_leistung_in_watt;
+    return true; // an unchanged, valid setup does not require a reboot
 }
     // esp_restart();

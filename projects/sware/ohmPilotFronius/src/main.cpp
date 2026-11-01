@@ -128,8 +128,8 @@ void setup()
     {
         // NVS leer oder korrupt → Defaults + Magic-Flag anlegen
         LOG_WARNING(TAG_MAIN, "main: NVS setup block missing/corrupt — loading defaults");
-        eprom_initDefaults();
-        eprom_getSetup(g_app.webSockData.setupData);
+        // eprom_getSetup already supplies safe AP defaults. Preserve the stored
+        // bytes for recovery; only an explicit setup save replaces them.
     }
 
     if (strcmp(g_app.webSockData.setupData.ssid, EMPTY_VALUE_IN_SETUP) == 0)
