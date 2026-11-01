@@ -38,32 +38,30 @@ void eprom_stammDataUpdateReset()
     s_stammDataUpdateWatch.store(false);
 }
 
-void eprom_storeSetup(Setup &setup)
+bool eprom_storeSetup(Setup &setup)
 {
-    LOG_DEBUG("EEPROM","Store begin");
-    s_stammDataUpdateWatch.store(true);
-
     std::lock_guard<std::mutex> lock(s_epromMutex);
+    if (!preferences.begin(SETUP_CREDENTIALS, false))
+        return false;
 
-    preferences.begin(SETUP_CREDENTIALS, false);
-    preferences.putBytes("setup_block", &setup, sizeof(Setup));
-    // FIX C: Magic-Flag für Integritäts-Check beim nächsten Boot
-    preferences.putUInt(NVS_BLOCK_MAGIC_KEY, NVS_BLOCK_MAGIC_VAL);
+    bool ok = preferences.putBytes("setup_block", &setup, sizeof(Setup)) == sizeof(Setup);
+    if (ok)
+        ok = preferences.putUInt(NVS_BLOCK_MAGIC_KEY, NVS_BLOCK_MAGIC_VAL) == sizeof(uint32_t);
 
-    // FIX D: Write-Verify — sofort zurückschauen
+    Setup verifyBuf;
+    if (ok)
     {
-        Setup verifyBuf;
-        uint32_t verifyMagic;
-        size_t vLen = preferences.getBytes("setup_block", &verifyBuf, sizeof(Setup));
-        bool vMagic = preferences.getUInt(NVS_BLOCK_MAGIC_KEY, 0) == NVS_BLOCK_MAGIC_VAL;
-        if (vLen != sizeof(Setup) || !vMagic)
-        {
-            LOG_ERROR(TAG_EPPROM, "eprom_storeSetup: NVS write-verify FAILED! len=%u magic=%d", (unsigned)vLen, vMagic);
-        }
+        const size_t len = preferences.getBytes("setup_block", &verifyBuf, sizeof(Setup));
+        ok = len == sizeof(Setup)
+            && preferences.getUInt(NVS_BLOCK_MAGIC_KEY, 0) == NVS_BLOCK_MAGIC_VAL
+            && memcmp(&setup, &verifyBuf, sizeof(Setup)) == 0;
     }
-
     preferences.end();
-    LOG_DEBUG("EEPROM", "Store end");
+    if (ok)
+        s_stammDataUpdateWatch.store(true);
+    else
+        LOG_ERROR(TAG_EPPROM, "eprom_storeSetup: NVS write/verify failed");
+    return ok;
 }
 
 void eprom_isInit()

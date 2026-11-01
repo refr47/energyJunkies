@@ -48,7 +48,7 @@ static void ajaxCalls_unlock(SemaphoreHandle_t mutex);
 static void returnFromStoreSetup(bool inputCorrect,
                                  JsonDocument &result,
                                  AsyncWebServerRequest *request,
-                                 const char *caller);
+                                 const char *caller, unsigned errorCode = 400);
 
 void delayedRestartTask(void *param);
 
@@ -421,10 +421,12 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     LOG_INFO(TAG_AJAX, "jaxCallsHandleStoreSetup::free stack words: %u", (unsigned)stackRemaining);
     JsonDocument result;
 
-    auto docPtr = my_make_unique<JsonDocument>();
-    *docPtr = json;
-    JsonObject jsonObj = docPtr->as<JsonObject>();
-    // JsonObject jsonObj = json.as<JsonObject>();
+    if (!json.is<JsonObject>())
+    {
+        result["error"] = "JSON object required";
+        returnFromStoreSetup(false, result, request, "invalid root");
+        return;
+    }
 
     CALLBACK_SET_SETUP_CHANGED cb = nullptr;
 
@@ -438,8 +440,6 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     cb = g_setSetupChangedCallback;
     ajaxCalls_unlock(g_ajaxMutex);
     LOG_DEBUG(TAG_AJAX, "===========> cb: %d", cb == NULL);
-    if (cb)
-        cb(false); // for hotupdate, mal alles deaktivieren
 
     // FIX B: Bestehende NVS-Daten als Basis laden → Felder ohne JSON-Schlüssel
     // behalten ihre gespeicherten Werte (keine Stack-Müll-Korruption!)
@@ -461,12 +461,12 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         if (key == NULL)
         {
             LOG_DEBUG(TAG_AJAX, "No Key available");
-            jsonObj["error"] = "No Key available";
+            result["error"] = "No Key available";
             allSuccessful = false;
         }
         else
         {
-            if (!json[key].isNull())
+            if (json.as<JsonObject>().containsKey(key))
             {
                 // WICHTIG: setup ist jetzt auf dem Stack
                 if (!setupFields[i]->update(setup, json[key]))
@@ -474,9 +474,9 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
                     allSuccessful = false;
                     /*char buf[50];
                     sprintf(buf, "Wrong type or null value for key: %s.", key);
-                    strcpy(jsonObj["error"],buf);*/
+                    strcpy(result["error"],buf);*/
                     LOG_DEBUG(TAG_AJAX, "Wrong type or null value for key: %s", key);
-                    jsonObj["error"] = "Wrong type or null value for ";
+                    result["error"] = String("Wrong type or null value for ") + key;
                 }
             }
         }
@@ -498,18 +498,15 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
 
     LOG_DEBUG(TAG_AJAX, "Try to write Eprom in calling task.");
 
-    eprom_storeSetup(setup);
-
-    /*  if (!appTask_epromWriter(std::move(setup)))
-     {
-         result["error"] = "queue full";
-         returnFromStoreSetup(false, result, request);
-         vTaskDelay(pdMS_TO_TICKS(2000));
-         return;
-     } */
-    returnFromStoreSetup(true, result, request, "caller 2");
+    if (!eprom_storeSetup(setup))
+    {
+        result["error"] = "failed to persist setup";
+        returnFromStoreSetup(false, result, request, "NVS write", 500);
+        return;
+    }
     if (cb)
         cb(true);
+    returnFromStoreSetup(true, result, request, "stored");
     LOG_DEBUG(TAG_AJAX, "EXIT with isAppMod: %d", isAPModus);
     if (isAPModus)
     {
@@ -533,7 +530,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
 
 void delayedRestartTask(void *param)
 {
-    uint32_t delayMs = (uint32_t)param;
+    const uint32_t delayMs = *static_cast<const uint32_t *>(param);
 
     LOG_DEBUG(TAG_AJAX, "delayedRestartTask - restart ing in several secs ");
     vTaskDelay(pdMS_TO_TICKS(delayMs));
@@ -548,7 +545,7 @@ void delayedRestartTask(void *param)
 static void returnFromStoreSetup(bool inputCorrect,
                                  JsonDocument &result,
                                  AsyncWebServerRequest *request,
-                                 const char *caller)
+                                 const char *caller, unsigned errorCode)
 {
     String response;
     unsigned httpCode = 200;
@@ -561,16 +558,15 @@ static void returnFromStoreSetup(bool inputCorrect,
     else
     {
         result["done"] = 0;
-        if (!result["error"].isNull())
+        if (result["error"].isNull())
         {
             result["error"] = "invalid input";
         }
-        httpCode = 500;
+        httpCode = errorCode;
         LOG_ERROR(TAG_AJAX, "ReturnFromStoreSetup(ERRORS) , caller: %s", caller);
     }
-    LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
-
     serializeJson(result, response);
+    LOG_INFO(TAG_AJAX, "Send AJAX Data %s", response.c_str());
     request->send(httpCode, "application/json", response);
 }
 

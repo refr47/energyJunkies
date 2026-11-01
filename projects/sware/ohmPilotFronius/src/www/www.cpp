@@ -50,6 +50,76 @@ static AsyncWebServer server(80);
 static bool isAuthenticated = false;
 static bool isAPModus = false; // only in APModus a reboot is required
 
+// The request destructor frees _tempObject, including on disconnect.
+static constexpr size_t STORE_SETUP_MAX_BODY = 16384;
+struct StoreSetupBody
+{
+    size_t expected;
+    size_t received;
+    bool invalid;
+};
+
+static void collectStoreSetupBody(AsyncWebServerRequest *request, uint8_t *data,
+                                  size_t len, size_t index, size_t total)
+{
+    if (index == 0 && total > 0 && total <= STORE_SETUP_MAX_BODY && !request->_tempObject)
+    {
+        auto *body = static_cast<StoreSetupBody *>(malloc(sizeof(StoreSetupBody) + total));
+        if (!body)
+            return;
+        body->expected = total;
+        body->received = 0;
+        body->invalid = false;
+        request->_tempObject = body;
+    }
+    auto *body = static_cast<StoreSetupBody *>(request->_tempObject);
+    if (!body || body->invalid)
+        return;
+    if (total != body->expected || index != body->received || len > body->expected - body->received)
+    {
+        body->invalid = true;
+        return;
+    }
+    memcpy(reinterpret_cast<char *>(body + 1) + index, data, len);
+    body->received += len;
+}
+
+static void handleStoreSetupRequest(AsyncWebServerRequest *request)
+{
+    if (request->contentLength() > STORE_SETUP_MAX_BODY)
+    {
+        request->send(413, "application/json", "{\"done\":0,\"error\":\"body too large\"}");
+        return;
+    }
+    auto *body = static_cast<StoreSetupBody *>(request->_tempObject);
+    if (!body)
+    {
+        const bool empty = request->contentLength() == 0;
+        request->send(empty ? 400 : 500, "application/json",
+                      empty ? "{\"done\":0,\"error\":\"empty or unsupported body\"}"
+                            : "{\"done\":0,\"error\":\"out of memory\"}");
+        return;
+    }
+    if (body->invalid || body->received != body->expected)
+    {
+        request->send(400, "application/json", "{\"done\":0,\"error\":\"incomplete or invalid body\"}");
+        return;
+    }
+    JsonDocument doc;
+    // Const input makes ArduinoJson own its strings before the buffer is freed.
+    const char *json = reinterpret_cast<const char *>(body + 1);
+    DeserializationError error = deserializeJson(doc, json, body->received);
+    free(body);
+    request->_tempObject = nullptr;
+    if (error)
+    {
+        request->send(error == DeserializationError::NoMemory ? 500 : 400,
+                      "application/json", "{\"done\":0,\"error\":\"cannot parse JSON\"}");
+        return;
+    }
+    ajaxCalls_handleStoreSetup(doc, request, isAPModus);
+}
+
 static void handleLogin(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
 {
 
@@ -163,48 +233,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     server.on("/login", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, handleLogin);
     server.on("/getSetup", HTTP_GET, ajaxCalls_handleGetSetup);
     server.on("/clearLogs", HTTP_POST, ajaxCalls_handleClearLogs);
-    server.on("/storeSetup", HTTP_POST, [](AsyncWebServerRequest *request)
-              {
-                  // Dieser Teil bleibt leer, da wir den Body-Handler nutzen
-              },
-              NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
-              {
-                // 1. Alle Chunks sammeln (_tempObject = Body-Puffer)
-                if (index == 0) {
-                    request->_tempObject = nullptr;
-                }
-                char *buf = (char *)request->_tempObject;
-                if (!buf) {
-                    buf = new (std::nothrow) char[total + 1];
-                    if (!buf) {
-                        request->send(500, "application/json", "{\"done\":false, \"msg\":\"ENOMEM\"}");
-                        request->_tempObject = nullptr;
-                        return;
-                    }
-                    request->_tempObject = buf;
-                }
-                if (buf && index + len <= (size_t)total) {
-                    memcpy(buf + index, data, len);
-                    buf[index + len] = '\0';
-                }
-                if (index + len == total) {
-                    // BUGFIX: JSON aus GESAMTLICHEN Body, nicht aus letztem Chunk
-                    JsonDocument doc;
-                    DeserializationError error = (buf) ? deserializeJson(doc, buf) : deserializeJson(doc, data, len);
-                    LOG_INFO(TAG_WEB, "/storeSetup: len: %u , index: %u, total: %u", len, index, total);
-                    if (!error)
-                    {
-                        LOG_INFO(TAG_WEB, "/storeSetup: JSON OK");
-                        ajaxCalls_handleStoreSetup(doc, request, isAPModus);
-                    }
-                    else
-                    { 
-                        LOG_INFO(TAG_WEB, "/storeSetup: JSON Error");
-                        request->send(400, "application/json", "{\"done\":false, \"msg\":\"JSON Error\"}");
-                    }
-                    request->_tempObject = nullptr;
-                    if (buf) delete[] buf;
-                } });
+    server.on("/storeSetup", HTTP_POST, handleStoreSetupRequest, nullptr, collectStoreSetupBody);
 
     // --- API-Handler VOR serveStatic registrieren! ---
     // ESPAsyncWebServer evaluiert Routen in Registrierungsreihenfolge.
