@@ -14,6 +14,7 @@ static void error(JsonArray errors, const char *field, const char *message)
 void setupDefaults(Setup &s)
 {
     s = Setup{};
+    s.akkuPriori = 1; // Preserve the evening reserve by default.
     strlcpy(s.ssid, EMPTY_VALUE_IN_SETUP, sizeof(s.ssid));
     s.heizstab_leistung_in_watt = 4500;
     s.phasen_leistung_in_watt = 1500;
@@ -117,7 +118,7 @@ bool validateSetup(Setup &s, JsonArray errors)
     if (c.holdSeconds < 1 || c.holdSeconds > 86400) error(errors, "energy_hold_seconds", "Erlaubt sind 1 bis 86400 Sekunden");
     if (!s.heizstab_leistung_in_watt || s.heizstab_leistung_in_watt > INT_MAX)
         error(errors, HEIZSTABLEISTUNG, "Positive Leistung im unterstuetzten Ganzzahlbereich erwartet");
-    if (s.akkuPriori < 0 || s.akkuPriori > 2) error(errors, AKKU_PRIORI, "Erlaubt sind 0, 1 und 2");
+    if (s.akkuPriori < 0 || s.akkuPriori > 1) error(errors, AKKU_PRIORI, "Erlaubt sind 0 und 1");
     if (s.tempMinInGrad > s.tempMaxAllowedInGrad) error(errors, TEMP_EINSCHALT, "Mindesttemperatur darf Maximaltemperatur nicht uebersteigen");
     if (!std::isfinite(s.epsilonML_PinManager) || s.epsilonML_PinManager <= 0) error(errors, PID_EPSILON, "Endliche Zahl groesser als 0 erwartet");
     if (s.forceHeating != 0 && s.forceHeating != 1 && s.forceHeating != 2 && s.forceHeating != 3 && s.forceHeating != 10)

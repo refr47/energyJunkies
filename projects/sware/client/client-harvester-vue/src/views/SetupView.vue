@@ -87,8 +87,12 @@
                 </label>
               </div>
 
-              <ConfigInput v-if="setup.akku_vorhanden" label="Priorität (0 = Niedrig, 1 = Hoch)"
+              <ConfigInput v-if="setup.akku_vorhanden" label="Priorität (0 = Heizpatrone zuerst, 1 = Akku zuerst)"
                 v-model="setup.akku_priori" type="number" min="0" max="1" />
+              <p v-if="setup.akku_vorhanden" class="mt-2 text-sm text-slate-500">
+                Beide Modi schützen vor Akkuentladung im Automatikbetrieb. Akku zuerst:
+                Heizfreigabe ab 90 %, erneute Sperre unter 88 %.
+              </p>
             </div>
           </div>
         </div>
@@ -181,7 +185,7 @@ const setup = ref({
 
   // Energiemanagement
   akku_vorhanden: false,
-  akku_priori: 0,
+  akku_priori: 1,
 
   // Daten-Schnittstellen (MQTT / Influx)
   mqtt_enabled: false,

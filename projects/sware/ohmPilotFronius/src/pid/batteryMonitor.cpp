@@ -30,6 +30,7 @@ void BatteryMonitor::update(float gridPower, float battPower, float soc,
         m_emaSurplus = 0;
         m_emaInitialized = false;
         m_budgetDirty = true;
+        m_socReleased = false;
     }
     if (m_sampleSequence != sampleSequence && sampleSequence != 0) {
         m_gridPower = gridPower;
@@ -37,8 +38,18 @@ void BatteryMonitor::update(float gridPower, float battPower, float soc,
         m_soc = soc;
         m_heaterPowerAtSample = heaterPowerAtSample;
         m_sampleSequence = sampleSequence;
+        // Recovery advances only on fresh meter samples, never on control ticks.
+        if (m_battPower > BAT_POWER_TRESHOLD) {
+            m_dischargeBlocked = true;
+            m_clearDischargeSamples = 0;
+        } else if (m_dischargeBlocked &&
+                   ++m_clearDischargeSamples >= DISCHARGE_RELEASE_SAMPLES) {
+            m_dischargeBlocked = false;
+        }
         m_budgetDirty = true;
     }
+    if (m_soc >= SOC_RELEASE) m_socReleased = true;
+    else if (m_soc < SOC_BLOCK) m_socReleased = false;
     m_akkuPriori = akkuPriori;
     m_wattSetupForTest = wattSetupForTest;
 }
@@ -72,14 +83,12 @@ int BatteryMonitor::getAvailablePower(bool &outWattBiasForTest)
     if (m_sampleSequence == 0) {
         return 0;
     }
-    const bool allowDischarge = m_akkuPriori == BAT_PRIORITY_ALLOW_DISCHARGE;
-    const bool chargePriority = m_akkuPriori > BAT_PRIORITY_OFF;
+    const bool chargePriority = m_akkuPriori != BAT_PRIORITY_OFF;
 
-    // Modes 0 and 1 must not heat from the battery. Mode 2 allows it.
-    // Reset history so a later release cannot reuse an old surplus.
-    if ((!allowDischarge && m_battPower > BAT_POWER_TRESHOLD) ||
-        (chargePriority && !allowDischarge && m_soc > 0 &&
-         m_soc < BatteryMonitor::BATT_THRESHOLD)) {
+    // Neither priority may heat from the battery. SOC=0 denotes no battery.
+    // Reset history so release cannot reuse an old surplus.
+    if (m_dischargeBlocked ||
+        (chargePriority && m_soc > 0 && !m_socReleased)) {
         m_emaSurplus = 0;
         m_emaInitialized = false;
         LOG_INFO(TAG_BATT, "BLOCKED battery batt=%.0fW soc=%.0f%% priority=%d",

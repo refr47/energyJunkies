@@ -5,7 +5,6 @@
 
 #define BAT_PRIORITY_OFF 0
 #define BAT_PRIORITY_ON  1
-#define BAT_PRIORITY_ALLOW_DISCHARGE 2
 #define BAT_POWER_TRESHOLD 30  // Discharge tolerance in watts
 // =============================================================================
 // BatteryMonitor — Battery & Grid Surplus Monitoring
@@ -45,7 +44,7 @@ public:
 
 private:
     // ── Configuration ────────────────────────────────────────────────────
-    int m_akkuPriori = 0;        // 0=release charging power, 1=charge first, 2=allow discharge
+    int m_akkuPriori = 0;        // 0=heater first, 1=battery first; both prevent discharge
 
     // ── Live data (updated via update()) ─────────────────────────────────
     float m_gridPower = 0;       // Grid power (W), negative = feeding
@@ -63,5 +62,10 @@ private:
     bool  m_emaInitialized = false;
 
     static constexpr float EMA_ALPHA = 0.15f;
-    static constexpr int   BATT_THRESHOLD = 40; // SOC threshold (%)
+    bool m_socReleased = false;
+    bool m_dischargeBlocked = false;
+    unsigned m_clearDischargeSamples = 0;
+    static constexpr int SOC_RELEASE = 90;
+    static constexpr int SOC_BLOCK = 88;
+    static constexpr unsigned DISCHARGE_RELEASE_SAMPLES = 3;
 };

@@ -19,6 +19,10 @@ int main()
 {
     Setup s; setupDefaults(s);
     assert(s.legionellenDelta == 168 && s.phasen_leistung_in_watt == 1500);
+    assert(s.akkuPriori == 1);
+    assert(!patch(s, R"({"akku_priori":2})", 1));
+    assert(patch(s, R"({"akku_priori":0})"));
+    assert(patch(s, R"({"akku_priori":1})"));
     assert(patch(s, "{}"));
     assert(patch(s, R"({"mqtt_server_ip":null,"influx_server_ip":"","influx_token":null})"));
     Setup before = s;
@@ -42,6 +46,14 @@ int main()
     assert(!eprom_test_write_Eprom("test", "pass"));
     Preferences::failWrite = false;
     auto saved = Preferences::blobs["setup_v2"];
+    JsonDocument retired;
+    assert(!deserializeJson(retired, saved.data(), saved.size()));
+    retired["settings"]["akku_priori"] = 2;
+    std::string retiredPayload;
+    serializeJson(retired, retiredPayload);
+    Preferences::blobs["setup_v2"].assign(retiredPayload.begin(), retiredPayload.end());
+    assert(eprom_getSetup(loaded) && loaded.akkuPriori == 1);
+    Preferences::blobs["setup_v2"] = saved;
     Preferences::blobs["setup_v2"][0] = '!';
     assert(!eprom_getSetup(loaded));
     assert(!strcmp(loaded.ssid, EMPTY_VALUE_IN_SETUP));
@@ -69,12 +81,14 @@ int main()
     old.tempMinInGrad = 10; old.tempMaxAllowedInGrad = 70;
     old.legionellenDelta = 168; old.legionellenMaxTemp = 65;
     old.epsilonML_PinManager = 0.1;
+    old.akkuPriori = 2;
     Preferences::blobs.clear(); Preferences::magic = 0xDEADBEEF; Preferences::schema = 1;
     auto *bytes = reinterpret_cast<unsigned char *>(&old);
     Preferences::blobs["setup_block"].assign(bytes, bytes + sizeof(old));
     const auto legacy = Preferences::blobs["setup_block"];
     assert(eprom_getSetup(loaded, &first) && first == 1);
     assert(!strcmp(loaded.ssid, "legacy-wifi") && loaded.mqttEnabled && loaded.mqttPort == 1883);
+    assert(loaded.akkuPriori == 1);
     assert(!loaded.influxEnabled && loaded.energyPolling.daySeconds == 40);
     assert(eprom_storeSetup(loaded, &second) && second == 2);
     assert(Preferences::blobs["setup_block"] == legacy);

@@ -7,6 +7,7 @@
 #include "utils.h"
 #include "eprom.h"
 #include "setupValidation.h"
+#include "ajaxConst.h"
 #include "setupLegacy.h"
 #include <memory>
 
@@ -103,6 +104,9 @@ bool eprom_getSetup(Setup &setup, uint32_t *revision)
         // Stored documents are full snapshots, not partial HTTP patches.
         for (size_t i = 0; i < setupFieldsCount; ++i)
             if (fields[setupFields[i]->getKey()].isNull()) return false;
+        // Retired discharge mode migrates to battery priority on load only.
+        if (fields[AKKU_PRIORI].is<int>() && fields[AKKU_PRIORI].as<int>() == 2)
+            fields[AKKU_PRIORI] = 1;
         JsonDocument errors;
         Setup candidate;
         setupDefaults(candidate);
@@ -133,7 +137,7 @@ bool eprom_getSetup(Setup &setup, uint32_t *revision)
     memcpy(candidate.inverter, old.inverter, sizeof(candidate.inverter));
     memcpy(candidate.currentIP, old.currentIP, sizeof(candidate.currentIP));
     candidate.akku = old.akku;
-    candidate.akkuPriori = old.akkuPriori;
+    candidate.akkuPriori = old.akkuPriori == 2 ? 1 : old.akkuPriori;
     candidate.legionellenDelta = old.legionellenDelta;
     candidate.legionellenMaxTemp = old.legionellenMaxTemp;
     memcpy(candidate.amisKey, old.amisKey, sizeof(candidate.amisKey));

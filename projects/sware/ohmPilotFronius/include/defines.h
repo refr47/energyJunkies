@@ -147,7 +147,7 @@ typedef struct
     char currentIP[INET_ADDRSTRLEN + 1];
 
     bool akku;
-    short akkuPriori; // 1 oder 2, je nachdem, ob Akku vorrangig behandelt werden soll oder nicht
+    short akkuPriori; // 0=Heizpatrone zuerst, 1=Akku zuerst; keine Akkuentladung
     // unsigned int pid_min_time_without_contoller_inMS;
     unsigned int legionellenDelta;
     unsigned int legionellenMaxTemp;
