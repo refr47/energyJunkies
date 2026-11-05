@@ -79,16 +79,38 @@ bool influx_write(WEBSOCK_DATA &webSockData)
     // ── energyState ist quelle-agnostisch befüllt ──
     if (webSockData.setupData.akku)
     {
-        energy.addField("akku", webSockData.energyState.p_akku);
+        energy.addField("batteryPresent", true);
+        energy.addField("batteryPowerW", webSockData.energyState.p_akku);
+        energy.addField("batterySocPct", webSockData.energyState.soc);
     }
-    energy.addField("grid", webSockData.energyState.p_grid);
-    energy.addField("load", webSockData.energyState.p_load);
-    energy.addField("pv", webSockData.energyState.p_pv);
-    energy.addField("availableWatt",
-        webSockData.energyState.p_pv + webSockData.energyState.p_akku + webSockData.energyState.p_load);
+    else energy.addField("batteryPresent", false);
+    energy.addField("gridPowerW", webSockData.energyState.p_grid);
+    energy.addField("loadPowerW", webSockData.energyState.p_load);
+    energy.addField("pvPowerW", webSockData.energyState.p_pv);
+    // Existing sign convention: positive grid means import, negative means export.
+    // This is a measured grid surplus, not the PID's available heater budget.
+    energy.addField("gridSurplusW", -webSockData.energyState.p_grid);
+    energy.addField("availableWatt", -webSockData.energyState.p_grid); // compatibility
+    energy.addField("heaterPowerW", webSockData.pidContainer.mCurrentPower);
+    energy.addField("heaterBudgetW", webSockData.pidContainer.availableHeatingPowerW);
+    energy.addField("energyValid", webSockData.energyState.valid);
+    energy.addField("energySaving", webSockData.energyState.saving);
+    energy.addField("energyNight", webSockData.energyState.night);
+    energy.addField("sampleSequence", static_cast<int64_t>(webSockData.energyState.sampleSequence));
+    energy.addField("sampleAgeMs", static_cast<int64_t>(uint32_t(millis() - webSockData.energyState.sampledAt)));
     energy.addField("pwm", webSockData.pidContainer.mAnalogOut);
     energy.addField("relay1", webSockData.pidContainer.PID_PIN1);
     energy.addField("relay2", webSockData.pidContainer.PID_PIN2);
+    energy.addField("weatherForecastValid", webSockData.pidContainer.forecastValid);
+    energy.addField("weatherForecastValidUntil", webSockData.pidContainer.forecastValidUntil);
+    energy.addField("pvForecastTodayWh", webSockData.pidContainer.forecastTodayWh);
+    energy.addField("pvForecastRemainingTodayWh", webSockData.pidContainer.forecastRemainingTodayWh);
+    energy.addField("pvForecastTomorrowWh", webSockData.pidContainer.forecastTomorrowWh);
+    energy.addField("pvForecastDayAfterTomorrowWh", webSockData.pidContainer.forecastDayAfterTomorrowWh);
+    energy.addField("weatherBonusC", webSockData.pidContainer.weatherBonus);
+    energy.addField("weatherPvRatio", webSockData.pidContainer.weatherPvRatio);
+    energy.addField("weatherCloudAverage", webSockData.pidContainer.weatherCloudAvg);
+    energy.addField("weatherOutsideTempC", webSockData.pidContainer.weatherOutTemp);
 
     boiler.addField("temperature1", webSockData.temperature.sensor1);
     boiler.addField("temperature2", webSockData.temperature.sensor2);

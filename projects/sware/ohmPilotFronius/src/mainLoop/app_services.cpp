@@ -586,6 +586,12 @@ void servicePid()
     {
     // Wetter-Bonus + TinyNN-Features
         const PROGNOSE forecast = weatherSnapshot();
+        g_app.webSockData.pidContainer.forecastValid = forecast.valid;
+        g_app.webSockData.pidContainer.forecastValidUntil = forecast.valid ? forecast.validUntil : 0;
+        g_app.webSockData.pidContainer.forecastTodayWh = forecast.forecastToday;
+        g_app.webSockData.pidContainer.forecastRemainingTodayWh = forecast.forecastRemainingToday;
+        g_app.webSockData.pidContainer.forecastTomorrowWh = forecast.forecastTomorrow;
+        g_app.webSockData.pidContainer.forecastDayAfterTomorrowWh = forecast.forecastDayAfterTomorrow;
         int bonus = forecast.preheatBonus;
         float pvRatio = forecast.pvRatio;
         float cloud = forecast.cloudAverage;

@@ -350,6 +350,7 @@ void PinManager::execModeAuto(int temp, unsigned long now, bool doML,
 
     // ── Compute available PV surplus (single source of truth) ──
     int measuredPower = batteryMon.getAvailablePower(m_out_wattBiasForTest);
+    webSockData.pidContainer.availableHeatingPowerW = measuredPower;
 
     if (measuredPower <= 0) {
         execModeOff(logEntry);
