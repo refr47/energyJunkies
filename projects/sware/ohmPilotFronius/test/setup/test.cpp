@@ -20,6 +20,9 @@ int main()
     Setup s; setupDefaults(s);
     assert(s.legionellenDelta == 168 && s.phasen_leistung_in_watt == 1500);
     assert(s.akkuPriori == 1);
+    assert(!s.gridDemand.enabled && !s.gridDemand.enforceLimit && s.gridDemand.limitW == 10000);
+    assert(!patch(s, R"({"grid_demand_limit_w":0})", 1));
+    assert(patch(s, R"({"grid_demand_enabled":true,"grid_demand_enforce_limit":true,"grid_demand_limit_w":9000})"));
     assert(!patch(s, R"({"akku_priori":2})", 1));
     assert(patch(s, R"({"akku_priori":0})"));
     assert(patch(s, R"({"akku_priori":1})"));
@@ -46,6 +49,17 @@ int main()
     assert(!eprom_test_write_Eprom("test", "pass"));
     Preferences::failWrite = false;
     auto saved = Preferences::blobs["setup_v2"];
+    JsonDocument oldDemand;
+    assert(!deserializeJson(oldDemand, saved.data(), saved.size()));
+    oldDemand["settings"].remove("grid_demand_enabled");
+    oldDemand["settings"].remove("grid_demand_enforce_limit");
+    oldDemand["settings"].remove("grid_demand_limit_w");
+    std::string oldPayload;
+    serializeJson(oldDemand, oldPayload);
+    Preferences::blobs["setup_v2"].assign(oldPayload.begin(), oldPayload.end());
+    assert(eprom_getSetup(loaded) && !loaded.gridDemand.enabled && loaded.gridDemand.limitW == 10000);
+    Preferences::blobs["setup_v2"] = saved;
+    assert(eprom_getSetup(loaded) && loaded.gridDemand.enabled && loaded.gridDemand.enforceLimit && loaded.gridDemand.limitW == 9000);
     JsonDocument retired;
     assert(!deserializeJson(retired, saved.data(), saved.size()));
     retired["settings"]["akku_priori"] = 2;

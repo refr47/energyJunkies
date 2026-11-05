@@ -1,3 +1,4 @@
+#include <time.h>
 // =============================================================================
 // pinManager.cpp — PinManager Implementation for OhmPilot
 //
@@ -298,9 +299,7 @@ bool PinManager::stepForceHeat(int temp, int effectiveMax, unsigned long now,
             return true;
         }
         legionella = false;
-        allOn();
-        LogCommitter::commit(now, (uint8_t)MODE_MANUAL, phaseCtrl.getOnePhase() * 3,
-                            (uint8_t)OUTPUT_MAX, temp, webSockData);
+        applyFullPower(MODE_MANUAL, temp, now, webSockData);
         pidLockWrite(webSockData);
         return true;
     }
@@ -313,9 +312,7 @@ void PinManager::execModeLegionella(int temp, unsigned long now,
                                     WEBSOCK_DATA& webSockData)
 {
     legionella = true;
-    allOn();
-    LogCommitter::commit(now, (uint8_t)MODE_LEGIONELLA, phaseCtrl.getOnePhase() * 3,
-                        (uint8_t)OUTPUT_MAX, temp, webSockData);
+    applyFullPower(MODE_LEGIONELLA, temp, now, webSockData);
     pidLockWrite(webSockData);
 }
 // ──────────────────────────────────────────────────────────────────────────
@@ -324,9 +321,7 @@ void PinManager::execModeLegionella(int temp, unsigned long now,
 void PinManager::execModeMinTemp(int temp, unsigned long now,
                                  WEBSOCK_DATA& webSockData)
 {
-    allOn();
-    LogCommitter::commit(now, (uint8_t)MODE_MIN_TEMP, phaseCtrl.getOnePhase() * 3,
-                        (uint8_t)OUTPUT_MAX, temp, webSockData);
+    applyFullPower(MODE_MIN_TEMP, temp, now, webSockData);
     pidLockWrite(webSockData);
 }
 // ──────────────────────────────────────────────────────────────────────────
@@ -372,7 +367,8 @@ void PinManager::execModeAuto(int temp, unsigned long now, bool doML,
     // ── Smoothed logging state ──
     lastSmoothedPower = targetPower;
     // ── Apply target power to hardware ──
-    phaseCtrl.apply(targetPower, logEntry);
+    applyDemandPower(targetPower, logEntry, webSockData);
+    targetPower = logEntry.power;
     // ── Boiler heating state ──
     m_out_boilerHeating = (phaseCtrl.getActivePhases() > 0 || phaseCtrl.getPwm() > 0);
     // ── Log entry fields ──
@@ -454,6 +450,12 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
     stepPrepare(webSockData, tempMaxBonusC, pvRatio, cloudAvg, tempOutside, forecastValid);
 
     unsigned long now = millis();
+    const auto &sample = webSockData.energyState;
+    gridDemand.update(webSockData.setupData.gridDemand, time(nullptr), now,
+        sample.night || isEnergyNight(webSockData.setupData.energyPolling),
+        sample.valid, sample.sampleSequence, sample.sampledAt, sample.p_grid,
+        sample.heaterPowerAtSample, energyMaxAge(webSockData.setupData.energyPolling, sample.saving));
+    webSockData.gridDemand = gridDemand.state();
     int temp = resolveInputTemp();
     int effectiveMax = std::min(WEATHER_PREHEAT_MAX_SAFE, m_tempMaxAllowed + m_weatherBonus);
 
@@ -477,4 +479,36 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
 
     // ── 4. Normal control loop ──
     stepControlMode(temp, effectiveMax, now, webSockData);
+}
+
+void PinManager::applyDemandPower(int requested, LogEntry &entry, WEBSOCK_DATA &data)
+{
+    const int power = gridDemand.limitHeating(requested);
+    phaseCtrl.apply(power, entry);
+    // Relay dwell/deadband must not retain output above an enforced demand cap.
+    if (gridDemand.state().enabled && gridDemand.state().enforceLimit &&
+        gridDemand.state().maxHeaterPowerW >= 0 &&
+        phaseCtrl.getHeaterPower() > gridDemand.state().maxHeaterPowerW) {
+        phaseCtrl.allOff();
+        phaseCtrl.apply(power, entry);
+    }
+    entry.power = phaseCtrl.getHeaterPower();
+    data.gridDemand = gridDemand.state();
+    m_out_boilerHeating = phaseCtrl.getHeaterPower() > 0;
+}
+
+void PinManager::applyFullPower(uint8_t mode, int temp, unsigned long now, WEBSOCK_DATA &data)
+{
+    LogEntry entry;
+    LogCommitter::fillEntry(entry, now, mode, 0, 0, temp);
+    const int full = phaseCtrl.getOnePhase() * 3;
+    if (gridDemand.limitHeating(full) == full) {
+        allOn();
+        entry.power = full;
+        entry.pwm = OUTPUT_MAX;
+        m_out_boilerHeating = true;
+        data.gridDemand = gridDemand.state();
+    } else applyDemandPower(full, entry, data);
+    entry.state = mode;
+    LogCommitter::writeToLog(entry, data);
 }

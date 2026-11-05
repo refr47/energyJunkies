@@ -45,6 +45,9 @@ private:
 
     // ── Battery & Grid Monitor ──
     BatteryMonitor batteryMon;
+    GridDemandAspect gridDemand;
+    void applyDemandPower(int requested, LogEntry &entry, WEBSOCK_DATA &data);
+    void applyFullPower(uint8_t mode, int temp, unsigned long now, WEBSOCK_DATA &data);
 
     // ── ML Prediction & Training ──
     MlPredictor mlPredictor;

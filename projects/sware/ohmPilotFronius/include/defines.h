@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "energyPolling.h"
+#include "gridDemandAspect.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <WiFi.h>
@@ -174,6 +175,7 @@ typedef struct
     unsigned short mqttPort;
     bool influxEnabled;
     EnergyPollingConfig energyPolling;
+    GridDemandConfig gridDemand;
 
 } Setup;
 
@@ -367,6 +369,7 @@ struct RingBuffer
 typedef struct _WEBSOCK
 {
     ENERGY_STATE energyState;
+    GridDemandState gridDemand;
     // Setup setup;
     TEMPERATURE temperature;
     PID_CONTAINER pidContainer;

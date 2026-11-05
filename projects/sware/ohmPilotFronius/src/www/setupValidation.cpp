@@ -108,6 +108,7 @@ bool validateSetup(Setup &s, JsonArray errors)
         if (!s.influxSetup.influxBucket[0]) error(errors, WWW_INFLUX_BUCKET, "Bei aktiviertem Influx erforderlich");
     }
     if (!s.mqttPort) error(errors, "mqtt_port", "Port muss zwischen 1 und 65535 liegen");
+    if (s.gridDemand.limitW < 100 || s.gridDemand.limitW > 1000000) error(errors, "grid_demand_limit_w", "Erlaubt sind 100 bis 1000000 Watt");
     const auto &c = s.energyPolling;
     if (c.daySeconds < 5 || c.daySeconds > 3600) error(errors, "energy_day_seconds", "Erlaubt sind 5 bis 3600 Sekunden");
     if (c.savingSeconds < 5 || c.savingSeconds < c.daySeconds || c.savingSeconds > 86400) error(errors, "energy_saving_seconds", "Mindestens Normalintervall, maximal 86400 Sekunden");

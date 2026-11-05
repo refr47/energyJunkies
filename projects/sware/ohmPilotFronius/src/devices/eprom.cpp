@@ -101,6 +101,12 @@ bool eprom_getSetup(Setup &setup, uint32_t *revision)
             || doc["schema"] != 2 || !doc["revision"].is<uint32_t>()
             || doc["revision"].as<uint32_t>() == 0 || !doc["settings"].is<JsonObject>()) return false;
         JsonObject fields = doc["settings"];
+        // Migrate snapshots written before the demand aspect (all three absent).
+        if (!fields.containsKey("grid_demand_enabled") && !fields.containsKey("grid_demand_enforce_limit") && !fields.containsKey("grid_demand_limit_w")) {
+            fields["grid_demand_enabled"] = false;
+            fields["grid_demand_enforce_limit"] = false;
+            fields["grid_demand_limit_w"] = 10000;
+        }
         // Stored documents are full snapshots, not partial HTTP patches.
         for (size_t i = 0; i < setupFieldsCount; ++i)
             if (fields[setupFields[i]->getKey()].isNull()) return false;

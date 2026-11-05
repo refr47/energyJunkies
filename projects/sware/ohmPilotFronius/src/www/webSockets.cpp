@@ -60,7 +60,7 @@
 #define STATE_FORCE_HEATING 9  // 1 << 9 = 512
 
 #define FORMAT_BUFFER_LEN 35
-#define JSON_OBJECT_BUFFER_LEN 2048
+#define JSON_OBJECT_BUFFER_LEN 4096
 
 // ──────────────────────────────────────────────────────────────────────────
 // Prototypes
@@ -101,9 +101,47 @@ AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
 
 static double s_prevValueFromSmartMeter = 0.0;
 
+static void buildDemandInterval(JsonObject obj, const GridDemandInterval &value, bool closed)
+{
+    obj["start"] = value.start;
+    obj["end"] = value.start ? value.start + 900 : 0;
+    obj["complete"] = value.start && value.complete;
+    obj["observedSeconds"] = value.observedSeconds;
+    obj["importEnergyWh"] = nullptr;
+    obj["averageImportW"] = nullptr;
+    if (value.observedSeconds > 0) {
+        obj["importEnergyWh"] = value.importEnergyWh;
+        // Partial energy remains visible, but is never presented as a full average.
+        if (value.complete) obj["averageImportW"] = value.importEnergyWh * 3600.0 / (closed ? 900.0 : value.observedSeconds);
+    }
+}
+
+static void buildGridDemand(JsonObject live, const GridDemandState &s)
+{
+    JsonObject obj = live["gridDemand"].to<JsonObject>();
+    obj["enabled"] = s.enabled;
+    obj["enforceLimit"] = s.enforceLimit;
+    obj["limitW"] = s.limitW;
+    obj["status"] = s.status;
+    obj["measurementAgeMs"] = s.measurementAgeMs;
+    obj["limiting"] = s.limiting;
+    obj["maxHeaterPowerW"] = nullptr;
+    if (s.maxHeaterPowerW >= 0) obj["maxHeaterPowerW"] = s.maxHeaterPowerW;
+    JsonObject current = obj["current"].to<JsonObject>();
+    buildDemandInterval(current, s.current, false);
+    current["remainingEnergyWh"] = nullptr;
+    current["allowedRemainingImportW"] = nullptr;
+    if (s.enabled && s.current.start && !strcmp(s.status, "ready")) {
+        current["remainingEnergyWh"] = s.remainingEnergyWh;
+        current["allowedRemainingImportW"] = s.allowedRemainingImportW;
+    }
+    buildDemandInterval(obj["lastCompleted"].to<JsonObject>(), s.lastCompleted, true);
+}
+
 static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
 {
     // ── Alle Werte aus energyState (quelle-agnostisch) ──
+    buildGridDemand(live, data.gridDemand);
     auto &es = data.energyState;
     live["energyValid"] = es.valid;
     live["energySaving"] = es.saving;
@@ -279,6 +317,11 @@ static const char *getJsonObj()
     LOG_DEBUG(TAG_WEB_SOCKETS, "Creating JSON log entries - count: %d", count);
 
     // ── Schritt 5: Serialisieren ────────────────────────────────────────
+    if (doc.overflowed() || measureJson(doc) >= sizeof(jsonObjBuffer)) {
+        xSemaphoreGive(g_jsonMutex);
+        LOG_ERROR(TAG_WEB_SOCKETS, "Live JSON exceeds buffer capacity");
+        return "{}";
+    }
     size_t bytesWritten = serializeJson(doc, jsonObjBuffer);
     jsonObjBuffer[bytesWritten] = '\0';
 

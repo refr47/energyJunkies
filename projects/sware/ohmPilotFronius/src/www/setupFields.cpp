@@ -21,6 +21,9 @@ static void influxBucketSet(Setup &s, const char *v) { strlcpy(s.influxSetup.inf
 // 1. Statische Instanzen der Felder (werden einmalig beim Start angelegt)
 namespace Fields
 {
+    static const LambdaBooleanField<Setup> demandEnabled("grid_demand_enabled", [](const Setup &s) { return s.gridDemand.enabled; }, [](Setup &s, bool v) { s.gridDemand.enabled = v; });
+    static const LambdaBooleanField<Setup> demandEnforce("grid_demand_enforce_limit", [](const Setup &s) { return s.gridDemand.enforceLimit; }, [](Setup &s, bool v) { s.gridDemand.enforceLimit = v; });
+    static const LambdaNumericField<uint32_t, Setup> demandLimit("grid_demand_limit_w", [](const Setup &s) { return s.gridDemand.limitW; }, [](Setup &s, uint32_t v) { s.gridDemand.limitW = v; });
     static const BooleanField<Setup> mqttEnabled("mqtt_enabled", &Setup::mqttEnabled);
     static const NumericField<unsigned short, Setup> mqttPort("mqtt_port", &Setup::mqttPort);
     static const BooleanField<Setup> influxEnabled("influx_enabled", &Setup::influxEnabled);
@@ -62,6 +65,7 @@ namespace Fields
 
 // 2. Das zentrale Array(ebenfalls statisch)
 const FieldBase<Setup> *setupFields[] = {
+    &Fields::demandEnabled, &Fields::demandEnforce, &Fields::demandLimit,
     &Fields::mqttEnabled, &Fields::mqttPort, &Fields::influxEnabled,
     &Fields::daySeconds,
     &Fields::savingSeconds,
