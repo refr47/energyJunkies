@@ -145,13 +145,46 @@
           <p class="mt-3 text-sm text-slate-500">Während der Pause erfolgen keine Energy-Abfragen. Gleiche Start- und Endzeit bedeutet keine Pause. Energieparameter werden ohne Neustart übernommen.</p>
         </div>
 
+        <section class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 lg:col-span-3" aria-labelledby="grid-demand-title">
+          <h2 id="grid-demand-title" class="font-bold mb-3">Netzbezug je Viertelstunde</h2>
+          <p class="text-sm text-slate-600 mb-4">Die Überwachung summiert gemessenen Netzbezug in UTC-Viertelstunden. Die Werte sind Schätzungen und keine Zählerabrechnung.</p>
+          <div class="space-y-3">
+            <label class="flex items-center gap-2"><input type="checkbox" v-model="setup.grid_demand_enabled" /> Viertelstundenwerte überwachen</label>
+            <fieldset :disabled="!setup.grid_demand_enabled" class="space-y-3 disabled:opacity-50">
+              <label class="flex items-center gap-2"><input type="checkbox" v-model="setup.grid_demand_enforce_limit" /> Heizleistung zur Begrenzung des Netzbezugs regeln</label>
+              <div class="max-w-xs"><ConfigInput label="Bezugslimit" v-model="setup.grid_demand_limit_w" type="number" min="100" max="1000000" step="1" unit="W" /></div>
+            </fieldset>
+          </div>
+          <p class="mt-3 text-sm text-slate-500">Die Regelung kann auch manuelles Heizen und Hygieneprogramme verzögern. Bei fehlenden oder veralteten Messwerten stoppt sie die Heizung; während der nächtlichen Abfragepause greift sie nicht.</p>
+          <div v-if="gridDemand" class="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-700" role="status" aria-live="polite">
+            <p class="font-semibold">Aktueller Status: {{ demandStatus }}</p>
+            <p v-if="!isConnected" class="text-amber-700">WebSocket-Verbindung unterbrochen; die angezeigten Werte sind möglicherweise veraltet.</p>
+            <div v-if="gridDemand.enabled" class="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              <p>Intervall: {{ formatInterval(gridDemand.current) }}</p>
+              <p>Gemessener Bezug: {{ formatWh(gridDemand.current?.importEnergyWh) }}</p>
+              <p>Messabdeckung: {{ formatCoverage(gridDemand.current) }}</p>
+              <p>Restbudget: {{ formatWh(gridDemand.current?.remainingEnergyWh) }}</p>
+              <p>Erlaubter Restbezug: {{ formatW(gridDemand.current?.allowedRemainingImportW) }}</p>
+              <p>Heizbegrenzung: {{ gridDemand.enforceLimit ? (gridDemand.limiting ? 'aktiv' : 'derzeit nicht aktiv') : 'aus' }}</p>
+              <p>Maximale Heizleistung: {{ formatW(gridDemand.maxHeaterPowerW) }}</p>
+              <p>Alter der Messung: {{ gridDemand.measurementAgeMs == null ? '–' : `${Math.round(gridDemand.measurementAgeMs / 1000)} s` }}</p>
+              <p>Letztes abgeschlossenes Intervall: {{ formatInterval(gridDemand.lastCompleted) }}</p>
+              <p>Bezug zuletzt: {{ formatWh(gridDemand.lastCompleted?.importEnergyWh) }}</p>
+              <p>Durchschnitt zuletzt: {{ formatW(gridDemand.lastCompleted?.averageImportW) }}</p>
+              <p>Abdeckung zuletzt: {{ formatCoverage(gridDemand.lastCompleted) }}</p>
+            </div>
+            <p v-if="gridDemand.enabled" class="mt-2 text-xs text-slate-500">Unvollständige Intervalle enthalten nur beobachtete Energie. Fehlende Messzeiten werden nicht hochgerechnet.</p>
+          </div>
+          <p v-else class="mt-4 text-sm text-slate-500">Livewerte sind verfügbar, sobald eine WebSocket-Verbindung besteht.</p>
+        </section>
+
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import ConfigInput from '../components/ConfigInput.vue'; // Eine kleine Hilfs-Komponente
 import StatusToast from '../components/StatusToast.vue'; // Importieren
 
@@ -199,6 +232,9 @@ const setup = ref({
   energy_low_pv_watts: 20,
   energy_wake_pv_watts: 50,
   energy_hold_seconds: 300,
+  grid_demand_enabled: false,
+  grid_demand_enforce_limit: false,
+  grid_demand_limit_w: 10000,
   mqtt_server_ip: '',
   mqtt_user: '',
   mqtt_passwd: '',
@@ -216,6 +252,16 @@ const capabilities = ref({ mqtt: false, influx: false });
 const runtimeState = ref({});
 const applyMessage = ref('');
 const saving = ref(false);
+const props = defineProps({ liveData: { type: Object, default: () => ({}) }, isConnected: Boolean });
+const gridDemand = computed(() => props.liveData?.gridDemand ?? null);
+const demandStatus = computed(() => ({
+  disabled: 'deaktiviert', timeInvalid: 'Uhrzeit ungültig', night: 'nächtliche Abfragepause',
+  stale: 'Messwert fehlt oder ist veraltet', collecting: 'Intervall unvollständig', ready: 'Messung vollständig'
+})[gridDemand.value?.status] || 'unbekannt');
+const formatWh = value => value == null || !Number.isFinite(Number(value)) ? '–' : `${Number(value).toLocaleString('de-DE', { maximumFractionDigits: 1 })} Wh`;
+const formatW = value => value == null || !Number.isFinite(Number(value)) ? '–' : `${Math.round(Number(value)).toLocaleString('de-DE')} W`;
+const formatInterval = interval => interval?.start ? `${new Date(interval.start * 1000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}–${new Date(interval.end * 1000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '–';
+const formatCoverage = interval => !interval?.start ? '–' : `${Math.round(interval.observedSeconds ?? 0)} / 900 s (${interval.complete ? 'vollständig' : 'unvollständig'})`;
 let pollTimer;
 let disposed = false;
 
