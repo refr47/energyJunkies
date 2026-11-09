@@ -6,6 +6,7 @@
     <SystemStatusHeader :is-connected="isConnected" :error-list="errorList" />
 
     <WeatherHeatingStatus :live-data="liveData" />
+    <HeatingPlanSummary :plan="liveData?.heatingPlan" />
 
     <div v-if="errorList.length > 0" class="lg:hidden flex flex-col gap-2 mb-6">
       <div
@@ -58,6 +59,7 @@ import SystemStatusHeader from "../components/home/SystemStatusHeader.vue";
 import WeatherHeatingStatus from "../components/home/WeatherHeatingStatus.vue";
 import EnergyForecast from "../components/home/EnergyForecast.vue";
 import BoilerPanel from "../components/home/BoilerPanel.vue";
+import HeatingPlanSummary from "../components/home/HeatingPlanSummary.vue";
 
 const props = defineProps({
   liveData: Object,

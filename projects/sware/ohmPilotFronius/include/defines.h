@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include "energyPolling.h"
 #include "gridDemandAspect.h"
+#include "heatingPlan.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <WiFi.h>
@@ -176,6 +177,7 @@ typedef struct
     bool influxEnabled;
     EnergyPollingConfig energyPolling;
     GridDemandConfig gridDemand;
+    HeatingPlanConfig heatingPlan;
 
 } Setup;
 
@@ -370,6 +372,7 @@ typedef struct _WEBSOCK
 {
     ENERGY_STATE energyState;
     GridDemandState gridDemand;
+    HeatingPlanState heatingPlan;
     // Setup setup;
     TEMPERATURE temperature;
     PID_CONTAINER pidContainer;

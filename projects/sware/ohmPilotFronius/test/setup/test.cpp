@@ -21,6 +21,11 @@ int main()
     assert(s.legionellenDelta == 168 && s.phasen_leistung_in_watt == 1500);
     assert(s.akkuPriori == 1);
     assert(!s.gridDemand.enabled && !s.gridDemand.enforceLimit && s.gridDemand.limitW == 10000);
+    assert(!s.heatingPlan.enabled && s.heatingPlan.boilerLiters == 200);
+    assert(!patch(s, R"({"heating_plan_enabled":true,"heating_plan_emergency_c":5})", 1));
+    assert(patch(s, R"({"heating_plan_enabled":true,"heating_plan_start_minute":1260,"heating_plan_end_minute":360,"heating_plan_emergency_c":2,"heating_plan_boiler_liters":300})"));
+    assert(!patch(s, R"({"heating_plan_start_minute":1440})", 1));
+    assert(patch(s, R"({"heating_plan_enabled":false})"));
     assert(!patch(s, R"({"grid_demand_limit_w":0})", 1));
     assert(patch(s, R"({"grid_demand_enabled":true,"grid_demand_enforce_limit":true,"grid_demand_limit_w":9000})"));
     assert(!patch(s, R"({"akku_priori":2})", 1));
@@ -62,10 +67,16 @@ int main()
     oldDemand["settings"].remove("grid_demand_enabled");
     oldDemand["settings"].remove("grid_demand_enforce_limit");
     oldDemand["settings"].remove("grid_demand_limit_w");
+    oldDemand["settings"].remove("heating_plan_enabled");
+    oldDemand["settings"].remove("heating_plan_start_minute");
+    oldDemand["settings"].remove("heating_plan_end_minute");
+    oldDemand["settings"].remove("heating_plan_emergency_c");
+    oldDemand["settings"].remove("heating_plan_boiler_liters");
     std::string oldPayload;
     serializeJson(oldDemand, oldPayload);
     Preferences::blobs["setup_v2"].assign(oldPayload.begin(), oldPayload.end());
     assert(eprom_getSetup(loaded) && !loaded.gridDemand.enabled && loaded.gridDemand.limitW == 10000);
+    assert(!loaded.heatingPlan.enabled && loaded.heatingPlan.boilerLiters == 200);
     Preferences::blobs["setup_v2"] = saved;
     assert(eprom_getSetup(loaded) && loaded.gridDemand.enabled && loaded.gridDemand.enforceLimit && loaded.gridDemand.limitW == 9000);
     JsonDocument retired;

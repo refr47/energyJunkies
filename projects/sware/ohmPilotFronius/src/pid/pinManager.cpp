@@ -154,6 +154,7 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
     m_sensor2 = webSockData.temperature.sensor2;
     m_tempMaxAllowed = webSockData.setupData.tempMaxAllowedInGrad;
     m_tempMin = webSockData.setupData.tempMinInGrad;
+    m_heatingPlan = webSockData.setupData.heatingPlan;
     m_legionellenMaxTemp = webSockData.setupData.legionellenMaxTemp;
     m_legionellenDelta = webSockData.setupData.legionellenDelta;
     m_forceHeating = webSockData.setupData.forceHeating;
@@ -213,7 +214,7 @@ void PinManager::preCheck(int temp, unsigned long nowMS,
 {
     int effectiveMax = std::min(WEATHER_PREHEAT_MAX_SAFE, m_tempMaxAllowed + m_weatherBonus);
     ThermalController::evaluateMode(
-        temp, effectiveMax, m_tempMin,
+        temp, effectiveMax, m_heatingPlan.enabled ? m_heatingPlan.emergencyC : m_tempMin,
         m_legionellenMaxTemp, m_legionellenDelta,
         nowMS,
         legionella, lastLegionella,
@@ -262,8 +263,9 @@ bool PinManager::stepForceOff(int temp, unsigned long now,
                                WEBSOCK_DATA& webSockData)
 {
     if (m_forceHeatingStop > 0) {
-        if (temp < m_tempMin) {
-            LOG_INFO(TAG_PID, "Force-Stop aufgehoben: Frostschutz (temp=%d < min=%d)", temp, m_tempMin);
+        const int safetyMin = m_heatingPlan.enabled ? m_heatingPlan.emergencyC : m_tempMin;
+        if (temp < safetyMin) {
+            LOG_INFO(TAG_PID, "Force-Stop aufgehoben: Frostschutz (temp=%d < min=%d)", temp, safetyMin);
             legionella = false;
         } else {
             legionella = false;
@@ -388,6 +390,10 @@ void PinManager::stepControlMode(int temp, int effectiveMax, unsigned long now,
     ControlMode mode;
     bool doML;
     preCheck(temp, now, mode, doML);
+    if (mode == MODE_AUTO && webSockData.heatingPlan.requestHeat && temp < m_tempMin) {
+        mode = MODE_MIN_TEMP;
+        doML = false;
+    }
     const auto &sample = webSockData.energyState;
     // Minimum-temperature and legionella protection remain independent of PV.
     if (mode == MODE_AUTO && (sample.saving || isEnergyNight(webSockData.setupData.energyPolling) || !sample.valid ||
@@ -451,12 +457,35 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
 
     unsigned long now = millis();
     const auto &sample = webSockData.energyState;
-    gridDemand.update(webSockData.setupData.gridDemand, time(nullptr), now,
-        sample.night || isEnergyNight(webSockData.setupData.energyPolling),
+    const int temp = resolveInputTemp();
+    const time_t wall = time(nullptr);
+    gridDemand.update(webSockData.setupData.gridDemand, wall, now,
+        isEnergyNightForSetup(webSockData.setupData, temp),
         sample.valid, sample.sampleSequence, sample.sampledAt, sample.p_grid,
         sample.heaterPowerAtSample, energyMaxAge(webSockData.setupData.energyPolling, sample.saving));
     webSockData.gridDemand = gridDemand.state();
-    int temp = resolveInputTemp();
+    const int fullW = phaseCtrl.getOnePhase() * 3;
+    const bool measured = webSockData.setupData.gridDemand.enabled && sample.valid &&
+        (strcmp(gridDemand.state().status, "ready") == 0 ||
+         strcmp(gridDemand.state().status, "collecting") == 0);
+    // Use measured household headroom for scheduling. The demand aspect's
+    // 500 W per-sample ramp is an actuator limit, not household load.
+    const double baseGridW = sample.p_grid - sample.heaterPowerAtSample;
+    const int availableW = measured && std::isfinite(baseGridW)
+        ? int(std::max(0.0, std::min<double>(fullW,
+            webSockData.setupData.gridDemand.limitW * 0.95 - baseGridW))) : fullW;
+    webSockData.heatingPlan = evaluateHeatingPlan(m_heatingPlan, wall, temp,
+        m_tempMin, fullW, availableW, measured);
+    webSockData.heatingPlan.loadHeadroomW = measured ? availableW : -1;
+    webSockData.heatingPlan.pollingOverride =
+        isEnergyNight(webSockData.setupData.energyPolling) &&
+        heatingPlanNeedsPolling(m_heatingPlan, wall, temp,
+            webSockData.setupData.gridDemand.enabled &&
+            webSockData.setupData.gridDemand.enforceLimit,
+            m_tempMin);
+    if (webSockData.heatingPlan.requestHeat && webSockData.setupData.gridDemand.enabled &&
+        webSockData.setupData.gridDemand.enforceLimit && gridDemand.state().maxHeaterPowerW == 0)
+        webSockData.heatingPlan.status = "blockedDemand";
     int effectiveMax = std::min(WEATHER_PREHEAT_MAX_SAFE, m_tempMaxAllowed + m_weatherBonus);
 
     // Independent of mode and forecast: failed sensors or either sensor at the

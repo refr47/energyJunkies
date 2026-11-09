@@ -17,8 +17,12 @@ The field registry in `setupFields.cpp` is shared by `/getSetup`, `/storeSetup` 
 | energy_low_pv_watts | 20 | Finite 0–1000000 W; enter saving below threshold |
 | energy_wake_pv_watts | 50 | Finite, greater than low threshold, at most 1000000 W |
 | energy_hold_seconds | 300 | Integer 1–86400 seconds; distinct valid samples must establish low PV |
+| heating_plan_enabled | false | Optional tariff heating window; disabled preserves immediate minimum-temperature behavior |
+| heating_plan_start_minute / heating_plan_end_minute | 1260 / 360 | Local minute of day, 0–1439; unequal when enabled; overnight allowed |
+| heating_plan_emergency_c | 2 | Must be below `heizstab_temp_min` when the plan is enabled |
+| heating_plan_boiler_liters | 200 | Estimated effective volume, 20–5000 litres |
 
-The slow interval is for low PV, not the night window. During the night window no energy request is made. Missing valid local time disables the scheduled window. Freshness thresholds use twice the corresponding runtime interval. Changing the energy configuration invalidates the old sample, resets the polling policy, and schedules a new read when allowed by the night window. All seconds-to-milliseconds conversions fit uint32_t under the validated bounds.
+The slow interval is for low PV, not the night window. During the night window no energy request is made unless an active tariff window or demand-limited emergency heating needs grid measurements. Missing valid local time disables the scheduled window. Freshness thresholds use twice the corresponding runtime interval. Changing the energy configuration invalidates the old sample, resets the polling policy, and schedules a new read when allowed by the night window. All seconds-to-milliseconds conversions fit uint32_t under the validated bounds.
 
 ## Persistence and migration
 

@@ -622,21 +622,37 @@ bool isEnergyNight(const EnergyPollingConfig &config)
     return config.nightEnabled && energyNightHour(local.tm_hour, config.nightStart, config.nightEnd);
 }
 
+bool isEnergyNightForSetup(const Setup &setup, int tempC)
+{
+    return isEnergyNight(setup.energyPolling) &&
+        !heatingPlanNeedsPolling(setup.heatingPlan, time(nullptr), tempC,
+            setup.gridDemand.enabled && setup.gridDemand.enforceLimit,
+            setup.tempMinInGrad);
+}
+
 uint32_t getAdaptiveEnergyInterval(void)
 {
     static EnergyPollingPolicy policy;
     if (!appLockData(50)) return 1000;
-    const auto config = g_app.webSockData.setupData.energyPolling;
-    const bool night = isEnergyNight(config);
+    const auto &setup = g_app.webSockData.setupData;
+    const auto config = setup.energyPolling;
+    const int sensor1 = g_app.webSockData.temperature.sensor1;
+    const int sensor2 = g_app.webSockData.temperature.sensor2;
+    const int temp = sensor1 < 0 ? sensor2 : sensor2 < 0 ? sensor1 : (sensor1 + sensor2) / 2;
+    const bool night = isEnergyNightForSetup(setup, temp);
     policy.configure(config);
     auto &sample = g_app.webSockData.energyState;
     const uint32_t now = millis();
     const uint32_t maxAge = energyMaxAge(config, sample.saving);
     if (night || sample.sampleSequence == 0 || uint32_t(now - sample.sampledAt) > maxAge)
         sample.valid = false;
-    const uint32_t interval = policy.update(now, night, sample.valid,
+    const uint32_t policyInterval = policy.update(now, night, sample.valid,
                                             sample.sampleSequence, sample.p_pv);
-    const bool saving = night || policy.isSaving();
+    const bool planPolling = heatingPlanNeedsPolling(setup.heatingPlan, time(nullptr), temp,
+        setup.gridDemand.enabled && setup.gridDemand.enforceLimit,
+        setup.tempMinInGrad);
+    const uint32_t interval = planPolling ? config.daySeconds * 1000U : policyInterval;
+    const bool saving = night || (!planPolling && policy.isSaving());
     if (saving != sample.saving || night != sample.night)
         LOG_INFO(TAG_UTILS, "Energy polling: %s", night ? "night" : saving ? "low PV" : "normal");
     sample.saving = saving;

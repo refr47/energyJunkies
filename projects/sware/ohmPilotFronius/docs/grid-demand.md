@@ -30,10 +30,13 @@ locks and consumes ENERGY_STATE. It holds the last measured p_grid between
 updates, counts import only, splits at UTC quarter boundaries and detects clock
 jumps against millis(). Measurements remain estimates, not billing meter values.
 An interval started partway through, with stale/invalid data or during the night
-pause is incomplete. Night polling is unchanged. During night, calculation has
-no measurement coverage and demand limiting is bypassed, including forced heat.
+pause is incomplete. During a configured night polling pause, calculation has
+no measurement coverage and demand limiting is bypassed. An active heating-plan
+tariff window overrides that pause and keeps normal polling active. Emergency
+heating outside the tariff window also resumes polling when demand enforcement
+is enabled; the cap then applies to emergency heating as well.
 
-During daytime enforcement caps all operational heating modes (auto, manual,
+Whenever grid measurements are active, enforcement caps all operational heating modes (auto, manual,
 minimum temperature and legionella). It may therefore delay thermal programs.
 Missing/invalid time or stale samples stop heating when enforcement is enabled.
 The existing thermal stop remains authoritative. Raw diagnostic pin tests are

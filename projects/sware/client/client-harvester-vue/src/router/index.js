@@ -9,6 +9,9 @@ const routes = [
   { path: "/out", component: () => import("../views/LiveView.vue") },
   { path: "/about", component: () => import("../views/AboutView.vue") },
   { path: "/logs", component: LogView },
+  { path: "/heizplan", component: () => import("../views/HeatingPlanView.vue") },
+  { path: "/netzbezug", component: () => import("../views/GridDemandView.vue") },
+  { path: "/netzbezug/verlauf", component: () => import("../views/GridDemandHistoryView.vue") },
 ];
 
 const router = createRouter({

@@ -555,10 +555,14 @@ static PROGNOSE weatherSnapshot() { return PROGNOSE{}; }
 // =============================================================================
 void serviceEnergy()
 {
-    if (!appLockConfig(50)) return;
-    const auto energyConfig = g_app.webSockData.setupData.energyPolling;
-    appUnlockConfig();
-    if (isEnergyNight(energyConfig)) return;
+    if (!appLockData(50)) return;
+    const auto &setup = g_app.webSockData.setupData;
+    const int a = g_app.webSockData.temperature.sensor1;
+    const int b = g_app.webSockData.temperature.sensor2;
+    const int temp = a < 0 ? b : b < 0 ? a : (a + b) / 2;
+    const bool night = isEnergyNightForSetup(setup, temp);
+    appUnlockData();
+    if (night) return;
 
     if (WiFi.status() != WL_CONNECTED)
     {

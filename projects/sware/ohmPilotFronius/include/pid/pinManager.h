@@ -71,6 +71,7 @@ private:
     int   m_sensor2;
     int   m_tempMaxAllowed;
     int   m_tempMin;
+    HeatingPlanConfig m_heatingPlan;
     int   m_legionellenMaxTemp;
     unsigned long m_legionellenDelta;
 
@@ -116,4 +117,3 @@ private:
     void  execModeAuto(int temp, unsigned long now, bool doML,
                        int effectiveMax, WEBSOCK_DATA &webSockData);
 };
- 

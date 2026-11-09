@@ -60,7 +60,7 @@
 #define STATE_FORCE_HEATING 9  // 1 << 9 = 512
 
 #define FORMAT_BUFFER_LEN 35
-#define JSON_OBJECT_BUFFER_LEN 4096
+#define JSON_OBJECT_BUFFER_LEN 4608
 
 // ──────────────────────────────────────────────────────────────────────────
 // Prototypes
@@ -138,10 +138,27 @@ static void buildGridDemand(JsonObject live, const GridDemandState &s)
     buildDemandInterval(obj["lastCompleted"].to<JsonObject>(), s.lastCompleted, true);
 }
 
+static void buildHeatingPlan(JsonObject live, const HeatingPlanState &s)
+{
+    JsonObject obj = live["heatingPlan"].to<JsonObject>();
+    obj["status"] = s.status;
+    obj["windowActive"] = s.windowActive;
+    obj["emergency"] = s.emergency;
+    obj["requestHeat"] = s.requestHeat;
+    obj["pollingOverride"] = s.pollingOverride;
+    obj["windowEnd"] = s.windowEnd;
+    obj["requiredWh"] = s.requiredWh;
+    obj["estimatedSeconds"] = s.estimatedSeconds;
+    obj["latestStart"] = s.latestStart;
+    obj["loadHeadroomW"] = nullptr;
+    if (s.loadHeadroomW >= 0) obj["loadHeadroomW"] = s.loadHeadroomW;
+}
+
 static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
 {
     // ── Alle Werte aus energyState (quelle-agnostisch) ──
     buildGridDemand(live, data.gridDemand);
+    buildHeatingPlan(live, data.heatingPlan);
     auto &es = data.energyState;
     live["energyValid"] = es.valid;
     live["energySaving"] = es.saving;

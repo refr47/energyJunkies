@@ -39,6 +39,7 @@ import Navbar from "./components/TopNavbar.vue";
 import LoginForm from './components/LoginForm.vue';
 import { db } from './db';
 import { parseLogBlob } from './utils/logs.js';
+import { storeDemandSnapshot } from './services/demandHistory.js';
 
 const weather = ref({ temp: '--', label: 'Lade...', icon: 'Loading' });
 
@@ -80,6 +81,10 @@ const cleanOldLogs = async () => {
 
 const handleWebSockData = async (data) => {
   if (data?.live) liveData.value = data.live;
+  if (data?.live?.gridDemand) {
+    try { await storeDemandSnapshot(data.live.gridDemand); }
+    catch (error) { console.error('Viertelstundenverlauf konnte nicht gespeichert werden:', error); }
+  }
   if (isClearing.value || !data?.log?.blob || data.log.len <= 0) return;
 
   // 2. Den Blob in ein Array von Objekten umwandeln

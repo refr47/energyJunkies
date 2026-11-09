@@ -24,6 +24,11 @@ namespace Fields
     static const LambdaBooleanField<Setup> demandEnabled("grid_demand_enabled", [](const Setup &s) { return s.gridDemand.enabled; }, [](Setup &s, bool v) { s.gridDemand.enabled = v; });
     static const LambdaBooleanField<Setup> demandEnforce("grid_demand_enforce_limit", [](const Setup &s) { return s.gridDemand.enforceLimit; }, [](Setup &s, bool v) { s.gridDemand.enforceLimit = v; });
     static const LambdaNumericField<uint32_t, Setup> demandLimit("grid_demand_limit_w", [](const Setup &s) { return s.gridDemand.limitW; }, [](Setup &s, uint32_t v) { s.gridDemand.limitW = v; });
+    static const LambdaBooleanField<Setup> planEnabled("heating_plan_enabled", [](const Setup &s) { return s.heatingPlan.enabled; }, [](Setup &s, bool v) { s.heatingPlan.enabled = v; });
+    static const LambdaNumericField<uint16_t, Setup> planStart("heating_plan_start_minute", [](const Setup &s) { return s.heatingPlan.startMinute; }, [](Setup &s, uint16_t v) { s.heatingPlan.startMinute = v; });
+    static const LambdaNumericField<uint16_t, Setup> planEnd("heating_plan_end_minute", [](const Setup &s) { return s.heatingPlan.endMinute; }, [](Setup &s, uint16_t v) { s.heatingPlan.endMinute = v; });
+    static const LambdaNumericField<uint16_t, Setup> planEmergency("heating_plan_emergency_c", [](const Setup &s) { return s.heatingPlan.emergencyC; }, [](Setup &s, uint16_t v) { s.heatingPlan.emergencyC = v; });
+    static const LambdaNumericField<uint16_t, Setup> planLiters("heating_plan_boiler_liters", [](const Setup &s) { return s.heatingPlan.boilerLiters; }, [](Setup &s, uint16_t v) { s.heatingPlan.boilerLiters = v; });
     static const BooleanField<Setup> mqttEnabled("mqtt_enabled", &Setup::mqttEnabled);
     static const NumericField<unsigned short, Setup> mqttPort("mqtt_port", &Setup::mqttPort);
     static const BooleanField<Setup> influxEnabled("influx_enabled", &Setup::influxEnabled);
@@ -66,6 +71,8 @@ namespace Fields
 // 2. Das zentrale Array(ebenfalls statisch)
 const FieldBase<Setup> *setupFields[] = {
     &Fields::demandEnabled, &Fields::demandEnforce, &Fields::demandLimit,
+    &Fields::planEnabled, &Fields::planStart, &Fields::planEnd,
+    &Fields::planEmergency, &Fields::planLiters,
     &Fields::mqttEnabled, &Fields::mqttPort, &Fields::influxEnabled,
     &Fields::daySeconds,
     &Fields::savingSeconds,

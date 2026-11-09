@@ -37,6 +37,7 @@ bool isStreamingAllowed(bool &isHeartbeatDue);
  * - Aktualisiert Gueltigkeit und Ruhemodus unter DATA-Lock; nicht unter Lock aufrufen.
  */
 bool isEnergyNight(const EnergyPollingConfig &config);
+bool isEnergyNightForSetup(const Setup &setup, int tempC);
 uint32_t getAdaptiveEnergyInterval(void);
 char *utils_floatToString(float value);
 

@@ -1,5 +1,5 @@
 <template>
-  <nav class="sticky top-0 z-50 overflow-hidden border-b border-white/10 shadow-2xl">
+  <nav class="sticky top-0 z-50 overflow-visible border-b border-white/10 shadow-2xl">
     <div class="absolute inset-0 -z-10 bg-zinc-800">
       <div class="absolute inset-0 opacity-60" style="background: 
             radial-gradient(at 0% 0%, #10b981 0px, transparent 70%), 
@@ -87,6 +87,7 @@
             <div class="flex items-center gap-1 pr-2">
               <router-link to="/" class="nav-btn" active-class="nav-btn-active">Dashboard</router-link>
               <router-link to="/setup" class="nav-btn" active-class="nav-btn-active">Setup</router-link>
+              <details class="relative text-white text-sm"><summary class="nav-btn cursor-pointer">Energie</summary><div class="absolute right-0 top-full bg-zinc-800 rounded-xl p-3 shadow-xl min-w-40 z-50 flex flex-col gap-2"><router-link to="/heizplan">Heizplan</router-link><router-link to="/netzbezug">Netzbezug</router-link><router-link to="/netzbezug/verlauf">Verlauf</router-link></div></details>
               <router-link to="/logs" class="nav-btn" active-class="nav-btn-active">Logs</router-link>
             </div>
           </div>
@@ -158,6 +159,9 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543-.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" /></svg>
                 Setup
               </router-link>
+              <router-link to="/heizplan" @click="isMobileMenuOpen = false" class="flex items-center gap-3 px-4 py-3 rounded-xl text-white font-bold text-sm hover:bg-white/10">Heizplan</router-link>
+              <router-link to="/netzbezug" @click="isMobileMenuOpen = false" class="flex items-center gap-3 px-4 py-3 rounded-xl text-white font-bold text-sm hover:bg-white/10">Netzbezug</router-link>
+              <router-link to="/netzbezug/verlauf" @click="isMobileMenuOpen = false" class="flex items-center gap-3 px-4 py-3 rounded-xl text-white font-bold text-sm hover:bg-white/10">Viertelstundenverlauf</router-link>
               <router-link to="/logs" @click="isMobileMenuOpen = false" class="flex items-center gap-3 px-4 py-3 rounded-xl text-white font-bold text-sm hover:bg-white/10 transition-colors" active-class="bg-emerald-500/20 text-emerald-400">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                 Logs

@@ -107,6 +107,15 @@ bool eprom_getSetup(Setup &setup, uint32_t *revision)
             fields["grid_demand_enforce_limit"] = false;
             fields["grid_demand_limit_w"] = 10000;
         }
+        // Schema-2 snapshots predating the optional heating plan keep their
+        // previous immediate minimum-temperature behaviour.
+        if (!fields.containsKey("heating_plan_enabled")) {
+            fields["heating_plan_enabled"] = false;
+            fields["heating_plan_start_minute"] = 1260;
+            fields["heating_plan_end_minute"] = 360;
+            fields["heating_plan_emergency_c"] = 2;
+            fields["heating_plan_boiler_liters"] = 200;
+        }
         // Stored documents are full snapshots, not partial HTTP patches.
         for (size_t i = 0; i < setupFieldsCount; ++i)
             if (fields[setupFields[i]->getKey()].isNull()) return false;

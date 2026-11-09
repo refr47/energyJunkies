@@ -25,6 +25,7 @@ void setupDefaults(Setup &s)
     s.epsilonML_PinManager = 0.05;
     s.mqttPort = 1883;
     s.energyPolling = EnergyPollingConfig{};
+    s.heatingPlan = HeatingPlanConfig{};
 }
 
 static bool optional(const char *key)
@@ -109,6 +110,11 @@ bool validateSetup(Setup &s, JsonArray errors)
     }
     if (!s.mqttPort) error(errors, "mqtt_port", "Port muss zwischen 1 und 65535 liegen");
     if (s.gridDemand.limitW < 100 || s.gridDemand.limitW > 1000000) error(errors, "grid_demand_limit_w", "Erlaubt sind 100 bis 1000000 Watt");
+    const auto &plan = s.heatingPlan;
+    if (plan.startMinute >= 1440 || plan.endMinute >= 1440) error(errors, "heating_plan_start_minute", "Uhrzeit muss zwischen 00:00 und 23:59 liegen");
+    if (plan.enabled && plan.startMinute == plan.endMinute) error(errors, "heating_plan_end_minute", "Beginn und Ende muessen verschieden sein");
+    if (plan.boilerLiters < 20 || plan.boilerLiters > 5000) error(errors, "heating_plan_boiler_liters", "Erlaubt sind 20 bis 5000 Liter");
+    if (plan.enabled && plan.emergencyC >= s.tempMinInGrad) error(errors, "heating_plan_emergency_c", "Notfallgrenze muss unter der Zieltemperatur liegen");
     const auto &c = s.energyPolling;
     if (c.daySeconds < 5 || c.daySeconds > 3600) error(errors, "energy_day_seconds", "Erlaubt sind 5 bis 3600 Sekunden");
     if (c.savingSeconds < 5 || c.savingSeconds < c.daySeconds || c.savingSeconds > 86400) error(errors, "energy_saving_seconds", "Mindestens Normalintervall, maximal 86400 Sekunden");

@@ -14,8 +14,9 @@ with tempfile.TemporaryDirectory(prefix='setup-tests-') as tmp:
     defines = (root / 'include/defines.h').read_text()
     structs = defines[defines.index('typedef struct {\n    char influxHost'):defines.index('} Setup;') + len('} Setup;')]
     constants = '\n'.join(line for line in defines.splitlines() if re.match(r'#define (LEN_WLAN|AMIS_KEY_LEN|MQTT_\w+_LEN|INFLUX_\w+_LEN|EMPTY_VALUE_IN_SETUP)\b', line))
-    (dst / 'defines.h').write_text('#pragma once\n#include <cstring>\n#include <cstddef>\n#include \"energyPolling.h\"\n#include \"gridDemandAspect.h\"\n#define INET_ADDRSTRLEN 16\n' + constants + '\n' + structs)
+    (dst / 'defines.h').write_text('#pragma once\n#include <cstring>\n#include <cstddef>\n#include \"energyPolling.h\"\n#include \"gridDemandAspect.h\"\n#include \"heatingPlan.h\"\n#define INET_ADDRSTRLEN 16\n' + constants + '\n' + structs)
     (dst / 'gridDemandAspect.h').write_text((root / 'include/gridDemandAspect.h').read_text())
+    (dst / 'heatingPlan.h').write_text((root / 'include/heatingPlan.h').read_text())
     (dst / 'energyPolling.h').write_text((root / 'include/energyPolling.h').read_text())
     (dst / 'setupLegacy.h').write_text((root / 'include/devices/setupLegacy.h').read_text())
     (dst / 'Arduino.h').write_text('''#pragma once
