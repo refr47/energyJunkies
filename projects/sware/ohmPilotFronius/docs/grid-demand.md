@@ -39,6 +39,15 @@ Missing/invalid time or stale samples stop heating when enforcement is enabled.
 The existing thermal stop remains authoritative. Raw diagnostic pin tests are
 not an operational heating mode and are outside this limiter.
 
+The minimum-temperature mode does not depend on PV surplus, WLAN, or a working
+energy adapter. A failed energy read disables automatic surplus heating, while
+minimum-temperature control continues. With demand enforcement enabled, a lost
+grid measurement immediately stops the heater because no safe quarter-hour
+headroom can be calculated. Heating resumes under the calculated cap once
+measurements return. A running legionella cycle cannot suppress the minimum
+temperature mode. Sensor faults and the absolute temperature limit still stop
+all heating.
+
 Allowed import is the remaining quarter energy divided by remaining time, capped
 at the configured instantaneous limit. A 5..10% power reserve increases with
 sample age. The heater budget subtracts p_grid minus heaterPowerAtSample, avoiding

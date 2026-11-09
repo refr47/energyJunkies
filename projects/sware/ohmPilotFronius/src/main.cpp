@@ -116,6 +116,7 @@ void setup()
 
     bootCount++;
     LOG_INFO(TAG_MAIN, "Boot number: %d", bootCount);
+    LOG_INFO(TAG_MAIN, "Reset reason: %d", static_cast<int>(esp_reset_reason()));
 
     ledHandler_init();
     tft_init();
@@ -159,7 +160,7 @@ void setup()
         if (!wifi_init(g_app.webSockData.setupData))
         {
             tft_clearScreen();
-            // wifi_scan_network();
+            wifi_scan_network(g_app.webSockData.setupData.ssid);
             appTasks_init(true); // AP mode, because wifi connection failed
             LOG_DEBUG(TAG_MAIN, "main:: www_init ");
             www_init(g_app.webSockData.setupData, NULL, NULL, getDataForWebSocket, setSetupChanged);

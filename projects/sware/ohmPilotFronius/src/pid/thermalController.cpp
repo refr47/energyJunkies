@@ -31,6 +31,12 @@ void ThermalController::evaluateMode(
     const int legioTarget = std::min(legionellenMaxTemp, WEATHER_PREHEAT_MAX_SAFE);
     const bool legioEnabled = legioTarget > 0 && legionellenDelta > 0;
     if (!legioEnabled) legionellaCycleActive = false;
+    // Minimum temperature takes precedence over scheduled heating, including
+    // a legionella cycle that is already in progress.
+    if (temp < tempMin && temp < std::min(effectiveMax, WEATHER_PREHEAT_MAX_SAFE)) {
+        mode = MODE_MIN_TEMP;
+        return;
+    }
     if (legionellaCycleActive) {
         if (temp >= legioTarget) {
             legionellaCycleActive = false;

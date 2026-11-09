@@ -167,6 +167,8 @@ bool eprom_getSetup(Setup &setup, uint32_t *revision)
 
 bool eprom_test_write_Eprom(const char *wlanE, const char *passW)
 {
+    // This helper owns the test fixture. eprom_storeSetup only validates and
+    // persists a caller-provided Setup; it never creates test values.
     Setup setup;
     setupDefaults(setup);
     if (!wlanE || !passW || strlen(wlanE) >= sizeof(setup.ssid) || strlen(passW) >= sizeof(setup.passwd)) return false;

@@ -37,3 +37,12 @@ The clock task applies stored revisions without holding application locks during
 The clock task owns the MQTT client; other tasks enqueue bounded messages. Reconfiguration disconnects the old connection and drops queued old messages. Failed connections are retried with a delay, without a blocking retry loop. The energy task owns Influx configuration, connection validation and normal writes, and runs its connection service even during a scheduled energy pause. No broker/database connection is made under shared configuration locks.
 
 The Vue form uses the activation flags, displays seconds/watts/hours explicitly, and polls application status without overwriting ongoing form edits. Unsupported firmware capabilities are disabled in the form. Device upload is a separate step: both firmware and updated LittleFS assets are needed.
+
+## Diagnosing a save crash
+
+The firmware logs `storeSetup phase=request`, `jsonParsed`, `nvsReadBegin`,
+`nvsReadDone`, `validated`, `nvsWriteBegin`, and `nvsWriteDone`, followed by
+`Setup saved`. The first missing phase narrows down the failing operation. The
+boot log also prints `Reset reason`; capture that line together with any
+`Guru Meditation`, stack canary, or backtrace lines. These phase logs contain
+body size and free heap, but never credentials or the JSON body.

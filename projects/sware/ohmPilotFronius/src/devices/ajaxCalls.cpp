@@ -389,12 +389,14 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     }
 
     Setup setup;
+    LOG_INFO(TAG_AJAX, "storeSetup phase=nvsReadBegin heap=%u", (unsigned)ESP.getFreeHeap());
     if (!eprom_getSetup(setup) && !isAPModus)
     {
         result["error"] = "Gespeicherte Konfiguration konnte nicht gelesen werden; keine Aenderung gespeichert";
         returnFromStoreSetup(false, result, request, "NVS read", 500);
         return;
     }
+    LOG_INFO(TAG_AJAX, "storeSetup phase=nvsReadDone heap=%u", (unsigned)ESP.getFreeHeap());
     JsonArray errors = result["errors"].to<JsonArray>();
     const bool valid = applySetupPatch(setup, json.as<JsonObject>(), errors);
     if (result.overflowed())
@@ -408,6 +410,8 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         returnFromStoreSetup(false, result, request, "validation");
         return;
     }
+    LOG_INFO(TAG_AJAX, "storeSetup phase=validated heap=%u stackMin=%u",
+             (unsigned)ESP.getFreeHeap(), (unsigned)uxTaskGetStackHighWaterMark(nullptr));
     LOG_DEBUG(TAG_AJAX, "Try to write Eprom in calling task.");
 
     if (!appLockConfig(100)) {
@@ -420,12 +424,14 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     const bool restart = setupNeedsRestart(g_app.webSockData.setupData, setup);
     appUnlockConfig();
     uint32_t revision;
+    LOG_INFO(TAG_AJAX, "storeSetup phase=nvsWriteBegin heap=%u", (unsigned)ESP.getFreeHeap());
     if (!eprom_storeSetup(setup, &revision))
     {
         result["error"] = "failed to persist setup";
         returnFromStoreSetup(false, result, request, "NVS write", 500);
         return;
     }
+    LOG_INFO(TAG_AJAX, "storeSetup phase=nvsWriteDone heap=%u", (unsigned)ESP.getFreeHeap());
     LOG_INFO(TAG_AJAX, "Setup saved: revision=%u restart=%d", revision, restart ? 1 : 0);
 #ifndef FEATURE_MQTT
     if (setup.mqttEnabled) result["warnings"].add("MQTT ist in dieser Firmware nicht aktiviert; Einstellungen wurden gespeichert.");

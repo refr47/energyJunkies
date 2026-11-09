@@ -13,6 +13,7 @@
 #include "app_services.h"
 #include "debugConsole.h"
 #include "app_tasks.h"
+#include "wlan.h"
 #include "utils.h"
 /*
 
@@ -306,6 +307,14 @@ static void taskWiFi(void* pvParameters)
             else
             {
                 LOG_ERROR(TAG_APP_TASKS, "WiFi Reconnect fehlgeschlagen. Neuer Versuch in 10s...");
+                // Scan only after a finished attempt, at most once per five
+                // minutes, so diagnostics cannot keep resetting reconnection.
+                static uint32_t lastScanMs = 0;
+                const uint32_t nowMs = millis();
+                if (!lastScanMs || uint32_t(nowMs - lastScanMs) >= 300000) {
+                    wifi_scan_network(creds->ssid);
+                    lastScanMs = millis();
+                }
                 vTaskDelay(pdMS_TO_TICKS(10000));
                 continue; // Sofort zum nächsten Schleifendurchlauf
             }

@@ -86,6 +86,8 @@ static void collectStoreSetupBody(AsyncWebServerRequest *request, uint8_t *data,
 
 static void handleStoreSetupRequest(AsyncWebServerRequest *request)
 {
+    LOG_INFO(TAG_WEB, "storeSetup phase=request bodyBytes=%u heap=%u",
+             (unsigned)request->contentLength(), (unsigned)ESP.getFreeHeap());
     if (request->contentLength() > STORE_SETUP_MAX_BODY)
     {
         request->send(413, "application/json", "{\"done\":0,\"error\":\"body too large\"}");
@@ -117,6 +119,7 @@ static void handleStoreSetupRequest(AsyncWebServerRequest *request)
                       "application/json", "{\"done\":0,\"error\":\"cannot parse JSON\"}");
         return;
     }
+    LOG_INFO(TAG_WEB, "storeSetup phase=jsonParsed heap=%u", (unsigned)ESP.getFreeHeap());
     ajaxCalls_handleStoreSetup(doc, request, isAPModus);
 }
 
@@ -276,4 +279,3 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
 void www_run()
 {
 }
-

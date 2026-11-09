@@ -28,7 +28,7 @@ preamble = r'''
 #include <iostream>
 #include <string>
 using String = std::string;
-#define MQTT 1
+#define FEATURE_MQTT 1
 #define HUAWEI_MODBUS 1
 #define LOG_ERROR(...) ((void)0)
 #define LOG_INFO(...) ((void)0)
@@ -46,7 +46,7 @@ bool appLockConfig(int) {
     assert(!configHeld); return configHeld=true;
 }
 void appUnlockConfig() { assert(configHeld); configHeld=false; }
-struct Setup { bool akku=false; };
+struct Setup { bool akku=false; struct { bool enabled=false, enforceLimit=false; } gridDemand; };
 struct Data {
     struct { bool networkOK=true, boilerHeating=true, mqtt=true, device=false; } states;
     struct { bool valid=true; } energyState;
@@ -59,7 +59,7 @@ struct App {
 } g_app;
 void ledHandler_showNetworkError(bool) {}
 bool wifiUp=true;
-bool wifi_isStillConnected(Setup&) { return wifiUp; }
+bool wifi_isStillConnected() { return wifiUp; }
 int inits=0;
 bool initOK=true, readOK=false;
 struct EnergySource {
@@ -98,18 +98,30 @@ int main() {
     unlocked(); assert(g_app.pinManager.resets==1);
     failData=false;
 
-    // Busy/read failure disables heating and measurements, not WLAN/MQTT.
+    // Without demand enforcement, a failed energy read must leave the heater
+    // available to the independent minimum-temperature PID mode.
     markEnergyUnavailable("busy");
     unlocked();
     assert(!g_app.webSockData.energyState.valid);
-    assert(!g_app.webSockData.states.boilerHeating);
+    assert(g_app.webSockData.states.boilerHeating && g_app.pinManager.resets==1);
     assert(g_app.webSockData.states.networkOK && g_app.webSockData.states.mqtt);
 
-    // Real WLAN loss still disables dependent operation.
+    // With a quarter-hour cap, no measurement means no safe headroom.
+    g_app.webSockData.setupData.gridDemand.enabled=true;
+    g_app.webSockData.setupData.gridDemand.enforceLimit=true;
+    markEnergyUnavailable("busy with cap");
+    unlocked();
+    assert(!g_app.webSockData.states.boilerHeating && g_app.pinManager.resets==2);
+    g_app.webSockData.setupData.gridDemand.enforceLimit=false;
+
+    // WLAN loss invalidates energy data but leaves minimum heat available
+    // unless demand enforcement is enabled.
+    g_app.webSockData.states.boilerHeating=true;
     wifiUp=false;
     serviceNetworkSupervisor();
     unlocked();
     assert(!g_app.webSockData.states.networkOK && !g_app.webSockData.states.mqtt);
+    assert(g_app.webSockData.states.boilerHeating && g_app.pinManager.resets==2);
     wifiUp=true;
     serviceNetworkSupervisor();
     assert(g_app.webSockData.states.networkOK && !g_app.webSockData.states.mqtt);

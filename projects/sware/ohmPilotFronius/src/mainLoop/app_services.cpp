@@ -109,11 +109,16 @@ static void markNetworkDown(const char* reason)
     ledHandler_showNetworkError(true);
     g_app.webSockData.states.networkOK = false;
     g_app.webSockData.energyState.valid = false;
-    g_app.pinManager.reset();
-    g_app.webSockData.states.boilerHeating = false;
-    g_app.webSockData.pidContainer.mAnalogOut = 0;
-    g_app.webSockData.pidContainer.PID_PIN1 = 0;
-    g_app.webSockData.pidContainer.PID_PIN2 = 0;
+    // Keep minimum-temperature heating available during a WLAN outage.
+    // Without grid measurements, enforced demand limiting must fail closed.
+    if (g_app.webSockData.setupData.gridDemand.enabled &&
+        g_app.webSockData.setupData.gridDemand.enforceLimit) {
+        g_app.pinManager.reset();
+        g_app.webSockData.states.boilerHeating = false;
+        g_app.webSockData.pidContainer.mAnalogOut = 0;
+        g_app.webSockData.pidContainer.PID_PIN1 = 0;
+        g_app.webSockData.pidContainer.PID_PIN2 = 0;
+    }
 #ifdef FEATURE_MQTT
     g_app.webSockData.states.mqtt = false;
 #endif
@@ -438,13 +443,21 @@ static bool ensureEnergySource()
 
 static void markEnergyUnavailable(const char* reason)
 {
-    // A failed measurement says nothing about WLAN or MQTT connectivity.
+    // Only PV surplus control depends on this measurement. The PID task must
+    // still run minimum-temperature/legionella control; GridDemandAspect
+    // enforces a zero cap if the enabled demand limit lacks fresh grid data.
+    bool demandLimitEnabled = false;
     if (appLockData(LOCK_TIMEOUT_DATA_MS))
     {
         g_app.webSockData.energyState.valid = false;
+        demandLimitEnabled = g_app.webSockData.setupData.gridDemand.enabled &&
+            g_app.webSockData.setupData.gridDemand.enforceLimit;
         appUnlockData();
     }
-    stopHeating(reason);
+    // An enforced quarter-hour cap cannot be calculated without a grid
+    // measurement. Shut down immediately; the PID task keeps it at zero.
+    if (demandLimitEnabled) stopHeating(reason);
+    LOG_ERROR(TAG_APP_SERVICES, "Energy measurement unavailable: %s", reason);
 }
 
 // -----------------------------------------------------------------------------

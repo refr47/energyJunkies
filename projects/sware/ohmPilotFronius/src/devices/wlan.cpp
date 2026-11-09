@@ -135,13 +135,11 @@ bool wifi_init(Setup &setup)
 
 }
 
-void wifi_scan_network()
+void wifi_scan_network(const char *configuredSsid)
 {
-
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    vTaskDelay(pdMS_TO_TICKS(500));
-    tft_printInfo("Scan for Wlan ...");
+    // Called only after a failed connection attempt. Do not change mode or
+    // disconnect: either action would reset STA association or the setup AP.
+    LOG_INFO(TAG_WLAN, "Scanning visible WLANs (configured: %s)", configuredSsid ? configuredSsid : "-");
     int16_t n = WiFi.scanNetworks();
 
     if (n < 0)
@@ -150,16 +148,14 @@ void wifi_scan_network()
     }
     else if (n == 0)
     {
-        tft_printInfo("No networks found");
+        LOG_INFO(TAG_WLAN, "No WLAN networks found");
     }
     else
     {
         LOG_INFO(TAG_WLAN, " ======   WLAN Networks ============");
         // tft_getRoot().setTextDatum(TL_DATUM);
         // tft_getRoot().setCursor(0, 0, 4);
-        char buf[96];
-        char *cp = "";
-        tft_printInfo("Networks: ");
+        const char *cp = "";
         LOG_INFO(TAG_WLAN, "Found %d net", n);
         for (int i = 0; i < n; ++i)
         {
@@ -195,10 +191,10 @@ void wifi_scan_network()
             default:
                 cp = "unknown";
             }
-            LOG_INFO(TAG_WLAN, "[%d]:%s(%ld) Authorisierung: %s", i + 1, WiFi.SSID(i).c_str(), static_cast<long>(WiFi.RSSI(i)), cp);
-            snprintf(buf, sizeof(buf), "[%s]:%ld Authorisierung: %s", WiFi.SSID(i).c_str(), static_cast<long>(WiFi.RSSI(i)), cp);
-            tft_printInfo(buf);
-            // tft_showAvailableNetworks(1, "" + (i + 1), WiFi.SSID(i).c_str(), "" + WiFi.RSSI(i));
+            const String ssid = WiFi.SSID(i);
+            const bool configured = configuredSsid && ssid == configuredSsid;
+            LOG_INFO(TAG_WLAN, "[%d] %s (%ld dBm, %s)%s", i + 1, ssid.c_str(),
+                static_cast<long>(WiFi.RSSI(i)), cp, configured ? " <- configured" : "");
         }
     }
     WiFi.scanDelete();

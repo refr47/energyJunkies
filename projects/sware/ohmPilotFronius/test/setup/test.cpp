@@ -48,6 +48,14 @@ int main()
     assert(!eprom_storeSetup(s));
     assert(!eprom_test_write_Eprom("test", "pass"));
     Preferences::failWrite = false;
+    // The test helper writes a complete default snapshot with the supplied
+    // WLAN credentials; it does not generate data inside eprom_storeSetup().
+    assert(eprom_test_write_Eprom("fixture-wifi", "fixture-password"));
+    assert(eprom_getSetup(loaded));
+    assert(!strcmp(loaded.ssid, "fixture-wifi"));
+    assert(!strcmp(loaded.passwd, "fixture-password"));
+    assert(loaded.tempMinInGrad == 5);
+    assert(eprom_storeSetup(s));
     auto saved = Preferences::blobs["setup_v2"];
     JsonDocument oldDemand;
     assert(!deserializeJson(oldDemand, saved.data(), saved.size()));

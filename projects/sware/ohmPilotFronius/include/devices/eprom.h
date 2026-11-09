@@ -45,7 +45,10 @@ uint32_t eprom_setupRevision();
 void eprom_isInit();
 // String& eprom_getInverter(Setup &setup, String &inverter);
 
-bool eprom_test_write_Eprom(const char *, const char *);
+// Explicit test helper: builds setupDefaults(), replaces WLAN credentials,
+// then persists the complete snapshot through eprom_storeSetup().
+// Never call at boot: this overwrites the saved configuration.
+bool eprom_test_write_Eprom(const char *ssid, const char *password);
 void eprom_initDefaults();  // FIX A/C: Schreibe Defaults + Magic wenn NVS leer/kaputt
 void eprom_test_read_Eprom();
 void eprom_show(Setup &setup);
