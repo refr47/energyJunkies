@@ -184,22 +184,7 @@ uint8_t serviceErrorBlink()
 
 void serviceNetworkSupervisor()
 {
-    // -- Netzwerkpruefung: setupData unter Lock kopieren --
-    Setup localSetup;
-    {
-        // KR-2: setupData is CONFIG domain
-        if (appLockConfig(LOCK_TIMEOUT_CONFIG_MS))
-        {
-            localSetup = g_app.webSockData.setupData;
-            appUnlockConfig();
-        }
-        else
-        {
-            handleLockFailure("Could not acquire lock to read setup data for network check");
-            return;
-        }
-    }
-    if (!wifi_isStillConnected(localSetup))
+    if (!wifi_isStillConnected())
     {
         tryMarkNetworkDown("Network down, reconnect pending",
             "Network down, but could not acquire lock to update state");

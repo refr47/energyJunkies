@@ -132,7 +132,8 @@ void setup()
         // bytes for recovery; only an explicit setup save replaces them.
     }
 
-    if (strcmp(g_app.webSockData.setupData.ssid, EMPTY_VALUE_IN_SETUP) == 0)
+    if (g_app.webSockData.setupData.ssid[0] == '\0' ||
+        strcmp(g_app.webSockData.setupData.ssid, EMPTY_VALUE_IN_SETUP) == 0)
     {
         // AP mode
         g_app.networkCredentialsInEEprom = false;
@@ -228,9 +229,9 @@ void setup()
 #endif
     }
     static WifiCredentials credentials;
-    strncpy(credentials.ssid, g_app.webSockData.setupData.ssid, LEN_WLAN);
-    strncpy(credentials.password, g_app.webSockData.setupData.passwd, LEN_WLAN);
-    credentials.apMode = g_app.networkCredentialsInEEprom;
+    strlcpy(credentials.ssid, g_app.webSockData.setupData.ssid, sizeof(credentials.ssid));
+    strlcpy(credentials.password, g_app.webSockData.setupData.passwd, sizeof(credentials.password));
+    credentials.hasStaCredentials = g_app.networkCredentialsInEEprom;
     logReader_init();
 
     if (g_app.webSockData.states.networkOK)

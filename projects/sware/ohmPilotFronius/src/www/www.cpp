@@ -217,7 +217,10 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     if (ipAddr == NULL)
     {
         isAPModus = true;
-        WiFi.mode(WIFI_AP);
+        // Keep STA available when valid credentials exist but the initial
+        // connection timed out. taskWiFi can reconnect while setup stays reachable.
+        WiFi.mode(setupData.ssid[0] && strcmp(setupData.ssid, EMPTY_VALUE_IN_SETUP) != 0
+                      ? WIFI_AP_STA : WIFI_AP);
         WiFi.softAP(SSID_FOR_ACCESS_POINT, DEFAULT_IP_ACCESS_POINT);
         ipAddr = (char *)DEFAULT_IP_ACCESS_POINT;
         strcpy(setupData.currentIP, ipAddr);
@@ -273,5 +276,4 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
 void www_run()
 {
 }
-
 

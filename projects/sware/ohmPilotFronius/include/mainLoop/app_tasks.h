@@ -4,9 +4,9 @@
 
 typedef struct _WifiCredentials
 {
-    char ssid[LEN_WLAN];
-    char password[LEN_WLAN];
-    bool apMode;
+    char ssid[LEN_WLAN + 1];
+    char password[LEN_WLAN + 1];
+    bool hasStaCredentials;
 } WifiCredentials;
 
 void appTasks_init(bool apMode);

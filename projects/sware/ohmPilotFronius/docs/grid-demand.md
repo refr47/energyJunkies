@@ -1,17 +1,29 @@
 # Grid demand aspect
 
-Backend setup fields (existing setup patch/read API and NVS persistence):
+The Vue setup page exposes these settings through the existing `/getSetup` and
+`/storeSetup` API (saved in NVS):
 
-- `grid_demand_enabled`: default false; enables calculation.
-- `grid_demand_enforce_limit`: default false; enables output limiting.
+- `grid_demand_enabled`: default false; enables measurement and interval calculation.
+- `grid_demand_enforce_limit`: default false; additionally caps heater output when
+  measurement is enabled. Turning off measurement also disables effective capping;
+  the saved capping preference is retained.
 - `grid_demand_limit_w`: default 10000; accepted range 100..1000000 W.
 
 Old schema-2 snapshots with none of these fields migrate to these defaults.
-No GUI or MQTT publisher is added. WebSocket `live.gridDemand` supplies one
-snapshot for future consumers. Interval start/end values are UTC epoch seconds.
+WebSocket `live.gridDemand` supplies the GUI's live snapshot; there is no MQTT
+publisher. Interval start/end values are UTC epoch seconds, displayed in the
+browser's local time. The GUI shows the current and most recently closed
+interval, observed import energy and seconds of measurement coverage, remaining
+energy budget, allowed remaining import power, and whether heating is currently
+being limited. It also shows the current heater cap, measurement age, and the
+last complete interval's average import power. A dash means the corresponding
+live value is unavailable.
 `lastCompleted` is the most recently closed interval, including incomplete ones;
 it is not a historical archive. `averageImportW` is null for incomplete intervals.
 `importEnergyWh` is observed energy only, not an extrapolation across missing data.
+The setup page receives a new live snapshot on each WebSocket update; settings
+still have to be saved explicitly. The status values are `disabled`,
+`timeInvalid`, `night`, `stale`, `collecting`, and `ready`.
 
 The pure GridDemandAspect runs in the existing PID update under its existing
 locks and consumes ENERGY_STATE. It holds the last measured p_grid between

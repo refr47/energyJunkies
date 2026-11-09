@@ -1,96 +1,13 @@
 #define _WIFI_CPP
 
 #include <WiFi.h>
-#include <esp_wifi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <tft.h>
 #include "wlan.h"
 #include "defines.h"
 
-/*   DEFInES
- */
-#define WIFI_RECONNECT_START "Reconnect"
-#define WIFI_RECONNECT_DONE "Connected"
-#define WIFI_RECONNECT_FALSE "Not Connected"
-
-// #define WIFI_TRY_DELAY 1000
-#define WIFI_NUMBER_OF_TRIES 15
-#define WIFI_RECONNECT_MIN_DELAY_MS 2000UL
-#define WIFI_RECONNECT_MAX_DELAY_MS 60000UL
-// #define WIFI_RECONNECT_TRY_IN_INTERVALL 10000
-
-// static unsigned long previousMillis = 0;
-static char *Get_WiFiStatus(int status);
-static void WiFiEvent(WiFiEvent_t event);
-static void handleWiFiReconnect();
-
-static char *ssid = "";
-static char *password = "";
-static int wiFiStatus;
-static bool connected = false;
-static int reconnectAttempts = 0;
-static bool reconnectRequested = false;
-static unsigned long lastReconnectAttempt = 0;
-static unsigned long reconnectDelay = WIFI_RECONNECT_MIN_DELAY_MS;
-
-static void readMacAddress() // 34:85:18:8b:9d:30
-{
-    uint8_t baseMac[6];
-    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
-    if (ret == ESP_OK)
-    {
-        Serial.printf("\nMac Adresse: %02x:%02x:%02x:%02x:%02x:%02x\n",
-                      baseMac[0], baseMac[1], baseMac[2],
-                      baseMac[3], baseMac[4], baseMac[5]);
-    }
-    else
-    {
-        Serial.println("wlan::readMacAddress() Failed to read MAC address");
-    }
-}
-
-void WiFiEvent(WiFiEvent_t event)
-{
-    switch (event)
-    {
-    case WIFI_EVENT_STA_CONNECTED:
-        LOG_INFO("TAG_WLAN", "wlan::WiFiEvent(SYSTEM_EVENT_STA_CONNECTED) - Connected to WiFi");
-        connected = false;
-        break;
-
-    case WIFI_EVENT_STA_DISCONNECTED:
-
-        if (WiFi.status() != WL_CONNECTED)
-        {
-
-            LOG_INFO("TAG_WLAN", "wlan::WiFiEvent(SYSTEM_EVENT_STA_DISCONNECTED)- WiFi.status() != WL_CONNECTED - status: %s", Get_WiFiStatus((int)WiFi.status()));
-            connected = false;
-            reconnectRequested = true;
-        }
-        else
-        {
-            LOG_INFO("TAG_WLAN", "wlan::WiFiEvent(SYSTEM_EVENT_STA_DISCONNECTED)- event Disconnected from WiFi, but wiFi.status is wl_connected");
-        }
-
-      
-        break;
-    case IP_EVENT_STA_GOT_IP:
-    {
-        String s = WiFi.localIP().toString();
-        LOG_INFO("TAG_WLAN", "wlan::WiFiEvent(SYSTEM_EVENT_STA_GOT_IP) - IP address: %s", s.c_str());
-        reconnectAttempts = 0; // Reset attempts on successful connection
-        reconnectRequested = false;
-        lastReconnectAttempt = 0;
-        reconnectDelay = WIFI_RECONNECT_MIN_DELAY_MS;
-        connected = true;
-    }
-    break;
-
-    default:
-        break;
-    }
-}
+static const char *Get_WiFiStatus(int status);
 
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
 {
@@ -100,11 +17,6 @@ void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
 void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
 {
     LOG_INFO("TAG_WLAN", "WiFi connected, IP address: %s ", WiFi.localIP().toString().c_str());
-    connected = true;
-    reconnectRequested = false;
-    reconnectAttempts = 0;
-    lastReconnectAttempt = 0;
-    reconnectDelay = WIFI_RECONNECT_MIN_DELAY_MS;
 }
 
 void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -145,13 +57,9 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
     }
 
     LOG_ERROR("TAG_WLAN", "Trying to Reconnect");
-    connected = false;
-    reconnectRequested = true;
 }
 
-// static long lastReconnectAttempt = 0;
-
-static char *Get_WiFiStatus(int status)
+static const char *Get_WiFiStatus(int status)
 {
     switch (status)
     {
@@ -174,67 +82,6 @@ static char *Get_WiFiStatus(int status)
     }
 }
 
-static void handleWiFiReconnect()
-{
-    wiFiStatus = WiFi.status();
-    if (wiFiStatus == WL_CONNECTED)
-    {
-        connected = true;
-        reconnectRequested = false;
-        reconnectAttempts = 0;
-        lastReconnectAttempt = 0;
-        reconnectDelay = WIFI_RECONNECT_MIN_DELAY_MS;
-        return;
-    }
-
-    connected = false;
-    reconnectRequested = true;
-
-    if (ssid == nullptr || password == nullptr || ssid[0] == '\0')
-    {
-        LOG_ERROR(TAG_WLAN, "wlan::handleWiFiReconnect() - no WiFi credentials configured");
-        return;
-    }
-
-    unsigned long now = millis();
-    if (lastReconnectAttempt != 0 && (now - lastReconnectAttempt) < reconnectDelay)
-    {
-        return;
-    }
-
-    lastReconnectAttempt = now;
-    reconnectAttempts++;
-
-    LOG_INFO(TAG_WLAN, "wlan::handleWiFiReconnect() - attempt %d, status: %s, delay: %lu ms",
-             reconnectAttempts, Get_WiFiStatus(wiFiStatus), reconnectDelay);
-    tft_printInfo(WIFI_RECONNECT_START);
-
-    if ((reconnectAttempts % WIFI_NUMBER_OF_TRIES) == 0)
-    {
-        LOG_ERROR(TAG_WLAN, "wlan::handleWiFiReconnect() - resetting station after %d failed attempts", reconnectAttempts);
-        WiFi.disconnect(false, false);
-        vTaskDelay(pdMS_TO_TICKS(100));
-        WiFi.begin(ssid, password);
-    }
-    else if (wiFiStatus == WL_IDLE_STATUS || wiFiStatus == WL_DISCONNECTED || wiFiStatus == WL_CONNECT_FAILED || wiFiStatus == WL_CONNECTION_LOST)
-    {
-        WiFi.reconnect();
-    }
-    else
-    {
-        WiFi.begin(ssid, password);
-    }
-
-    if (reconnectDelay < WIFI_RECONNECT_MAX_DELAY_MS)
-    {
-        reconnectDelay *= 2;
-        if (reconnectDelay > WIFI_RECONNECT_MAX_DELAY_MS)
-        {
-            reconnectDelay = WIFI_RECONNECT_MAX_DELAY_MS;
-        }
-    }
-}
-
 bool wifi_init(Setup &setup)
 {
     LOG_DEBUG("TAG_WLAN", "wlan:: wifi_init()");
@@ -242,23 +89,18 @@ bool wifi_init(Setup &setup)
     WiFi.persistent(false); // Schont den Flash-Speicher bei häufigen Reconnects
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(NET_HOSTNAME);
-    WiFi.disconnect();
-    WiFi.setAutoReconnect(true); // Aktiviert die automatische Wiederverbindung
-    // readMacAddress();
-    wifi_scan_network();
-    ssid = setup.ssid;
-    password = setup.passwd;
-    connected = false;
-    reconnectRequested = false;
-    reconnectAttempts = 0;
-    lastReconnectAttempt = 0;
-    reconnectDelay = WIFI_RECONNECT_MIN_DELAY_MS;
+    // taskWiFi owns retries; a second automatic reconnect can reset an
+    // in-progress association and repeatedly produce "Set status to INIT".
+    WiFi.setAutoReconnect(false);
+    // A scan here disconnects the station and is only diagnostic. WiFi.begin()
+    // selects the configured SSID itself, regardless of other visible networks.
 
     // Event-Handler registrieren
     WiFi.onEvent(WiFiStationConnected, ARDUINO_EVENT_WIFI_STA_CONNECTED);
     WiFi.onEvent(WiFiGotIP, ARDUINO_EVENT_WIFI_STA_GOT_IP);
     WiFi.onEvent(WiFiStationDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
+    LOG_INFO(TAG_WLAN, "Connecting to configured SSID: %s", setup.ssid);
     WiFi.begin(setup.ssid, setup.passwd);
     int retry = 0;
     while (WiFi.status() != WL_CONNECTED && retry < 30)
@@ -268,39 +110,29 @@ bool wifi_init(Setup &setup)
         Serial.print(".");
     }
 
-    tft_printInfo("Connecting to WiFi :: delay: 10 secs!!");
-    // delay(10000);xTaskCreatePinnedToCore(taskWiFi, "taskWiFi", 6144, (void *)(&credentials), 10, NULL, 0);
-    wiFiStatus = WiFi.status();
+    tft_printInfo("Connecting to WiFi");
+    const int wiFiStatus = WiFi.status();
     DBGf("wlan::wifi_init() connect - status: %d, %s", wiFiStatus, Get_WiFiStatus(wiFiStatus));
 
-    connected = false;
     if (wiFiStatus == WL_CONNECTED)
     {
         LOG_INFO("TAG_WLAN", "wlan::WIFI connected ");
-        reconnectRequested = false;
-        reconnectAttempts = 0;
-        reconnectDelay = WIFI_RECONNECT_MIN_DELAY_MS;
 
         String s = WiFi.localIP().toString();
         Serial.print(WiFi.localIP());
         DBGf("TAG_WLAN", "wlan::WIFI connected with IP: %s ", s.c_str());
 
         strcpy(setup.currentIP, WiFi.localIP().toString().c_str());
-        connected = true;
-
         return true;
     }
     else
     {
         LOG_ERROR(TAG_WLAN, "Cannot connect to network ssid: %s", setup.ssid);
-        LOG_DEBUG(TAG_WLAN, "Now scanning networks");
-        reconnectRequested = true;
         tft_printInfo("", true);
-        tft_printInfo("Scanning WiFi ..");
+        tft_printInfo("WiFi timeout - starting setup AP");
         return false;
     }
 
-    return wiFiStatus == WL_CONNECTED;
 }
 
 void wifi_scan_network()
@@ -312,7 +144,11 @@ void wifi_scan_network()
     tft_printInfo("Scan for Wlan ...");
     int16_t n = WiFi.scanNetworks();
 
-    if (n == 0)
+    if (n < 0)
+    {
+        LOG_ERROR(TAG_WLAN, "WiFi scan failed: %d", n);
+    }
+    else if (n == 0)
     {
         tft_printInfo("No networks found");
     }
@@ -321,7 +157,7 @@ void wifi_scan_network()
         LOG_INFO(TAG_WLAN, " ======   WLAN Networks ============");
         // tft_getRoot().setTextDatum(TL_DATUM);
         // tft_getRoot().setCursor(0, 0, 4);
-        char buf[50];
+        char buf[96];
         char *cp = "";
         tft_printInfo("Networks: ");
         LOG_INFO(TAG_WLAN, "Found %d net", n);
@@ -359,18 +195,13 @@ void wifi_scan_network()
             default:
                 cp = "unknown";
             }
-            LOG_INFO(TAG_WLAN, "[%d]:%s(%d) Authorisierung: %s", i + 1, WiFi.SSID(i).c_str(), WiFi.RSSI(i), cp);
-            sprintf(buf, "[%s]:%d Authorisierung: %s", WiFi.SSID(i).c_str(), WiFi.RSSI(i), cp);
+            LOG_INFO(TAG_WLAN, "[%d]:%s(%ld) Authorisierung: %s", i + 1, WiFi.SSID(i).c_str(), static_cast<long>(WiFi.RSSI(i)), cp);
+            snprintf(buf, sizeof(buf), "[%s]:%ld Authorisierung: %s", WiFi.SSID(i).c_str(), static_cast<long>(WiFi.RSSI(i)), cp);
             tft_printInfo(buf);
             // tft_showAvailableNetworks(1, "" + (i + 1), WiFi.SSID(i).c_str(), "" + WiFi.RSSI(i));
         }
     }
-    // WiFi.mode(WIFI_OFF);
-    tft_printInfo(" ");
-    tft_printInfo("Switch to AP-Mode!!");
-
-    vTaskDelay(pdMS_TO_TICKS(3000));
-    tft_clearScreen();
+    WiFi.scanDelete();
 }
 
 void wifi_getLocalIP(char **pBuffer16)
@@ -379,28 +210,15 @@ void wifi_getLocalIP(char **pBuffer16)
     localIP.toString().toCharArray(*pBuffer16, INET_ADDRSTRLEN);
 }
 
-bool  wifi_isStillConnected(Setup &setup)
+bool wifi_isStillConnected()
 {
-    // DBGf("wlan::wifi_isStillConnected, connected: %d", connected);
-    if (ssid == nullptr || ssid[0] == '\0')
-    {
-        ssid = setup.ssid;
-        password = setup.passwd;
-    }
-
-    wiFiStatus = WiFi.status();
+    const int wiFiStatus = WiFi.status();
     if (wiFiStatus == WL_CONNECTED)
     {
-        connected = true;
-        reconnectRequested = false;
-        reconnectAttempts = 0;
-        lastReconnectAttempt = 0;
-        reconnectDelay = WIFI_RECONNECT_MIN_DELAY_MS;
+        return true;
     }
     else
     {
-        connected = false;
-        reconnectRequested = true;
         switch (wiFiStatus)
         {
             {
@@ -424,8 +242,8 @@ bool  wifi_isStillConnected(Setup &setup)
                 break;
             }
         }
-        handleWiFiReconnect();
+        // taskWiFi is the only code that starts another connection attempt.
     }
 
-    return connected;
+    return false;
 }

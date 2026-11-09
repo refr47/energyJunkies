@@ -98,12 +98,12 @@ static void taskNetwork(void* pvParameters)
 
     for (;;)
     {
+        watchdogKick(wdId);
 
         EventBits_t uxBits = xEventGroupWaitBits(wifi_event_group, WIFI_STA_CONNECTED_BIT, pdFALSE, pdTRUE, pdMS_TO_TICKS(100));
 
         if ((uxBits & WIFI_STA_CONNECTED_BIT) != 0)
         {
-            watchdogKick(wdId);
             serviceNetworkSupervisor();
         }
         vTaskDelay(pdMS_TO_TICKS(TASK_NETWORK_MONITOR_INTERVAL));
@@ -213,7 +213,7 @@ static void taskMaintenance(void* pvParameters)
 
 void appTasks_init(bool apMode)
 {
-    wifi_event_group = xEventGroupCreate();
+    if (wifi_event_group == nullptr) wifi_event_group = xEventGroupCreate();
 
     if (wifi_event_group == NULL)
     {
@@ -223,11 +223,14 @@ void appTasks_init(bool apMode)
     }
     if (apMode)
     {
+        xEventGroupClearBits(wifi_event_group, WIFI_STA_CONNECTED_BIT | SYSTEM_CONFIG_MODE_BIT);
+        xEventGroupSetBits(wifi_event_group, WIFI_AP_ACTIVE_BIT);
         LOG_INFO(TAG_APP_TASKS, "Starting in AP mode, no WiFi connection will be attempted");
-        xEventGroupSetBits(wifi_event_group, WIFI_AP_ACTIVE_BIT); // Alle Tasks laufen lassen, auch ohne WiFi
+        return;
     }
 
     LOG_INFO(TAG_APP_TASKS, "Starting in normal mode, waiting for WiFi connection...");
+    xEventGroupClearBits(wifi_event_group, WIFI_AP_ACTIVE_BIT);
     xEventGroupSetBits(wifi_event_group, SYSTEM_CONFIG_MODE_BIT); // Alle Tasks laufen lassen, auch ohne WiFi
 }
 
@@ -267,6 +270,13 @@ static void taskWiFi(void* pvParameters)
 
     while (1)
     {
+        // In configuration mode WiFi.begin() would switch the radio away from
+        // the AP and repeatedly reset the driver's connection state.
+        if (!creds->hasStaCredentials)
+        {
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            continue;
+        }
         uint8_t status = WiFi.status();
 
         if (status != WL_CONNECTED)
@@ -274,9 +284,9 @@ static void taskWiFi(void* pvParameters)
             // 1. Signal auf "Rot" (Bit löschen), damit andere Tasks wissen: Funkstille
             xEventGroupClearBits(wifi_event_group, WIFI_STA_CONNECTED_BIT);
 
-            LOG_INFO(TAG_APP_TASKS, "WiFi Verbindung verloren (Status: %d). Reconnect...", status);
+            LOG_INFO(TAG_APP_TASKS, "WiFi Verbindung verloren (Status: %d). Reconnect zu SSID: %s", status, creds->ssid);
 
-            // Versuche Verbindung aufzubauen (falls nicht schon durch Auto-Reconnect aktiv)
+            // Only this task starts reconnect attempts; Arduino auto reconnect is disabled.
             WiFi.begin(creds->ssid, creds->password);
 
             int retry = 0;
