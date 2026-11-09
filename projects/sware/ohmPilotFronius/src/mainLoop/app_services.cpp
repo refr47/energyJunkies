@@ -126,11 +126,21 @@ static int averageTemp()
 
 void serviceClock()
 {
+    // A configuration response must leave the TCP stack before restarting.
+    // Keep restart ownership in the clock task, including AP mode saves.
+    static uint32_t restartDetectedAt = 0;
     if (hotUpdate() == SetupApplyResult::RestartRequired) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        esp_restart();
+        if (!restartDetectedAt) {
+            restartDetectedAt = millis();
+            if (!restartDetectedAt) restartDetectedAt = 1;
+            LOG_INFO(TAG_APP_SERVICES, "Setup change requires restart; waiting for HTTP response");
+        } else if (uint32_t(millis() - restartDetectedAt) >= 5000) {
+            LOG_INFO(TAG_APP_SERVICES, "Restarting to apply saved configuration");
+            esp_restart();
+        }
         return;
     }
+    restartDetectedAt = 0;
     if (getCurrentTime(g_app.formatBuffer, FORMAT_CHAR_BUFFER_LEN))
     {
         if (xSemaphoreTake(g_tftMutex, pdMS_TO_TICKS(50)) == pdTRUE)

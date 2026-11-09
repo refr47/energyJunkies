@@ -14,6 +14,17 @@ int main()
     assert(hotUpdate() == SetupApplyResult::Applied);
     assert(setupAppliedRevision() == revision);
     assert(hotUpdate() == SetupApplyResult::Unchanged);
+#ifdef AMIS_READER_DEV
+    Setup changedAmis = setup;
+    strcpy(changedAmis.amisReaderHost, "192.168.1.44");
+    assert(setupNeedsRestart(setup, changedAmis));
+#else
+    strcpy(setup.amisReaderHost, "192.168.1.44");
+    assert(eprom_storeSetup(setup, &revision));
+    assert(hotUpdate() == SetupApplyResult::Applied);
+    assert(setupAppliedRevision() == revision);
+    assert(!strcmp(g_app.webSockData.setupData.amisReaderHost, "192.168.1.44"));
+#endif
     setup.energyPolling.daySeconds = 15;
     setup.mqttEnabled = true;
     strcpy(setup.mqttSetup.mqttHost, "new-broker");

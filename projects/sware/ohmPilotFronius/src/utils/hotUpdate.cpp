@@ -9,9 +9,14 @@ uint32_t setupAppliedRevision() { return appliedRevision.load(); }
 bool setupNeedsRestart(const Setup &a, const Setup &b)
 {
     // WiFi manager and energy adapters retain their connection settings.
-    return strcmp(a.ssid, b.ssid) || strcmp(a.passwd, b.passwd)
-        || strcmp(a.inverter, b.inverter) || strcmp(a.amisReaderHost, b.amisReaderHost)
-        || strcmp(a.amisKey, b.amisKey);
+    if (strcmp(a.ssid, b.ssid) || strcmp(a.passwd, b.passwd)) return true;
+#if defined(FRONIUS_IV) || defined(HUAWEI_MODBUS)
+    if (strcmp(a.inverter, b.inverter)) return true;
+#endif
+#ifdef AMIS_READER_DEV
+    if (strcmp(a.amisReaderHost, b.amisReaderHost) || strcmp(a.amisKey, b.amisKey)) return true;
+#endif
+    return false;
 }
 
 SetupApplyResult hotUpdate()

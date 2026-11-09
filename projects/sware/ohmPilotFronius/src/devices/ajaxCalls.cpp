@@ -54,8 +54,6 @@ static void returnFromStoreSetup(bool inputCorrect,
                                  AsyncWebServerRequest *request,
                                  const char *caller, unsigned errorCode = 400);
 
-void delayedRestartTask(void *param);
-
 static void safeCopy(char *dest, size_t destSize, const char *src);
 
 static void shellyScanTask(void *parameter);
@@ -417,7 +415,9 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         returnFromStoreSetup(false, result, request, "config busy", 503);
         return;
     }
-    const bool restart = isAPModus || setupNeedsRestart(g_app.webSockData.setupData, setup);
+    // AP mode alone does not require a restart. A newly configured WLAN is
+    // detected by setupNeedsRestart, just like in station mode.
+    const bool restart = setupNeedsRestart(g_app.webSockData.setupData, setup);
     appUnlockConfig();
     uint32_t revision;
     if (!eprom_storeSetup(setup, &revision))
@@ -426,6 +426,7 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
         returnFromStoreSetup(false, result, request, "NVS write", 500);
         return;
     }
+    LOG_INFO(TAG_AJAX, "Setup saved: revision=%u restart=%d", revision, restart ? 1 : 0);
 #ifndef FEATURE_MQTT
     if (setup.mqttEnabled) result["warnings"].add("MQTT ist in dieser Firmware nicht aktiviert; Einstellungen wurden gespeichert.");
 #endif
@@ -435,37 +436,6 @@ void ajaxCalls_handleStoreSetup(JsonDocument &json,
     result["revision"] = revision;
     result["apply"] = restart ? "restart_required" : "pending";
     returnFromStoreSetup(true, result, request, "stored");
-    LOG_DEBUG(TAG_AJAX, "EXIT with isAppMod: %d", isAPModus);
-    if (isAPModus)
-    {
-        static uint32_t delayMs = 10000U;
-        LOG_DEBUG(TAG_AJAX, "ESP SHUTING DOWN FOR RESTARTING");
-        BaseType_t taskOk = xTaskCreatePinnedToCore(
-            delayedRestartTask,
-            "ajaxRestartTask",
-            2048,
-            &delayMs,
-            1,
-            nullptr,
-            tskNO_AFFINITY);
-
-        if (taskOk != pdPASS)
-        {
-            LOG_ERROR(TAG_AJAX, "restart task creation failed");
-        }
-    }
-}
-
-void delayedRestartTask(void *param)
-{
-    const uint32_t delayMs = *static_cast<const uint32_t *>(param);
-
-    LOG_DEBUG(TAG_AJAX, "delayedRestartTask - restart ing in several secs ");
-    vTaskDelay(pdMS_TO_TICKS(delayMs));
-
-    esp_restart();
-
-    vTaskDelete(nullptr);
 }
 
 /* ---------- response helper ---------- */
