@@ -22,6 +22,9 @@
 
 #ifdef FEATURE_MQTT
 #include "mqtt.h"
+#ifdef LOXONE_API
+#include "heatingPublisher.h"
+#endif
 #endif
 
 #ifdef FEATURE_INFLUX
@@ -95,6 +98,10 @@ static void stopHeating(const char* reason)
     g_app.webSockData.pidContainer.mAnalogOut = 0;
     g_app.webSockData.pidContainer.PID_PIN1 = 0;
     g_app.webSockData.pidContainer.PID_PIN2 = 0;
+#if defined(FEATURE_MQTT) && defined(LOXONE_API)
+    g_app.webSockData.pidContainer.mCurrentPower = 0;
+    heatingPublisher_powerChanged(0);
+#endif
     appUnlockPidOut();
     appUnlockData();
 
@@ -118,6 +125,10 @@ static void markNetworkDown(const char* reason)
         g_app.webSockData.pidContainer.mAnalogOut = 0;
         g_app.webSockData.pidContainer.PID_PIN1 = 0;
         g_app.webSockData.pidContainer.PID_PIN2 = 0;
+#if defined(FEATURE_MQTT) && defined(LOXONE_API)
+        g_app.webSockData.pidContainer.mCurrentPower = 0;
+        heatingPublisher_powerChanged(0);
+#endif
     }
 #ifdef FEATURE_MQTT
     g_app.webSockData.states.mqtt = false;
@@ -219,7 +230,23 @@ void serviceNetworkSupervisor()
 
 void serviceTemperature()
 {
-    if (!temp_getTemperature(g_app.webSockData.temperature))
+    TEMPERATURE measured;
+    if (!appLockData(LOCK_TIMEOUT_DATA_MS)) return;
+    measured = g_app.webSockData.temperature;
+    appUnlockData();
+
+    const bool measurementOK = temp_getTemperature(measured);
+    if (measurementOK) {
+        if (!appLockData(LOCK_TIMEOUT_DATA_MS)) return;
+        g_app.webSockData.temperature.sensor1 = measured.sensor1;
+        g_app.webSockData.temperature.sensor2 = measured.sensor2;
+#if defined(FEATURE_MQTT) && defined(LOXONE_API)
+        heatingPublisher_temperatureChanged((measured.sensor1 + measured.sensor2) / 2);
+#endif
+        appUnlockData();
+    }
+
+    if (!measurementOK)
     {
         ledHandler_showTemperaturError(true);
         // KR-2: this section accesses states/temperature (DATA) + pinManager/alarmContainer (PIDOUT)
@@ -610,6 +637,9 @@ void servicePid()
         float outTemp = forecast.tempOutside;
          
         g_app.pinManager.update(g_app.webSockData, bonus, pvRatio, cloud, outTemp, forecast.valid);
+#if defined(FEATURE_MQTT) && defined(LOXONE_API)
+        heatingPublisher_powerChanged(static_cast<int>(g_app.webSockData.pidContainer.mCurrentPower));
+#endif
         appUnlockPidOut();
         appUnlockData();
     }

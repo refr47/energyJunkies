@@ -15,7 +15,6 @@
 #include "www.h"
 #include "webSockets.h"
 #include "logReader.h"
-#include "loxoneProvider.h"
 
 // --- Web-Login-Credentials (in Produktivbetrieb aendern!) ---
 #ifndef HTTP_WEB_USER
@@ -244,8 +243,7 @@ bool www_init(Setup &setupData, char *ipAddr, char *wlanAsClientSSID, CALLBACK_G
     // --- API-Handler VOR serveStatic registrieren! ---
     // ESPAsyncWebServer evaluiert Routen in Registrierungsreihenfolge.
     // serveStatic("/", ...) ist ein Catch-All und matched ALLE Pfade mit "/".
-    // Daher müssen spezifische Routen (loxoneProvider, webSockets) zuerst kommen!
-    loxoneProvider_register(server);
+    // WebSocket-Handler vor der statischen Catch-All-Route registrieren.
     server.addHandler(webSockets_init(webSockData));
     ajaxCalls_init(webSockData, setupChanged);
 

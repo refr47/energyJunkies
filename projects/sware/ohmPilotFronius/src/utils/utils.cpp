@@ -307,44 +307,6 @@ String util_GET_Request(const char* url, int* httpResponseCode)
 	return payload;
 }
 
-bool util_SendLoxone(char* url, char* loxone_user, char* loxone_pwd)
-{
-
-	// URL für den Webservice-Befehl zusammenbauen
-	HTTPClient http;
-	// HTTP-Verbindung initialisierenloxone_pwd
-	http.begin(url);
-
-	// Wichtig: Authentifizierung im HTTP-Header setzen
-	http.setAuthorization(loxone_user, loxone_pwd);
-
-	// GET-Request senden
-	int httpResponseCode = http.GET();
-
-	// Antwort auswerten
-	if (httpResponseCode > 0)
-	{
-		String response = http.getString();
-		LOG_DEBUG(TAG_UTILS, "Loxone send ok, Code: %d, Response:%s", httpResponseCode, response.c_str());
-		/* Serial.print("HTTP Code: ");
-		Serial.println(httpResponseCode);
-		Serial.print("Antwort vom Miniserver: ");
-		Serial.println(response); // Gibt XML-Antwort von Loxone aus */
-	}
-	else
-	{
-		LOG_DEBUG(TAG_UTILS, "Loxone sent false , Code: %d", httpResponseCode);
-		/* Serial.print("Fehler beim Senden. HTTP Code: ");
-		Serial.println(httpResponseCode); */
-	}
-
-	// Verbindung schließen
-	http.end();
-	return true;
-}
-
-
-
 // Initialisierung (einmalig aufrufen!)
 void utils_logInit(RingBuffer& rb)
 {

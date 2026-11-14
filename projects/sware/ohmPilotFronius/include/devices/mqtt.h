@@ -15,5 +15,6 @@ void mqtt_publish_modbus_wrong_production_val(double readVal);
 
 bool mqtt_loop();
 uint32_t mqtt_appliedRevision();
+bool mqtt_publish_retained(const char *topic, const char *payload);
 #endif
 void mqtt_publish_log(char token, const char *logM);
