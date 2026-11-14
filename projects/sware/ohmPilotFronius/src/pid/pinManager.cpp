@@ -160,7 +160,7 @@ void PinManager::pidLockRead(WEBSOCK_DATA& webSockData)
     m_forceHeating = webSockData.setupData.forceHeating;
     m_forceHeatingStop = (int)webSockData.setupData.forceHeatingStop;
     // ── Energy state → BatteryMonitor (quelle-agnostisch) ──
-    // energyState wird von g_activeSource->read() befüllt
+    // energyState wird von g_activeSource->read() befüllt 
     batteryMon.update(
         (float)webSockData.energyState.p_grid,
         (float)webSockData.energyState.p_akku,

@@ -19,7 +19,7 @@
 #include "huaweiModbus.h"
 #endif
 #ifdef LOXONE_API
-#include "loxoneAsProvider.h"
+
 #endif
 #ifdef CARD_READER
 #include "cardRW.h"
