@@ -2,8 +2,8 @@
 
 #include "loxoneAsProvider.h"
 
-#include <PubSubClient.h>
-#include <WiFi.h>
+#include <mqtt_client.h>
+#include <esp_mac.h>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -144,26 +144,63 @@ void LoxoneAsProvider::mqttTaskEntry(void *context)
     static_cast<LoxoneAsProvider *>(context)->mqttTask();
 }
 
+void LoxoneAsProvider::mqttEvent(void *context, const char *, int32_t eventId, void *eventData)
+{
+    auto *self = static_cast<LoxoneAsProvider *>(context);
+    auto *event = static_cast<esp_mqtt_event_handle_t>(eventData);
+    switch (eventId) {
+    case MQTT_EVENT_CONNECTED: {
+        bool subscribed = true;
+        for (const auto &entry : topics) {
+            if (esp_mqtt_client_subscribe(event->client, entry.topic, 0) < 0) subscribed = false;
+        }
+        if (subscribed) {
+            self->connected_.store(true);
+            LOG_INFO(TAG_LOXONE, "Loxone: subscribed to energy topics");
+        } else {
+            self->markDisconnected();
+            self->subscriptionFailed_.store(true);
+            LOG_ERROR(TAG_LOXONE, "Loxone: MQTT subscription failed");
+        }
+        break;
+    }
+    case MQTT_EVENT_DISCONNECTED:
+        self->markDisconnected();
+        break;
+    case MQTT_EVENT_DATA: {
+        // ESP-IDF does not NUL-terminate topics and may split large payloads.
+        if (event->current_data_offset != 0 || event->data_len != event->total_data_len ||
+            event->data_len <= 0 || event->data_len >= 48) break;
+        for (const auto &entry : topics) {
+            const size_t topicLength = strlen(entry.topic);
+            if (event->topic_len == static_cast<int>(topicLength) &&
+                memcmp(event->topic, entry.topic, topicLength) == 0) {
+                self->receive(entry.topic, reinterpret_cast<const uint8_t *>(event->data),
+                              static_cast<unsigned>(event->data_len));
+                break;
+            }
+        }
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 void LoxoneAsProvider::mqttTask()
 {
-    WiFiClient transport;
-    PubSubClient client(transport);
-    client.setSocketTimeout(2);
-    client.setKeepAlive(30);
-    client.setCallback([this](char *topic, uint8_t *payload, unsigned length) {
-        receive(topic, payload, length);
-    });
     char clientId[40];
-    snprintf(clientId, sizeof(clientId), "Energy-Harvester-Loxone-%012llX",
-             static_cast<unsigned long long>(ESP.getEfuseMac()));
+    uint8_t mac[6];
+    esp_efuse_mac_get_default(mac);
+    snprintf(clientId, sizeof(clientId), "Energy-Harvester-Loxone-%02X%02X%02X%02X%02X%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     MQTT_SETUP config = initialConfig_;
     unsigned short port = initialPort_;
     bool enabled = initialEnabled_;
-    client.setServer(config.mqttHost, port);
+    esp_mqtt_client_handle_t client = nullptr;
     uint32_t lastAttempt = 0;
     bool attempted = false;
-    bool subscribed = false;
 
     for (;;) {
         MQTT_SETUP next = config;
@@ -175,50 +212,48 @@ void LoxoneAsProvider::mqttTask()
             nextEnabled = g_app.webSockData.setupData.mqttEnabled;
             appUnlockConfig();
         }
+        if (subscriptionFailed_.exchange(false) && client) {
+            esp_mqtt_client_stop(client);
+            esp_mqtt_client_destroy(client);
+            client = nullptr;
+            attempted = true;
+            lastAttempt = millis();
+        }
         if (nextEnabled != enabled || nextPort != port || memcmp(&next, &config, sizeof(config))) {
-            client.disconnect();
+            if (client) {
+                esp_mqtt_client_stop(client);
+                esp_mqtt_client_destroy(client);
+                client = nullptr;
+            }
             markDisconnected(true);
             config = next;
             port = nextPort;
             enabled = nextEnabled;
-            subscribed = attempted = false;
-            if (enabled && config.mqttHost[0] && port) client.setServer(config.mqttHost, port);
-        }
-
-        if (!enabled || !config.mqttHost[0] || !port || WiFi.status() != WL_CONNECTED) {
-            if (client.connected()) client.disconnect();
-            if (subscribed) markDisconnected();
-            subscribed = attempted = false;
-            vTaskDelay(pdMS_TO_TICKS(500));
-            continue;
+            attempted = false;
         }
 
         const uint32_t now = millis();
-        if (!client.connected()) {
-            if (subscribed) markDisconnected();
-            subscribed = false;
-            if (!attempted || uint32_t(now - lastAttempt) >= retryMs) {
-                attempted = true;
-                lastAttempt = now;
-                if (client.connect(clientId,
-                        config.mqttUser[0] ? config.mqttUser : nullptr, config.mqttPass)) {
-                    bool ok = true;
-                    for (const auto &entry : topics) ok = client.subscribe(entry.topic) && ok;
-                    if (ok) {
-                        subscribed = true;
-                        connected_.store(true);
-                        LOG_INFO(TAG_LOXONE, "Loxone: subscribed to energy topics");
-                    } else {
-                        client.disconnect();
-                        markDisconnected();
-                        LOG_ERROR(TAG_LOXONE, "Loxone: MQTT subscription failed");
-                    }
-                }
+        if (enabled && config.mqttHost[0] && port && !client &&
+            (!attempted || uint32_t(now - lastAttempt) >= retryMs)) {
+            attempted = true;
+            lastAttempt = now;
+            esp_mqtt_client_config_t mqttConfig{};
+            mqttConfig.broker.address.hostname = config.mqttHost;
+            mqttConfig.broker.address.port = port;
+            mqttConfig.broker.address.transport = MQTT_TRANSPORT_OVER_TCP;
+            mqttConfig.credentials.client_id = clientId;
+            mqttConfig.credentials.username = config.mqttUser[0] ? config.mqttUser : nullptr;
+            mqttConfig.credentials.authentication.password = config.mqttPass;
+            mqttConfig.session.keepalive = 30;
+            mqttConfig.network.reconnect_timeout_ms = retryMs;
+            mqttConfig.network.timeout_ms = 2000;
+            client = esp_mqtt_client_init(&mqttConfig);
+            if (client && (esp_mqtt_client_register_event(client, MQTT_EVENT_ANY, mqttEvent, this) != ESP_OK ||
+                           esp_mqtt_client_start(client) != ESP_OK)) {
+                esp_mqtt_client_destroy(client);
+                client = nullptr;
+                LOG_ERROR(TAG_LOXONE, "Loxone: could not start MQTT client");
             }
-        }
-        if (subscribed && !client.loop()) {
-            markDisconnected();
-            subscribed = false;
         }
         vTaskDelay(pdMS_TO_TICKS(500));
     }

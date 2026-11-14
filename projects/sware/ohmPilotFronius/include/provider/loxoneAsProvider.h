@@ -18,6 +18,7 @@ public:
 
 private:
     static void mqttTaskEntry(void *context);
+    static void mqttEvent(void *context, const char *base, int32_t eventId, void *eventData);
     void mqttTask();
     void receive(const char *topic, const uint8_t *payload, unsigned length);
     void markDisconnected(bool discardValues = false);
@@ -26,6 +27,7 @@ private:
     ENERGY_STATE values_{};
     uint8_t receivedMask_ = 0;
     std::atomic<bool> connected_{false};
+    std::atomic<bool> subscriptionFailed_{false};
     MQTT_SETUP initialConfig_{};
     unsigned short initialPort_ = 0;
     bool initialEnabled_ = false;

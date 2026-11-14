@@ -3,8 +3,10 @@
 `LOXONE_API` aktiviert `LoxoneAsProvider`, eine `EnergySource` mit eigenem
 MQTT-Empfang. Broker, Port und Zugangsdaten stammen aus den MQTT-Einstellungen
 des Setups; MQTT muss dort aktiviert sein. Der Provider verwendet einen eigenen
-MQTT-Client mit einer aus der MAC-Adresse gebildeten ID und verändert `devices/mqtt.cpp`
-nicht.
+MQTT-Client (`esp_mqtt_client` aus ESP-IDF) mit einer aus der MAC-Adresse
+gebildeten ID und verändert `devices/mqtt.cpp` nicht. Die WLAN-Verbindung
+wird weiterhin zentral vom Projekt verwaltet; der ESP-IDF-Client verbindet
+sich bei Verbindungsverlust selbst erneut und abonniert dann alle Topics neu.
 
 Die fünf Topic-Namen stehen als Konstanten in `src/provider/loxoneAsProvider.cpp`.
 Die vorläufigen, aus der Fronius-Struktur abgeleiteten Vorgaben sind
