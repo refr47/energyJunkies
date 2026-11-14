@@ -2,6 +2,7 @@
 #ifdef FEATURE_MQTT
 #include "app_state.h"
 #include "hotUpdate.h"
+#include "mqttActivity.h"
 #ifdef LOXONE_API
 #include "heatingPublisher.h"
 #endif
@@ -47,6 +48,7 @@ bool mqtt_loop()
     appUnlockConfig();
     if (nextEnabled != enabled || nextPort != port || memcmp(&next, &config, sizeof(next))) {
         client.disconnect();
+        mqttActivity_clear();
         config = next;
         enabled = nextEnabled;
         port = nextPort;
@@ -77,14 +79,17 @@ bool mqtt_loop()
 #ifdef LOXONE_API
             if (justConnected && heatingPublisher_isTopic(message.topic)) continue;
 #endif
-            client.publish(message.topic, message.payload, message.retained);
+            if (client.publish(message.topic, message.payload, message.retained))
+                mqttActivity_record(false, message.topic, message.payload);
         }
 #ifdef LOXONE_API
         if (heatingSnapshotPending) {
             // Replace offline heater transitions with the current retained state.
             heatingSnapshotPending = !heatingPublisher_resendSnapshot();
-            for (unsigned i = 0; messages && i < 2 && xQueueReceive(messages, &message, 0) == pdTRUE; ++i)
-                client.publish(message.topic, message.payload, message.retained);
+            for (unsigned i = 0; messages && i < 2 && xQueueReceive(messages, &message, 0) == pdTRUE; ++i) {
+                if (client.publish(message.topic, message.payload, message.retained))
+                    mqttActivity_record(false, message.topic, message.payload);
+            }
         }
 #endif
     }

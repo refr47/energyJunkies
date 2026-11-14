@@ -13,6 +13,9 @@
 
 #include "app_state.h"
 #include "debugConsole.h"
+#ifdef FEATURE_MQTT
+#include "mqttActivity.h"
+#endif
 
 namespace {
 // One table is used both for MQTT subscriptions and for field assignment.
@@ -126,6 +129,11 @@ void LoxoneAsProvider::receive(const char *topic, const uint8_t *payload, unsign
             values_.*(topics[i].field) = value;
             receivedMask_ |= 1U << i;
             xSemaphoreGive(valuesMutex_);
+#ifdef FEATURE_MQTT
+            char valueText[33];
+            snprintf(valueText, sizeof(valueText), "%.3f", value);
+            mqttActivity_record(true, topic, valueText);
+#endif
         }
         return;
     }

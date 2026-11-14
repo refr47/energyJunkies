@@ -42,6 +42,8 @@
         {{ earlyHeatingMode ? 'Aktiv' : 'Inaktiv' }}
       </div>
     </div>
+
+    <MqttActivity v-if="liveData.mqtt?.enabled" :mqtt="liveData.mqtt" :is-connected="isConnected" class="w-full sm:w-auto sm:min-w-64" />
   </div>
 </div>
 
@@ -69,7 +71,8 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
-const props = defineProps({ liveData: { type: Object, required: true } });
+import MqttActivity from './MqttActivity.vue';
+const props = defineProps({ liveData: { type: Object, required: true }, isConnected: Boolean });
 const currentTime = ref("");
 let timeTimer;
 const updateTime = () => {

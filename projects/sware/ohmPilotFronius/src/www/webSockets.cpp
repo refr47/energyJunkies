@@ -17,6 +17,9 @@
 #include "utils.h"
 #include "app_state.h"        // appLockData / appUnlockData
 #include "energySource.h"     // g_activeSource
+#ifdef FEATURE_MQTT
+#include "mqttActivity.h"
+#endif
 #include <ArduinoJson.h>
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -60,7 +63,7 @@
 #define STATE_FORCE_HEATING 9  // 1 << 9 = 512
 
 #define FORMAT_BUFFER_LEN 35
-#define JSON_OBJECT_BUFFER_LEN 4608
+#define JSON_OBJECT_BUFFER_LEN 8192
 
 // ──────────────────────────────────────────────────────────────────────────
 // Prototypes
@@ -154,11 +157,44 @@ static void buildHeatingPlan(JsonObject live, const HeatingPlanState &s)
     if (s.loadHeadroomW >= 0) obj["loadHeadroomW"] = s.loadHeadroomW;
 }
 
+#ifdef FEATURE_MQTT
+static void buildMqttEvent(JsonObject obj, const MqttActivityEvent &event, uint32_t now)
+{
+    obj["sequence"] = event.sequence;
+    obj["direction"] = event.received ? "receive" : "publish";
+    obj["topic"] = event.topic;
+    obj["payload"] = event.payload;
+    obj["ageMs"] = uint32_t(now - event.recordedAtMs);
+}
+
+static void buildMqttActivity(JsonObject live, const WEBSOCK_DATA &data)
+{
+    JsonObject mqtt = live["mqtt"].to<JsonObject>();
+    mqtt["enabled"] = data.setupData.mqttEnabled;
+    mqtt["connected"] = data.states.mqtt;
+    JsonArray events = mqtt["events"].to<JsonArray>();
+    if (!data.setupData.mqttEnabled) return;
+
+    MqttActivitySnapshot snapshot{};
+    mqttActivity_snapshot(snapshot);
+    const uint32_t now = millis();
+    if (snapshot.hasPublished)
+        buildMqttEvent(mqtt["lastPublished"].to<JsonObject>(), snapshot.lastPublished, now);
+    if (snapshot.hasReceived)
+        buildMqttEvent(mqtt["lastReceived"].to<JsonObject>(), snapshot.lastReceived, now);
+    for (unsigned i = 0; i < snapshot.count; ++i)
+        buildMqttEvent(events.add<JsonObject>(), snapshot.events[i], now);
+}
+#endif
+
 static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
 {
     // ── Alle Werte aus energyState (quelle-agnostisch) ──
     buildGridDemand(live, data.gridDemand);
     buildHeatingPlan(live, data.heatingPlan);
+#ifdef FEATURE_MQTT
+    buildMqttActivity(live, data);
+#endif
     auto &es = data.energyState;
     live["energyValid"] = es.valid;
     live["energySaving"] = es.saving;

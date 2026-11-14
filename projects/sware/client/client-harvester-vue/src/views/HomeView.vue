@@ -5,7 +5,7 @@
   >
     <SystemStatusHeader :is-connected="isConnected" :error-list="errorList" />
 
-    <WeatherHeatingStatus :live-data="liveData" />
+    <WeatherHeatingStatus :live-data="liveData" :is-connected="isConnected" />
     <HeatingPlanSummary :plan="liveData?.heatingPlan" />
 
     <div v-if="errorList.length > 0" class="lg:hidden flex flex-col gap-2 mb-6">
