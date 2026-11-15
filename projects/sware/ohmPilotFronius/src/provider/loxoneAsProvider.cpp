@@ -18,8 +18,8 @@
 #endif
 
 namespace {
-// One table is used both for MQTT subscriptions and for field assignment.
-// Build flags may override these defaults to match a Loxone installation.
+    // One table is used both for MQTT subscriptions and for field assignment.
+    // Build flags may override these defaults to match a Loxone installation.
 #ifndef LOXONE_TOPIC_P_GRID
 #define LOXONE_TOPIC_P_GRID "fronius/p_grid_watt"
 #endif
@@ -37,41 +37,42 @@ namespace {
 #endif
 
 
-struct TopicField {
-    const char *topic;
-    double ENERGY_STATE::*field;
-};
+    struct TopicField {
+        const char* topic;
+        double ENERGY_STATE::* field;
+    };
 
-constexpr TopicField topics[] = {
-    {LOXONE_TOPIC_P_GRID, &ENERGY_STATE::p_grid},
-    {LOXONE_TOPIC_P_LOAD, &ENERGY_STATE::p_load},
-    {LOXONE_TOPIC_P_PV, &ENERGY_STATE::p_pv},
-    {LOXONE_TOPIC_P_AKKU, &ENERGY_STATE::p_akku},
-    {LOXONE_TOPIC_SOC, &ENERGY_STATE::soc},
-};
-constexpr uint8_t allTopics = (1U << (sizeof(topics) / sizeof(topics[0]))) - 1U;
-constexpr uint32_t retryMs = 5000;
+    constexpr TopicField topics[] = {
+        { LOXONE_TOPIC_P_GRID, &ENERGY_STATE::p_grid },
+        { LOXONE_TOPIC_P_LOAD, &ENERGY_STATE::p_load },
+        { LOXONE_TOPIC_P_PV, &ENERGY_STATE::p_pv },
+        { LOXONE_TOPIC_P_AKKU, &ENERGY_STATE::p_akku },
+        { LOXONE_TOPIC_SOC, &ENERGY_STATE::soc },
+    };
+    constexpr uint8_t allTopics = (1U << (sizeof(topics) / sizeof(topics[0]))) - 1U;
+    constexpr uint32_t retryMs = 5000;
 
-bool parseNumber(const uint8_t *payload, unsigned length, double &number)
-{
-    if (!payload || !length || length >= 48) return false;
-    char text[48];
-    memcpy(text, payload, length);
-    text[length] = '\0';
-    char *end = nullptr;
-    errno = 0;
-    const double parsed = std::strtod(text, &end);
-    if (end == text || errno == ERANGE || !std::isfinite(parsed)) return false;
-    while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n') ++end;
-    if (*end != '\0') return false;
-    number = parsed;
-    return true;
-}
+    bool parseNumber(const uint8_t* payload, unsigned length, double& number)
+    {
+        if (!payload || !length || length >= 48) return false;
+        char text[48];
+        memcpy(text, payload, length);
+        text[length] = '\0';
+        char* end = nullptr;
+        errno = 0;
+        const double parsed = std::strtod(text, &end);
+        if (end == text || errno == ERANGE || !std::isfinite(parsed)) return false;
+        while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n') ++end;
+        if (*end != '\0') return false;
+        number = parsed;
+        return true;
+    }
 } // namespace
 
-bool LoxoneAsProvider::init(Setup &setupData, WEBSOCK_DATA &webSockData)
+bool LoxoneAsProvider::init(Setup& setupData, WEBSOCK_DATA& webSockData)
 {
     (void)webSockData;
+    LOG_INFO(TAG_LOXONE, "Loxone: initializing MQTT connection");
     if (!setupData.mqttEnabled || !setupData.mqttSetup.mqttHost[0] || !setupData.mqttPort) {
         LOG_ERROR(TAG_LOXONE, "Loxone: MQTT broker is not configured/enabled");
         return false;
@@ -87,19 +88,31 @@ bool LoxoneAsProvider::init(Setup &setupData, WEBSOCK_DATA &webSockData)
         LOG_ERROR(TAG_LOXONE, "Loxone: could not start MQTT task");
         return false;
     }
+    LOG_INFO(TAG_LOXONE, "Loxone: initializing MQTT connection and return true");
     return true;
 }
 
-bool LoxoneAsProvider::read(WEBSOCK_DATA &webSockData)
+bool LoxoneAsProvider::read(WEBSOCK_DATA& webSockData)
 {
+    LOG_INFO(TAG_LOXONE, "Loxone: read BEGIN");
     if (!connected_.load() || !valuesMutex_) return false;
     ENERGY_STATE sample{};
-    if (xSemaphoreTake(valuesMutex_, pdMS_TO_TICKS(50)) != pdTRUE) return false;
+    if (xSemaphoreTake(valuesMutex_, pdMS_TO_TICKS(50)) != pdTRUE) {
+        LOG_ERROR(TAG_LOXONE, "Loxone: read - no mutext available");
+        return false;
+
+    }
     const bool complete = receivedMask_ == allTopics;
     if (complete) sample = values_;
     xSemaphoreGive(valuesMutex_);
-    if (!complete || !connected_.load()) return false;
-    return publishSample(webSockData, sample);
+    if (!complete || !connected_.load()) {
+        LOG_ERROR(TAG_LOXONE, "Loxone: read - no complete data available (mask=%02X, connected=%d)", receivedMask_, connected_.load());
+        return false;
+    }
+
+    bool success = publishSample(webSockData, sample);
+    LOG_INFO(TAG_LOXONE, "Loxone: read END success=%d", success);
+    return success;
 }
 
 void LoxoneAsProvider::markDisconnected(bool discardValues)
@@ -113,7 +126,7 @@ void LoxoneAsProvider::markDisconnected(bool discardValues)
     }
 }
 
-void LoxoneAsProvider::receive(const char *topic, const uint8_t *payload, unsigned length)
+void LoxoneAsProvider::receive(const char* topic, const uint8_t* payload, unsigned length)
 {
     double value;
     if (!parseNumber(payload, length, value)) {
@@ -140,25 +153,26 @@ void LoxoneAsProvider::receive(const char *topic, const uint8_t *payload, unsign
     }
 }
 
-void LoxoneAsProvider::mqttTaskEntry(void *context)
+void LoxoneAsProvider::mqttTaskEntry(void* context)
 {
-    static_cast<LoxoneAsProvider *>(context)->mqttTask();
+    static_cast<LoxoneAsProvider*>(context)->mqttTask();
 }
 
-void LoxoneAsProvider::mqttEvent(void *context, const char *, int32_t eventId, void *eventData)
+void LoxoneAsProvider::mqttEvent(void* context, const char*, int32_t eventId, void* eventData)
 {
-    auto *self = static_cast<LoxoneAsProvider *>(context);
-    auto *event = static_cast<esp_mqtt_event_handle_t>(eventData);
+    auto* self = static_cast<LoxoneAsProvider*>(context);
+    auto* event = static_cast<esp_mqtt_event_handle_t>(eventData);
     switch (eventId) {
     case MQTT_EVENT_CONNECTED: {
         bool subscribed = true;
-        for (const auto &entry : topics) {
+        for (const auto& entry : topics) {
             if (esp_mqtt_client_subscribe(event->client, entry.topic, 0) < 0) subscribed = false;
         }
         if (subscribed) {
             self->connected_.store(true);
             LOG_INFO(TAG_LOXONE, "Loxone: subscribed to energy topics");
-        } else {
+        }
+        else {
             self->markDisconnected();
             self->subscriptionFailed_.store(true);
             LOG_ERROR(TAG_LOXONE, "Loxone: MQTT subscription failed");
@@ -172,12 +186,12 @@ void LoxoneAsProvider::mqttEvent(void *context, const char *, int32_t eventId, v
         // ESP-IDF does not NUL-terminate topics and may split large payloads.
         if (event->current_data_offset != 0 || event->data_len != event->total_data_len ||
             event->data_len <= 0 || event->data_len >= 48) break;
-        for (const auto &entry : topics) {
+        for (const auto& entry : topics) {
             const size_t topicLength = strlen(entry.topic);
             if (event->topic_len == static_cast<int>(topicLength) &&
                 memcmp(event->topic, entry.topic, topicLength) == 0) {
-                self->receive(entry.topic, reinterpret_cast<const uint8_t *>(event->data),
-                              static_cast<unsigned>(event->data_len));
+                self->receive(entry.topic, reinterpret_cast<const uint8_t*>(event->data),
+                    static_cast<unsigned>(event->data_len));
                 break;
             }
         }
@@ -194,7 +208,7 @@ void LoxoneAsProvider::mqttTask()
     uint8_t mac[6];
     esp_efuse_mac_get_default(mac);
     snprintf(clientId, sizeof(clientId), "Energy-Harvester-Loxone-%02X%02X%02X%02X%02X%02X",
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     MQTT_SETUP config = initialConfig_;
     unsigned short port = initialPort_;
@@ -250,7 +264,7 @@ void LoxoneAsProvider::mqttTask()
             mqttConfig.network.timeout_ms = 2000;
             client = esp_mqtt_client_init(&mqttConfig);
             if (client && (esp_mqtt_client_register_event(client, MQTT_EVENT_ANY, mqttEvent, this) != ESP_OK ||
-                           esp_mqtt_client_start(client) != ESP_OK)) {
+                esp_mqtt_client_start(client) != ESP_OK)) {
                 esp_mqtt_client_destroy(client);
                 client = nullptr;
                 LOG_ERROR(TAG_LOXONE, "Loxone: could not start MQTT client");

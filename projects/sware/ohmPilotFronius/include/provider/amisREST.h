@@ -25,3 +25,4 @@ public:
 // Forward-Deklaration (existierende Funktionen in amisReader.cpp)
 bool amisReader_initRestTargets(WEBSOCK_DATA &setup);
 bool amisReader_readRestTarget(WEBSOCK_DATA &);
+ 

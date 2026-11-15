@@ -16,7 +16,7 @@ bool AmisREST::init(Setup &setupData, WEBSOCK_DATA &webSockData)
     (void)setupData;
     bool ok = amisReader_initRestTargets(webSockData);
     if (ok)
-    {
+    { 
         
         LOG_INFO(TAG_AMIS, "AmisReader init OK");
     }
