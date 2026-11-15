@@ -2,11 +2,10 @@
 // webSockets.cpp — Thread-Safe WebSocket Server für ESP32 (FreeRTOS)
 //
 // Architektur-Notizen:
-// - getJsonObj() wird aus versch. FreeRTOS Tasksgerufen (taskWeb + WS-Event-Task)
+// - notifyClients() wird aus taskWeb und dem WS-Event-Task aufgerufen
 // - g_app.webSockData wird parallel von taskTemperature, taskEnergy, taskPID beschrieben
-// - jsonMutex schützt JsonDocument + static Buffer-Generierung
+// - jsonMutex schützt die Paketgenerierung und den Log-Arbeitsbuffer
 // - appLockData() schützt das Lesen aus g_app.webSockData (DATA domain)
-// - jsonResultMutex schützt den Ergebniszeiger nach Serialisierung
 // ============================================================================
 
 #include "freertos/FreeRTOS.h"
@@ -21,6 +20,7 @@
 #include "mqttActivity.h"
 #endif
 #include <ArduinoJson.h>
+#include <atomic>
 
 // ──────────────────────────────────────────────────────────────────────────
 // Defines
@@ -78,15 +78,17 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 // ──────────────────────────────────────────────────────────────────────────
 
 static AsyncWebSocket ws("/ws");
+#ifdef FEATURE_MQTT
+static std::atomic<bool> s_mqttSnapshotNeeded{true};
+static uint32_t s_lastMqttSequence = 0;
+static unsigned s_lastMqttCount = 0;
+#endif
 
 // Callback — nur in Init-Phase gesetzt, danach nur gelesen.
 // Zugriff über lokale Variable zum Schutz gegen Write-races.
 static WEBSOCK_DATA &(*s_webSockData)(void) = nullptr;
 
-// jsonMutex: schuetzt JsonDocument serialisierung + static Buffer
-// extern SemaphoreHandle_t g_jsonMutex;
-// extern SemaphoreHandle_t g_jsonResultMutex;
-// (zentral erstellt in appSyncInit() → siehe app_sync.h)
+// g_jsonMutex wird zentral in appSyncInit() erstellt.
 AsyncWebSocket *webSockets_init(CALLBACK_GET_DATA getData)
 {
     // (Mutexes werden zentral in appSyncInit() erstellt → kein lokaler Aufruf mehr)
@@ -167,7 +169,8 @@ static void buildMqttEvent(JsonObject obj, const MqttActivityEvent &event, uint3
     obj["ageMs"] = uint32_t(now - event.recordedAtMs);
 }
 
-static void buildMqttActivity(JsonObject live, const WEBSOCK_DATA &data)
+static void buildMqttActivity(JsonObject live, const WEBSOCK_DATA &data,
+                              const MqttActivitySnapshot &snapshot)
 {
     JsonObject mqtt = live["mqtt"].to<JsonObject>();
     mqtt["enabled"] = data.setupData.mqttEnabled;
@@ -175,8 +178,6 @@ static void buildMqttActivity(JsonObject live, const WEBSOCK_DATA &data)
     JsonArray events = mqtt["events"].to<JsonArray>();
     if (!data.setupData.mqttEnabled) return;
 
-    MqttActivitySnapshot snapshot{};
-    mqttActivity_snapshot(snapshot);
     const uint32_t now = millis();
     if (snapshot.hasPublished)
         buildMqttEvent(mqtt["lastPublished"].to<JsonObject>(), snapshot.lastPublished, now);
@@ -190,10 +191,10 @@ static void buildMqttActivity(JsonObject live, const WEBSOCK_DATA &data)
 static void buildLiveEnergyData(JsonObject &live, const WEBSOCK_DATA &data)
 {
     // ── Alle Werte aus energyState (quelle-agnostisch) ──
-    buildGridDemand(live, data.gridDemand);
-    buildHeatingPlan(live, data.heatingPlan);
 #ifdef FEATURE_MQTT
-    buildMqttActivity(live, data);
+    JsonObject mqtt = live["mqtt"].to<JsonObject>();
+    mqtt["enabled"] = data.setupData.mqttEnabled;
+    mqtt["connected"] = data.states.mqtt;
 #endif
     auto &es = data.energyState;
     live["energyValid"] = es.valid;
@@ -321,71 +322,30 @@ static void buildLiveDeviceData(JsonObject &live, const WEBSOCK_DATA &data)
     live[FEHLER] = bitMaster;
 }
 
-// =============================================================================
-// getJsonObj() — thread-safe JSON serialisierung für WebSocket-Response
-//
-// Design:
-// 1. appLockData(): Lese g_app.webSockData konsistent
-// 2. Lokale Kopie aller Daten → appUnlockData()
-// 3. jsonMutex: Serialisiere Builder → static Buffer
-// 4. Return const char*
-// =============================================================================
-static const char *getJsonObj()
+static bool serializePacket(JsonDocument &doc, String &packet, const char *name)
 {
-    // ── Schritt 1: Daten konsistent aus g_app lesen ──────────────────────
-    WEBSOCK_DATA data;
-
-    if (!appLockData(50))
-    {
-        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to acquire data lock for websock data");
-        return "{}";
+    const size_t bytes = measureJson(doc);
+    if (doc.overflowed() || bytes >= JSON_OBJECT_BUFFER_LEN || !packet.reserve(bytes + 1)) {
+        LOG_ERROR(TAG_WEB_SOCKETS, "%s JSON cannot be serialized (%u bytes)",
+                  name, static_cast<unsigned>(bytes));
+        return false;
     }
+    serializeJson(doc, packet);
+    LOG_DEBUG(TAG_WEB_SOCKETS, "%s JSON: %u bytes", name, static_cast<unsigned>(packet.length()));
+    return true;
+}
 
-    WEBSOCK_DATA &(*localGetData)(void) = s_webSockData;
-    if (localGetData != nullptr)
-    {
-        data = localGetData();
-    }
-    appUnlockData();
-
-    // ── Schritt 2: jsonMutex für Serialisierung ─────────────────────────
-    static char jsonObjBuffer[JSON_OBJECT_BUFFER_LEN] = {0};
-
-    if (!xSemaphoreTake(g_jsonMutex, pdMS_TO_TICKS(100)))
-    {
-        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to take JSON mutex");
-        return "{}";
-    }
-
-    JsonDocument doc;
-    JsonObject live = doc.createNestedObject("live");
-
-    // ── Schritt 3: Builder ──────────────────────────────────────────────
-    buildLiveEnergyData(live, data);
-    buildLiveDeviceData(live, data);
-
-    // ── Schritt 4: Log-Buffer ───────────────────────────────────────────
-    LOG_DEBUG(TAG_WEB_SOCKETS, "Preparing JSON log entries, log buffer active: %d", data.logBuffer.active);
-    int count = utils_logRead(data.logBuffer, doc);
-    LOG_DEBUG(TAG_WEB_SOCKETS, "Creating JSON log entries - count: %d", count);
-
-    // ── Schritt 5: Serialisieren ────────────────────────────────────────
-    if (doc.overflowed() || measureJson(doc) >= sizeof(jsonObjBuffer)) {
-        xSemaphoreGive(g_jsonMutex);
-        LOG_ERROR(TAG_WEB_SOCKETS, "Live JSON exceeds buffer capacity");
-        return "{}";
-    }
-    size_t bytesWritten = serializeJson(doc, jsonObjBuffer);
-    jsonObjBuffer[bytesWritten] = '\0';
-
-    xSemaphoreGive(g_jsonMutex);
-    LOG_DEBUG(TAG_WEB_SOCKETS, "JSON prepared, %zu bytes", bytesWritten);
-    return jsonObjBuffer;
+static AsyncWebSocket::SendStatus sendPacket(const char *name, const String &packet)
+{
+    const auto status = ws.textAll(packet);
+    LOG_INFO(TAG_WEB_SOCKETS, "WebSocket %s: status=%d bytes=%u clients=%u heap=%u",
+             name, static_cast<int>(status), static_cast<unsigned>(packet.length()),
+             static_cast<unsigned>(ws.count()), static_cast<unsigned>(ESP.getFreeHeap()));
+    return status;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// cleanupClients() — waehrend der Cleanup-Zeit keine Clients, also
-// kein paralleler data-Transfer moeglich
+// cleanupClients() entfernt beendete Verbindungen.
 // ──────────────────────────────────────────────────────────────────────────
 
 void cleanupClients()
@@ -394,36 +354,87 @@ void cleanupClients()
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// notifyClients() — JSON erstellen + an alle Clients senden
-//
-// Thread-Sicherheit:
-// - getJsonObj() ist thread-safe (jsonMutex)
-// - ws.textAll() bekommt einen String (Value), nicht einen Zeiger auf static
-//   Buffer. Damit kann ein anderer Thread den Buffer zwischen Generierung
-//   und Senden nicht zerstoeren.
-// - ws.count() und textAll() sperren die Client-Liste jeweils einzeln.
-//   Ein Disconnect dazwischen ist erlaubt; textAll() meldet dann DISCARDED.
+// notifyClients() — getrennte Nachrichten halten jede WebSocket-Nachricht klein.
+// Der JSON-Mutex schützt auch den statischen Arbeitsbuffer in utils_logRead().
 // ──────────────────────────────────────────────────────────────────────────
 
 
 void notifyClients()
 {
-    // String() kopiert den Inhalt — kein Dangling Pointer mehr!
-    String jsonData = getJsonObj();
+    if (ws.count() == 0) return;
 
-    // Nur senden wenn Clients verbunden — textAll internal ist thread-safe
-    // im Kontext von ESPAsyncWebServer (Single-Owner-Client-List)
-    if (ws.count() > 0)
-    {
-        const auto status = ws.textAll(jsonData);
-        LOG_INFO(TAG_WEB_SOCKETS, "WebSocket send: status=%d bytes=%u clients=%u heap=%u",
-                 static_cast<int>(status), static_cast<unsigned>(jsonData.length()),
-                 static_cast<unsigned>(ws.count()), static_cast<unsigned>(ESP.getFreeHeap()));
+    WEBSOCK_DATA data;
+    if (!appLockData(50)) {
+        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to acquire data lock for websock data");
+        return;
     }
-    else
-    {
-        LOG_DEBUG(TAG_WEB_SOCKETS, "No clients connected, skipping notify");
+    if (!s_webSockData) {
+        appUnlockData();
+        return;
     }
+    data = s_webSockData();
+    appUnlockData();
+
+    if (!xSemaphoreTake(g_jsonMutex, pdMS_TO_TICKS(100))) {
+        LOG_ERROR(TAG_WEB_SOCKETS, "Failed to take JSON mutex");
+        return;
+    }
+
+    String packet;
+    {
+        JsonDocument liveDoc;
+        JsonObject live = liveDoc["live"].to<JsonObject>();
+        buildLiveEnergyData(live, data);
+        buildLiveDeviceData(live, data);
+        if (!serializePacket(liveDoc, packet, "live")) {
+            xSemaphoreGive(g_jsonMutex);
+            return;
+        }
+    }
+    if (sendPacket("live", packet) == AsyncWebSocket::DISCARDED) {
+        xSemaphoreGive(g_jsonMutex);
+        return;
+    }
+
+    packet = "";
+    {
+        JsonDocument detailDoc;
+        JsonObject detail = detailDoc["live"].to<JsonObject>();
+        buildGridDemand(detail, data.gridDemand);
+        buildHeatingPlan(detail, data.heatingPlan);
+        if (serializePacket(detailDoc, packet, "detail")) sendPacket("detail", packet);
+    }
+
+#ifdef FEATURE_MQTT
+    if (data.setupData.mqttEnabled) {
+        MqttActivitySnapshot snapshot{};
+        mqttActivity_snapshot(snapshot);
+        const uint32_t sequence = snapshot.count ? snapshot.events[0].sequence : 0;
+        const bool changed = sequence != s_lastMqttSequence || snapshot.count != s_lastMqttCount;
+        const bool snapshotNeeded = s_mqttSnapshotNeeded.exchange(false);
+        if (changed || snapshotNeeded) {
+            JsonDocument mqttDoc;
+            buildMqttActivity(mqttDoc["live"].to<JsonObject>(), data, snapshot);
+            packet = "";
+            if (serializePacket(mqttDoc, packet, "mqtt") &&
+                sendPacket("mqtt", packet) != AsyncWebSocket::DISCARDED) {
+                s_lastMqttSequence = sequence;
+                s_lastMqttCount = snapshot.count;
+            } else s_mqttSnapshotNeeded.store(true);
+        }
+    }
+#endif
+
+    if (ws.count() > 0) {
+        JsonDocument logDoc;
+        const int logCount = utils_logRead(g_app.webSockData.logBuffer, logDoc);
+        if (logCount > 0) {
+            packet = "";
+            if (serializePacket(logDoc, packet, "log")) sendPacket("log", packet);
+        }
+    }
+
+    xSemaphoreGive(g_jsonMutex);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -459,6 +470,9 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     switch (type)
     {
     case WS_EVT_CONNECT:
+#ifdef FEATURE_MQTT
+        s_mqttSnapshotNeeded.store(true);
+#endif
         LOG_INFO(TAG_WEB_SOCKETS,"WebSocket client #%u connected from %s (heap=%u)",
                  client->id(), client->remoteIP().toString().c_str(),
                  static_cast<unsigned>(ESP.getFreeHeap()));

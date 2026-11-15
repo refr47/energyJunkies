@@ -80,7 +80,13 @@ const cleanOldLogs = async () => {
 };
 
 const handleWebSockData = async (data) => {
-  if (data?.live) liveData.value = data.live;
+  if (data?.live) {
+    liveData.value = {
+      ...liveData.value,
+      ...data.live,
+      mqtt: { ...(liveData.value.mqtt || {}), ...(data.live.mqtt || {}) },
+    };
+  }
   if (data?.live?.gridDemand) {
     try { await storeDemandSnapshot(data.live.gridDemand); }
     catch (error) { console.error('Viertelstundenverlauf konnte nicht gespeichert werden:', error); }
