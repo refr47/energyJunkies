@@ -404,6 +404,7 @@ void cleanupClients()
 // - ws.count() > 0 Check und textAll() sind atomar aus Sicht von AsyncWebSocket
 // ──────────────────────────────────────────────────────────────────────────
 
+
 void notifyClients()
 {
     // String() kopiert den Inhalt — kein Dangling Pointer mehr!
@@ -413,7 +414,10 @@ void notifyClients()
     // im Kontext von ESPAsyncWebServer (Single-Owner-Client-List)
     if (ws.count() > 0)
     {
+        LOG_INFO(TAG_WEB_SOCKETS, "Notifying clients with JSON data  - before");
         ws.textAll(jsonData);
+         vTaskDelay(pdMS_TO_TICKS(500));
+         LOG_INFO(TAG_WEB_SOCKETS, "Notifying clients with JSON data - after");
     }
     else
     {
@@ -454,12 +458,12 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     switch (type)
     {
     case WS_EVT_CONNECT:
-        Serial.printf("WebSocket client #%u connected from %s\n",
+        LOG_INFO(TAG_WEB_SOCKETS,"WebSocket client #%u connected from %s\n",
                       client->id(), client->remoteIP().toString().c_str());
         break;
 
     case WS_EVT_DISCONNECT:
-        Serial.printf("WebSocket client #%u disconnected\n", client->id());
+        LOG_INFO(TAG_WEB_SOCKETS,"WebSocket client #%u disconnected\n", client->id());
         break;
 
     case WS_EVT_DATA:
@@ -469,6 +473,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 
     case WS_EVT_PONG:
     case WS_EVT_ERROR:
+       LOG_INFO(TAG_WEB_SOCKETS,"WebSocket client ping -pong ");
         // Ping/Pong und Fehler werden ignoriert (Library-Intern)
         break;
     }

@@ -29,7 +29,7 @@ namespace {
 #define LOXONE_TOPIC_P_AKKU "fronius/p_batt_watt"
 #endif
 #ifndef LOXONE_TOPIC_SOC
-#define LOXONE_TOPIC_SOC "fronius/soc_percent"
+#define LOXONE_TOPIC_SOC "fronius/p_soc_percent"
 #endif
 
 
@@ -144,7 +144,7 @@ void LoxoneAsProvider::receive(const char* topic, const uint8_t* payload, unsign
         return;
     }
 }
-
+ 
 void LoxoneAsProvider::mqttMessage(void* context, const char* topic,
                                    const uint8_t* payload, unsigned length)
 {
