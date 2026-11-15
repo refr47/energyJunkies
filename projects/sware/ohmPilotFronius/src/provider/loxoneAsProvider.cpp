@@ -21,20 +21,21 @@ namespace {
 // One table is used both for MQTT subscriptions and for field assignment.
 // Build flags may override these defaults to match a Loxone installation.
 #ifndef LOXONE_TOPIC_P_GRID
-#define LOXONE_TOPIC_P_GRID "site/P_Grid"
+#define LOXONE_TOPIC_P_GRID "fronius/p_grid_watt"
 #endif
 #ifndef LOXONE_TOPIC_P_LOAD
-#define LOXONE_TOPIC_P_LOAD "site/P_Load"
+#define LOXONE_TOPIC_P_LOAD "fronius/p_load_watt"
 #endif
 #ifndef LOXONE_TOPIC_P_PV
-#define LOXONE_TOPIC_P_PV "site/P_PV"
+#define LOXONE_TOPIC_P_PV "fronius/p_pv_watt"
 #endif
 #ifndef LOXONE_TOPIC_P_AKKU
-#define LOXONE_TOPIC_P_AKKU "site/P_Akku"
+#define LOXONE_TOPIC_P_AKKU "fronius/p_batt_watt"
 #endif
 #ifndef LOXONE_TOPIC_SOC
-#define LOXONE_TOPIC_SOC "inverters/1/SOC"
+#define LOXONE_TOPIC_SOC "fronius/soc_percent"
 #endif
+
 
 struct TopicField {
     const char *topic;
