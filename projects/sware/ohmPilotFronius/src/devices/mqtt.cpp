@@ -3,6 +3,7 @@
 #include "app_state.h"
 #include "hotUpdate.h"
 #include "mqttActivity.h"
+#include "debugConsole.h"
 #ifdef LOXONE_API
 #include "heatingPublisher.h"
 #endif
@@ -21,6 +22,12 @@ static bool enabled = false;
 static unsigned short port = 0;
 static uint32_t lastAttempt = 0;
 static bool attempted = false;
+static const char *const *receiverTopics = nullptr;
+static unsigned receiverTopicCount = 0;
+static MqttMessageHandler receiverMessage = nullptr;
+static MqttConnectionHandler receiverConnection = nullptr;
+static std::atomic<void *> receiverContext{nullptr};
+static bool receiverSubscribed = false;
 #ifdef LOXONE_API
 static bool heatingSnapshotPending = false;
 #endif
@@ -31,7 +38,25 @@ bool mqtt_init()
 {
     if (!messages) messages = xQueueCreate(16, sizeof(MqttMessage));
     client.setSocketTimeout(2);
+    client.setCallback([](char *topic, uint8_t *payload, unsigned int length) {
+        void *context = receiverContext.load();
+        if (context && receiverMessage)
+            receiverMessage(context, topic, payload, length);
+    });
     return false; // Connections are established by mqtt_loop in its owning task.
+}
+
+bool mqtt_register_receiver(const char *const *topics, unsigned count, void *context,
+                            MqttMessageHandler onMessage, MqttConnectionHandler onConnection)
+{
+    if (!topics || !count || !context || !onMessage || !onConnection || receiverContext.load())
+        return false;
+    receiverTopics = topics;
+    receiverTopicCount = count;
+    receiverMessage = onMessage;
+    receiverConnection = onConnection;
+    receiverContext.store(context);
+    return true;
 }
 
 bool mqtt_loop()
@@ -48,6 +73,9 @@ bool mqtt_loop()
     appUnlockConfig();
     if (nextEnabled != enabled || nextPort != port || memcmp(&next, &config, sizeof(next))) {
         client.disconnect();
+        if (receiverContext.load())
+            receiverConnection(receiverContext.load(), false, true);
+        receiverSubscribed = false;
         mqttActivity_clear();
         config = next;
         enabled = nextEnabled;
@@ -57,7 +85,12 @@ bool mqtt_loop()
         if (enabled) client.setServer(config.mqttHost, port);
     }
     applied.store(revision);
-    if (!enabled || WiFi.status() != WL_CONNECTED) return false;
+    if (!enabled || WiFi.status() != WL_CONNECTED) {
+        if (receiverSubscribed && receiverContext.load())
+            receiverConnection(receiverContext.load(), false, false);
+        receiverSubscribed = false;
+        return false;
+    }
     const uint32_t now = millis();
 #ifdef LOXONE_API
     bool justConnected = false;
@@ -72,8 +105,31 @@ bool mqtt_loop()
         client.connect("Energy-Harvester", config.mqttUser[0] ? config.mqttUser : nullptr, config.mqttPass);
 #endif
     }
+    if (!client.connected() && receiverSubscribed && receiverContext.load()) {
+        receiverConnection(receiverContext.load(), false, false);
+        receiverSubscribed = false;
+    }
     if (client.connected()) {
+        void *context = receiverContext.load();
+        if (context && !receiverSubscribed) {
+            bool subscribed = true;
+            for (unsigned i = 0; i < receiverTopicCount; ++i) {
+                if (!client.subscribe(receiverTopics[i])) {
+                    LOG_ERROR(TAG_MQTT, "MQTT subscribe failed: %s", receiverTopics[i]);
+                    subscribed = false;
+                }
+            }
+            if (subscribed) {
+                receiverSubscribed = true;
+                receiverConnection(context, true, false);
+            }
+        }
         client.loop();
+        if (!client.connected()) {
+            if (receiverSubscribed && context) receiverConnection(context, false, false);
+            receiverSubscribed = false;
+            return false;
+        }
         MqttMessage message;
         for (unsigned i = 0; messages && i < 16 && xQueueReceive(messages, &message, 0) == pdTRUE; ++i) {
 #ifdef LOXONE_API

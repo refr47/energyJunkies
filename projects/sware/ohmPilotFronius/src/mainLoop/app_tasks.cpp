@@ -60,12 +60,20 @@ extern "C" void vConfigureTimerForRunTimeStats(void)
 static void taskClock(void* pvParameters)
 {
     int wdId = watchdogRegister("Clock", TASK_CLOCK_INTERVAL * 2);
+    uint32_t lastClock = 0;
+    bool firstClock = true;
 
     for (;;)
     {
         watchdogKick(wdId);
-        serviceClock();
-        vTaskDelay(pdMS_TO_TICKS(TASK_CLOCK_INTERVAL));
+        const uint32_t now = millis();
+        if (firstClock || uint32_t(now - lastClock) >= TASK_CLOCK_INTERVAL) {
+            serviceClock();
+            lastClock = now;
+            firstClock = false;
+        }
+        serviceMqtt();
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 

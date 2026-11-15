@@ -182,6 +182,10 @@ void serviceClock()
     // String s = WiFi.localIP().toString();
     // LOG_INFO(TAG_APP_SERVICES, "Current IP: %s", s.c_str());
 
+}
+
+void serviceMqtt()
+{
 #ifdef FEATURE_MQTT
     {
         // Retry MQTT while WLAN is available, even if the previous MQTT

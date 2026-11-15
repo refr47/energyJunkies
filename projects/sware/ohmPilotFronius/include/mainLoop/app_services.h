@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 void serviceClock();
+void serviceMqtt();
 void serviceNetworkSupervisor();
 void serviceTemperature();
 void serviceEnergy();
