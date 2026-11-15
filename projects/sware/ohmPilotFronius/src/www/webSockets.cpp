@@ -401,7 +401,8 @@ void cleanupClients()
 // - ws.textAll() bekommt einen String (Value), nicht einen Zeiger auf static
 //   Buffer. Damit kann ein anderer Thread den Buffer zwischen Generierung
 //   und Senden nicht zerstoeren.
-// - ws.count() > 0 Check und textAll() sind atomar aus Sicht von AsyncWebSocket
+// - ws.count() und textAll() sperren die Client-Liste jeweils einzeln.
+//   Ein Disconnect dazwischen ist erlaubt; textAll() meldet dann DISCARDED.
 // ──────────────────────────────────────────────────────────────────────────
 
 
@@ -414,10 +415,10 @@ void notifyClients()
     // im Kontext von ESPAsyncWebServer (Single-Owner-Client-List)
     if (ws.count() > 0)
     {
-        LOG_INFO(TAG_WEB_SOCKETS, "Notifying clients with JSON data  - before");
-        ws.textAll(jsonData);
-         vTaskDelay(pdMS_TO_TICKS(500));
-         LOG_INFO(TAG_WEB_SOCKETS, "Notifying clients with JSON data - after");
+        const auto status = ws.textAll(jsonData);
+        LOG_INFO(TAG_WEB_SOCKETS, "WebSocket send: status=%d bytes=%u clients=%u heap=%u",
+                 static_cast<int>(status), static_cast<unsigned>(jsonData.length()),
+                 static_cast<unsigned>(ws.count()), static_cast<unsigned>(ESP.getFreeHeap()));
     }
     else
     {
@@ -458,12 +459,14 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     switch (type)
     {
     case WS_EVT_CONNECT:
-        LOG_INFO(TAG_WEB_SOCKETS,"WebSocket client #%u connected from %s\n",
-                      client->id(), client->remoteIP().toString().c_str());
+        LOG_INFO(TAG_WEB_SOCKETS,"WebSocket client #%u connected from %s (heap=%u)",
+                 client->id(), client->remoteIP().toString().c_str(),
+                 static_cast<unsigned>(ESP.getFreeHeap()));
         break;
 
     case WS_EVT_DISCONNECT:
-        LOG_INFO(TAG_WEB_SOCKETS,"WebSocket client #%u disconnected\n", client->id());
+        LOG_INFO(TAG_WEB_SOCKETS,"WebSocket client #%u disconnected (heap=%u)",
+                 client->id(), static_cast<unsigned>(ESP.getFreeHeap()));
         break;
 
     case WS_EVT_DATA:
@@ -471,10 +474,13 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
         handleWebSocketMessage(arg, data, len);
         break;
 
-    case WS_EVT_PONG:
     case WS_EVT_ERROR:
-       LOG_INFO(TAG_WEB_SOCKETS,"WebSocket client ping -pong ");
-        // Ping/Pong und Fehler werden ignoriert (Library-Intern)
+        LOG_WARNING(TAG_WEB_SOCKETS, "WebSocket client #%u close code=%u",
+                    client->id(), arg ? *static_cast<uint16_t *>(arg) : 0);
+        break;
+
+    case WS_EVT_PING:
+    case WS_EVT_PONG:
         break;
     }
 }
