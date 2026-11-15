@@ -45,8 +45,6 @@ namespace {
         { LOXONE_TOPIC_P_AKKU, &ENERGY_STATE::p_akku },
         { LOXONE_TOPIC_SOC, &ENERGY_STATE::soc },
     };
-    constexpr uint8_t allTopics = (1U << (sizeof(topics) / sizeof(topics[0]))) - 1U;
-
     bool parseNumber(const uint8_t* payload, unsigned length, double& number)
     {
         if (!payload || !length || length >= 48) return false;
@@ -104,12 +102,13 @@ bool LoxoneAsProvider::read(WEBSOCK_DATA& webSockData)
         return false;
 
     }
+    // Topics arrive independently. Unseen fields stay at zero; received
+    // fields keep their last value until that topic is updated again.
     receivedMask = receivedMask_;
-    const bool complete = receivedMask == allTopics;
-    if (complete) sample = values_;
+    if (receivedMask) sample = values_;
     xSemaphoreGive(valuesMutex_);
-    if (!complete || !connected_.load()) {
-        LOG_ERROR(TAG_LOXONE, "Loxone: read - no complete data available (mask=%02X, connected=%d)", receivedMask, connected_.load());
+    if (!receivedMask || !connected_.load()) {
+        LOG_ERROR(TAG_LOXONE, "Loxone: read - no data available (mask=%02X, connected=%d)", receivedMask, connected_.load());
         return false;
     }
 
@@ -157,6 +156,7 @@ void LoxoneAsProvider::mqttConnection(void* context, bool connected, bool broker
     self->connected_.store(connected);
     if (brokerChanged && self->valuesMutex_ &&
         xSemaphoreTake(self->valuesMutex_, portMAX_DELAY) == pdTRUE) {
+        self->values_ = {};
         self->receivedMask_ = 0;
         xSemaphoreGive(self->valuesMutex_);
     }
