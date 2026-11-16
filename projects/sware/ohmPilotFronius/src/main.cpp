@@ -278,6 +278,7 @@ void loop()
 {
     // Warte 5000 Millisekunden (5 Sekunden)
     vTaskDelay(pdMS_TO_TICKS(10000));
+    LOG_INFO(TAG_MAIN, "Current IP: %s", g_app.webSockData.setupData.currentIP);
     // Alle 5 Sekunden auf Serial ausgeben:
     LOG_INFO(TAG_MAIN, "Free Heap: %u | Max Alloc: %u | Connects: %d | Free Stack: %d bytes",
         ESP.getFreeHeap(),
@@ -286,3 +287,4 @@ void loop()
         uxTaskGetStackHighWaterMark(NULL)); // Falls im AP Modus
     // Zeigt an, wie viele Bytes der Stack vom "Abgrund" (Canary) noch entfernt ist
 }
+ 

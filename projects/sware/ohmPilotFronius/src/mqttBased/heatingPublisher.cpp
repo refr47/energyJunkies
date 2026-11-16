@@ -6,12 +6,24 @@
 #include <cstring>
 
 namespace {
-constexpr char POWER_TOPIC[] = "heizung/consum_watt";
-constexpr char TEMPERATURE_TOPIC[] = "heizung/temp";
+constexpr char POWER_TOPIC[] = "boiler/consumer_watt";
+constexpr char TEMPERATURE_TOPIC[] = "boiler/temp";
 bool havePower = false;
 bool haveTemperature = false;
 int lastPower = 0;
 int lastTemperature = 0;
+
+
+/*
+
+
+hier wwerden die werte in die mqtt queue gestellt,
+getriggtert von
+heatingPublisher_powerChanged
+heatingPublisher_powerChanged
+*/
+
+
 
 bool enqueueValue(const char *topic, int value)
 {
@@ -21,6 +33,18 @@ bool enqueueValue(const char *topic, int value)
 }
 }
 
+
+
+
+/*
+- heatingPublisher_powerChanged() wird aus servicePid() aufgerufen. Der PID-Task läuft laut Konfiguration etwa alle 2 Sekunden
+(app_services.cpp (ohmPilotFronius/src/mainLoop/app_services.cpp:621),
+
+
+
+
+*/
+
 void heatingPublisher_powerChanged(int watts)
 {
     if ((!havePower || watts != lastPower) && enqueueValue(POWER_TOPIC, watts)) {
@@ -28,6 +52,16 @@ void heatingPublisher_powerChanged(int watts)
         havePower = true;
     }
 }
+
+
+/*
+
+
+
+
+*/
+
+
 
 void heatingPublisher_temperatureChanged(int degrees)
 {
