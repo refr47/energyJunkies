@@ -113,7 +113,10 @@ bool LoxoneAsProvider::read(WEBSOCK_DATA& webSockData)
     }
 
     bool success = publishSample(webSockData, sample);
-    LOG_INFO(TAG_LOXONE, "Loxone: read END success=%d", success);
+    LOG_INFO(TAG_LOXONE,
+             "Loxone: read END success=%d mask=%02X grid=%.3f load=%.3f pv=%.3f batt=%.3f soc=%.3f",
+             success, receivedMask, sample.p_grid, sample.p_load, sample.p_pv,
+             sample.p_akku, sample.soc);
     return success;
 }
 
@@ -133,7 +136,10 @@ void LoxoneAsProvider::receive(const char* topic, const uint8_t* payload, unsign
         if (xSemaphoreTake(valuesMutex_, portMAX_DELAY) == pdTRUE) {
             values_.*(topics[i].field) = value;
             receivedMask_ |= 1U << i;
+            const uint8_t mask = receivedMask_;
             xSemaphoreGive(valuesMutex_);
+            LOG_INFO(TAG_LOXONE, "Loxone: received %s = %.3f (mask=%02X)",
+                     topic, value, mask);
 #ifdef FEATURE_MQTT
             char valueText[33];
             snprintf(valueText, sizeof(valueText), "%.3f", value);
@@ -142,6 +148,7 @@ void LoxoneAsProvider::receive(const char* topic, const uint8_t* payload, unsign
         }
         return;
     }
+    LOG_WARNING(TAG_LOXONE, "Loxone: unexpected MQTT topic %s", topic);
 }
  
 void LoxoneAsProvider::mqttMessage(void* context, const char* topic,

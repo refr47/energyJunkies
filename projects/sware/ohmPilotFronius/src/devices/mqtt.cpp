@@ -39,6 +39,9 @@ bool mqtt_init()
     if (!messages) messages = xQueueCreate(16, sizeof(MqttMessage));
     client.setSocketTimeout(2);
     client.setCallback([](char *topic, uint8_t *payload, unsigned int length) {
+        LOG_INFO(TAG_MQTT, "MQTT received topic=%s payload=%.*s length=%u",
+                 topic, static_cast<int>(length < 48 ? length : 48),
+                 reinterpret_cast<const char *>(payload), length);
         void *context = receiverContext.load();
         if (context && receiverMessage)
             receiverMessage(context, topic, payload, length);
@@ -117,7 +120,7 @@ bool mqtt_loop()
                 if (!client.subscribe(receiverTopics[i])) {
                     LOG_ERROR(TAG_MQTT, "MQTT subscribe failed: %s", receiverTopics[i]);
                     subscribed = false;
-                }
+                } else LOG_INFO(TAG_MQTT, "MQTT subscribed: %s", receiverTopics[i]);
             }
             if (subscribed) {
                 receiverSubscribed = true;
