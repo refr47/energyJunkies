@@ -8,7 +8,7 @@
 #include <cstring>
 
 namespace {
-constexpr char POWER_TOPIC[] = "boiler/consumer_watt";
+constexpr char POWER_TOPIC[] = "boiler/watt";
 constexpr char TEMPERATURE_TOPIC[] = "boiler/temp";
 constexpr uint32_t REFRESH_MS = 15U * 60U * 1000U;
 
