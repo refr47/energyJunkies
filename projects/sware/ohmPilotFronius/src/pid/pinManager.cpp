@@ -452,6 +452,14 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
     float cloudAvg,
     float tempOutside, bool forecastValid)
 {
+    // Setup can be saved without restarting the controller. Keep the power
+    // estimate and the output limit in sync with the configured heater rating.
+    const unsigned int ratedPower = webSockData.setupData.heizstab_leistung_in_watt;
+    const int onePhase = ratedPower ? static_cast<int>(ratedPower / 3U) : FASE_EINS_POWER;
+    if (phaseCtrl.getOnePhase() != onePhase) {
+        phaseCtrl.setOnePhase(onePhase);
+        LOG_INFO(TAG_PID, "Heater rating updated: %u W, %d W per phase", ratedPower, onePhase);
+    }
     // ── 1. Prepare inputs ──
     stepPrepare(webSockData, tempMaxBonusC, pvRatio, cloudAvg, tempOutside, forecastValid);
 

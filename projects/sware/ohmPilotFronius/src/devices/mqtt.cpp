@@ -134,9 +134,13 @@ bool mqtt_loop()
             return false;
         }
         MqttMessage message;
+#ifdef LOXONE_API
+        const bool nightRest = heatingPublisher_isNightRest();
+#endif
         for (unsigned i = 0; messages && i < 16 && xQueueReceive(messages, &message, 0) == pdTRUE; ++i) {
 #ifdef LOXONE_API
-            if (justConnected && heatingPublisher_isTopic(message.topic)) continue;
+            if (heatingPublisher_isTopic(message.topic) &&
+                (justConnected || nightRest)) continue;
 #endif
             if (client.publish(message.topic, message.payload, message.retained))
                 mqttActivity_record(false, message.topic, message.payload);
@@ -146,6 +150,7 @@ bool mqtt_loop()
             // Replace offline heater transitions with the current retained state.
             heatingSnapshotPending = !heatingPublisher_resendSnapshot();
             for (unsigned i = 0; messages && i < 2 && xQueueReceive(messages, &message, 0) == pdTRUE; ++i) {
+                if (heatingPublisher_isTopic(message.topic) && nightRest) continue;
                 if (client.publish(message.topic, message.payload, message.retained))
                     mqttActivity_record(false, message.topic, message.payload);
             }

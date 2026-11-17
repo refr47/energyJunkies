@@ -5,6 +5,7 @@
 void heatingPublisher_powerChanged(int watts);
 void heatingPublisher_temperatureChanged(int degrees);
 bool heatingPublisher_isTopic(const char *topic);
+bool heatingPublisher_isNightRest();
 
 // Called by the MQTT-owning clock task after a successful connection.
 bool heatingPublisher_resendSnapshot();
