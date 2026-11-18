@@ -12,7 +12,7 @@ struct GridLoadConfig {
     uint8_t priority; // 1 is shed first
     GridLoadControl control;
 };
-
+  
 struct GridLoadRuntime {
     bool fresh = false;
     bool on = false;
