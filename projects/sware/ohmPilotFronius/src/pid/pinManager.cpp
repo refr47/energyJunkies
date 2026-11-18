@@ -23,6 +23,7 @@
 #include "logCommitter.h"
 #include "weather.h"
 #include "energyPolling.h"
+#include "curTime.h"
 // ── Constants ──
 #define FASE_EINS_POWER 576     // W per phase (standard 3-phase heater)
 
@@ -466,9 +467,10 @@ void PinManager::update(WEBSOCK_DATA& webSockData,
     unsigned long now = millis();
     const auto &sample = webSockData.energyState;
     const int temp = resolveInputTemp();
-    const time_t wall = time(nullptr);
+    // A plausible RTC value alone does not prove that the quarter is aligned.
+    const time_t wall = time_isSynchronized() ? time(nullptr) : 0;
     gridDemand.update(webSockData.setupData.gridDemand, wall, now,
-        isEnergyNightForSetup(webSockData.setupData, temp),
+        isEnergyNight(webSockData.setupData.energyPolling),
         sample.valid, sample.sampleSequence, sample.sampledAt, sample.p_grid,
         sample.heaterPowerAtSample, energyMaxAge(webSockData.setupData.energyPolling, sample.saving));
     webSockData.gridDemand = gridDemand.state();

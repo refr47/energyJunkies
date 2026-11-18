@@ -9,6 +9,8 @@ int main() {
         a.update(c, base+seconds, seconds*1000U, night, valid, seconds+1, seconds*1000U, watts, 3000, 80000);
     };
     feed(0);
+    assert(a.state().projectionValid);
+    assert(std::abs(a.state().projectedAverageW - 8000) < 0.001);
     assert(a.state().maxHeaterPowerW == 3500);
     assert(a.limitHeating(6000) == 3500 && a.state().limiting);
     for (int t=30;t<=900;t+=30) feed(t);
@@ -39,6 +41,7 @@ int main() {
     assert(b.state().lastCompleted.importEnergyWh==10);
     assert(b.state().current.importEnergyWh==10);
     assert(!b.state().lastCompleted.complete && b.state().current.complete);
+    assert(b.state().projectionValid);
     b.update(c,base+800,22000,false,true,3,22000,3600,0,80000);
     assert(!b.state().current.complete); // backward clock correction
     c.enforceLimit=true;
@@ -49,4 +52,10 @@ int main() {
     d.update(c,base,0,false,true,1,0,-5000,0,80000);
     d.update(c,base+30,30000,false,true,2,30000,10000,0,80000);
     assert(d.state().current.importEnergyWh==0);
+    GridDemandAspect e;
+    e.update(c,base+300,300000,false,true,1,300000,12000,0,80000);
+    assert(!e.state().projectionValid); // boot mid-quarter has unknown earlier import
+    assert(e.state().externalReductionW > 2000); // instant guard still sheds
+    e.update(c,base+900,900000,false,true,2,900000,12000,0,80000);
+    assert(e.state().projectionValid); // first aligned full quarter starts here
 }

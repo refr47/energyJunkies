@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <vector>
+#include <atomic>
 
 #include <WiFiUdp.h>
 
@@ -28,11 +29,17 @@ static unsigned int currentMonth = 0;
 static struct tm currentTime;
 static long currentSecs = 0;
 static vector<DATE_TIME> table;
+static std::atomic<bool> ntpSynchronized{false};
+
+bool time_isSynchronized() { return ntpSynchronized.load(); }
 
 bool time_init()
 {
     // esp_sntp_servermode_dhcp(1); // (optional)
     LOG_INFO(TAG_TIME, "time_init()");
+    esp_sntp_set_time_sync_notification_cb([](struct timeval *) {
+        ntpSynchronized.store(true);
+    });
     configTzTime(EUROPE_VIENNA_TZ, NtpServer1, NtpServer2); 
     setenv("TZ", EUROPE_VIENNA_TZ, 1);
     tzset();

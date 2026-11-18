@@ -127,6 +127,9 @@ static void buildGridDemand(JsonObject live, const GridDemandState &s)
     obj["enabled"] = s.enabled;
     obj["enforceLimit"] = s.enforceLimit;
     obj["limitW"] = s.limitW;
+    obj["projectionValid"] = s.projectionValid;
+    obj["projectedAverageW"] = s.projectionValid ? s.projectedAverageW : 0;
+    obj["externalReductionW"] = s.externalReductionW;
     obj["status"] = s.status;
     obj["measurementAgeMs"] = s.measurementAgeMs;
     obj["limiting"] = s.limiting;
@@ -141,6 +144,28 @@ static void buildGridDemand(JsonObject live, const GridDemandState &s)
         current["allowedRemainingImportW"] = s.allowedRemainingImportW;
     }
     buildDemandInterval(obj["lastCompleted"].to<JsonObject>(), s.lastCompleted, true);
+}
+
+static void buildGridLoads(JsonObject live, const GridLoadsState &state)
+{
+    JsonArray list = live["externalLoads"].to<JsonArray>();
+    const GridLoadConfig *config = gridLoadConfigs();
+    if (!config) return;
+    for (unsigned i = 0; i < GRID_LOAD_COUNT; ++i) {
+        JsonObject row = list.add<JsonObject>();
+        row["id"] = config[i].id;
+        row["name"] = config[i].name;
+        row["nominalW"] = config[i].nominalW;
+        row["priority"] = config[i].priority;
+        row["control"] = config[i].control == GridLoadControl::Switch ? "switch" : "adjustable";
+        const auto &s = state.loads[i];
+        row["fresh"] = s.fresh;
+        row["on"] = s.on;
+        row["available"] = s.available;
+        row["actualW"] = s.fresh ? s.actualW : 0;
+        row["pending"] = s.pending;
+        row["shedByUs"] = s.shedByUs;
+    }
 }
 
 static void buildHeatingPlan(JsonObject live, const HeatingPlanState &s)
@@ -401,6 +426,7 @@ void notifyClients()
         JsonDocument detailDoc;
         JsonObject detail = detailDoc["live"].to<JsonObject>();
         buildGridDemand(detail, data.gridDemand);
+        if (data.gridDemand.enabled) buildGridLoads(detail, data.gridLoads);
         buildHeatingPlan(detail, data.heatingPlan);
         if (serializePacket(detailDoc, packet, "detail")) sendPacket("detail", packet);
     }

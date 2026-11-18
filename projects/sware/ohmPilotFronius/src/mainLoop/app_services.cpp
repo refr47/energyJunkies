@@ -22,6 +22,7 @@
 
 #ifdef FEATURE_MQTT
 #include "mqtt.h"
+#include "gridLoads.h"
 #ifdef LOXONE_API
 #include "heatingPublisher.h"
 #endif
@@ -641,6 +642,9 @@ void servicePid()
         float outTemp = forecast.tempOutside;
          
         g_app.pinManager.update(g_app.webSockData, bonus, pvRatio, cloud, outTemp, forecast.valid);
+#ifdef FEATURE_MQTT
+        gridLoadsEvaluate();
+#endif
 #if defined(FEATURE_MQTT) && defined(LOXONE_API)
         heatingPublisher_powerChanged(static_cast<int>(g_app.webSockData.pidContainer.mCurrentPower));
 #endif

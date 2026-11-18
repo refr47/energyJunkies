@@ -1,6 +1,7 @@
 #pragma once
 
 bool time_init();
+bool time_isSynchronized();
 unsigned int time_getOffset();
 bool time_print();
 bool time_storeCurrentTime();

@@ -44,6 +44,7 @@
     </div>
 
     <MqttActivity v-if="liveData.mqtt?.enabled" :mqtt="liveData.mqtt" :is-connected="isConnected" class="w-full sm:w-auto sm:min-w-64" />
+    <GridDemandSummary :demand="liveData.gridDemand" :loads="liveData.externalLoads" />
   </div>
 </div>
 
@@ -72,6 +73,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import MqttActivity from './MqttActivity.vue';
+import GridDemandSummary from './GridDemandSummary.vue';
 const props = defineProps({ liveData: { type: Object, required: true }, isConnected: Boolean });
 const currentTime = ref("");
 let timeTimer;

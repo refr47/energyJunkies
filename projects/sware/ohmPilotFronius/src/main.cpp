@@ -32,6 +32,7 @@
 #include "www.h"
 #include "temp.h"
 #include "curTime.h"
+#include "gridLoads.h"
 #include "webSockets.h"
 #include "weather.h"
 #include "ledHandler.h"
@@ -196,6 +197,7 @@ void setup()
 #endif
 #ifdef FEATURE_MQTT
         g_app.webSockData.states.mqtt = mqtt_init();
+        if (!gridLoadsInit()) LOG_ERROR(TAG_MQTT, "External load MQTT receiver registration failed");
 #endif
 
 #ifdef CARD_READER
@@ -287,4 +289,3 @@ void loop()
         uxTaskGetStackHighWaterMark(NULL)); // Falls im AP Modus
     // Zeigt an, wie viele Bytes der Stack vom "Abgrund" (Canary) noch entfernt ist
 }
- 

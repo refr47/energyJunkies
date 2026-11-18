@@ -21,6 +21,9 @@ struct GridDemandState {
     const char *status = "disabled";
     GridDemandInterval current, lastCompleted;
     double remainingEnergyWh = 0, allowedRemainingImportW = 0;
+    double projectedAverageW = 0;
+    bool projectionValid = false;
+    int externalReductionW = 0;
     int maxHeaterPowerW = -1; // -1: no applicable limit / unavailable
 };
 
@@ -45,6 +48,8 @@ public:
         state_.limiting = false;
         state_.measurementAgeMs = seq ? uint32_t(tick - sampledAt) : 0;
         state_.maxHeaterPowerW = -1;
+        state_.projectionValid = false;
+        state_.externalReductionW = 0;
         if (!c.enabled || wall < 1609459200) {
             running = usable = false;
             state_.current = {}; state_.lastCompleted = {};
@@ -86,7 +91,12 @@ public:
         usable = !night && valid && seq && std::isfinite(gridW) && uint32_t(tick - sampledAt) <= maxAgeMs;
         state_.status = night ? "night" : !usable ? "stale" : state_.current.complete ? "ready" : "collecting";
         state_.remainingEnergyWh = std::max(0.0, c.limitW / 4.0 - state_.current.importEnergyWh);
-        double allowed = state_.remainingEnergyWh * 3600.0 / (state_.current.start + 900 - wall);
+        const int64_t remainingSeconds = std::max<int64_t>(1, state_.current.start + 900 - wall);
+        state_.projectionValid = usable && state_.current.complete && !night;
+        if (state_.projectionValid)
+            state_.projectedAverageW = 4.0 * (state_.current.importEnergyWh +
+                std::max(0.0, grid) * remainingSeconds / 3600.0);
+        double allowed = state_.remainingEnergyWh * 3600.0 / remainingSeconds;
         // Never spend unknown pre-start energy; also cap instantaneous import.
         allowed = std::min(double(c.limitW), allowed);
         state_.allowedRemainingImportW = allowed;
@@ -95,6 +105,13 @@ public:
         // 5% reserve, growing to 10% as a sample ages. Increases require fresh data.
         double margin = c.limitW * (0.05 + 0.05 * std::min(1.0, double(state_.measurementAgeMs) / std::max<uint32_t>(1, maxAgeMs)));
         int cap = int(std::min(double(INT_MAX), std::max(0.0, allowed - (grid - heater) - margin)));
+        if (c.enforceLimit) {
+            // The heater can be reduced to zero first. This is the remaining
+            // grid import that external loads must shed to protect the quarter.
+            const double baselineImport = std::max(0.0, grid - heater);
+            const double needed = std::max(0.0, baselineImport + margin - allowed);
+            state_.externalReductionW = int(std::min(double(INT_MAX), needed));
+        }
         // At most 500 W upward per measurement, referenced to actual heating.
         const int riseLimit = std::max(0, heater) + 500;
         heldCap = fresh ? std::min(cap, riseLimit) : std::min(heldCap, cap);

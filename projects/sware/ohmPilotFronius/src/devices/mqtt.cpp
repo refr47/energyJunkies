@@ -4,6 +4,7 @@
 #include "hotUpdate.h"
 #include "mqttActivity.h"
 #include "debugConsole.h"
+#include "gridLoads.h"
 #ifdef LOXONE_API
 #include "heatingPublisher.h"
 #endif
@@ -13,7 +14,7 @@
 #include <atomic>
 
 // Only the clock task touches the client; producers enqueue bounded messages.
-struct MqttMessage { char topic[64]; char payload[192]; bool retained; };
+struct MqttMessage { char topic[64]; char payload[192]; bool retained; uint32_t queuedAt; };
 static QueueHandle_t messages = nullptr;
 static WiFiClient transport;
 static PubSubClient client(transport);
@@ -27,7 +28,12 @@ static unsigned receiverTopicCount = 0;
 static MqttMessageHandler receiverMessage = nullptr;
 static MqttConnectionHandler receiverConnection = nullptr;
 static std::atomic<void *> receiverContext{nullptr};
-static bool receiverSubscribed = false;
+static const char *const *loadTopics = nullptr;
+static unsigned loadTopicCount = 0;
+static MqttMessageHandler loadMessage = nullptr;
+static MqttConnectionHandler loadConnection = nullptr;
+static std::atomic<void *> loadContext{nullptr};
+static std::atomic<bool> receiverSubscribed{false};
 #ifdef LOXONE_API
 static bool heatingSnapshotPending = false;
 #endif
@@ -44,9 +50,34 @@ bool mqtt_init()
                  reinterpret_cast<const char *>(payload), length);
         void *context = receiverContext.load();
         if (context && receiverMessage)
-            receiverMessage(context, topic, payload, length);
+            for (unsigned i = 0; i < receiverTopicCount; ++i)
+                if (!strcmp(topic, receiverTopics[i])) {
+                    receiverMessage(context, topic, payload, length);
+                    break;
+                }
+        context = loadContext.load();
+        if (context && loadMessage)
+            for (unsigned i = 0; i < loadTopicCount; ++i)
+                if (!strcmp(topic, loadTopics[i])) {
+                    loadMessage(context, topic, payload, length);
+                    break;
+                }
     });
     return false; // Connections are established by mqtt_loop in its owning task.
+}
+
+bool mqtt_register_load_receiver(const char *const *topics, unsigned count, void *context,
+                                 MqttMessageHandler onMessage, MqttConnectionHandler onConnection)
+{
+    if (!topics || !count || !context || !onMessage || !onConnection || loadContext.load())
+        return false;
+    loadTopics = topics;
+    loadTopicCount = count;
+    loadMessage = onMessage;
+    loadConnection = onConnection;
+    loadContext.store(context);
+    receiverSubscribed = false;
+    return true;
 }
 
 bool mqtt_register_receiver(const char *const *topics, unsigned count, void *context,
@@ -78,6 +109,8 @@ bool mqtt_loop()
         client.disconnect();
         if (receiverContext.load())
             receiverConnection(receiverContext.load(), false, true);
+        if (loadContext.load())
+            loadConnection(loadContext.load(), false, true);
         receiverSubscribed = false;
         mqttActivity_clear();
         config = next;
@@ -91,6 +124,8 @@ bool mqtt_loop()
     if (!enabled || WiFi.status() != WL_CONNECTED) {
         if (receiverSubscribed && receiverContext.load())
             receiverConnection(receiverContext.load(), false, false);
+        if (receiverSubscribed && loadContext.load())
+            loadConnection(loadContext.load(), false, false);
         receiverSubscribed = false;
         return false;
     }
@@ -108,13 +143,14 @@ bool mqtt_loop()
         client.connect("Energy-Harvester", config.mqttUser[0] ? config.mqttUser : nullptr, config.mqttPass);
 #endif
     }
-    if (!client.connected() && receiverSubscribed && receiverContext.load()) {
-        receiverConnection(receiverContext.load(), false, false);
+    if (!client.connected() && receiverSubscribed) {
+        if (receiverContext.load()) receiverConnection(receiverContext.load(), false, false);
+        if (loadContext.load()) loadConnection(loadContext.load(), false, false);
         receiverSubscribed = false;
     }
     if (client.connected()) {
         void *context = receiverContext.load();
-        if (context && !receiverSubscribed) {
+        if ((context || loadContext.load()) && !receiverSubscribed) {
             bool subscribed = true;
             for (unsigned i = 0; i < receiverTopicCount; ++i) {
                 if (!client.subscribe(receiverTopics[i])) {
@@ -122,14 +158,22 @@ bool mqtt_loop()
                     subscribed = false;
                 } else LOG_INFO(TAG_MQTT, "MQTT subscribed: %s", receiverTopics[i]);
             }
+            for (unsigned i = 0; i < loadTopicCount; ++i) {
+                if (!client.subscribe(loadTopics[i])) {
+                    LOG_ERROR(TAG_MQTT, "MQTT subscribe failed: %s", loadTopics[i]);
+                    subscribed = false;
+                }
+            }
             if (subscribed) {
                 receiverSubscribed = true;
-                receiverConnection(context, true, false);
+                if (context) receiverConnection(context, true, false);
+                if (loadContext.load()) loadConnection(loadContext.load(), true, false);
             }
         }
         client.loop();
         if (!client.connected()) {
             if (receiverSubscribed && context) receiverConnection(context, false, false);
+            if (receiverSubscribed && loadContext.load()) loadConnection(loadContext.load(), false, false);
             receiverSubscribed = false;
             return false;
         }
@@ -138,6 +182,11 @@ bool mqtt_loop()
         const bool nightRest = heatingPublisher_isNightRest();
 #endif
         for (unsigned i = 0; messages && i < 16 && xQueueReceive(messages, &message, 0) == pdTRUE; ++i) {
+            // A delayed OFF/ON command must not be applied after its decision expired.
+            if (!strncmp(message.topic, "energy/loads/", 13) &&
+                uint32_t(millis() - message.queuedAt) > 10000) continue;
+            if (!strncmp(message.topic, "energy/loads/", 13) &&
+                !gridLoadsCommandCurrent(message.topic, message.payload)) continue;
 #ifdef LOXONE_API
             if (heatingPublisher_isTopic(message.topic) &&
                 (justConnected || nightRest)) continue;
@@ -150,6 +199,10 @@ bool mqtt_loop()
             // Replace offline heater transitions with the current retained state.
             heatingSnapshotPending = !heatingPublisher_resendSnapshot();
             for (unsigned i = 0; messages && i < 2 && xQueueReceive(messages, &message, 0) == pdTRUE; ++i) {
+                if (!strncmp(message.topic, "energy/loads/", 13) &&
+                    uint32_t(millis() - message.queuedAt) > 10000) continue;
+                if (!strncmp(message.topic, "energy/loads/", 13) &&
+                    !gridLoadsCommandCurrent(message.topic, message.payload)) continue;
                 if (heatingPublisher_isTopic(message.topic) && nightRest) continue;
                 if (client.publish(message.topic, message.payload, message.retained))
                     mqttActivity_record(false, message.topic, message.payload);
@@ -167,9 +220,11 @@ static bool publish(const char *topic, const char *payload, bool retained = fals
     strlcpy(message.topic, topic, sizeof(message.topic));
     strlcpy(message.payload, payload, sizeof(message.payload));
     message.retained = retained;
+    message.queuedAt = millis();
     return xQueueSend(messages, &message, 0) == pdTRUE;
 }
 bool mqtt_publish_retained(const char *topic, const char *payload) { return publish(topic, payload, true); }
+bool mqtt_publish(const char *topic, const char *payload) { return publish(topic, payload); }
 void mqtt_publish_en(int pwm, double availableWatt) {
     char value[48]; snprintf(value, sizeof(value), "%d", pwm); publish("energy/pwm", value);
     snprintf(value, sizeof(value), "%.2f", availableWatt); publish("energy/available", value);
