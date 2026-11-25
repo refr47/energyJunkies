@@ -5,7 +5,10 @@ Broker, Port und Zugangsdaten stammen aus den MQTT-Einstellungen des Setups;
 `FEATURE_MQTT` und MQTT im Setup müssen aktiviert sein. Empfang und
 Heizungs-Publishing teilen sich den vorhandenen `PubSubClient` in
 `devices/mqtt.cpp`. Der Clock-Task bedient den MQTT-Loop einmal pro Sekunde
-und abonniert die Energy-Topics nach jeder Verbindung erneut.
+und abonniert die Energy-Topics auch dann, wenn Loxone erst nach dem
+Broker-Verbindungsaufbau registriert wird. Nach jeder Verbindung werden die
+Topics erneut abonniert. Die Registrierung läuft auch während einer
+nächtlichen Pause des Energy-Pollings.
 
 Die fünf Topic-Namen stehen als Konstanten in `src/provider/loxoneAsProvider.cpp`.
 Die Vorgaben sind `fronius/p_grid_watt`, `fronius/p_load_watt`,

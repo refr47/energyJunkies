@@ -33,7 +33,10 @@ static unsigned loadTopicCount = 0;
 static MqttMessageHandler loadMessage = nullptr;
 static MqttConnectionHandler loadConnection = nullptr;
 static std::atomic<void *> loadContext{nullptr};
-static std::atomic<bool> receiverSubscribed{false};
+// Subscription state belongs to the MQTT task. The two receivers can register
+// at different times, including after the broker connection is established.
+static bool energySubscribed = false;
+static bool loadSubscribed = false;
 #ifdef LOXONE_API
 static bool heatingSnapshotPending = false;
 #endif
@@ -76,7 +79,6 @@ bool mqtt_register_load_receiver(const char *const *topics, unsigned count, void
     loadMessage = onMessage;
     loadConnection = onConnection;
     loadContext.store(context);
-    receiverSubscribed = false;
     return true;
 }
 
@@ -111,7 +113,8 @@ bool mqtt_loop()
             receiverConnection(receiverContext.load(), false, true);
         if (loadContext.load())
             loadConnection(loadContext.load(), false, true);
-        receiverSubscribed = false;
+        energySubscribed = false;
+        loadSubscribed = false;
         mqttActivity_clear();
         config = next;
         enabled = nextEnabled;
@@ -122,11 +125,12 @@ bool mqtt_loop()
     }
     applied.store(revision);
     if (!enabled || WiFi.status() != WL_CONNECTED) {
-        if (receiverSubscribed && receiverContext.load())
+        if (energySubscribed && receiverContext.load())
             receiverConnection(receiverContext.load(), false, false);
-        if (receiverSubscribed && loadContext.load())
+        if (loadSubscribed && loadContext.load())
             loadConnection(loadContext.load(), false, false);
-        receiverSubscribed = false;
+        energySubscribed = false;
+        loadSubscribed = false;
         return false;
     }
     const uint32_t now = millis();
@@ -143,14 +147,15 @@ bool mqtt_loop()
         client.connect("Energy-Harvester", config.mqttUser[0] ? config.mqttUser : nullptr, config.mqttPass);
 #endif
     }
-    if (!client.connected() && receiverSubscribed) {
-        if (receiverContext.load()) receiverConnection(receiverContext.load(), false, false);
-        if (loadContext.load()) loadConnection(loadContext.load(), false, false);
-        receiverSubscribed = false;
+    if (!client.connected()) {
+        if (energySubscribed && receiverContext.load()) receiverConnection(receiverContext.load(), false, false);
+        if (loadSubscribed && loadContext.load()) loadConnection(loadContext.load(), false, false);
+        energySubscribed = false;
+        loadSubscribed = false;
     }
     if (client.connected()) {
         void *context = receiverContext.load();
-        if ((context || loadContext.load()) && !receiverSubscribed) {
+        if (context && !energySubscribed) {
             bool subscribed = true;
             for (unsigned i = 0; i < receiverTopicCount; ++i) {
                 if (!client.subscribe(receiverTopics[i])) {
@@ -158,6 +163,14 @@ bool mqtt_loop()
                     subscribed = false;
                 } else LOG_INFO(TAG_MQTT, "MQTT subscribed: %s", receiverTopics[i]);
             }
+            if (subscribed) {
+                energySubscribed = true;
+                receiverConnection(context, true, false);
+            }
+        }
+        void *loadReceiver = loadContext.load();
+        if (loadReceiver && !loadSubscribed) {
+            bool subscribed = true;
             for (unsigned i = 0; i < loadTopicCount; ++i) {
                 if (!client.subscribe(loadTopics[i])) {
                     LOG_ERROR(TAG_MQTT, "MQTT subscribe failed: %s", loadTopics[i]);
@@ -165,16 +178,16 @@ bool mqtt_loop()
                 }
             }
             if (subscribed) {
-                receiverSubscribed = true;
-                if (context) receiverConnection(context, true, false);
-                if (loadContext.load()) loadConnection(loadContext.load(), true, false);
+                loadSubscribed = true;
+                loadConnection(loadReceiver, true, false);
             }
         }
         client.loop();
         if (!client.connected()) {
-            if (receiverSubscribed && context) receiverConnection(context, false, false);
-            if (receiverSubscribed && loadContext.load()) loadConnection(loadContext.load(), false, false);
-            receiverSubscribed = false;
+            if (energySubscribed && context) receiverConnection(context, false, false);
+            if (loadSubscribed && loadReceiver) loadConnection(loadReceiver, false, false);
+            energySubscribed = false;
+            loadSubscribed = false;
             return false;
         }
         MqttMessage message;

@@ -146,6 +146,7 @@ static void taskEnergy(void* pvParameters)
 #ifdef FEATURE_INFLUX
         influx_service();
 #endif
+        serviceEnergySourceRegistration();
         const uint32_t interval = getAdaptiveEnergyInterval();
         if (interval == 0) {
             wasNight = true;

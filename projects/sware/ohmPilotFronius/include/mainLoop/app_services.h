@@ -7,6 +7,7 @@ void serviceMqtt();
 void serviceNetworkSupervisor();
 void serviceTemperature();
 void serviceEnergy();
+void serviceEnergySourceRegistration();
 void serviceWeather();
 void servicePid();
 void serviceWeb();

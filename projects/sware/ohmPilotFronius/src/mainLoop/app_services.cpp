@@ -585,6 +585,22 @@ static PROGNOSE weatherSnapshot() { return PROGNOSE{}; }
 // =============================================================================
 // serviceEnergy – Orchestrator
 // =============================================================================
+void serviceEnergySourceRegistration()
+{
+#ifdef LOXONE_API
+    // MQTT messages may arrive while energy polling is paused for the night.
+    // Register the source so the clock task can subscribe before they arrive.
+    if (g_activeSource.load() || WiFi.status() != WL_CONNECTED) return;
+    static bool attempted = false;
+    static uint32_t lastAttempt = 0;
+    const uint32_t now = millis();
+    if (attempted && uint32_t(now - lastAttempt) < 5000) return;
+    attempted = true;
+    lastAttempt = now;
+    ensureEnergySource();
+#endif
+}
+
 void serviceEnergy()
 {
     if (!appLockData(50)) return;
