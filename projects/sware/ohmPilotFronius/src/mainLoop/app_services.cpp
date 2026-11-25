@@ -638,9 +638,17 @@ void serviceEnergy()
 void servicePid()
 {
     // KR-2: pinManager.update accesses both DATA (webSockData) + PIDOUT (pinManager)
-    if (!appLockData(LOCK_TIMEOUT_DATA_MS)) return;
+    if (!appLockData(LOCK_TIMEOUT_DATA_MS)) {
+#if defined(FEATURE_MQTT) && defined(LOXONE_API)
+        LOG_WARNING(TAG_APP_SERVICES, "PID skipped heater publishing: data lock unavailable");
+#endif
+        return;
+    }
     if (!appLockPidOut(LOCK_TIMEOUT_PIDOUT_MS)) {
         appUnlockData();
+#if defined(FEATURE_MQTT) && defined(LOXONE_API)
+        LOG_WARNING(TAG_APP_SERVICES, "PID skipped heater publishing: PID lock unavailable");
+#endif
         return;
     }
     {

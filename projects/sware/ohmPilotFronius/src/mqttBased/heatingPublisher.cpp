@@ -20,6 +20,12 @@ int lastPower = 0;
 int lastTemperature = 0;
 uint32_t lastPowerAt = 0;
 uint32_t lastTemperatureAt = 0;
+bool powerProbeLogged = false;
+bool temperatureProbeLogged = false;
+uint32_t lastPowerProbeAt = 0;
+uint32_t lastTemperatureProbeAt = 0;
+bool powerNightLogged = false;
+bool temperatureNightLogged = false;
 
 bool enqueueValue(const char *topic, int value)
 {
@@ -37,13 +43,28 @@ bool shouldPublish(bool haveValue, int value, int lastValue,
 
 void heatingPublisher_powerChanged(int watts)
 {
-    if (isEnergyNight(g_app.webSockData.setupData.energyPolling)) {
+    const uint32_t now = millis();
+    const bool night = isEnergyNight(g_app.webSockData.setupData.energyPolling);
+    if (!powerProbeLogged || uint32_t(now - lastPowerProbeAt) >= 60000) {
+        LOG_INFO(TAG_MQTT, "Heater power publisher: watts=%d night=%d queuedValue=%d",
+                 watts, night, havePower);
+        powerProbeLogged = true;
+        lastPowerProbeAt = now;
+    }
+    if (night) {
+        if (!powerNightLogged) {
+            LOG_INFO(TAG_MQTT, "Heater power publishing paused for energy night");
+            powerNightLogged = true;
+        }
         havePower = false;
         return;
     }
-    const uint32_t now = millis();
-    if (shouldPublish(havePower, watts, lastPower, lastPowerAt, now) &&
-        enqueueValue(POWER_TOPIC, watts)) {
+    powerNightLogged = false;
+    if (shouldPublish(havePower, watts, lastPower, lastPowerAt, now)) {
+        if (!enqueueValue(POWER_TOPIC, watts)) {
+            LOG_WARNING(TAG_MQTT, "Heater power could not be queued: %d W", watts);
+            return;
+        }
         LOG_INFO(TAG_MQTT,
                  "Heater estimated power queued: %d W (relay phases=%d PWM=%d/255 rated=%u W)",
                  watts, int(g_app.webSockData.pidContainer.PID_PIN1) +
@@ -58,13 +79,29 @@ void heatingPublisher_powerChanged(int watts)
 
 void heatingPublisher_temperatureChanged(int degrees)
 {
-    if (isEnergyNight(g_app.webSockData.setupData.energyPolling)) {
+    const uint32_t now = millis();
+    const bool night = isEnergyNight(g_app.webSockData.setupData.energyPolling);
+    if (!temperatureProbeLogged || uint32_t(now - lastTemperatureProbeAt) >= 60000) {
+        LOG_INFO(TAG_MQTT, "Heater temperature publisher: degrees=%d night=%d queuedValue=%d",
+                 degrees, night, haveTemperature);
+        temperatureProbeLogged = true;
+        lastTemperatureProbeAt = now;
+    }
+    if (night) {
+        if (!temperatureNightLogged) {
+            LOG_INFO(TAG_MQTT, "Heater temperature publishing paused for energy night");
+            temperatureNightLogged = true;
+        }
         haveTemperature = false;
         return;
     }
-    const uint32_t now = millis();
-    if (shouldPublish(haveTemperature, degrees, lastTemperature, lastTemperatureAt, now) &&
-        enqueueValue(TEMPERATURE_TOPIC, degrees)) {
+    temperatureNightLogged = false;
+    if (shouldPublish(haveTemperature, degrees, lastTemperature, lastTemperatureAt, now)) {
+        if (!enqueueValue(TEMPERATURE_TOPIC, degrees)) {
+            LOG_WARNING(TAG_MQTT, "Heater temperature could not be queued: %d C", degrees);
+            return;
+        }
+        LOG_INFO(TAG_MQTT, "Heater temperature queued: %d C", degrees);
         lastTemperature = degrees;
         lastTemperatureAt = now;
         haveTemperature = true;
