@@ -1,0 +1,1 @@
+PLATFORMIO_UPLOAD_FLAGS='--auth=47754775' pio run -e lilygo-t-display-s3-ota -t upload

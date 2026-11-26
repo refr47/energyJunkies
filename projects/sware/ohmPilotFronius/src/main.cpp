@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ArduinoOTA.h>
+#include <Update.h>
 #include <SPI.h>
 #include "esp32-hal-log.h"
 #include "esp_heap_trace.h"
@@ -237,6 +238,26 @@ void setup()
     {
         ArduinoOTA.setPassword(credentials.password);
         ArduinoOTA.setMdnsEnabled(false);
+        ArduinoOTA.onStart([]() {
+            LOG_INFO(TAG_MAIN, "OTA update started");
+        });
+        ArduinoOTA.onError([](ota_error_t error) {
+            const char *reason = "unknown";
+            switch (error)
+            {
+            case OTA_AUTH_ERROR: reason = "authentication"; break;
+            case OTA_BEGIN_ERROR: reason = "partition/update begin"; break;
+            case OTA_CONNECT_ERROR: reason = "TCP connection to uploader"; break;
+            case OTA_RECEIVE_ERROR: reason = "receive timeout"; break;
+            case OTA_END_ERROR: reason = "update finalization"; break;
+            }
+            if (error == OTA_BEGIN_ERROR)
+                LOG_ERROR(TAG_MAIN, "OTA update failed: %s (%u): %s", reason,
+                          static_cast<unsigned>(error), Update.errorString());
+            else
+                LOG_ERROR(TAG_MAIN, "OTA update failed: %s (%u)", reason,
+                          static_cast<unsigned>(error));
+        });
     }
     logReader_init();
 
