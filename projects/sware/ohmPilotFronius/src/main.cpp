@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <SPI.h>
 #include "esp32-hal-log.h"
 #include "esp_heap_trace.h"
@@ -59,6 +60,8 @@
 // #include "app_tasksfroniusSolarAPI.h"
 
 static RTC_DATA_ATTR int bootCount = 0;
+static bool g_otaConfigured = false;
+static bool g_otaRunning = false;
 
 WEBSOCK_DATA& getDataForWebSocket()
 {
@@ -94,15 +97,7 @@ void logging_init()
     esp_log_level_set(TAG_INFLUX, ESP_LOG_DEBUG); */
     esp_log_level_set(TAG_LOXONE, ESP_LOG_DEBUG);
 
-    //  esp_log_set_vprintf(debug_LogOutput);
-
-#ifdef CARD_READER
-    esp_log_set_vprintf(cardRW_LogOutput);
-    if (!cardRW_createLoggingFile())
-    {
-        ESP_LOGE(TAG, "Cannot create logging file on sd card");
-    }
-#endif
+    debugConsole_initNetwork();
 }
 
 void setup()
@@ -235,6 +230,14 @@ void setup()
     strlcpy(credentials.ssid, g_app.webSockData.setupData.ssid, sizeof(credentials.ssid));
     strlcpy(credentials.password, g_app.webSockData.setupData.passwd, sizeof(credentials.password));
     credentials.hasStaCredentials = g_app.networkCredentialsInEEprom;
+    // Reuse the stored WiFi password for OTA authentication; no secret is
+    // checked into platformio.ini. An empty password disables OTA.
+    g_otaConfigured = credentials.hasStaCredentials && credentials.password[0] != '\0';
+    if (g_otaConfigured)
+    {
+        ArduinoOTA.setPassword(credentials.password);
+        ArduinoOTA.setMdnsEnabled(false);
+    }
     logReader_init();
 
     if (g_app.webSockData.states.networkOK)
@@ -278,14 +281,32 @@ void setup()
 
 void loop()
 {
-    // Warte 5000 Millisekunden (5 Sekunden)
-    vTaskDelay(pdMS_TO_TICKS(10000));
-    LOG_INFO(TAG_MAIN, "Current IP: %s", g_app.webSockData.setupData.currentIP);
-    // Alle 5 Sekunden auf Serial ausgeben:
-    LOG_INFO(TAG_MAIN, "Free Heap: %u | Max Alloc: %u | Connects: %d | Free Stack: %d bytes",
-        ESP.getFreeHeap(),
-        ESP.getMaxAllocHeap(),
-        WiFi.softAPgetStationNum(),
-        uxTaskGetStackHighWaterMark(NULL)); // Falls im AP Modus
-    // Zeigt an, wie viele Bytes der Stack vom "Abgrund" (Canary) noch entfernt ist
+    const bool wifiConnected = WiFi.status() == WL_CONNECTED;
+    if (g_otaConfigured && wifiConnected && !g_otaRunning)
+    {
+        ArduinoOTA.begin();
+        g_otaRunning = true;
+        LOG_INFO(TAG_MAIN, "OTA ready at %s:3232", WiFi.localIP().toString().c_str());
+    }
+    else if (g_otaRunning && !wifiConnected)
+    {
+        ArduinoOTA.end();
+        g_otaRunning = false;
+    }
+    if (g_otaRunning) ArduinoOTA.handle();
+    debugConsole_serviceNetwork();
+
+    static uint32_t lastStatusLog = 0;
+    const uint32_t now = millis();
+    if (now - lastStatusLog >= 10000)
+    {
+        lastStatusLog = now;
+        LOG_INFO(TAG_MAIN, "Current IP: %s", g_app.webSockData.setupData.currentIP);
+        LOG_INFO(TAG_MAIN, "Free Heap: %u | Max Alloc: %u | Connects: %d | Free Stack: %d bytes",
+            ESP.getFreeHeap(),
+            ESP.getMaxAllocHeap(),
+            WiFi.softAPgetStationNum(),
+            uxTaskGetStackHighWaterMark(NULL)); // Falls im AP Modus
+    }
+    vTaskDelay(pdMS_TO_TICKS(20));
 }

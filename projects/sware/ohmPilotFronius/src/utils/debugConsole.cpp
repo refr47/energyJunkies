@@ -2,6 +2,9 @@
 #include <Arduino.h>
 #include "logReader.h"
 #include "esp_log.h"
+#include <WiFi.h>
+#include <lwip/sockets.h>
+#include <errno.h>
 
 // ────────────────────────────────────────────────────
 // Farben + Level-Char
@@ -40,6 +43,149 @@ static char g_logBufB[FORMAT_BUF_SIZE];
 // Mutex fuer shouldLogSmart (Vorschlag C)
 // ────────────────────────────────────────────────────
 static SemaphoreHandle_t g_logMutex = nullptr;
+
+// ESP logging may run on either core. Each callback owns one fixed buffer
+// until the existing loop() has sent or discarded it. No large stack buffer
+// and no socket call are needed in the logging callback.
+static constexpr uint8_t NET_LOG_SLOTS = 8;
+static constexpr size_t NET_LOG_LINE_SIZE = 384;
+static constexpr uint16_t NET_LOG_PORT = 4444;
+static char g_netLines[NET_LOG_SLOTS][NET_LOG_LINE_SIZE];
+static uint16_t g_netLineLengths[NET_LOG_SLOTS];
+static QueueHandle_t g_netFreeSlots = nullptr;
+static QueueHandle_t g_netPending = nullptr;
+static vprintf_like_t g_previousLogOutput = nullptr;
+static WiFiServer g_netLogServer(NET_LOG_PORT, 1);
+static WiFiClient g_netLogClient;
+static int g_netActiveSlot = -1;
+static size_t g_netActiveOffset = 0;
+static bool g_netServerStarted = false;
+
+static int mirrorLogOutput(const char *format, va_list args)
+{
+    uint8_t slot;
+    if (g_netFreeSlots && xQueueReceive(g_netFreeSlots, &slot, 0) == pdTRUE)
+    {
+        va_list copy;
+        va_copy(copy, args);
+        const int length = vsnprintf(g_netLines[slot], NET_LOG_LINE_SIZE, format, copy);
+        va_end(copy);
+        if (length > 0)
+        {
+            g_netLineLengths[slot] = static_cast<uint16_t>(
+                length < static_cast<int>(NET_LOG_LINE_SIZE) ? length : NET_LOG_LINE_SIZE - 1);
+            if (xQueueSend(g_netPending, &slot, 0) == pdTRUE)
+                return g_previousLogOutput(format, args);
+        }
+        xQueueSend(g_netFreeSlots, &slot, 0);
+    }
+    return g_previousLogOutput(format, args);
+}
+
+void debugConsole_initNetwork()
+{
+    if (g_previousLogOutput) return;
+    g_netFreeSlots = xQueueCreate(NET_LOG_SLOTS, sizeof(uint8_t));
+    g_netPending = xQueueCreate(NET_LOG_SLOTS, sizeof(uint8_t));
+    if (!g_netFreeSlots || !g_netPending)
+    {
+        if (g_netFreeSlots) vQueueDelete(g_netFreeSlots);
+        if (g_netPending) vQueueDelete(g_netPending);
+        g_netFreeSlots = nullptr;
+        g_netPending = nullptr;
+        return;
+    }
+    for (uint8_t slot = 0; slot < NET_LOG_SLOTS; ++slot)
+        xQueueSend(g_netFreeSlots, &slot, 0);
+    g_previousLogOutput = esp_log_set_vprintf(mirrorLogOutput);
+}
+
+static void releaseNetworkLogSlot(uint8_t slot)
+{
+    xQueueSend(g_netFreeSlots, &slot, 0);
+}
+
+static void discardPendingNetworkLogs()
+{
+    if (g_netActiveSlot >= 0)
+    {
+        releaseNetworkLogSlot(static_cast<uint8_t>(g_netActiveSlot));
+        g_netActiveSlot = -1;
+        g_netActiveOffset = 0;
+    }
+    uint8_t slot;
+    while (xQueueReceive(g_netPending, &slot, 0) == pdTRUE)
+        releaseNetworkLogSlot(slot);
+}
+
+void debugConsole_serviceNetwork()
+{
+    if (!g_netPending) return;
+
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        if (g_netLogClient) g_netLogClient.stop();
+        if (g_netServerStarted)
+        {
+            g_netLogServer.end();
+            g_netServerStarted = false;
+        }
+        discardPendingNetworkLogs();
+        return;
+    }
+
+    if (!g_netServerStarted)
+    {
+        g_netLogServer.begin();
+        g_netServerStarted = static_cast<bool>(g_netLogServer);
+        if (!g_netServerStarted) return;
+        LOG_INFO(TAG_LOGGER, "Network log TCP port %u ready", NET_LOG_PORT);
+    }
+    if (g_netLogServer.hasClient())
+    {
+        WiFiClient incoming = g_netLogServer.accept();
+        if (incoming)
+        {
+            g_netLogClient.stop();
+            g_netLogClient = incoming;
+            discardPendingNetworkLogs();
+            LOG_INFO(TAG_LOGGER, "Network log monitor connected");
+        }
+    }
+    if (!g_netLogClient.connected())
+    {
+        discardPendingNetworkLogs();
+        return;
+    }
+
+    // A nonblocking send also prevents a stalled monitor from delaying OTA.
+    for (int sentLines = 0; sentLines < 4; ++sentLines)
+    {
+        if (g_netActiveSlot < 0)
+        {
+            uint8_t slot;
+            if (xQueueReceive(g_netPending, &slot, 0) != pdTRUE) break;
+            g_netActiveSlot = slot;
+            g_netActiveOffset = 0;
+        }
+        const uint8_t slot = static_cast<uint8_t>(g_netActiveSlot);
+        const size_t remaining = g_netLineLengths[slot] - g_netActiveOffset;
+        const int written = send(g_netLogClient.fd(), g_netLines[slot] + g_netActiveOffset,
+                                 remaining, MSG_DONTWAIT);
+        if (written > 0)
+        {
+            g_netActiveOffset += static_cast<size_t>(written);
+            if (g_netActiveOffset < g_netLineLengths[slot]) break;
+            releaseNetworkLogSlot(slot);
+            g_netActiveSlot = -1;
+            continue;
+        }
+        if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) break;
+        g_netLogClient.stop();
+        discardPendingNetworkLogs();
+        break;
+    }
+}
 
 // ────────────────────────────────────────────────────
 // Hash-Eintrag (Vorschlag D: open-addressing statt linearem Scan)

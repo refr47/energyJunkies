@@ -11,8 +11,7 @@
 #define DEBUG_OUTPUT
 
 // ─────────────────────────────────────────────────────
-// Runtime-Log-Level (compile-time): 0=error, 1=warn, 2=info, 3=debug
-//  Auf 2 setzen, um LOG_DEBUG komplett abzuschalten (kein Stack-Kosten!)
+// Compile-time log limit: 1=error, 2=warn, 3=info, 4=debug.
 // ─────────────────────────────────────────────────────
 #ifndef MIN_LOG_LEVEL
 #define MIN_LOG_LEVEL 3
@@ -25,6 +24,8 @@
 #endif
 
 void smartLogExec(esp_log_level_t level, const char* tag, const char* file, int line, const char* format, ...);
+void debugConsole_initNetwork();
+void debugConsole_serviceNetwork();
 
 #define FINFO strrchr(__FILE__, '/') + 1
 
