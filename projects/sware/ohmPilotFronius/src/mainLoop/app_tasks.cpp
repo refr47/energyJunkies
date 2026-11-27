@@ -15,6 +15,10 @@
 #include "app_tasks.h"
 #include "wlan.h"
 #include "utils.h"
+#include "energySource.h"
+#ifdef LOXONE_API
+#include "loxoneAsProvider.h"
+#endif
 /*
 
 #include "app_services.h"
@@ -154,7 +158,13 @@ static void taskEnergy(void* pvParameters)
             const uint32_t now = millis();
             if (wasNight) attempted = false; // fresh read immediately after night
             wasNight = false;
-            if ((!attempted || uint32_t(now - lastAttempt) >= interval) &&
+            bool mqttSamplePending = false;
+#ifdef LOXONE_API
+            EnergySource* source = g_activeSource.load();
+            if (source && source->type() == EnergySourceType::SOURCE_LOXONE)
+                mqttSamplePending = static_cast<LoxoneAsProvider*>(source)->hasPendingSample();
+#endif
+            if ((!attempted || uint32_t(now - lastAttempt) >= interval || mqttSamplePending) &&
                 (xEventGroupGetBits(wifi_event_group) & WIFI_STA_CONNECTED_BIT)) {
                 serviceEnergy();
                 lastAttempt = millis();
@@ -206,7 +216,12 @@ static void taskWeb(void* pvParameters)
             LOG_DEBUG(TAG_APP_SERVICES, "Nachtmodus: Kein Streaming, kein Heartbeat fällig");
             vTaskDelay(pdMS_TO_TICKS(TASK_WEBSOCKET_INTERVAL));
         }
-        vTaskDelay(pdMS_TO_TICKS(TASK_WEBSOCKET_INTERVAL));
+        // MQTT measurements arrive independently of the normal energy polling.
+        // Stream their published values promptly without changing other sources.
+        const EnergySource* source = g_activeSource.load();
+        const uint32_t streamInterval = source && source->type() == EnergySourceType::SOURCE_LOXONE
+            ? 2000U : TASK_WEBSOCKET_INTERVAL;
+        vTaskDelay(pdMS_TO_TICKS(streamInterval));
     }
 }
 

@@ -97,6 +97,7 @@ bool LoxoneAsProvider::read(WEBSOCK_DATA& webSockData)
     if (!connected_.load() || !valuesMutex_) return false;
     ENERGY_STATE sample{};
     uint8_t receivedMask = 0;
+    uint32_t revision = 0;
     if (xSemaphoreTake(valuesMutex_, pdMS_TO_TICKS(50)) != pdTRUE) {
         LOG_ERROR(TAG_LOXONE, "Loxone: read - no mutex available");
         return false;
@@ -106,6 +107,7 @@ bool LoxoneAsProvider::read(WEBSOCK_DATA& webSockData)
     // fields keep their last value until that topic is updated again.
     receivedMask = receivedMask_;
     if (receivedMask) sample = values_;
+    revision = receivedRevision_.load();
     xSemaphoreGive(valuesMutex_);
     if (!receivedMask || !connected_.load()) {
         LOG_ERROR(TAG_LOXONE, "Loxone: read - no data available (mask=%02X, connected=%d)", receivedMask, connected_.load());
@@ -113,6 +115,7 @@ bool LoxoneAsProvider::read(WEBSOCK_DATA& webSockData)
     }
 
     bool success = publishSample(webSockData, sample);
+    if (success) publishedRevision_.store(revision);
     LOG_INFO(TAG_LOXONE,
              "Loxone: read END success=%d mask=%02X grid=%.3f load=%.3f pv=%.3f batt=%.3f soc=%.3f",
              success, receivedMask, sample.p_grid, sample.p_load, sample.p_pv,
@@ -136,6 +139,7 @@ void LoxoneAsProvider::receive(const char* topic, const uint8_t* payload, unsign
         if (xSemaphoreTake(valuesMutex_, portMAX_DELAY) == pdTRUE) {
             values_.*(topics[i].field) = value;
             receivedMask_ |= 1U << i;
+            receivedRevision_.fetch_add(1);
             const uint8_t mask = receivedMask_;
             xSemaphoreGive(valuesMutex_);
             LOG_INFO(TAG_LOXONE, "Loxone: received %s = %.3f (mask=%02X)",
@@ -165,6 +169,7 @@ void LoxoneAsProvider::mqttConnection(void* context, bool connected, bool broker
         xSemaphoreTake(self->valuesMutex_, portMAX_DELAY) == pdTRUE) {
         self->values_ = {};
         self->receivedMask_ = 0;
+        self->publishedRevision_.store(self->receivedRevision_.load());
         xSemaphoreGive(self->valuesMutex_);
     }
     if (connected)

@@ -34,6 +34,7 @@
           :key="i + 'fill'"
           x="12"
           y="12"
+          width="36"
           :height="relayFill(i)"
           :y="168 - relayFill(i)"
           fill="#fbbf24"

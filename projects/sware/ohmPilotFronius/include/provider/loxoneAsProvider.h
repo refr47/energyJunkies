@@ -11,6 +11,7 @@ class LoxoneAsProvider : public EnergySource
 public:
     bool init(Setup &setupData, WEBSOCK_DATA &webSockData) override;
     bool read(WEBSOCK_DATA &webSockData) override;
+    bool hasPendingSample() const { return receivedRevision_.load() != publishedRevision_.load(); }
 
     const char *name() const override { return "loxone"; }
     EnergySourceType type() const override { return EnergySourceType::SOURCE_LOXONE; }
@@ -24,5 +25,7 @@ private:
     SemaphoreHandle_t valuesMutex_ = nullptr;
     ENERGY_STATE values_{};
     uint8_t receivedMask_ = 0;
+    std::atomic<uint32_t> receivedRevision_{0};
+    std::atomic<uint32_t> publishedRevision_{0};
     std::atomic<bool> connected_{false};
 };

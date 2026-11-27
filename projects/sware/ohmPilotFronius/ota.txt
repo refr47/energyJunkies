@@ -1,1 +1,6 @@
-PLATFORMIO_UPLOAD_FLAGS='--auth=47754775' pio run -e lilygo-t-display-s3-ota -t upload
+PLATFORMIO_UPLOAD_FLAGS='--auth=pwd' pio run -e lilygo-t-display-s3-ota -t upload
+PLATFORMIO_UPLOAD_FLAGS='--auth=pwd' pio run -e lilygo-t-display-s3-ota -t uploadfs   // data
+
+
+pio device monitor -e lilygo-t-display-s3-ota
+nc 10.0.0.214 4444
